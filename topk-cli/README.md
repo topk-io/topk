@@ -155,6 +155,14 @@ topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monste
 
 Schema and indexes copy as-is; the copy is additive.
 
+#### Split rows across partitions
+
+```bash
+topk import ./events.parquet --partition tenant               # one partition per `tenant` value
+```
+
+Each row goes to the partition named by that column, so one source stream writes into as many partitions as the column has values; the column does not have to be an imported field.
+
 #### Preview and edit the plan
 
 ```bash
@@ -174,7 +182,7 @@ Stop a run — `^C`, a lost connection — and pick it up where it left off:
 topk import postgres://host/db --resume 01J9...               # run id printed at start
 ```
 
-Resume skips finished collections and continues the in-flight one from a checkpoint. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
 #### Sources
 
@@ -190,7 +198,7 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 
 #### Spec
 
-One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import):
+One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags (`partition` names a column), and a `fields` whitelist (only declared fields import):
 
 ```toml
 [books]

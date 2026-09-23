@@ -306,6 +306,14 @@ impl TryFrom<&Field> for FieldSpec {
             )));
         }
 
+        for (name, size) in [("dim", field.dim), ("cols", field.cols)] {
+            if size == Some(0) {
+                return Err(Error::InvalidArgument(format!(
+                    "`{name}` must be greater than zero"
+                )));
+            }
+        }
+
         if let Some(index) = field.index {
             let (ok, kind, needs) = match index {
                 Index::Keyword => (matches!(field.ty, Type::Text), "keyword", "a `text` field"),

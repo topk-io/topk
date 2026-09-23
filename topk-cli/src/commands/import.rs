@@ -2,20 +2,15 @@ use std::collections::BTreeMap;
 use std::io::{ErrorKind, IsTerminal};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use clap::Args;
-use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
-use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
+    self, render, Error, Import, LoadOutcome, Source, Spec, State, Uri, ID_PLACEHOLDER,
 };
-
-const OBJECT_CONCURRENCY: usize = 8;
 
 #[derive(Args, Debug)]
 // Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
@@ -66,7 +61,11 @@ pub struct ImportArgs {
         help = "Column to use as the document id (_id); use when it can't be auto-detected"
     )]
     pub id: Option<String>,
-    #[arg(long, help = "Import into this partition")]
+    #[arg(
+        long,
+        value_name = "COLUMN",
+        help = "Column whose value is the partition; each row goes to its own"
+    )]
     pub partition: Option<String>,
     #[arg(
         conflicts_with = "spec",
@@ -76,7 +75,7 @@ pub struct ImportArgs {
     )]
     pub filter: Option<String>,
     // Broadcasts to every collection like --partition, so it is allowed with a spec.
-    #[arg(long, help = "Read at most this many rows per object")]
+    #[arg(long, value_parser = clap::value_parser!(u64).range(1..), help = "Read at most this many rows per object")]
     pub limit: Option<u64>,
 
     #[arg(short = 'y', long, help = "Skip confirmation")]
@@ -89,16 +88,23 @@ pub struct ImportArgs {
     #[arg(
         short = 'c',
         long,
+        value_parser = clap::value_parser!(u32).range(1..=4096),
         default_value = "16",
-        value_parser = clap::value_parser!(u32).range(1..=256),
         help = "Concurrent upserts in flight, budgeted across the whole run"
     )]
     pub concurrency: u32,
     #[arg(
         long,
-        default_value = "8MiB",
         value_name = "SIZE",
-        help = "Bytes of documents per upsert"
+        default_value = "8MiB",
+        value_parser = |value: &str| -> Result<bytesize::ByteSize, String> {
+            let size: bytesize::ByteSize = value.parse()?;
+            if size.as_u64() == 0 {
+                return Err("batch size must be greater than zero".to_string());
+            }
+            Ok(size)
+        },
+        help = "Buffered document bytes per collection before flushing all partitions"
     )]
     pub batch_bytes: bytesize::ByteSize,
 }
@@ -137,7 +143,6 @@ async fn plan(
         Some(_) => Vec::new(),
         None => file_catalogs(&spec, endpoint).await?,
     };
-    import::validate_columns(&catalog, &spec)?;
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
         return Err(Error::InvalidArgument(format!(
@@ -157,6 +162,7 @@ async fn plan(
             target.partition = Some(partition.clone());
         }
     }
+    import::validate_columns(&catalog, &spec)?;
     Ok(spec)
 }
 
@@ -241,17 +247,13 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     let source = Source::connect(&uri, endpoint).await?;
     let mut spec = plan(&source, endpoint, args, given).await?;
 
-    let source_name = uri.to_string();
-    // Stored for --resume, and compared per collection against an edited -f.
-    let stored = toml::to_string_pretty(&spec)
-        .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
-    let run = args.resume.clone().unwrap_or_else(State::id);
-    let mut state =
-        resumed.unwrap_or_else(|| State::new(run.clone(), source_name.clone(), stored.clone()));
-    let (done, after) = state.reconcile(&source_name, &mut spec, stored)?;
+    let (state, done, after) = State::prepare(resumed, &uri.to_string(), &mut spec)?;
     if spec.collections.is_empty() {
-        eprintln!("run {run}: all {done} collection(s) already imported");
-        State::remove(&run);
+        eprintln!(
+            "run {}: all {done} collection(s) already imported",
+            state.id
+        );
+        State::remove(&state.id);
         return Ok(ExitCode::SUCCESS);
     }
     if args.dry_run {
@@ -266,29 +268,12 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         return Ok(ExitCode::SUCCESS);
     }
 
-    for (name, target) in spec.collections.iter() {
-        if target.id.as_deref() == Some(ID_PLACEHOLDER) {
-            return Err(Error::InvalidArgument(format!(
-                "{name}: couldn't detect an id column — pass `--id <column>`, \
-                 or set `id` in a spec (it becomes each document's `{ID}`)"
-            ))
-            .into());
-        }
-    }
-    let scans = spec
-        .collections
-        .iter()
-        .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
-        .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = endpoint.client()?;
-    let mut pending = import::absent(&client, &spec).await?;
-    // `--limit 0` reads nothing, so it must not leave an empty collection behind
-    // for the next run's schema to collide with.
-    pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
-    let fresh: Vec<&str> = pending.keys().map(String::as_str).collect();
+    let import = Import::prepare(endpoint, &source, &spec, &after).await?;
+    let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
     // Before the run: a killed run prints nothing after.
     eprintln!(
-        "# run {run}{}",
+        "# run {}{}",
+        state.id,
         match done {
             0 => String::new(),
             n => format!(", resuming: {n} collection(s) done"),
@@ -307,44 +292,22 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     if !json {
         import::set_progress(progress.clone());
     }
-    // An unwritable config dir costs the ability to resume, not the import.
-    if let Err(e) = state.save() {
-        eprintln!("cannot save run state ({e}) — this run cannot be resumed");
-    }
-    let sink = Sink {
-        client: &client,
-        progress: &progress,
-        budget: Arc::new(Semaphore::new(args.concurrency as usize)),
-        batch_bytes: args.batch_bytes.as_u64() as usize,
-        continue_on_error: args.continue_on_error,
-        state: Mutex::new(state),
-    };
-    for (name, schema) in pending {
-        import::create(&client, &name, schema).await?;
-    }
-    let readers = scans
-        .len()
-        .min(OBJECT_CONCURRENCY)
-        .min(source.concurrency_limit())
-        .max(1);
-    let resume_hint = || {
-        eprintln!(
-            "nothing else was imported; to continue: topk import {}--resume {run}",
-            match args.source.is_none() {
-                true => String::new(),
-                false => format!("'{source_name}' "),
-            }
-        )
-    };
+    let resume_hint = format!(
+        "nothing else was imported; to continue: topk import {}--resume {}",
+        match args.source.is_none() {
+            true => String::new(),
+            false => format!("'{}' ", state.source),
+        },
+        state.id,
+    );
     let outcomes = tokio::select! {
-        outcomes = sink.load(scans, readers) => outcomes,
+        outcomes = import.execute(state, &progress, args) => outcomes,
         _ = tokio::signal::ctrl_c() => {
             let _ = progress.clear();
-            resume_hint();
+            eprintln!("{resume_hint}");
             return Ok(ExitCode::from(130));
         }
     };
-    let outcomes = outcomes.inspect_err(|_| resume_hint())?;
-    State::remove(&run);
+    let outcomes = outcomes.inspect_err(|_| eprintln!("{resume_hint}"))?;
     Ok(report(&outcomes, json)?)
 }

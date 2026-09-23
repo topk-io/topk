@@ -115,6 +115,25 @@ async fn a_limit_caps_rows(#[case] backend: Box<dyn Seed>) {
     assert_eq!(docs.len(), 2);
 }
 
+#[rstest]
+#[case::array_filter("[]")]
+#[case::null_filter("null")]
+#[case::scalar_filter("42")]
+#[case::malformed_filter("{")]
+#[tokio::test]
+async fn es_filter_requires_object(#[case] filter: &str) {
+    let uri = "es+http://127.0.0.1:1".parse().unwrap();
+    let source = topk::import::Source::connect(&uri, &endpoint())
+        .await
+        .unwrap();
+    let target = Target {
+        filter: Some(filter.to_string()),
+        ..target("books", "_id", "title = { type = 'text' }")
+    };
+    let error = refused(source.scan(&target, None));
+    assert!(error.contains("is not a JSON object"), "{error}");
+}
+
 /// A query elasticsearch rejects comes back with elasticsearch's reason, not
 /// just the status line — `error_for_status_code` throws that body away.
 #[tokio::test]

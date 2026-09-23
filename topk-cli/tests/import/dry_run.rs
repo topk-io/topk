@@ -57,6 +57,29 @@ async fn deterministic_output(ctx: &mut Scratch) {
 
 #[test_context(Scratch)]
 #[tokio::test]
+async fn partition_column_previews(ctx: &mut Scratch) {
+    let object = ctx.seed_parquet("books", books()).await;
+    let spec = ctx.target_spec("c", object);
+    let out = run(
+        &["import", "-f", &spec, "--partition", "author", "--dry-run"],
+        &[("TOPK_REGION", "")],
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "dry run failed:\n{stderr}");
+    assert!(stderr.contains("# partition Lee"), "got:\n{stderr}");
+
+    let missing = fails(
+        &["import", "-f", &spec, "--partition", "nope", "--dry-run"],
+        &[],
+    );
+    assert!(
+        missing.contains("partition column \"nope\""),
+        "got:\n{missing}"
+    );
+}
+
+#[test_context(Scratch)]
+#[tokio::test]
 async fn preview_is_capped(ctx: &mut Scratch) {
     let object = ctx.seed_parquet("big", rows(1, 20)).await;
     let spec = ctx.target_spec("c", object);

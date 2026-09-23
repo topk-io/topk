@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::common::*;
-use topk::import::{Cursor, Mark, Spec, State};
+use topk::import::{Checkpoint, Cursor, Mark, Spec, State};
 
 fn spec(a: &str, b: &str, c: &str) -> String {
     format!(
@@ -16,25 +16,46 @@ fn spec(a: &str, b: &str, c: &str) -> String {
 #[test]
 fn an_edited_target_starts_over_without_disturbing_the_others() {
     let stored = spec("", "", "");
-    let mut state = State::new("run1".to_string(), "books.parquet".to_string(), stored);
-    state
-        .cursors
-        .insert("a".to_string(), Mark::After(Cursor::Key("100".to_string())));
-    state
-        .cursors
-        .insert("b".to_string(), Mark::After(Cursor::Key("200".to_string())));
+    let mut plan: Spec = toml::from_str(&stored).unwrap();
+    let (mut state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    state.cursors.insert(
+        "a".to_string(),
+        Mark::After(Checkpoint {
+            cursor: Cursor::Key("100".to_string()),
+            consumed: 10,
+        }),
+    );
+    state.cursors.insert(
+        "b".to_string(),
+        Mark::After(Checkpoint {
+            cursor: Cursor::Key("200".to_string()),
+            consumed: 20,
+        }),
+    );
     state.cursors.insert("c".to_string(), Mark::Done);
 
     let edited = spec("limit = 5", "", "");
     let mut plan: Spec = toml::from_str(&edited).expect("spec parses");
-    let (done, after) = state
-        .reconcile("books.parquet", &mut plan, edited)
-        .expect("same source reconciles");
+    let (state, done, after) =
+        State::prepare(Some(state), "books.parquet", &mut plan).expect("same source reconciles");
 
     assert_eq!(done, 1, "c was already imported");
     assert_eq!(
+        toml::from_str::<Spec>(&state.spec)
+            .unwrap()
+            .collections
+            .len(),
+        3
+    );
+    assert_eq!(
         after,
-        BTreeMap::from([("b".to_string(), Cursor::Key("200".to_string()))]),
+        BTreeMap::from([(
+            "b".to_string(),
+            Checkpoint {
+                cursor: Cursor::Key("200".to_string()),
+                consumed: 20
+            }
+        )]),
         "a lost its cursor, b kept it"
     );
     assert_eq!(
@@ -47,23 +68,19 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
 #[test]
 fn a_run_refuses_a_different_source() {
     let stored = spec("", "", "");
-    let mut state = State::new(
-        "run1".to_string(),
-        "books.parquet".to_string(),
-        stored.clone(),
-    );
     let mut plan: Spec = toml::from_str(&stored).expect("spec parses");
-    let message = refused(state.reconcile("other.parquet", &mut plan, stored));
+    let (state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    let message = refused(State::prepare(Some(state), "other.parquet", &mut plan));
     assert!(message.contains("books.parquet"), "got: {message}");
 }
 
 #[test]
 fn cursors_round_trip_in_run_state() {
-    let mut state = State::new(
-        "run1".to_string(),
-        "books.parquet".to_string(),
-        spec("", "", ""),
-    );
+    let mut plan: Spec = toml::from_str(&spec("", "", "")).unwrap();
+    let (mut state, done, after) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    assert_eq!(done, 0);
+    assert!(after.is_empty());
+    assert!(toml::from_str::<Spec>(&state.spec).unwrap().collections == plan.collections);
     let cursors = [
         ("a", Cursor::Key("42".to_string())),
         (
@@ -82,9 +99,13 @@ fn cursors_round_trip_in_run_state() {
         ),
     ];
     for (name, cursor) in &cursors {
-        state
-            .cursors
-            .insert((*name).to_string(), Mark::After(cursor.clone()));
+        state.cursors.insert(
+            (*name).to_string(),
+            Mark::After(Checkpoint {
+                cursor: cursor.clone(),
+                consumed: 300,
+            }),
+        );
     }
 
     let encoded = toml::to_string_pretty(&state).expect("state serializes");
@@ -93,6 +114,25 @@ fn cursors_round_trip_in_run_state() {
         let Some(Mark::After(actual)) = decoded.cursors.get(name) else {
             panic!("missing cursor {name:?} in {encoded}");
         };
-        assert_eq!(actual, &expected, "{encoded}");
+        assert_eq!(actual.cursor, expected, "{encoded}");
+        assert_eq!(actual.consumed, 300);
     }
+}
+
+#[test]
+fn checkpoint_past_limit_is_rejected() {
+    let mut plan: Spec = toml::from_str(&spec("limit = 5", "", "")).unwrap();
+    let (mut state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    state.cursors.insert(
+        "a".to_string(),
+        Mark::After(Checkpoint {
+            cursor: Cursor::Key("6".to_string()),
+            consumed: 6,
+        }),
+    );
+    let error = refused(State::prepare(Some(state), "books.parquet", &mut plan));
+    assert!(
+        error.contains("checkpoint consumed 6 rows, exceeding limit 5"),
+        "{error}"
+    );
 }

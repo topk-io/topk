@@ -171,6 +171,18 @@ _score = { type = "float" }
 "#,
     "cannot be empty or start with `_`"
 )]
+#[case::zero_limit(
+    "[c]\nfrom = 'f.parquet'\nlimit = 0\n[c.fields]\nt = { type = 'text' }",
+    "limit must be greater than zero"
+)]
+#[case::zero_vector_dimension(
+    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'f32_vector', dim = 0 }",
+    "`dim` must be greater than zero"
+)]
+#[case::zero_matrix_columns(
+    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'f32_matrix', cols = 0 }",
+    "`cols` must be greater than zero"
+)]
 fn invalid_targets(#[case] toml: &str, #[case] fragment: &str) {
     let message = parse_error(toml);
     assert!(message.contains(fragment), "got: {message}");
