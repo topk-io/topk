@@ -1,5 +1,4 @@
 use rstest::rstest;
-use topk_rs::doc;
 
 mod common;
 use common::{Scope, SessionContext};
@@ -17,29 +16,13 @@ async fn noop_transaction(#[case] sql: &str) {
 }
 
 #[rstest]
-#[case::default("SET consistency_level = 'default'", "default")]
-#[case::indexed("SET consistency_level = 'indexed'", "indexed")]
-#[case::strong("SET consistency_level = 'strong'", "strong")]
-#[tokio::test]
-async fn consistency_level(#[case] sql: &str, #[case] expected: &str) {
-    let rows = SessionContext::with_scope(async |client| {
-        client.batch(&[sql, "SHOW consistency_level"]).await
-    })
-    .await
-    .unwrap();
-    assert_eq!(rows, vec![doc!("consistency_level" => expected)]);
-}
-
-#[rstest]
-#[case::unknown_variable("SET unknown_var = 'x'", "Invalid: unknown variable: unknown_var")]
-#[case::invalid_consistency(
-    "SET consistency_level = 'eventual'",
-    "Invalid: SET consistency_level: must be one of 'indexed', 'strong', or 'default'"
-)]
-#[tokio::test]
-async fn session_rejected(#[case] sql: &str, #[case] expected: &str) {
-    let err = SessionContext::with_scope(async |client| client.sql(sql).await)
-        .await
-        .unwrap_err();
-    assert_eq!(err.to_string(), expected);
+#[case::default("SET consistency_level = 'default'")]
+#[case::indexed("SET consistency_level = 'indexed'")]
+#[case::strong("SET consistency_level = 'strong'")]
+#[case::unknown_variable("SET unknown_var = 'x'")]
+#[case::invalid_consistency("SET consistency_level = 'eventual'")]
+#[case::show("SHOW consistency_level")]
+fn session_variables_are_unsupported(#[case] sql: &str) {
+    let error = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+    assert!(matches!(error, topk_sql::Error::Unsupported(_)), "{error}");
 }

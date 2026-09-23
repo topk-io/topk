@@ -1,5 +1,8 @@
 use rstest::rstest;
 
+use topk_rs::proto::v1::data::ConsistencyLevel;
+use topk_sql::{convert_sql, parse_sql, Statement};
+
 mod common;
 use common::{BooksContext, Scope};
 
@@ -48,6 +51,23 @@ async fn read_at_consistency() {
     .unwrap();
 
     assert_eq!(rows.len(), 1);
+}
+
+#[rstest]
+#[case::indexed("indexed", ConsistencyLevel::Indexed)]
+#[case::strong("strong", ConsistencyLevel::Strong)]
+fn consistency_option(#[case] level: &str, #[case] expected: ConsistencyLevel) {
+    let mut statements = convert_sql(
+        parse_sql(&format!(
+            "SELECT title FROM books WITH (consistency = '{level}') LIMIT 1"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let Statement::Select { consistency, .. } = statements.remove(0).0 else {
+        panic!("expected SELECT statement");
+    };
+    assert_eq!(consistency, Some(expected));
 }
 
 #[tokio::test]
