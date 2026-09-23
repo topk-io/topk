@@ -1,5 +1,8 @@
 use rstest::rstest;
 
+use topk_rs::proto::v1::data::ConsistencyLevel;
+use topk_sql::{convert_sql, parse_sql, Statement};
+
 mod common;
 use common::{BooksContext, Scope};
 
@@ -38,21 +41,33 @@ async fn unreachable_lsn_is_rejected() {
     );
 }
 
-#[rstest]
-#[case::indexed("indexed")]
-#[case::strong("strong")]
 #[tokio::test]
-async fn read_at_consistency(#[case] consistency: &str) {
+async fn read_at_consistency() {
     let rows = BooksContext::with_scope(async |ctx: &BooksContext| {
-        ctx.sql(format!(
-            "SELECT title FROM {{{{table}}}} WITH (consistency = '{consistency}') LIMIT 1"
-        ))
-        .await
+        ctx.sql("SELECT title FROM {{table}} WITH (consistency = 'strong') LIMIT 1")
+            .await
     })
     .await
     .unwrap();
 
     assert_eq!(rows.len(), 1);
+}
+
+#[rstest]
+#[case::indexed("indexed", ConsistencyLevel::Indexed)]
+#[case::strong("strong", ConsistencyLevel::Strong)]
+fn consistency_option(#[case] level: &str, #[case] expected: ConsistencyLevel) {
+    let mut statements = convert_sql(
+        parse_sql(&format!(
+            "SELECT title FROM books WITH (consistency = '{level}') LIMIT 1"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let Statement::Select { consistency, .. } = statements.remove(0).0 else {
+        panic!("expected SELECT statement");
+    };
+    assert_eq!(consistency, Some(expected));
 }
 
 #[tokio::test]
