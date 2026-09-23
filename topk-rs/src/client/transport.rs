@@ -73,10 +73,8 @@ struct HeaderInjector<'a>(&'a mut HeaderMap);
 #[cfg(feature = "trace")]
 impl Injector for HeaderInjector<'_> {
     fn set(&mut self, key: &str, value: String) {
-        if let Ok(key) = HeaderName::from_bytes(key.as_bytes()) {
-            if let Ok(value) = HeaderValue::from_str(&value) {
-                self.0.insert(key, value);
-            }
+        if let (Ok(key), Ok(value)) = (key.parse::<HeaderName>(), value.parse::<HeaderValue>()) {
+            self.0.insert(key, value);
         }
     }
 }
