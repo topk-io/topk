@@ -36,7 +36,10 @@ impl Default for ClientConfig {
             region: None,
             host: "topk.io".to_string(),
             https: true,
-            headers: HashMap::from([("x-topk-sdk-version", env!("CARGO_PKG_VERSION").to_string())]),
+            headers: HashMap::from([
+                // Add SDK version
+                ("x-topk-sdk-version", env!("CARGO_PKG_VERSION").to_string()),
+            ]),
             retry_config: RetryConfig::default(),
             interceptor: None,
         }
@@ -47,6 +50,7 @@ impl ClientConfig {
     pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
         Self::default()
             .with_region(region)
+            // Add API key
             .with_headers([("authorization", format!("Bearer {}", api_key.into()))])
     }
 

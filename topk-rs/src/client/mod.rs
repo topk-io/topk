@@ -116,8 +116,10 @@ macro_rules! create_client {
                 })
                 .await?;
 
-            // Build client
+            // Create transport
             let transport = Transport::new(channel.clone(), &$config)?;
+
+            // Build client
             let client = $client::new(transport)
                 .max_decoding_message_size(MAX_DECODING_MESSAGE_SIZE)
                 .max_encoding_message_size(MAX_ENCODING_MESSAGE_SIZE);
