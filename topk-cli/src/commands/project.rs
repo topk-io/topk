@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use clap::Subcommand;
 use serde_json::json;
 
+use crate::endpoint::ManagementEndpoint;
 use crate::management::proto::{
     CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
 };
@@ -16,6 +17,9 @@ use crate::util::{confirm, timestamp};
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
+
+    #[command(flatten)]
+    pub endpoint: ManagementEndpoint,
 }
 
 #[derive(Subcommand)]

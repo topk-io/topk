@@ -4,7 +4,7 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 
-use topk::endpoint::Endpoint;
+use topk::endpoint::ManagementEndpoint;
 
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
@@ -20,9 +20,6 @@ struct Cli {
     /// (auto-detected for AI assistants)
     #[arg(long, global = true, help_heading = "Global options")]
     agent: bool,
-
-    #[command(flatten)]
-    endpoint: Endpoint,
 
     /// Output format
     #[arg(
@@ -56,7 +53,7 @@ enum Commands {
     Import(topk::commands::import::ImportArgs),
 
     /// Remove saved credentials
-    Logout,
+    Logout(ManagementEndpoint),
 
     /// Generate shell completion script
     #[command(hide = true)]
@@ -102,7 +99,7 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(
-                &mut cli.endpoint.management()?,
+                &mut args.endpoint.client()?,
                 args,
                 cli.output == Output::Json,
                 &mut std::io::stdout(),
@@ -111,7 +108,7 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         }
         Some(Commands::Region(args)) => {
             topk::commands::region::run(
-                &mut cli.endpoint.management()?,
+                &mut args.endpoint.client()?,
                 args,
                 cli.output == Output::Json,
                 &mut std::io::stdout(),
@@ -119,15 +116,15 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
             .await
         }
 
-        Some(Commands::Login(args)) => topk::commands::login::run(&cli.endpoint, args).await,
+        Some(Commands::Login(args)) => topk::commands::login::run(args).await,
 
         #[cfg(feature = "import")]
         Some(Commands::Import(args)) => {
-            topk::commands::import::run(&cli.endpoint, args, cli.output == Output::Json).await
+            topk::commands::import::run(args, cli.output == Output::Json).await
         }
 
-        Some(Commands::Logout) => {
-            cli.endpoint.auth()?.logout().await?;
+        Some(Commands::Logout(endpoint)) => {
+            endpoint.auth()?.logout().await?;
             eprintln!("{} Logged out.", "✓".green());
             Ok(ExitCode::SUCCESS)
         }

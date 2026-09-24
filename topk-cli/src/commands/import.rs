@@ -10,7 +10,7 @@ use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use tokio::sync::Semaphore;
 
-use crate::endpoint::Endpoint;
+use crate::endpoint::DataEndpoint;
 use crate::import::{
     self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
@@ -101,14 +101,12 @@ pub struct ImportArgs {
         help = "Bytes of documents per upsert"
     )]
     pub batch_bytes: bytesize::ByteSize,
+
+    #[command(flatten)]
+    pub endpoint: DataEndpoint,
 }
 
-async fn plan(
-    source: &Source,
-    endpoint: &Endpoint,
-    args: &ImportArgs,
-    given: Option<Spec>,
-) -> Result<Spec, Error> {
+async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result<Spec, Error> {
     // Discovery reads the CLI source's catalog; a spec brings its own collections
     // but reuses that catalog when a source was named.
     let (mut spec, shared) = match given {
@@ -135,7 +133,7 @@ async fn plan(
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => file_catalogs(&spec, endpoint).await?,
+        None => file_catalogs(&spec, &args.endpoint).await?,
     };
     import::validate_columns(&catalog, &spec)?;
     // A filter names one object's columns.
@@ -162,7 +160,7 @@ async fn plan(
 
 /// Columns for a bare `-f` spec, where each collection's `from` is its own file
 /// locator. A `from` reached through a sampled source contributes nothing.
-async fn file_catalogs(spec: &Spec, endpoint: &Endpoint) -> Result<Vec<import::Table>, Error> {
+async fn file_catalogs(spec: &Spec, endpoint: &DataEndpoint) -> Result<Vec<import::Table>, Error> {
     let mut tables = Vec::new();
     for target in spec.collections.values() {
         let uri: Uri = target.from.parse()?;
@@ -222,7 +220,7 @@ fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCo
     })
 }
 
-pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
+pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
     tracing::info!(?args, "import");
     let resumed = args.resume.as_deref().map(State::load).transpose()?;
     // Credentials never enter a spec: the CLI uri is the source, or every `from`
@@ -238,8 +236,8 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         (None, Some(state)) => Some(toml::from_str(&state.spec)?),
         (None, None) => None,
     };
-    let source = Source::connect(&uri, endpoint).await?;
-    let mut spec = plan(&source, endpoint, args, given).await?;
+    let source = Source::connect(&uri, &args.endpoint).await?;
+    let mut spec = plan(&source, args, given).await?;
 
     let source_name = uri.to_string();
     // Stored for --resume, and compared per collection against an edited -f.
@@ -280,7 +278,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         .iter()
         .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
         .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = endpoint.client()?;
+    let client = args.endpoint.client()?;
     let mut pending = import::absent(&client, &spec).await?;
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
     // for the next run's schema to collide with.
@@ -295,7 +293,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         }
     );
     eprint!("{}", render(&spec, Some(&fresh), &after));
-    let region = endpoint.region.as_deref().unwrap_or_default();
+    let region = args.endpoint.region.as_deref().unwrap_or_default();
     if !args.yes && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }
