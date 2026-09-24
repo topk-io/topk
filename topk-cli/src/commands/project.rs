@@ -19,7 +19,7 @@ pub struct Args {
     pub command: Command,
 
     #[command(flatten)]
-    pub endpoint: ManagementEndpoint,
+    pub mgmt: ManagementEndpoint,
 }
 
 #[derive(Subcommand)]

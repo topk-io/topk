@@ -103,7 +103,7 @@ pub struct ImportArgs {
     pub batch_bytes: bytesize::ByteSize,
 
     #[command(flatten)]
-    pub endpoint: DataEndpoint,
+    pub data: DataEndpoint,
 }
 
 async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result<Spec, Error> {
@@ -133,7 +133,7 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => file_catalogs(&spec, &args.endpoint).await?,
+        None => file_catalogs(&spec, &args.data).await?,
     };
     import::validate_columns(&catalog, &spec)?;
     // A filter names one object's columns.
@@ -236,7 +236,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         (None, Some(state)) => Some(toml::from_str(&state.spec)?),
         (None, None) => None,
     };
-    let source = Source::connect(&uri, &args.endpoint).await?;
+    let source = Source::connect(&uri, &args.data).await?;
     let mut spec = plan(&source, args, given).await?;
 
     let source_name = uri.to_string();
@@ -278,7 +278,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         .iter()
         .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
         .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = args.endpoint.client()?;
+    let client = args.data.client()?;
     let mut pending = import::absent(&client, &spec).await?;
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
     // for the next run's schema to collide with.
@@ -293,7 +293,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         }
     );
     eprint!("{}", render(&spec, Some(&fresh), &after));
-    let region = args.endpoint.region.as_deref().unwrap_or_default();
+    let region = args.data.region.as_deref().unwrap_or_default();
     if !args.yes && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }

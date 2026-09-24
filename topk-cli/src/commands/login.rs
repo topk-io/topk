@@ -9,7 +9,7 @@ use crate::endpoint::ManagementEndpoint;
 // Registered Auth0 loopback callback ports.
 const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct LoginArgs {
     /// Print the login URL instead of opening a browser.
     #[arg(long)]
@@ -19,11 +19,11 @@ pub struct LoginArgs {
     pub callback_ports: Vec<u16>,
 
     #[command(flatten)]
-    pub endpoint: ManagementEndpoint,
+    pub mgmt: ManagementEndpoint,
 }
 
 pub async fn run(args: &LoginArgs) -> Result<ExitCode> {
-    let auth = args.endpoint.auth()?;
+    let auth = args.mgmt.auth()?;
     let login = auth.login(&args.callback_ports).await?;
     if args.no_browser {
         eprintln!(

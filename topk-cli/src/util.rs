@@ -23,11 +23,3 @@ pub fn timestamp(seconds: i64) -> String {
         .map(|date| date.format("%Y-%m-%d %H:%M:%S UTC").to_string())
         .unwrap_or_else(|| seconds.to_string())
 }
-
-pub fn redact(key: &str) -> String {
-    let chars: Vec<char> = key.chars().collect();
-    match chars.len() {
-        0..=8 => "******".to_string(),
-        n => format!("******{}", chars[n - 4..].iter().collect::<String>()),
-    }
-}

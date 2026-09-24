@@ -7,7 +7,7 @@ const AUTH_ISSUER: &str = "https://topk-prod.us.auth0.com/";
 const AUTH_CLIENT_ID: &str = "2LqddiN2N5fQplfMP2MIYPHM6ttFNeaG";
 const AUTH_AUDIENCE: &str = "https://api.topk.io";
 
-#[derive(clap::Args, Clone)]
+#[derive(clap::Args, Clone, Debug)]
 pub struct Config {
     #[arg(
         long = "auth-issuer",

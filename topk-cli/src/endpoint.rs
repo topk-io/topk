@@ -10,7 +10,6 @@ use topk_rs::{Client, ClientConfig};
 use crate::auth::{Auth, Config};
 use crate::config;
 use crate::management::Client as ManagementClient;
-use crate::util::redact;
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Host {
@@ -65,7 +64,7 @@ pub struct DataEndpoint {
 impl fmt::Debug for DataEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DataEndpoint")
-            .field("api_key", &self.api_key.as_deref().map(redact))
+            .field("api_key", &self.api_key.as_ref().map(|_| "***"))
             .field("region", &self.region)
             .field("host", &self.host)
             .finish()
@@ -100,7 +99,7 @@ impl DataEndpoint {
     }
 }
 
-#[derive(clap::Args, Clone)]
+#[derive(clap::Args, Clone, Debug)]
 pub struct ManagementEndpoint {
     #[command(flatten)]
     pub host: Host,

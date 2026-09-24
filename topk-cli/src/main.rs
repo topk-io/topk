@@ -4,8 +4,6 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 
-use topk::endpoint::ManagementEndpoint;
-
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
 struct Cli {
@@ -47,13 +45,12 @@ enum Commands {
     Region(topk::commands::region::Args),
     /// Log in with your TopK account in the browser
     Login(topk::commands::login::LoginArgs),
+    /// Remove saved credentials
+    Logout(topk::commands::logout::LogoutArgs),
 
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
     Import(topk::commands::import::ImportArgs),
-
-    /// Remove saved credentials
-    Logout(ManagementEndpoint),
 
     /// Generate shell completion script
     #[command(hide = true)]
@@ -99,7 +96,7 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(
-                &mut args.endpoint.client()?,
+                &mut args.mgmt.client()?,
                 args,
                 cli.output == Output::Json,
                 &mut std::io::stdout(),
@@ -108,7 +105,7 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         }
         Some(Commands::Region(args)) => {
             topk::commands::region::run(
-                &mut args.endpoint.client()?,
+                &mut args.mgmt.client()?,
                 args,
                 cli.output == Output::Json,
                 &mut std::io::stdout(),
@@ -117,16 +114,11 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         }
 
         Some(Commands::Login(args)) => topk::commands::login::run(args).await,
+        Some(Commands::Logout(args)) => topk::commands::logout::run(args).await,
 
         #[cfg(feature = "import")]
         Some(Commands::Import(args)) => {
             topk::commands::import::run(args, cli.output == Output::Json).await
-        }
-
-        Some(Commands::Logout(endpoint)) => {
-            endpoint.auth()?.logout().await?;
-            eprintln!("{} Logged out.", "✓".green());
-            Ok(ExitCode::SUCCESS)
         }
 
         Some(Commands::Completions { shell }) => {
