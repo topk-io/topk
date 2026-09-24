@@ -120,19 +120,28 @@ topk region list
 
 Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
 
-#### Authenticate
-
-Set the `TOPK_API_KEY` environment variable:
-
 ```bash
-export TOPK_API_KEY=<your-api-key>
+topk import [SOURCE] [OBJECTS]... [OPTIONS]
 ```
 
-Or pass `--api-key` when running import:
-
-```bash
-topk import ./books.parquet --api-key <your-api-key>
-```
+| argument | description |
+| --- | --- |
+| `[SOURCE]` | Source URL, file path, or glob; also required with `--spec` or `--resume`, except for files |
+| `[OBJECTS]...` | Source objects to import; exact names, globs, or `<object>=<collection>` |
+| `--region <REGION>` | Region to import into (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
+| `--to <COLLECTION>` | Name the target collection; required when it cannot be derived |
+| `--id <COLUMN>` | Column to use as the document id (`_id`); use when it can't be auto-detected |
+| `--dry-run` | Print the spec and a sample of documents, without importing |
+| `-f`, `--spec <SPEC>` | Read a TOML import spec |
+| `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
+| `--resume <RUN>` | Continue a run that stopped, by the id in its header; `-f` swaps in an edited spec |
+| `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
+| `--limit <LIMIT>` | Read at most this many rows per object |
+| `--partition <PARTITION>` | Import into this partition |
+| `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
+| `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
+| `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
+| `--api-key <API_KEY>` | API key for this run; overrides the `TOPK_API_KEY` environment variable |
 
 #### Import a database
 
@@ -244,14 +253,6 @@ Options:
 
 * `text` (default)
 * `json`
-
-### `--api-key`
-
-API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable.
-
-### `--region`
-
-Region to connect to (env `TOPK_REGION`); required by `import`. See https://docs.topk.io/regions.
 
 ## Updating the CLI
 

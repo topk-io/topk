@@ -5,6 +5,7 @@ use anyhow::Result;
 use clap::Subcommand;
 use serde::Serialize;
 
+use crate::endpoint::ManagementEndpoint;
 use crate::management::proto::ListRegionsRequest;
 use crate::management::Client;
 use crate::output::{print, Tabular};
@@ -13,6 +14,9 @@ use crate::output::{print, Tabular};
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
+
+    #[command(flatten)]
+    pub mgmt: ManagementEndpoint,
 }
 
 #[derive(Subcommand)]

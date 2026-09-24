@@ -4774,6 +4774,7 @@ dependencies = [
  "futures-util",
  "h2",
  "half",
+ "http",
  "infer",
  "mime_guess",
  "opentelemetry",
@@ -4787,6 +4788,7 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
+ "tower",
  "tracing",
  "tracing-opentelemetry",
 ]

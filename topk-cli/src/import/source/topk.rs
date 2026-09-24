@@ -7,7 +7,7 @@ use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
 use topk_rs::Client;
 
-use crate::endpoint::Endpoint;
+use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::source::Record;
 use crate::import::spec::{Field, Target};
@@ -71,8 +71,8 @@ pub struct Topk {
 
 impl Topk {
     /// The uri names the region and may carry its own key; the host is the run's.
-    pub fn connect(uri: &Uri, endpoint: &Endpoint) -> Result<Topk, Error> {
-        let client = Endpoint {
+    pub fn connect(uri: &Uri, endpoint: &DataEndpoint) -> Result<Topk, Error> {
+        let client = DataEndpoint {
             api_key: uri.api_key.clone().or_else(|| endpoint.api_key.clone()),
             region: Some(uri.region.clone()),
             ..endpoint.clone()

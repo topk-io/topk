@@ -13,17 +13,17 @@ use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
-use topk::endpoint::Endpoint;
+use topk::endpoint::DataEndpoint;
 use topk::import::{Field, Spec, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, Value};
 use topk_rs::{Client, ClientConfig};
 
-pub fn endpoint() -> Endpoint {
-    let matches = Endpoint::augment_args(Command::new("test"))
+pub fn endpoint() -> DataEndpoint {
+    let matches = DataEndpoint::augment_args(Command::new("test"))
         .mut_args(|arg| arg.env(None::<&str>))
         .get_matches_from(["test"]);
-    Endpoint::from_arg_matches(&matches).expect("default endpoint arguments")
+    DataEndpoint::from_arg_matches(&matches).expect("default endpoint arguments")
 }
 
 pub fn books() -> Vec<Document> {

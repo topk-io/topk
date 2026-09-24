@@ -11,7 +11,7 @@ use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::data::Value;
 
-use crate::endpoint::Endpoint;
+use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::spec::{Field, Target};
 
@@ -103,7 +103,7 @@ pub enum Source {
 }
 
 impl Source {
-    pub async fn connect(uri: &Uri, endpoint: &Endpoint) -> Result<Source, Error> {
+    pub async fn connect(uri: &Uri, endpoint: &DataEndpoint) -> Result<Source, Error> {
         Ok(match uri {
             Uri::Duck(duck) => Source::Duck(duck.clone()),
             Uri::Es(url) => Source::Es(Es::new(url.clone())?),
