@@ -20,13 +20,13 @@ const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 #[derive(Clone)]
-pub(crate) struct SessionStore {
+pub struct SessionStore {
     oauth_config: OAuthConfig,
     config_dir: PathBuf,
 }
 
 impl SessionStore {
-    pub fn new(oauth_config: OAuthConfig, config_dir: PathBuf) -> Self {
+    pub(crate) fn new(oauth_config: OAuthConfig, config_dir: PathBuf) -> Self {
         Self {
             oauth_config,
             config_dir,
@@ -52,7 +52,7 @@ impl SessionStore {
         self.tenant_dir().join("session.lock")
     }
 
-    pub async fn lock(&self) -> Result<LockedSessionStore<'_>> {
+    pub(crate) async fn lock(&self) -> Result<LockedSessionStore<'_>> {
         let lock = lock(self.lock_file()).await?;
         Ok(LockedSessionStore {
             store: self,

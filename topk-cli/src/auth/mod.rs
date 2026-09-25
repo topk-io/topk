@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use tracing::info;
 
 use crate::auth::oauth::OAuthClient;
-use crate::auth::store::SessionStore;
+pub use crate::auth::store::SessionStore;
 
 mod callback;
 mod config;
@@ -33,7 +33,7 @@ impl Auth {
         })
     }
 
-    pub(crate) fn store(&self) -> &SessionStore {
+    pub fn sessions(&self) -> &SessionStore {
         &self.store
     }
 

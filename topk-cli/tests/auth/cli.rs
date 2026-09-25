@@ -8,6 +8,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::time::{timeout, Duration};
 use url::Url;
 
+use topk::client::data_client;
 use topk::endpoint::DataEndpoint;
 
 use super::common::tenant_dir;
@@ -218,22 +219,18 @@ async fn endpoint_selects_api_key_or_project_authentication() {
         "--project-id",
         "p1",
     ]);
-    assert!(endpoint
-        .client()
+    assert!(data_client(&endpoint)
         .err()
         .unwrap()
         .to_string()
         .contains("--project-id cannot be combined with an API key"));
-    let client = parse(&["test", "--region", "test", "--api-key", "key"])
-        .client()
-        .unwrap();
+    let client = data_client(&parse(&["test", "--region", "test", "--api-key", "key"])).unwrap();
     assert_eq!(client.config().headers()["authorization"], "Bearer key");
     let endpoint = parse(&["test", "--region", "test", "--project-id", "p1"]);
-    let client = endpoint.client().unwrap();
+    let client = data_client(&endpoint).unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
-    assert!(parse(&["test", "--region", "test"])
-        .client()
+    assert!(data_client(&parse(&["test", "--region", "test"]))
         .err()
         .unwrap()
         .to_string()

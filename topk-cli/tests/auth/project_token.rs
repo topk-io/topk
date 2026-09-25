@@ -14,6 +14,7 @@ use tonic::transport::{Endpoint, Server};
 use tonic::{Request, Response, Status};
 
 use topk::auth::{Auth, Config};
+use topk::endpoint::ProjectId;
 use topk::management::proto::data_plane_service_server::{
     DataPlaneService, DataPlaneServiceServer,
 };
@@ -21,7 +22,7 @@ use topk::management::proto::region_service_server::{RegionService, RegionServic
 use topk::management::proto::{
     ListRegionsRequest, ListRegionsResponse, MintAccessTokenRequest, MintAccessTokenResponse,
 };
-use topk::management::{Client as ManagementClient, ProjectTokenInterceptor, ProjectTokens};
+use topk::management::{Client as ManagementClient, ProjectToken};
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
 use topk_rs::proto::v1::data::{
     DeleteDocumentsRequest, DeleteDocumentsResponse, UpdateDocumentsRequest,
@@ -33,12 +34,17 @@ use super::common::{response, seed, tenant_dir, Server as OAuthServer};
 
 type Reply = Result<MintAccessTokenResponse, Status>;
 
-fn project_tokens(endpoint: Endpoint, config: &Config, config_dir: &Path) -> Arc<ProjectTokens> {
+fn project_token(
+    endpoint: Endpoint,
+    config: &Config,
+    config_dir: &Path,
+    project: &str,
+) -> Arc<ProjectToken> {
     let auth = Auth::new(config, config_dir.to_owned()).unwrap();
-    let mint = Auth::new(config, config_dir.to_owned()).unwrap();
-    Arc::new(ProjectTokens::new(
-        ManagementClient::new(endpoint, mint),
-        &auth,
+    Arc::new(ProjectToken::new(
+        ManagementClient::new(endpoint, Auth::new(config, config_dir.to_owned()).unwrap()),
+        auth.sessions().clone(),
+        project.parse().unwrap(),
     ))
 }
 
@@ -187,8 +193,13 @@ impl Fixture {
         self.oauth.request().await;
     }
 
-    fn provider(&self) -> Arc<ProjectTokens> {
-        project_tokens(self.endpoint.clone(), &self.oauth.config(), self.dir.path())
+    fn provider(&self, project: &str) -> Arc<ProjectToken> {
+        project_token(
+            self.endpoint.clone(),
+            &self.oauth.config(),
+            self.dir.path(),
+            project,
+        )
     }
 
     fn pending_reply(&self) -> oneshot::Sender<Reply> {
@@ -252,8 +263,8 @@ async fn cache_mints_once_and_renews_early() {
     ctx.reply("one", 3600);
     let jobs: Vec<_> = (0..12)
         .map(|_| {
-            let provider = ctx.provider();
-            tokio::spawn(async move { provider.token("p1").await.unwrap().token })
+            let provider = ctx.provider("p1");
+            tokio::spawn(async move { provider.token().await.unwrap().token })
         })
         .collect();
     for job in jobs {
@@ -261,13 +272,13 @@ async fn cache_mints_once_and_renews_early() {
     }
     ctx.request("p1").await;
     ctx.reply("early", 59);
-    assert_eq!(ctx.provider().token("p2").await.unwrap().token, "early");
+    assert_eq!(ctx.provider("p2").token().await.unwrap().token, "early");
     ctx.request("p2").await;
     ctx.reply("renewed", 3600);
-    assert_eq!(ctx.provider().token("p2").await.unwrap().token, "renewed");
+    assert_eq!(ctx.provider("p2").token().await.unwrap().token, "renewed");
     ctx.request("p2").await;
-    assert_eq!(ctx.provider().token("p1").await.unwrap().token, "one");
-    assert_eq!(ctx.provider().token("p2").await.unwrap().token, "renewed");
+    assert_eq!(ctx.provider("p1").token().await.unwrap().token, "one");
+    assert_eq!(ctx.provider("p2").token().await.unwrap().token, "renewed");
     assert!(ctx.requests.try_recv().is_err());
     assert!(ctx.oauth.requests.try_recv().is_err());
     assert_eq!(std::fs::read(&credentials_path).unwrap(), credentials);
@@ -298,12 +309,13 @@ async fn mint_child() {
         client_id: "test-client".into(),
         audience: "https://api.test".into(),
     };
-    let provider = project_tokens(
+    let provider = project_token(
         Endpoint::from_shared(std::env::var("TOPK_TEST_TOKEN_ENDPOINT").unwrap()).unwrap(),
         &config,
         Path::new(&dir),
+        "p1",
     );
-    assert_eq!(provider.token("p1").await.unwrap().token, "shared");
+    assert_eq!(provider.token().await.unwrap().token, "shared");
 }
 
 #[tokio::test]
@@ -315,7 +327,7 @@ async fn processes_share_one_mint() {
     for _ in 0..3 {
         children.push(
             tokio::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "project_tokens::mint_child"])
+                .args(["--exact", "project_token::mint_child"])
                 .env("TOPK_TEST_TOKEN_DIR", ctx.dir.path())
                 .env("TOPK_TEST_TOKEN_ISSUER", ctx.oauth.url.as_str())
                 .env("TOPK_TEST_TOKEN_ENDPOINT", ctx.endpoint.uri().to_string())
@@ -345,8 +357,8 @@ async fn mint_does_not_hold_the_session_lock() {
     let reply = ctx.pending_reply();
     let mut management =
         ManagementClient::new(ctx.endpoint.clone(), ctx.oauth.auth(ctx.dir.path()));
-    let provider = ctx.provider();
-    let mint = tokio::spawn(async move { provider.token("p1").await });
+    let provider = ctx.provider("p1");
+    let mint = tokio::spawn(async move { provider.token().await });
     ctx.oauth.request().await;
     ctx.request("p1").await;
     // Both refresh the account while the first mint is still pending.
@@ -367,7 +379,7 @@ async fn mint_does_not_hold_the_session_lock() {
         .contains("refresh_token=first-rotation"));
     ctx.reply("two", 3600);
     assert_eq!(
-        timeout(Duration::from_secs(2), ctx.provider().token("p2"))
+        timeout(Duration::from_secs(2), ctx.provider("p2").token())
             .await
             .unwrap()
             .unwrap()
@@ -395,8 +407,8 @@ async fn cached_token_needs_no_account_but_renewal_uses_current_login() {
     ctx.login(0).await;
     ctx.oauth.reply(200, response(0, Some("rotated"))).await;
     ctx.reply("cached", 3600);
-    let provider = ctx.provider();
-    assert_eq!(provider.token("p1").await.unwrap().token, "cached");
+    let provider = ctx.provider("p1");
+    assert_eq!(provider.token().await.unwrap().token, "cached");
     ctx.oauth.request().await;
     ctx.request("p1").await;
     // A rejected refresh removes the account session but keeps project tokens.
@@ -405,12 +417,12 @@ async fn cached_token_needs_no_account_but_renewal_uses_current_login() {
         .await;
     assert!(ctx.oauth.auth(ctx.dir.path()).access_token().await.is_err());
     ctx.oauth.request().await;
-    assert_eq!(provider.token("p1").await.unwrap().token, "cached");
+    assert_eq!(provider.token().await.unwrap().token, "cached");
     let path = ctx.token_path("p1");
     let mut token: toml::Table = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     token["expires_at"] = (Utc::now().timestamp() - 1).into();
     std::fs::write(path, toml::to_string(&token).unwrap()).unwrap();
-    let error = provider.token("p1").await.err().unwrap();
+    let error = provider.token().await.err().unwrap();
     assert!(format!("{error:#}").contains("not logged in"));
     let mut account = response(3600, Some("new-refresh"));
     account["access_token"] = "new-account".into();
@@ -418,7 +430,7 @@ async fn cached_token_needs_no_account_but_renewal_uses_current_login() {
     seed(&ctx.oauth.auth(ctx.dir.path())).await;
     ctx.oauth.request().await;
     ctx.reply("renewed", 3600);
-    assert_eq!(provider.token("p1").await.unwrap().token, "renewed");
+    assert_eq!(provider.token().await.unwrap().token, "renewed");
     assert_eq!(
         ctx.requests.recv().await.unwrap(),
         ("p1".into(), "Bearer new-account".into())
@@ -432,7 +444,7 @@ async fn rejected_account_session_suggests_login() {
     ctx.pending_reply()
         .send(Err(Status::unauthenticated("invalid token")))
         .unwrap();
-    let error = ctx.provider().token("p1").await.err().unwrap();
+    let error = ctx.provider("p1").token().await.err().unwrap();
     assert!(error.to_string().contains("Run `topk login`"));
     assert_eq!(
         error.downcast_ref::<Status>().unwrap().code(),
@@ -446,14 +458,14 @@ async fn cancellation_releases_project_lock() {
     let mut ctx = Fixture::new().await;
     ctx.login(3600).await;
     let _reply = ctx.pending_reply();
-    let provider = ctx.provider();
-    let mint = tokio::spawn(async move { provider.token("p1").await });
+    let provider = ctx.provider("p1");
+    let mint = tokio::spawn(async move { provider.token().await });
     ctx.request("p1").await;
     mint.abort();
     assert!(mint.await.err().unwrap().is_cancelled());
     ctx.reply("retry", 3600);
     assert_eq!(
-        timeout(Duration::from_secs(2), ctx.provider().token("p1"))
+        timeout(Duration::from_secs(2), ctx.provider("p1").token())
             .await
             .unwrap()
             .unwrap()
@@ -471,54 +483,14 @@ async fn corrupt_project_token_is_repaired_once() {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, malformed).unwrap();
         ctx.reply("repaired", 3600);
-        let first = ctx.provider();
-        let second = ctx.provider();
-        let (first, second) = tokio::join!(first.token("p1"), second.token("p1"));
+        let first = ctx.provider("p1");
+        let second = ctx.provider("p1");
+        let (first, second) = tokio::join!(first.token(), second.token());
         assert_eq!(first.unwrap().token, "repaired");
         assert_eq!(second.unwrap().token, "repaired");
         ctx.request("p1").await;
         assert!(ctx.requests.try_recv().is_err());
     }
-}
-
-#[tokio::test]
-async fn shared_tokens_bind_each_sdk_client_to_its_project() {
-    let mut ctx = Fixture::new().await;
-    ctx.login(3600).await;
-    let tokens = ctx.provider();
-    let client = |project: &str| {
-        Client::from_channel(
-            ClientConfig::default()
-                .with_region("test")
-                .with_interceptor(Arc::new(ProjectTokenInterceptor::new(
-                    tokens.clone(),
-                    project.into(),
-                ))),
-            ctx.endpoint.connect_lazy(),
-        )
-    };
-    let clients = [("p1", "one", client("p1")), ("p2", "two", client("p2"))];
-    for mint in [true, false] {
-        for (project, token, client) in &clients {
-            if mint {
-                ctx.reply(token, 3600);
-            }
-            client
-                .collection("books")
-                .upsert(vec![doc!("_id" => "one", "title" => "Book")])
-                .await
-                .unwrap();
-            if mint {
-                ctx.request(project).await;
-            }
-            assert_eq!(
-                ctx.requests.recv().await.unwrap(),
-                ("books".into(), format!("Bearer {token}"))
-            );
-        }
-    }
-    assert!(ctx.requests.try_recv().is_err());
-    assert!(ctx.oauth.requests.try_recv().is_err());
 }
 
 #[tokio::test]
@@ -531,10 +503,7 @@ async fn failed_mint_stops_upsert_without_retrying() {
     let client = Client::from_channel(
         ClientConfig::default()
             .with_region("test")
-            .with_interceptor(Arc::new(ProjectTokenInterceptor::new(
-                ctx.provider(),
-                "p1".into(),
-            ))),
+            .with_interceptor(ctx.provider("p1")),
         ctx.endpoint.connect_lazy(),
     );
     let error = client
@@ -559,14 +528,14 @@ async fn clear_removes_project_tokens_and_preserves_lock_files() {
     ctx.login(3600).await;
     for project in ["p1", "p2"] {
         ctx.reply(project, 3600);
-        ctx.provider().token(project).await.unwrap();
+        ctx.provider(project).token().await.unwrap();
         ctx.request(project).await;
     }
     let lock_path = ctx.lock_path("p1");
     let lock = std::fs::File::open(&lock_path).unwrap();
     lock.lock().unwrap();
     for _ in 0..2 {
-        ProjectTokens::clear(&ctx.oauth.auth(ctx.dir.path())).unwrap();
+        ProjectToken::clear_all(ctx.oauth.auth(ctx.dir.path()).sessions()).unwrap();
     }
     for project in ["p1", "p2"] {
         assert!(!ctx.token_path(project).exists());
@@ -578,11 +547,14 @@ async fn clear_removes_project_tokens_and_preserves_lock_files() {
     ));
 }
 
-#[tokio::test]
-async fn project_ids_cannot_escape_the_cache() {
-    let mut ctx = Fixture::new().await;
-    ctx.login(3600).await;
-    let error = ctx.provider().token("../p1").await.err().unwrap();
-    assert!(error.to_string().contains("invalid project ID"));
-    assert!(ctx.requests.try_recv().is_err());
+#[test]
+fn project_ids_cannot_escape_the_cache() {
+    // Project IDs name cache files, so anything path-like is rejected when parsed.
+    for id in ["../p1", "", "a/b", "p1 "] {
+        assert!(
+            id.parse::<ProjectId>().is_err(),
+            "{id:?} should be rejected"
+        );
+    }
+    assert!("6sSGyL".parse::<ProjectId>().is_ok());
 }

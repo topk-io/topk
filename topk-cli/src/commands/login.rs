@@ -4,8 +4,9 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
+use crate::client::auth;
 use crate::endpoint::ManagementEndpoint;
-use crate::management::ProjectTokens;
+use crate::management::ProjectToken;
 
 // Registered Auth0 loopback callback ports.
 const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
@@ -24,7 +25,7 @@ pub struct LoginArgs {
 }
 
 pub async fn run(args: &LoginArgs) -> Result<ExitCode> {
-    let auth = args.mgmt.auth()?;
+    let auth = auth(&args.mgmt)?;
     let login = auth.login(&args.callback_ports).await?;
     if args.no_browser {
         eprintln!(
@@ -40,7 +41,7 @@ pub async fn run(args: &LoginArgs) -> Result<ExitCode> {
     }
     eprintln!("Waiting for login...");
     let claims = login.finish().await?;
-    ProjectTokens::clear(&auth)?;
+    ProjectToken::clear_all(auth.sessions())?;
     match claims {
         Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
         None => eprintln!("{} Logged in.", "✓".green()),

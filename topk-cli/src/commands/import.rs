@@ -10,6 +10,7 @@ use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use tokio::sync::Semaphore;
 
+use crate::client::data_client;
 use crate::endpoint::DataEndpoint;
 use crate::import::{
     self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
@@ -278,7 +279,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         .iter()
         .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
         .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = args.data.client()?;
+    let client = data_client(&args.data)?;
     let mut pending = import::absent(&client, &spec).await?;
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
     // for the next run's schema to collide with.
@@ -329,7 +330,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         eprintln!(
             "nothing else was imported; to continue: topk import --region '{region}' {}{}--resume {run}",
             match args.data.api_key.as_deref().filter(|v| !v.is_empty()) {
-                None => format!("--project-id '{}' ", args.data.project_id.as_deref().unwrap_or_default()),
+                None => format!("--project-id '{}' ", args.data.project_id.as_ref().map(ToString::to_string).unwrap_or_default()),
                 Some(_) => String::new(),
             },
             match args.source.is_none() {
