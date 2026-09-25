@@ -8,7 +8,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::time::{timeout, Duration};
 use url::Url;
 
-use topk::client::data_client;
+use topk::data::DataClient;
 use topk::endpoint::DataEndpoint;
 
 use super::common::tenant_dir;
@@ -146,6 +146,7 @@ fn config_directory_override_is_not_a_cli_option() {
         .unwrap()
         .contains("unexpected argument '--config-dir'"));
 }
+
 #[cfg(feature = "import")]
 #[test]
 fn import_accepts_project_option() {
@@ -184,7 +185,10 @@ fn local_dry_run_requires_no_authentication() {
     );
     for (args, message) in [
         (vec![], "--region is required"),
-        (vec!["--region", "test"], "--project-id is required"),
+        (
+            vec!["--region", "test"],
+            "--api-key (or set TOPK_API_KEY) or --project-id is required",
+        ),
     ] {
         let output = command(&dir)
             .arg("import")
@@ -204,13 +208,14 @@ fn local_dry_run_requires_no_authentication() {
 
 #[tokio::test]
 async fn endpoint_selects_api_key_or_project_authentication() {
-    let parse = |args: &[&str]| {
+    let try_parse = |args: &[&str]| {
         let matches = DataEndpoint::augment_args(ClapCommand::new("test"))
             .mut_args(|arg| arg.env(None::<&str>))
-            .get_matches_from(args);
-        DataEndpoint::from_arg_matches(&matches).unwrap()
+            .try_get_matches_from(args)?;
+        DataEndpoint::from_arg_matches(&matches)
     };
-    let endpoint = parse(&[
+    let parse = |args: &[&str]| try_parse(args).unwrap();
+    assert!(try_parse(&[
         "test",
         "--region",
         "test",
@@ -218,23 +223,22 @@ async fn endpoint_selects_api_key_or_project_authentication() {
         "key",
         "--project-id",
         "p1",
-    ]);
-    assert!(data_client(&endpoint)
-        .err()
-        .unwrap()
-        .to_string()
-        .contains("--project-id cannot be combined with an API key"));
-    let client = data_client(&parse(&["test", "--region", "test", "--api-key", "key"])).unwrap();
+    ])
+    .err()
+    .unwrap()
+    .to_string()
+    .contains("cannot be used with"));
+    let client = DataClient::new(parse(&["test", "--region", "test", "--api-key", "key"])).unwrap();
     assert_eq!(client.config().headers()["authorization"], "Bearer key");
-    let endpoint = parse(&["test", "--region", "test", "--project-id", "p1"]);
-    let client = data_client(&endpoint).unwrap();
+    let client =
+        DataClient::new(parse(&["test", "--region", "test", "--project-id", "p1"])).unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
-    assert!(data_client(&parse(&["test", "--region", "test"]))
+    assert!(DataClient::new(parse(&["test", "--region", "test"]))
         .err()
         .unwrap()
         .to_string()
-        .contains("--project-id is required"));
+        .contains("--api-key (or set TOPK_API_KEY) or --project-id is required"));
 }
 
 #[test]

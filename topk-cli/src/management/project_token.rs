@@ -1,7 +1,3 @@
-use std::fs::File;
-use std::io::ErrorKind;
-use std::path::PathBuf;
-
 use anyhow::{Context, Error, Result};
 use chrono::Utc;
 use http::header::{HeaderValue, AUTHORIZATION};
@@ -13,46 +9,56 @@ use tracing::info;
 
 use topk_rs::client::AsyncInterceptor;
 
-use crate::auth::store::{lock, read, write_secret_file, SessionStore};
-use crate::endpoint::ProjectId;
+use crate::config::Config;
 use crate::management::proto::{MintAccessTokenRequest, MintAccessTokenResponse};
 use crate::management::Client as ManagementClient;
+use crate::ProjectId;
 
 const REFRESH_EARLY_SECS: u64 = 60;
 
 /// Mints project access tokens and caches them with the login session.
 pub struct ProjectToken {
-    client: ManagementClient,
-    session: SessionStore,
+    mgmt: ManagementClient,
+    config: Config,
     project_id: ProjectId,
 }
 
 impl ProjectToken {
-    pub fn new(mgmt: ManagementClient, sessions: SessionStore, project_id: ProjectId) -> Self {
+    pub fn new(mgmt: ManagementClient, config: Config, project_id: ProjectId) -> Self {
         Self {
-            client: mgmt,
-            session: sessions,
+            mgmt,
+            config,
             project_id,
         }
     }
 
     /// The cached token, or a newly minted one when it is missing or expiring.
     pub async fn token(&self) -> Result<ProjectAccessToken> {
-        if let Some(token) = self.load()? {
-            if !token.needs_refresh() {
-                return Ok(token);
-            }
+        let tokens = self.config.project_tokens();
+        let project_id = self.project_id.as_str();
+        // The common case reads the cache without the lock.
+        if let Some(token) = tokens
+            .load(project_id)?
+            .filter(ProjectAccessToken::is_fresh)
+        {
+            return Ok(token);
         }
-        let _lock = self.lock().await?;
-        // Another task or process may have minted while we waited for the lock.
-        if let Some(token) = self.load()? {
-            if !token.needs_refresh() {
-                return Ok(token);
-            }
+        let _lock = tokens.lock(project_id).await?;
+        // Whoever held the lock may have minted for everyone waiting on it.
+        if let Some(token) = tokens
+            .load(project_id)?
+            .filter(ProjectAccessToken::is_fresh)
+        {
+            return Ok(token);
         }
+        let token = self.mint().await?;
+        tokens.save(project_id, &token)?;
+        Ok(token)
+    }
+
+    async fn mint(&self) -> Result<ProjectAccessToken> {
         info!(project_id = %self.project_id, "minting data access token");
-        let response = self
-            .client
+        self.mgmt
             .tokens
             .clone()
             .mint_access_token(MintAccessTokenRequest {
@@ -66,47 +72,8 @@ impl ProjectToken {
                 };
                 Error::new(status).context(context)
             })?
-            .into_inner();
-        let token = ProjectAccessToken::try_from(response)?;
-        write_secret_file(&self.token_file(), &toml::to_string_pretty(&token)?)?;
-        Ok(token)
-    }
-
-    /// A missing or corrupt file reads as no token, so the token is minted again.
-    fn load(&self) -> Result<Option<ProjectAccessToken>> {
-        Ok(read(&self.token_file())?.and_then(|raw| toml::from_str(&raw).ok()))
-    }
-
-    async fn lock(&self) -> Result<File> {
-        lock(self.lock_file()).await
-    }
-
-    fn token_file(&self) -> PathBuf {
-        Self::tokens_dir(&self.session).join(format!("{}.toml", self.project_id))
-    }
-
-    /// Locks live apart from tokens so clearing tokens never removes a held lock.
-    fn lock_file(&self) -> PathBuf {
-        self.session
-            .tenant_dir()
-            .join("projects/locks")
-            .join(format!("{}.lock", self.project_id))
-    }
-
-    /// Removes every project's cached token for `auth`'s session. Lock files stay, so a lock
-    /// held by another process is never removed.
-    pub fn clear_all(sessions: &SessionStore) -> Result<()> {
-        match std::fs::remove_dir_all(Self::tokens_dir(sessions)) {
-            Err(error) if error.kind() != ErrorKind::NotFound => {
-                Err(error).context("clearing project token cache")
-            }
-            _ => Ok(()),
-        }
-    }
-
-    /// Where `session`'s project tokens live; `clear_all` removes exactly this directory.
-    fn tokens_dir(session: &SessionStore) -> PathBuf {
-        session.tenant_dir().join("projects/tokens")
+            .into_inner()
+            .try_into()
     }
 }
 
@@ -143,7 +110,7 @@ impl TryFrom<MintAccessTokenResponse> for ProjectAccessToken {
 }
 
 impl ProjectAccessToken {
-    fn needs_refresh(&self) -> bool {
-        self.expires_at <= (Utc::now().timestamp() as u64).saturating_add(REFRESH_EARLY_SECS)
+    fn is_fresh(&self) -> bool {
+        self.expires_at > (Utc::now().timestamp() as u64).saturating_add(REFRESH_EARLY_SECS)
     }
 }

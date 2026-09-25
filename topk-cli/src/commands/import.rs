@@ -10,7 +10,7 @@ use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use tokio::sync::Semaphore;
 
-use crate::client::data_client;
+use crate::data::DataClient;
 use crate::endpoint::DataEndpoint;
 use crate::import::{
     self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
@@ -245,9 +245,20 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
     let stored = toml::to_string_pretty(&spec)
         .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
     let run = args.resume.clone().unwrap_or_else(State::id);
-    let mut state =
-        resumed.unwrap_or_else(|| State::new(run.clone(), source_name.clone(), stored.clone()));
-    let (done, after) = state.reconcile(&source_name, &mut spec, stored)?;
+    let mut state = resumed.unwrap_or_else(|| {
+        State::new(
+            run.clone(),
+            source_name.clone(),
+            stored.clone(),
+            args.data.project_id.clone(),
+        )
+    });
+    let (done, after) = state.reconcile(
+        &source_name,
+        args.data.project_id.as_ref(),
+        &mut spec,
+        stored,
+    )?;
     if spec.collections.is_empty() {
         eprintln!("run {run}: all {done} collection(s) already imported");
         State::remove(&run);
@@ -279,7 +290,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         .iter()
         .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
         .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = data_client(&args.data)?;
+    let client = DataClient::new(args.data.clone())?;
     let mut pending = import::absent(&client, &spec).await?;
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
     // for the next run's schema to collide with.
@@ -329,9 +340,9 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
     let resume_hint = || {
         eprintln!(
             "nothing else was imported; to continue: topk import --region '{region}' {}{}--resume {run}",
-            match args.data.api_key.as_deref().filter(|v| !v.is_empty()) {
-                None => format!("--project-id '{}' ", args.data.project_id.as_ref().map(ToString::to_string).unwrap_or_default()),
-                Some(_) => String::new(),
+            match &args.data.project_id {
+                Some(project_id) => format!("--project-id {project_id} "),
+                None => String::new(),
             },
             match args.source.is_none() {
                 true => String::new(),

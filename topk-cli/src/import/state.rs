@@ -6,9 +6,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::config::Config;
 use crate::import::error::Error;
 use crate::import::source::Cursor;
 use crate::import::spec::Spec;
+use crate::ProjectId;
 
 /// Where a collection's import stands.
 #[derive(Clone, Serialize, Deserialize)]
@@ -29,17 +31,21 @@ pub struct State {
     pub started: DateTime<Utc>,
     /// The whole plan as TOML, done collections included.
     pub spec: String,
+    /// The `--project-id` the run started with; `None` when it used an API key.
+    #[serde(default)]
+    pub project_id: Option<ProjectId>,
     #[serde(default)]
     pub cursors: BTreeMap<String, Mark>,
 }
 
 impl State {
-    pub fn new(id: String, source: String, spec: String) -> State {
+    pub fn new(id: String, source: String, spec: String, project_id: Option<ProjectId>) -> State {
         State {
             id,
             source,
             started: Utc::now(),
             spec,
+            project_id,
             cursors: BTreeMap::new(),
         }
     }
@@ -47,6 +53,7 @@ impl State {
     pub fn reconcile(
         &mut self,
         source: &str,
+        project_id: Option<&ProjectId>,
         spec: &mut Spec,
         plan: String,
     ) -> Result<(usize, BTreeMap<String, Cursor>), Error> {
@@ -57,6 +64,16 @@ impl State {
                 match self.source.is_empty() {
                     true => "files".to_string(),
                     false => format!("{:?}", self.source),
+                }
+            )));
+        }
+        if project_id != self.project_id.as_ref() {
+            return Err(Error::InvalidArgument(format!(
+                "run {} was started with different credentials; resume it {}",
+                self.id,
+                match &self.project_id {
+                    Some(started) => format!("with --project-id {started}"),
+                    None => "with --api-key (or set TOPK_API_KEY)".to_string(),
                 }
             )));
         }
@@ -101,8 +118,8 @@ impl State {
         // Tests that fail on purpose must not litter the real one.
         let dir = match std::env::var_os("TOPK_IMPORT_STATE_DIR") {
             Some(dir) => PathBuf::from(dir),
-            None => crate::config::dir()
-                .ok_or_else(|| Error::InvalidArgument("no config directory".to_string()))?
+            None => Config::dir()
+                .map_err(|e| Error::InvalidArgument(e.to_string()))?
                 .join("import"),
         };
         Ok(dir.join(format!("{id}.toml")))

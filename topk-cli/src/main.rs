@@ -4,8 +4,6 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 
-use topk::client::management_client;
-
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
 struct Cli {
@@ -97,22 +95,12 @@ async fn async_main() -> ExitCode {
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
         Some(Commands::Project(args)) => {
-            topk::commands::project::run(
-                &mut management_client(&args.mgmt)?,
-                args,
-                cli.output == Output::Json,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::project::run(args, cli.output == Output::Json, &mut std::io::stdout())
+                .await
         }
         Some(Commands::Region(args)) => {
-            topk::commands::region::run(
-                &mut management_client(&args.mgmt)?,
-                args,
-                cli.output == Output::Json,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::region::run(args, cli.output == Output::Json, &mut std::io::stdout())
+                .await
         }
 
         Some(Commands::Login(args)) => topk::commands::login::run(args).await,

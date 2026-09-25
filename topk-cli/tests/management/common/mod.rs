@@ -36,7 +36,7 @@ impl CliTestContext {
     pub fn logged_out() -> Self {
         env("TOPK_AUTH_ISSUER");
         let home = tempfile::tempdir().unwrap();
-        // Point this process at the temporary home too, so `topk::config::dir()`
+        // Point this process at the temporary home too, so `topk::config::Config::dir()`
         // resolves the same directory the spawned CLI will use. Sound under
         // nextest, which runs every test in a process of its own.
         std::env::set_var("HOME", home.path());
@@ -149,7 +149,7 @@ impl CliTestContext {
     }
 
     fn config_dir(&self) -> PathBuf {
-        topk::config::dir().expect("config directory")
+        topk::config::Config::dir().expect("config directory")
     }
 
     pub fn command(&self, args: &[&str]) -> Command {
@@ -259,7 +259,7 @@ fn session_is_fresh(path: &Path) -> bool {
     fs::read_to_string(path)
         .ok()
         .and_then(|raw| raw.parse::<toml::Table>().ok())
-        .and_then(|table| table.get("expires_at").and_then(toml::Value::as_integer))
+        .and_then(|table| table["expires_at"].as_integer())
         .is_some_and(|expires_at| expires_at > (Utc::now() + SESSION_MIN_REMAINING).timestamp())
 }
 

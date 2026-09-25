@@ -166,7 +166,7 @@ impl Fixture {
                 .await
                 .unwrap();
         });
-        let client = Client::new(endpoint, oauth.auth(dir.path()));
+        let client = Client::connect(endpoint, oauth.auth(dir.path()));
         Self {
             oauth,
             dir,

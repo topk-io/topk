@@ -15,7 +15,8 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
 use url::Url;
 
-use topk::auth::{Auth, Config};
+use topk::auth::{Auth, OAuthConfig};
+use topk::config::Config;
 
 pub struct AuthTestContext {
     pub dir: TempDir,
@@ -80,8 +81,8 @@ impl Server {
         }
     }
 
-    pub fn config(&self) -> Config {
-        Config {
+    pub fn config(&self) -> OAuthConfig {
+        OAuthConfig {
             issuer: self.url.clone(),
             client_id: "test-client".into(),
             audience: "https://api.test".into(),
@@ -89,7 +90,7 @@ impl Server {
     }
 
     pub fn auth(&self, config_dir: &Path) -> Auth {
-        Auth::new(&self.config(), config_dir.to_owned()).unwrap()
+        Auth::new(Config::new(self.config(), config_dir.to_owned())).unwrap()
     }
 
     pub async fn reply(&self, status: u16, body: Value) {

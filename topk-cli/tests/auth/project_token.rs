@@ -13,8 +13,8 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::{Endpoint, Server};
 use tonic::{Request, Response, Status};
 
-use topk::auth::{Auth, Config};
-use topk::endpoint::ProjectId;
+use topk::auth::{Auth, OAuthConfig};
+use topk::config::Config;
 use topk::management::proto::data_plane_service_server::{
     DataPlaneService, DataPlaneServiceServer,
 };
@@ -23,6 +23,7 @@ use topk::management::proto::{
     ListRegionsRequest, ListRegionsResponse, MintAccessTokenRequest, MintAccessTokenResponse,
 };
 use topk::management::{Client as ManagementClient, ProjectToken};
+use topk::ProjectId;
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
 use topk_rs::proto::v1::data::{
     DeleteDocumentsRequest, DeleteDocumentsResponse, UpdateDocumentsRequest,
@@ -36,14 +37,14 @@ type Reply = Result<MintAccessTokenResponse, Status>;
 
 fn project_token(
     endpoint: Endpoint,
-    config: &Config,
+    config: &OAuthConfig,
     config_dir: &Path,
     project: &str,
 ) -> Arc<ProjectToken> {
-    let auth = Auth::new(config, config_dir.to_owned()).unwrap();
+    let config = Config::new(config.clone(), config_dir.to_owned());
     Arc::new(ProjectToken::new(
-        ManagementClient::new(endpoint, Auth::new(config, config_dir.to_owned()).unwrap()),
-        auth.sessions().clone(),
+        ManagementClient::connect(endpoint, Auth::new(config.clone()).unwrap()),
+        config,
         project.parse().unwrap(),
     ))
 }
@@ -301,7 +302,7 @@ async fn mint_child() {
     let Ok(dir) = std::env::var("TOPK_TEST_TOKEN_DIR") else {
         return;
     };
-    let config = Config {
+    let config = OAuthConfig {
         issuer: std::env::var("TOPK_TEST_TOKEN_ISSUER")
             .unwrap()
             .parse()
@@ -356,7 +357,7 @@ async fn mint_does_not_hold_the_session_lock() {
         .await;
     let reply = ctx.pending_reply();
     let mut management =
-        ManagementClient::new(ctx.endpoint.clone(), ctx.oauth.auth(ctx.dir.path()));
+        ManagementClient::connect(ctx.endpoint.clone(), ctx.oauth.auth(ctx.dir.path()));
     let provider = ctx.provider("p1");
     let mint = tokio::spawn(async move { provider.token().await });
     ctx.oauth.request().await;
@@ -534,8 +535,9 @@ async fn clear_removes_project_tokens_and_preserves_lock_files() {
     let lock_path = ctx.lock_path("p1");
     let lock = std::fs::File::open(&lock_path).unwrap();
     lock.lock().unwrap();
+    let config = Config::new(ctx.oauth.config(), ctx.dir.path().to_owned());
     for _ in 0..2 {
-        ProjectToken::clear_all(ctx.oauth.auth(ctx.dir.path()).sessions()).unwrap();
+        config.project_tokens().clear().unwrap();
     }
     for project in ["p1", "p2"] {
         assert!(!ctx.token_path(project).exists());

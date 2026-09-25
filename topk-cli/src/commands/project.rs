@@ -50,12 +50,8 @@ impl Tabular for Project {
     }
 }
 
-pub async fn run(
-    client: &mut Client,
-    args: &Args,
-    json: bool,
-    out: &mut impl Write,
-) -> Result<ExitCode> {
+pub async fn run(args: &Args, json: bool, out: &mut impl Write) -> Result<ExitCode> {
+    let mut client = Client::new(args.mgmt.clone())?;
     match &args.command {
         Command::List => {
             let projects = client

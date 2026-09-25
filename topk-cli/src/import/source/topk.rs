@@ -5,9 +5,8 @@ use wildmatch::WildMatch;
 
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
-use topk_rs::Client;
 
-use crate::client::data_client;
+use crate::data::DataClient;
 use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::source::Record;
@@ -66,7 +65,7 @@ impl TryFrom<super::Cursor> for Cursor {
 
 #[derive(Clone)]
 pub struct Topk {
-    client: Client,
+    client: DataClient,
     collection: String,
 }
 
@@ -83,9 +82,8 @@ impl Topk {
             region: Some(uri.region.clone()),
             ..endpoint.clone()
         };
-        let client = data_client(&endpoint).map_err(|e| Error::InvalidArgument(e.to_string()))?;
         Ok(Topk {
-            client,
+            client: DataClient::new(endpoint).map_err(|e| Error::InvalidArgument(e.to_string()))?,
             collection: uri.collection.clone(),
         })
     }

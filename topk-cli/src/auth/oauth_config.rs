@@ -1,14 +1,13 @@
 use clap::builder::NonEmptyStringValueParser;
+use sha2::{Digest, Sha256};
 use url::Url;
-
-use crate::auth::oauth::OAuthConfig;
 
 const AUTH_ISSUER: &str = "https://topk-prod.us.auth0.com/";
 const AUTH_CLIENT_ID: &str = "2LqddiN2N5fQplfMP2MIYPHM6ttFNeaG";
 const AUTH_AUDIENCE: &str = "https://api.topk.io";
 
 #[derive(clap::Args, Clone, Debug)]
-pub struct Config {
+pub struct OAuthConfig {
     #[arg(
         long = "auth-issuer",
         env = "TOPK_AUTH_ISSUER",
@@ -36,12 +35,8 @@ pub struct Config {
     pub audience: String,
 }
 
-impl Config {
-    pub(super) fn oauth(&self) -> OAuthConfig {
-        OAuthConfig {
-            issuer: self.issuer.clone(),
-            client_id: self.client_id.clone(),
-            audience: self.audience.clone(),
-        }
+impl OAuthConfig {
+    pub fn issuer_key(&self) -> String {
+        format!("{:x}", Sha256::digest(self.issuer.as_str().as_bytes()))
     }
 }
