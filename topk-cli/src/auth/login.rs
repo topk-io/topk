@@ -42,7 +42,9 @@ impl<'a> Login<'a> {
                     .client
                     .exchange_code(self.authorization, code)
                     .await?;
-                self.auth.store.lock().await?.save(session)?;
+                self.auth.config.session().await?.save(session)?;
+                // Clear cached project tokens
+                self.auth.config.project_tokens().clear()?;
                 Ok(claims)
             },
         )

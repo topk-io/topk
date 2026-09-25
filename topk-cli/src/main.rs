@@ -95,22 +95,12 @@ async fn async_main() -> ExitCode {
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
         Some(Commands::Project(args)) => {
-            topk::commands::project::run(
-                &mut args.mgmt.client()?,
-                args,
-                cli.output == Output::Json,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::project::run(args, cli.output == Output::Json, &mut std::io::stdout())
+                .await
         }
         Some(Commands::Region(args)) => {
-            topk::commands::region::run(
-                &mut args.mgmt.client()?,
-                args,
-                cli.output == Output::Json,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::region::run(args, cli.output == Output::Json, &mut std::io::stdout())
+                .await
         }
 
         Some(Commands::Login(args)) => topk::commands::login::run(args).await,

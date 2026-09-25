@@ -13,9 +13,9 @@ use oauth2::{
 };
 use reqwest::{redirect::Policy, Client as HttpClient};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use url::Url;
 
+use crate::auth::oauth_config::OAuthConfig;
 use crate::auth::session::Session;
 
 mod claims;
@@ -24,20 +24,6 @@ pub use claims::AccessTokenClaims;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const SCOPES: [&str; 4] = ["openid", "profile", "email", "offline_access"];
-
-/// Resolved issuer, OAuth client, and API audience used for authentication.
-#[derive(Clone)]
-pub(crate) struct OAuthConfig {
-    pub issuer: Url,
-    pub client_id: String,
-    pub audience: String,
-}
-
-impl OAuthConfig {
-    pub fn issuer_key(&self) -> String {
-        format!("{:x}", Sha256::digest(self.issuer.as_str().as_bytes()))
-    }
-}
 
 pub(crate) struct OAuthClient {
     client: BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>,

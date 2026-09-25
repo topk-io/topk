@@ -36,7 +36,7 @@ impl CliTestContext {
     pub fn logged_out() -> Self {
         env("TOPK_AUTH_ISSUER");
         let home = tempfile::tempdir().unwrap();
-        // Point this process at the temporary home too, so `topk::config::dir()`
+        // Point this process at the temporary home too, so `topk::config::Config::dir()`
         // resolves the same directory the spawned CLI will use. Sound under
         // nextest, which runs every test in a process of its own.
         std::env::set_var("HOME", home.path());
@@ -149,7 +149,7 @@ impl CliTestContext {
     }
 
     fn config_dir(&self) -> PathBuf {
-        topk::config::dir().expect("config directory")
+        topk::config::Config::dir().expect("config directory")
     }
 
     pub fn command(&self, args: &[&str]) -> Command {

@@ -6,7 +6,8 @@ use serde_json::json;
 use test_context::test_context;
 use tokio::time::timeout;
 
-use topk::auth::{Auth, Config};
+use topk::auth::{Auth, OAuthConfig};
+use topk::config::Config;
 
 use super::common::{response, seed, tenant_dir, AuthTestContext, Server};
 
@@ -157,7 +158,7 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
             "client" => config.client_id = "other-client".into(),
             _ => config.audience = "https://other-api.test".into(),
         }
-        let other = Auth::new(&config, ctx.dir.path().to_owned()).unwrap();
+        let other = Auth::new(Config::new(config, ctx.dir.path().to_owned())).unwrap();
         assert!(other
             .access_token()
             .await
@@ -190,11 +191,11 @@ async fn login_replaces_the_session_for_the_same_issuer(ctx: &mut AuthTestContex
     ctx.server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
 
-    let config = Config {
+    let config = OAuthConfig {
         audience: "https://other-api.test".into(),
         ..ctx.server.config()
     };
-    let other = Auth::new(&config, ctx.dir.path().to_owned()).unwrap();
+    let other = Auth::new(Config::new(config.clone(), ctx.dir.path().to_owned())).unwrap();
     ctx.server
         .reply(
             200,

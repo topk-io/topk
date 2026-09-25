@@ -141,7 +141,31 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
-| `--api-key <API_KEY>` | API key for this run; overrides the `TOPK_API_KEY` environment variable |
+| `--project-id <PROJECT_ID>` | Project to import into with your login; required unless using an API key |
+| `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
+
+#### Authenticate
+
+Log in, then provide `--project-id` and `--region` when importing:
+
+```bash
+topk login
+topk project list
+topk import ./books.parquet --project-id <project-id> --region aws-us-east-1-elastica
+```
+
+<Tip>
+
+Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
+Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
+
+</Tip>
+
+<Warning>
+
+`--project-id` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
+
+</Warning>
 
 #### Import a database
 
@@ -208,7 +232,7 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 | files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
-| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
+| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's API key or project token |
 
 #### Spec
 

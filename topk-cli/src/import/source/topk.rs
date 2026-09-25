@@ -5,8 +5,8 @@ use wildmatch::WildMatch;
 
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
-use topk_rs::Client;
 
+use crate::data::DataClient;
 use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::source::Record;
@@ -15,7 +15,7 @@ use crate::import::ID;
 
 use super::{Chunk, ChunkStream, Table};
 
-/// `topk://[<key>@]<region>/<collection>`; the key defaults to the run's own.
+/// `topk://[<key>@]<region>/<collection>`; credentials default to the run's own.
 #[derive(Clone)]
 pub struct Uri {
     pub region: String,
@@ -65,22 +65,25 @@ impl TryFrom<super::Cursor> for Cursor {
 
 #[derive(Clone)]
 pub struct Topk {
-    client: Client,
+    client: DataClient,
     collection: String,
 }
 
 impl Topk {
     /// The uri names the region and may carry its own key; the host is the run's.
     pub fn connect(uri: &Uri, endpoint: &DataEndpoint) -> Result<Topk, Error> {
-        let client = DataEndpoint {
+        let endpoint = DataEndpoint {
+            // A key in the uri replaces the run's credentials, including `--project-id`.
+            project_id: match uri.api_key {
+                Some(_) => None,
+                None => endpoint.project_id.clone(),
+            },
             api_key: uri.api_key.clone().or_else(|| endpoint.api_key.clone()),
             region: Some(uri.region.clone()),
             ..endpoint.clone()
-        }
-        .client()
-        .map_err(|e| Error::InvalidArgument(e.to_string()))?;
+        };
         Ok(Topk {
-            client,
+            client: DataClient::new(endpoint).map_err(|e| Error::InvalidArgument(e.to_string()))?,
             collection: uri.collection.clone(),
         })
     }

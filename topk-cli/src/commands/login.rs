@@ -4,6 +4,8 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
+use crate::auth::Auth;
+use crate::config::Config;
 use crate::endpoint::ManagementEndpoint;
 
 // Registered Auth0 loopback callback ports.
@@ -23,7 +25,7 @@ pub struct LoginArgs {
 }
 
 pub async fn run(args: &LoginArgs) -> Result<ExitCode> {
-    let auth = args.mgmt.auth()?;
+    let auth = Auth::new(Config::new(args.mgmt.oauth.clone(), Config::dir()?))?;
     let login = auth.login(&args.callback_ports).await?;
     if args.no_browser {
         eprintln!(

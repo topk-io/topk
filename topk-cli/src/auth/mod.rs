@@ -1,35 +1,32 @@
-use std::path::PathBuf;
-
 use anyhow::{bail, Context, Result};
 use tracing::info;
 
 use crate::auth::oauth::OAuthClient;
-use crate::auth::store::SessionStore;
+use crate::config::Config;
 
 mod callback;
-mod config;
 mod login;
 mod oauth;
+mod oauth_config;
 mod session;
-mod store;
 
-pub use crate::auth::config::Config;
 pub use crate::auth::login::Login;
 pub use crate::auth::oauth::AccessTokenClaims;
+pub use crate::auth::oauth_config::OAuthConfig;
+pub use crate::auth::session::Session;
 
 const SESSION_EXPIRED_MSG: &str = "session expired. Run `topk login`.";
 
 pub struct Auth {
     client: OAuthClient,
-    store: SessionStore,
+    config: Config,
 }
 
 impl Auth {
-    pub fn new(config: &Config, config_dir: PathBuf) -> Result<Self> {
-        let oauth_config = config.oauth();
+    pub fn new(config: Config) -> Result<Self> {
         Ok(Self {
-            store: SessionStore::new(oauth_config.clone(), config_dir),
-            client: OAuthClient::new(oauth_config)?,
+            client: OAuthClient::new(config.oauth().clone())?,
+            config,
         })
     }
 
@@ -38,11 +35,12 @@ impl Auth {
     }
 
     pub async fn logout(&self) -> Result<()> {
-        self.store.lock().await?.delete()
+        self.config.session().await?.delete()?;
+        self.config.project_tokens().clear()
     }
 
     pub async fn access_token(&self) -> Result<String> {
-        let store = self.store.lock().await?;
+        let store = self.config.session().await?;
         let session = store.load()?.context("not logged in. Run `topk login`.")?;
         if !session.needs_refresh() {
             return Ok(session.access_token);
