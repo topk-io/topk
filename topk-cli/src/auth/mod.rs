@@ -11,7 +11,7 @@ mod config;
 mod login;
 mod oauth;
 mod session;
-mod store;
+pub(crate) mod store;
 
 pub use crate::auth::config::Config;
 pub use crate::auth::login::Login;
@@ -31,6 +31,10 @@ impl Auth {
             store: SessionStore::new(oauth_config.clone(), config_dir),
             client: OAuthClient::new(oauth_config)?,
         })
+    }
+
+    pub(crate) fn store(&self) -> &SessionStore {
+        &self.store
     }
 
     pub async fn login(&self, ports: &[u16]) -> Result<Login<'_>> {

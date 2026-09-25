@@ -15,7 +15,7 @@ use crate::import::ID;
 
 use super::{Chunk, ChunkStream, Table};
 
-/// `topk://[<key>@]<region>/<collection>`; the key defaults to the run's own.
+/// `topk://[<key>@]<region>/<collection>`; credentials default to the run's own.
 #[derive(Clone)]
 pub struct Uri {
     pub region: String,
@@ -73,6 +73,11 @@ impl Topk {
     /// The uri names the region and may carry its own key; the host is the run's.
     pub fn connect(uri: &Uri, endpoint: &DataEndpoint) -> Result<Topk, Error> {
         let client = DataEndpoint {
+            // A key in the uri replaces the run's credentials, including `--project-id`.
+            project_id: match uri.api_key {
+                Some(_) => None,
+                None => endpoint.project_id.clone(),
+            },
             api_key: uri.api_key.clone().or_else(|| endpoint.api_key.clone()),
             region: Some(uri.region.clone()),
             ..endpoint.clone()

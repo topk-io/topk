@@ -1,7 +1,8 @@
 use std::fmt;
+use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use tonic::transport::{ClientTlsConfig, Endpoint as GrpcEndpoint};
 
 use topk_rs::client::retry::{BackoffConfig, RetryConfig};
@@ -9,7 +10,7 @@ use topk_rs::{Client, ClientConfig};
 
 use crate::auth::{Auth, Config};
 use crate::config;
-use crate::management::Client as ManagementClient;
+use crate::management::{Client as ManagementClient, ProjectTokenInterceptor, ProjectTokens};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Host {
@@ -48,6 +49,10 @@ pub struct DataEndpoint {
     )]
     pub api_key: Option<String>,
 
+    /// Project to access with your login instead of an API key
+    #[arg(long, global = true, help_heading = "Connection options")]
+    pub project_id: Option<String>,
+
     /// Region to read and write; list available regions at https://docs.topk.io/regions
     #[arg(
         long,
@@ -59,32 +64,58 @@ pub struct DataEndpoint {
 
     #[command(flatten)]
     pub host: Host,
+
+    #[command(flatten)]
+    pub auth: Config,
 }
 
 impl fmt::Debug for DataEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DataEndpoint")
             .field("api_key", &self.api_key.as_ref().map(|_| "***"))
+            .field("project_id", &self.project_id)
             .field("region", &self.region)
             .field("host", &self.host)
+            .field("auth", &self.auth)
             .finish()
     }
 }
 
 impl DataEndpoint {
+    pub fn mgmt(&self) -> ManagementEndpoint {
+        ManagementEndpoint {
+            host: self.host.clone(),
+            auth: self.auth.clone(),
+        }
+    }
+
     pub fn client(&self) -> Result<Client> {
-        let api_key =
-            self.api_key.as_deref().filter(|v| !v.is_empty()).context(
-                "API key not set. Set TOPK_API_KEY environment variable or pass --api-key.",
-            )?;
         let region = self.region.as_deref().filter(|v| !v.is_empty()).context(
             "--region is required (or set TOPK_REGION). \
              List available regions at https://docs.topk.io/regions",
         )?;
+        let project_id = self.project_id.as_deref().filter(|v| !v.is_empty());
+        let config = match (self.api_key.clone().filter(|v| !v.is_empty()), project_id) {
+            (Some(_), Some(_)) => bail!(
+                "--project-id cannot be combined with an API key (--api-key or TOPK_API_KEY). \
+                 Unset TOPK_API_KEY to use your login, or drop --project-id to use the API key."
+            ),
+            (Some(api_key), None) => ClientConfig::new(api_key, region),
+            (None, Some(project_id)) => ClientConfig::default()
+                .with_region(region)
+                .with_interceptor(Arc::new(ProjectTokenInterceptor::new(
+                    Arc::new(ProjectTokens::new(
+                        self.mgmt().client()?,
+                        &self.mgmt().auth()?,
+                    )),
+                    project_id.to_owned(),
+                ))),
+            (None, None) => bail!("--project-id is required"),
+        };
         // A batch tool rides out `SlowDown`: retries never run out, an hour of
         // continuous throttling fails the request, and `--resume` picks up.
         Ok(Client::new(
-            ClientConfig::new(api_key, region)
+            config
                 .with_host(&self.host.host)
                 .with_https(self.host.https)
                 .with_retry_config(RetryConfig {

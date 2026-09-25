@@ -5,6 +5,7 @@ use clap::Args;
 use colored::Colorize;
 
 use crate::endpoint::ManagementEndpoint;
+use crate::management::ProjectTokens;
 
 #[derive(Args, Debug)]
 pub struct LogoutArgs {
@@ -13,7 +14,9 @@ pub struct LogoutArgs {
 }
 
 pub async fn run(args: &LogoutArgs) -> Result<ExitCode> {
-    args.mgmt.auth()?.logout().await?;
+    let auth = args.mgmt.auth()?;
+    auth.logout().await?;
+    ProjectTokens::clear(&auth)?;
     eprintln!("{} Logged out.", "✓".green());
     Ok(ExitCode::SUCCESS)
 }

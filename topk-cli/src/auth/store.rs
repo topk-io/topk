@@ -19,28 +19,41 @@ use crate::auth::session::Session;
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
+#[derive(Clone)]
 pub(crate) struct SessionStore {
-    client_id: String,
-    audience: String,
-    config_file: PathBuf,
-    credentials_file: PathBuf,
-    lock_file: PathBuf,
+    oauth_config: OAuthConfig,
+    config_dir: PathBuf,
 }
 
 impl SessionStore {
     pub fn new(oauth_config: OAuthConfig, config_dir: PathBuf) -> Self {
-        let tenant_dir = config_dir.join("tenants").join(oauth_config.issuer_key());
         Self {
-            config_file: config_dir.join("config.toml"),
-            credentials_file: tenant_dir.join("credentials.toml"),
-            lock_file: tenant_dir.join("session.lock"),
-            client_id: oauth_config.client_id,
-            audience: oauth_config.audience,
+            oauth_config,
+            config_dir,
         }
     }
 
+    /// Everything scoped to this issuer's session lives here.
+    pub fn tenant_dir(&self) -> PathBuf {
+        self.config_dir
+            .join("tenants")
+            .join(self.oauth_config.issuer_key())
+    }
+
+    fn config_file(&self) -> PathBuf {
+        self.config_dir.join("config.toml")
+    }
+
+    fn credentials_file(&self) -> PathBuf {
+        self.tenant_dir().join("credentials.toml")
+    }
+
+    fn lock_file(&self) -> PathBuf {
+        self.tenant_dir().join("session.lock")
+    }
+
     pub async fn lock(&self) -> Result<LockedSessionStore<'_>> {
-        let lock = lock(self.lock_file.clone()).await?;
+        let lock = lock(self.lock_file()).await?;
         Ok(LockedSessionStore {
             store: self,
             _lock: lock,
@@ -55,39 +68,30 @@ pub(crate) struct LockedSessionStore<'a> {
 
 impl LockedSessionStore<'_> {
     pub fn load(&self) -> Result<Option<Session>> {
-        let Some(raw) = read(&self.store.credentials_file)? else {
+        let Some(raw) = read(&self.store.credentials_file())? else {
             return Ok(None);
         };
         let credentials: Credentials =
             toml::from_str(&raw).context("stored credentials are corrupt")?;
-        ensure!(
-            credentials.client_id == self.store.client_id
-                && credentials.audience == self.store.audience,
-            "authentication configuration mismatch"
-        );
-        Ok(Some(credentials.session))
+        Ok(Some(credentials.session(&self.store.oauth_config)?))
     }
 
     pub fn save(&self, session: Session) -> Result<()> {
-        let mut config: Table = match read(&self.store.config_file)? {
+        let mut config: Table = match read(&self.store.config_file())? {
             Some(raw) => toml::from_str(&raw).context("invalid config.toml")?,
             None => Table::new(),
         };
-        let raw = toml::to_string_pretty(&Credentials {
-            client_id: self.store.client_id.clone(),
-            audience: self.store.audience.clone(),
-            session,
-        })?;
-        write_secret_file(&self.store.credentials_file, &raw)?;
+        let raw = toml::to_string_pretty(&Credentials::new(&self.store.oauth_config, session))?;
+        write_secret_file(&self.store.credentials_file(), &raw)?;
         if config.remove("api_key").is_some() {
-            write_secret_file(&self.store.config_file, &toml::to_string_pretty(&config)?)?;
+            write_secret_file(&self.store.config_file(), &toml::to_string_pretty(&config)?)?;
         }
         Ok(())
     }
 
     pub fn delete(&self) -> Result<()> {
-        remove(&self.store.credentials_file)?;
-        remove(&self.store.config_file)
+        remove(&self.store.credentials_file())?;
+        remove(&self.store.config_file())
     }
 }
 
@@ -99,8 +103,26 @@ struct Credentials {
     session: Session,
 }
 
+impl Credentials {
+    fn new(oauth_config: &OAuthConfig, session: Session) -> Self {
+        Self {
+            client_id: oauth_config.client_id.clone(),
+            audience: oauth_config.audience.clone(),
+            session,
+        }
+    }
+
+    fn session(self, oauth_config: &OAuthConfig) -> Result<Session> {
+        ensure!(
+            self.client_id == oauth_config.client_id && self.audience == oauth_config.audience,
+            "authentication configuration mismatch"
+        );
+        Ok(self.session)
+    }
+}
+
 /// Poll the OS lock so cancellation never leaves a blocking worker behind.
-async fn lock(path: PathBuf) -> Result<File> {
+pub(crate) async fn lock(path: PathBuf) -> Result<File> {
     create_dir_all(path.parent().context("lock has no parent directory")?)?;
     let file = OpenOptions::new()
         .create(true)
@@ -121,7 +143,7 @@ async fn lock(path: PathBuf) -> Result<File> {
     .context("timed out waiting for the lock")?
 }
 
-fn read(path: &Path) -> Result<Option<String>> {
+pub(crate) fn read(path: &Path) -> Result<Option<String>> {
     match std::fs::read_to_string(path) {
         Ok(raw) => Ok(Some(raw)),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
@@ -138,7 +160,7 @@ fn remove(path: &Path) -> Result<()> {
 }
 
 /// Replace a file atomically so readers cannot observe partial data.
-fn write_secret_file(path: &Path, content: &str) -> Result<()> {
+pub(crate) fn write_secret_file(path: &Path, content: &str) -> Result<()> {
     let parent = path.parent().context("file has no parent")?;
     create_dir_all(parent)?;
     let mut file = NamedTempFile::new_in(parent)?;

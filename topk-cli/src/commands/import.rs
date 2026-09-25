@@ -327,7 +327,11 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         .max(1);
     let resume_hint = || {
         eprintln!(
-            "nothing else was imported; to continue: topk import {}--resume {run}",
+            "nothing else was imported; to continue: topk import --region '{region}' {}{}--resume {run}",
+            match args.data.api_key.as_deref().filter(|v| !v.is_empty()) {
+                None => format!("--project-id '{}' ", args.data.project_id.as_deref().unwrap_or_default()),
+                Some(_) => String::new(),
+            },
             match args.source.is_none() {
                 true => String::new(),
                 false => format!("'{source_name}' "),

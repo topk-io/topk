@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 use std::process::Command;
-#[cfg(target_os = "linux")]
 use std::process::Stdio;
 
+use clap::{Args, Command as ClapCommand, FromArgMatches};
 use tempfile::TempDir;
-#[cfg(target_os = "linux")]
 use tokio::io::{AsyncBufReadExt, BufReader};
-#[cfg(target_os = "linux")]
 use tokio::time::{timeout, Duration};
 use url::Url;
+
+use topk::endpoint::DataEndpoint;
 
 use super::common::tenant_dir;
 
@@ -22,6 +22,8 @@ fn command(dir: &TempDir) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_topk"));
     for key in [
         "TOPK_API_KEY",
+        "TOPK_CONFIG_DIR",
+        "TOPK_REGION",
         "TOPK_HOST",
         "TOPK_AUTH_ISSUER",
         "TOPK_AUTH_CLIENT_ID",
@@ -31,12 +33,11 @@ fn command(dir: &TempDir) -> Command {
         cmd.env_remove(key);
     }
     cmd.env("TOPK_AUTH_ISSUER", AUTH_ISSUER)
-        .env("XDG_CONFIG_HOME", dir.path())
+        .env("TOPK_CONFIG_DIR", dir.path().join("topk"))
         .env("TOPK_AUTH_CALLBACK_PORTS", "0");
     cmd
 }
 
-#[cfg(target_os = "linux")]
 #[test]
 fn logout_of_missing_session_is_idempotent_across_configurations() {
     let dir = TempDir::new().unwrap();
@@ -58,7 +59,6 @@ fn logout_of_missing_session_is_idempotent_across_configurations() {
     assert!(tenant_path(&dir).join("session.lock").exists());
 }
 
-#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn no_browser_prints_login_url_without_saving_credentials() {
     let dir = TempDir::new().unwrap();
@@ -110,7 +110,6 @@ fn invalid_authentication_configuration_is_rejected_during_parsing() {
     assert!(!tenant_path(&dir).join("credentials.toml").exists());
 }
 
-#[cfg(target_os = "linux")]
 #[test]
 fn logout_without_a_session_cleans_up_legacy_api_key() {
     let dir = TempDir::new().unwrap();
@@ -145,4 +144,119 @@ fn config_directory_override_is_not_a_cli_option() {
     assert!(String::from_utf8(output.stderr)
         .unwrap()
         .contains("unexpected argument '--config-dir'"));
+}
+#[cfg(feature = "import")]
+#[test]
+fn import_accepts_project_option() {
+    let dir = TempDir::new().unwrap();
+    let source = dir.path().join("books.jsonl");
+    std::fs::write(&source, "{\"_id\":\"one\",\"title\":\"Book\"}\n").unwrap();
+    let output = command(&dir)
+        .arg("import")
+        .arg(&source)
+        .args(["--dry-run", "--to", "books", "--project-id", "p1"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(feature = "import")]
+#[test]
+fn local_dry_run_requires_no_authentication() {
+    let dir = TempDir::new().unwrap();
+    let source = dir.path().join("books.jsonl");
+    std::fs::write(&source, "{\"_id\":\"one\",\"title\":\"Book\"}\n").unwrap();
+    let output = command(&dir)
+        .arg("import")
+        .arg(&source)
+        .args(["--to", "books", "--dry-run"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    for (args, message) in [
+        (vec![], "--region is required"),
+        (vec!["--region", "test"], "--project-id is required"),
+    ] {
+        let output = command(&dir)
+            .arg("import")
+            .arg(&source)
+            .args(["--to", "books", "--yes"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains(message),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[tokio::test]
+async fn endpoint_selects_api_key_or_project_authentication() {
+    let parse = |args: &[&str]| {
+        let matches = DataEndpoint::augment_args(ClapCommand::new("test"))
+            .mut_args(|arg| arg.env(None::<&str>))
+            .get_matches_from(args);
+        DataEndpoint::from_arg_matches(&matches).unwrap()
+    };
+    let endpoint = parse(&[
+        "test",
+        "--region",
+        "test",
+        "--api-key",
+        "key",
+        "--project-id",
+        "p1",
+    ]);
+    assert!(endpoint
+        .client()
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("--project-id cannot be combined with an API key"));
+    let client = parse(&["test", "--region", "test", "--api-key", "key"])
+        .client()
+        .unwrap();
+    assert_eq!(client.config().headers()["authorization"], "Bearer key");
+    let endpoint = parse(&["test", "--region", "test", "--project-id", "p1"]);
+    let client = endpoint.client().unwrap();
+    assert!(!client.config().headers().contains_key("authorization"));
+    assert_eq!(client.config().region(), Some("test"));
+    assert!(parse(&["test", "--region", "test"])
+        .client()
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("--project-id is required"));
+}
+
+#[test]
+fn logout_clears_project_tokens() {
+    let dir = TempDir::new().unwrap();
+    let tokens = tenant_path(&dir).join("projects").join("tokens");
+    std::fs::create_dir_all(&tokens).unwrap();
+    std::fs::write(
+        tenant_path(&dir).join("credentials.toml"),
+        "account credentials",
+    )
+    .unwrap();
+    std::fs::write(tokens.join("p1.toml"), "project token").unwrap();
+    let result = command(&dir).arg("logout").output().unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(!tenant_path(&dir).join("credentials.toml").exists());
+    assert!(!tokens.exists());
 }

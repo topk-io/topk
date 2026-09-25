@@ -7,6 +7,7 @@ fn main() {
                 "../protos/topk/management/v1/project.proto",
                 "../protos/topk/management/v1/collection.proto",
                 "../protos/topk/management/v1/region.proto",
+                "../protos/topk/management/v1/data_plane.proto",
             ],
             &["../protos"],
         )

@@ -5,6 +5,7 @@ use clap::Args;
 use colored::Colorize;
 
 use crate::endpoint::ManagementEndpoint;
+use crate::management::ProjectTokens;
 
 // Registered Auth0 loopback callback ports.
 const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
@@ -38,7 +39,9 @@ pub async fn run(args: &LoginArgs) -> Result<ExitCode> {
         let _ = open::that_detached(login.url().as_str());
     }
     eprintln!("Waiting for login...");
-    match login.finish().await? {
+    let claims = login.finish().await?;
+    ProjectTokens::clear(&auth)?;
+    match claims {
         Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
         None => eprintln!("{} Logged in.", "✓".green()),
     }

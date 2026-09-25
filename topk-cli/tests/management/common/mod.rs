@@ -259,7 +259,7 @@ fn session_is_fresh(path: &Path) -> bool {
     fs::read_to_string(path)
         .ok()
         .and_then(|raw| raw.parse::<toml::Table>().ok())
-        .and_then(|table| table["expires_at"].as_integer())
+        .and_then(|table| table.get("expires_at").and_then(toml::Value::as_integer))
         .is_some_and(|expires_at| expires_at > (Utc::now() + SESSION_MIN_REMAINING).timestamp())
 }
 
