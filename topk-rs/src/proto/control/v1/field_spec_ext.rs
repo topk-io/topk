@@ -7,6 +7,14 @@ use crate::proto::control::v1::{
 use super::*;
 
 impl FieldSpec {
+    pub fn index(&self) -> Option<&field_index::Index> {
+        self.index.as_ref()?.index.as_ref()
+    }
+
+    pub fn data_type(&self) -> Option<&field_type::DataType> {
+        self.data_type.as_ref()?.data_type.as_ref()
+    }
+
     pub fn with_index(mut self, index: FieldIndex) -> Self {
         assert!(self.index.is_none(), "Field index is already set");
         self.index = Some(index);
@@ -141,7 +149,7 @@ impl FieldSpec {
     }
 
     pub fn as_struct(&self) -> Option<&HashMap<String, FieldSpec>> {
-        match self.data_type.as_ref()?.data_type.as_ref()? {
+        match self.data_type()? {
             field_type::DataType::Struct(s) => Some(&s.fields),
             _ => None,
         }
