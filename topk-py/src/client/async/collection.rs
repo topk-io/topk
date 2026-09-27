@@ -181,12 +181,13 @@ impl AsyncCollectionClient {
         .map(|result| result.into())
     }
 
-    #[pyo3(signature = (schema, drop_fields=vec![]))]
+    #[pyo3(signature = (schema, drop_fields=vec![], expected_ssn=None))]
     pub fn update_schema(
         &self,
         py: Python<'_>,
         schema: HashMap<String, SchemaFieldSpec>,
         drop_fields: Vec<String>,
+        expected_ssn: Option<u32>,
     ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
@@ -196,7 +197,7 @@ impl AsyncCollectionClient {
 
             let collection: Collection = client
                 .collection(collection.as_str())
-                .update_schema(schema, drop_fields)
+                .update_schema(schema, drop_fields, expected_ssn)
                 .await
                 .map_err(RustError)?
                 .into();

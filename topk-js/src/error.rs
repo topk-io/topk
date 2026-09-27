@@ -57,6 +57,7 @@ impl From<TopkError> for napi::Error {
             | topk_rs::Error::SsnUnavailable(ref message)
             | topk_rs::Error::IndexMissing(ref message)
             | topk_rs::Error::SchemaPaused(ref message)
+            | topk_rs::Error::SchemaConflict(ref message)
             | topk_rs::Error::FailedPrecondition(ref message) => {
                 napi::Error::new(napi::Status::GenericFailure, message.clone())
             }

@@ -145,6 +145,7 @@ class CollectionClient:
         self,
         schema: typing.Mapping[builtins.str, schema.SchemaFieldSpec],
         drop_fields: typing.Sequence[builtins.str] = [],
+        expected_ssn: typing.Optional[builtins.int] = None,
     ) -> Collection:
         """
         Add, replace or undeclare fields of the collection schema.
@@ -251,6 +252,7 @@ class AsyncCollectionClient:
         self,
         schema: typing.Mapping[builtins.str, schema.SchemaFieldSpec],
         drop_fields: typing.Sequence[builtins.str] = [],
+        expected_ssn: typing.Optional[builtins.int] = None,
     ) -> typing.Awaitable[Collection]:
         """
         Add, replace or undeclare fields of the collection schema asynchronously.

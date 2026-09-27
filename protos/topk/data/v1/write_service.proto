@@ -17,7 +17,7 @@ service WriteService {
   rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse);
 
   // Update the collection schema
-  rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse);
+  rpc UpdateSchema(UpdateSchemaRequest) returns (UpdateSchemaResponse);
 }
 
 // Upsert
@@ -67,13 +67,14 @@ message DeleteDocumentsResponse {
 
 // Update collection
 
-message UpdateCollectionRequest {
+message UpdateSchemaRequest {
   // Field specs to add or replace. A field's spec is replaced as a whole.
   map<string, topk.control.v1.FieldSpec> set_fields = 1;
   // Fields to undeclare. Their data is kept and stays filterable.
   repeated string drop_fields = 2;
+  optional uint32 expected_ssn = 3;
 }
 
-message UpdateCollectionResponse {
+message UpdateSchemaResponse {
   topk.control.v1.Collection collection = 1;
 }

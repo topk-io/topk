@@ -55,7 +55,11 @@ async fn update(
 ) -> Result<Collection, Error> {
     ctx.client
         .collection(name)
-        .update_schema(schema, drop_fields.iter().map(|f| f.to_string()).collect())
+        .update_schema(
+            schema,
+            drop_fields.iter().map(|f| f.to_string()).collect(),
+            None,
+        )
         .await
 }
 
@@ -151,6 +155,7 @@ async fn test_add_index_on_written_field(ctx: &mut ProjectTestContext) {
         .update_schema(
             schema!("summary" => keyword(FieldSpec::text(false))),
             vec![],
+            None,
         )
         .await
         .expect("update failed");
@@ -243,7 +248,7 @@ async fn test_drop_index_and_field(ctx: &mut ProjectTestContext) {
     let updated = ctx
         .client
         .collection(&name)
-        .update_schema(schema!("summary" => FieldSpec::text(false)), vec![])
+        .update_schema(schema!("summary" => FieldSpec::text(false)), vec![], None)
         .await
         .unwrap();
     assert!(updated.schema["summary"].index.is_none());
@@ -380,6 +385,7 @@ async fn test_add_vector_index_on_stored_vectors(ctx: &mut ProjectTestContext) {
             schema!("vector" => FieldSpec::f32_vector(2, false)
                 .with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean))),
             vec![],
+            None,
         )
         .await
         .expect("update failed");
@@ -530,6 +536,7 @@ async fn test_writes_during_a_vector_index_add(ctx: &mut ProjectTestContext) {
         schema!("vector" => FieldSpec::f32_vector(2, false)
             .with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean))),
         vec![],
+        None,
     );
     let (lsn, updated) = tokio::join!(writes, update);
     updated.expect("index add");
@@ -566,8 +573,9 @@ async fn test_a_refused_update_stays_refused_under_concurrency(ctx: &mut Project
 
         let a = ctx.client.collection(&name);
         let b = ctx.client.collection(&name);
-        let refusable = a.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
-        let benign = b.update_schema(schema!("summary" => FieldSpec::text(false)), vec![]);
+        let refusable =
+            a.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
+        let benign = b.update_schema(schema!("summary" => FieldSpec::text(false)), vec![], None);
         let (refused, _) = tokio::join!(refusable, benign);
         assert!(
             refused.is_err(),
@@ -920,6 +928,7 @@ async fn test_add_index_on_partially_populated_field(ctx: &mut ProjectTestContex
         .update_schema(
             schema!("summary" => keyword(FieldSpec::text(false))),
             vec![],
+            None,
         )
         .await
         .expect("update failed");
@@ -1167,7 +1176,8 @@ async fn test_writes_during_update(ctx: &mut ProjectTestContext) {
         lsn
     };
     let collection = ctx.client.collection(&name);
-    let update = collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
+    let update =
+        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
     let (lsn, updated) = tokio::join!(writes, update);
     assert!(updated.expect("all docs have a rating").schema["rating"].required);
 
@@ -1209,8 +1219,8 @@ async fn test_concurrent_updates_serialize(ctx: &mut ProjectTestContext) {
 
     let (one, two) = (ctx.client.collection(&name), ctx.client.collection(&name));
     let (a, b) = tokio::join!(
-        one.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]),
-        two.update_schema(schema!("title" => FieldSpec::text(true)), vec![]),
+        one.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None),
+        two.update_schema(schema!("title" => FieldSpec::text(true)), vec![], None),
     );
     let fetched = ctx.client.collections().get(&name).await.unwrap();
     let mut wins = 0;
@@ -1447,7 +1457,8 @@ async fn test_concurrent_writers_during_update(ctx: &mut ProjectTestContext) {
         }
     }));
     let collection = ctx.client.collection(&name);
-    let update = collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
+    let update =
+        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
     let (_, updated) = tokio::join!(writers, update);
     match updated {
         Ok(collection) => assert!(collection.schema["rating"].required),
@@ -1638,7 +1649,8 @@ async fn test_writes_during_a_rejected_update(ctx: &mut ProjectTestContext) {
         refused
     };
     let collection = ctx.client.collection(&name);
-    let update = collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
+    let update =
+        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
     let (refused, rejected) = tokio::join!(writes, update);
     assert!(reason(rejected.unwrap_err()).contains("field `rating`: null or missing in some rows"));
 
@@ -1677,7 +1689,8 @@ async fn test_concurrent_writers_on_many_partitions_during_update(ctx: &mut Proj
         }
     }));
     let collection = ctx.client.collection(&name);
-    let update = collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
+    let update =
+        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
     let (_, updated) = tokio::join!(writers, update);
     assert!(updated.expect("every doc has a rating").schema["rating"].required);
 
@@ -1748,7 +1761,11 @@ async fn test_five_way_update_race(ctx: &mut ProjectTestContext) {
 
     let clients: Vec<_> = (0..5).map(|_| ctx.client.collection(&name)).collect();
     let results = futures::future::join_all(clients.iter().enumerate().map(|(i, c)| {
-        c.update_schema(schema!(format!("f{i}") => FieldSpec::integer(true)), vec![])
+        c.update_schema(
+            schema!(format!("f{i}") => FieldSpec::integer(true)),
+            vec![],
+            None,
+        )
     }))
     .await;
 
@@ -1860,7 +1877,8 @@ async fn test_new_partitions_during_update(ctx: &mut ProjectTestContext) {
         }
     }));
     let collection = ctx.client.collection(&name);
-    let update = collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
+    let update =
+        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
     let (_, updated) = tokio::join!(writers, update);
     assert!(updated.expect("every doc has a rating").schema["rating"].required);
 
@@ -1973,7 +1991,8 @@ async fn test_partial_updates_and_deletes_during_update(ctx: &mut ProjectTestCon
         }
     };
     let collection = ctx.client.collection(&name);
-    let update = collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![]);
+    let update =
+        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
     let (_, updated) = tokio::join!(writes, update);
     assert!(updated.expect("every remaining doc has a rating").schema["rating"].required);
 
@@ -2480,7 +2499,7 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                 expected_schema.extend(request.clone());
                 let result = client
                     .collection(&name)
-                    .update_schema(request.clone(), drops.clone())
+                    .update_schema(request.clone(), drops.clone(), None)
                     .await;
                 println!(
                     "{step}: update {request:?} drop {drops:?} expect {expect:?} -> {:?}",
@@ -2537,7 +2556,7 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                     async move { collection.upsert(vec![document(id, doc)]).await }
                 }));
                 let collection = client.collection(&name);
-                let update = collection.update_schema(request.clone(), drops.clone());
+                let update = collection.update_schema(request.clone(), drops.clone(), None);
                 let (writes, updated) = tokio::join!(writes, update);
                 let fetched = client.collections().get(&name).await.unwrap();
                 model.resync(fetched.schema);
@@ -2573,11 +2592,10 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                     .map(|_| random_request(&mut rng, &model))
                     .collect();
                 let clients: Vec<_> = requests.iter().map(|_| client.collection(&name)).collect();
-                let results =
-                    futures::future::join_all(clients.iter().zip(&requests).map(
-                        |(c, (request, drops))| c.update_schema(request.clone(), drops.clone()),
-                    ))
-                    .await;
+                let results = futures::future::join_all(clients.iter().zip(&requests).map(
+                    |(c, (request, drops))| c.update_schema(request.clone(), drops.clone(), None),
+                ))
+                .await;
                 let fetched = client.collections().get(&name).await.unwrap();
                 println!(
                     "{step}: race of {}: {:?}",
@@ -2951,7 +2969,7 @@ async fn test_a_read_waits_for_an_ssn_about_to_commit(ctx: &mut ProjectTestConte
 
     let reader = ctx.client.collection(&name);
     let read = reader.count(None, Some(collection.ssn + 1), None);
-    let update = reader.update_schema(schema!("summary" => FieldSpec::text(false)), vec![]);
+    let update = reader.update_schema(schema!("summary" => FieldSpec::text(false)), vec![], None);
     let (count, updated) = tokio::join!(read, update);
     let updated = updated.expect("loosen");
     assert_eq!(updated.ssn, collection.ssn + 1);

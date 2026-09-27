@@ -50,6 +50,7 @@ impl From<RustError> for PyErr {
             topk_rs::Error::SsnUnavailable(e) => SsnUnavailableError::new_err(e),
             topk_rs::Error::IndexMissing(e) => IndexMissingError::new_err(e),
             topk_rs::Error::SchemaPaused(e) => SchemaPausedError::new_err(e),
+            topk_rs::Error::SchemaConflict(e) => SchemaConflictError::new_err(e),
             topk_rs::Error::FailedPrecondition(e) => FailedPreconditionError::new_err(e),
             // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
@@ -75,6 +76,7 @@ create_exception!(error, IndexBuildingError, FailedPreconditionError);
 create_exception!(error, SsnUnavailableError, FailedPreconditionError);
 create_exception!(error, IndexMissingError, FailedPreconditionError);
 create_exception!(error, SchemaPausedError, SlowDownError);
+create_exception!(error, SchemaConflictError, FailedPreconditionError);
 
 ////////////////////////////////////////////////////////////
 /// Error
@@ -165,6 +167,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("IndexMissingError", m.py().get_type::<IndexMissingError>())?;
 
     m.add("SchemaPausedError", m.py().get_type::<SchemaPausedError>())?;
+    m.add("SchemaConflictError", m.py().get_type::<SchemaConflictError>())?;
 
     Ok(())
 }

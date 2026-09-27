@@ -87,3 +87,8 @@ class SchemaPausedError(SlowDownError):
     """
     Raised when writes stay paused by a schema update past the retry window.
     """
+
+class SchemaConflictError(FailedPreconditionError):
+    """
+    Raised when a schema update conflicts with the expected version or another update.
+    """

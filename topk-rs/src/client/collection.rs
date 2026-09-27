@@ -20,8 +20,8 @@ use crate::proto::v1::data::ListPartitionsRequest;
 use crate::proto::v1::data::Partition;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
-use crate::proto::v1::data::UpdateCollectionRequest;
 use crate::proto::v1::data::UpdateDocumentsRequest;
+use crate::proto::v1::data::UpdateSchemaRequest;
 use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
@@ -327,6 +327,7 @@ impl CollectionClient {
         &self,
         set_fields: impl Into<HashMap<String, FieldSpec>>,
         drop_fields: Vec<String>,
+        expected_ssn: Option<u32>,
     ) -> Result<Collection, Error> {
         let client = create_client!(WriteServiceClient, self.write, self.config).await?;
         let set_fields = set_fields.into();
@@ -336,9 +337,10 @@ impl CollectionClient {
             let drop_fields = drop_fields.clone();
             async move {
                 client
-                    .update_collection(UpdateCollectionRequest {
+                    .update_schema(UpdateSchemaRequest {
                         set_fields,
                         drop_fields,
+                        expected_ssn,
                     })
                     .await
                     .map_err(|e| match e.code() {

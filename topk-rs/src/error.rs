@@ -86,6 +86,9 @@ pub enum Error {
     #[error("schema update in progress: {0}")]
     SchemaPaused(String),
 
+    #[error("schema conflict: {0}")]
+    SchemaConflict(String),
+
     #[error("index missing: {0}")]
     IndexMissing(String),
 
@@ -150,6 +153,7 @@ impl Error {
             Error::DeadlineExceeded(_) => false,
             Error::Unauthenticated(_) => false,
             Error::FailedPrecondition(_) => false,
+            Error::SchemaConflict(_) => false,
             Error::IndexMissing(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
@@ -211,6 +215,7 @@ impl From<Status> for Error {
                 CustomErrorCode::IndexBuilding => Error::IndexBuilding(error.message),
                 CustomErrorCode::SsnUnavailable => Error::SsnUnavailable(error.message),
                 CustomErrorCode::SchemaPaused => Error::SchemaPaused(error.message),
+                CustomErrorCode::SchemaConflict => Error::SchemaConflict(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
                 CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
@@ -518,6 +523,7 @@ pub enum CustomErrorCode {
     IndexBuilding,
     SsnUnavailable,
     SchemaPaused,
+    SchemaConflict,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -531,6 +537,7 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::IndexBuilding => 1413,
             CustomErrorCode::SsnUnavailable => 1414,
             CustomErrorCode::SchemaPaused => 1415,
+            CustomErrorCode::SchemaConflict => 1416,
         }
     }
 }
@@ -548,6 +555,7 @@ impl TryFrom<u32> for CustomErrorCode {
             1413 => Ok(CustomErrorCode::IndexBuilding),
             1414 => Ok(CustomErrorCode::SsnUnavailable),
             1415 => Ok(CustomErrorCode::SchemaPaused),
+            1416 => Ok(CustomErrorCode::SchemaConflict),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -566,6 +574,7 @@ impl From<CustomError> for Status {
             CustomErrorCode::IndexBuilding => Status::failed_precondition(error.message),
             CustomErrorCode::SsnUnavailable => Status::failed_precondition(error.message),
             CustomErrorCode::SchemaPaused => Status::unavailable(error.message),
+            CustomErrorCode::SchemaConflict => Status::aborted(error.message),
         };
 
         let error_code: u32 = error.code.into();

@@ -171,12 +171,13 @@ impl CollectionClient {
             .map_err(RustError)?)
     }
 
-    #[pyo3(signature = (schema, drop_fields=vec![]))]
+    #[pyo3(signature = (schema, drop_fields=vec![], expected_ssn=None))]
     pub fn update_schema(
         &self,
         py: Python<'_>,
         schema: HashMap<String, SchemaFieldSpec>,
         drop_fields: Vec<String>,
+        expected_ssn: Option<u32>,
     ) -> PyResult<Collection> {
         let schema = Schema(schema.into_iter().map(|(k, v)| (k, v.0)).collect());
 
@@ -186,7 +187,7 @@ impl CollectionClient {
                 py,
                 self.client
                     .collection(&self.collection)
-                    .update_schema(schema, drop_fields),
+                    .update_schema(schema, drop_fields, expected_ssn),
             )
             .map_err(RustError)?;
 

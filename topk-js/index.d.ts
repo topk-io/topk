@@ -64,7 +64,7 @@ export declare class CollectionClient {
    */
   delete(expr: Array<string> | query.LogicalExpression): Promise<string>
   /** Adds, replaces or undeclares fields of the collection schema. */
-  updateSchema(schema: Record<string, SchemaFieldSpec>, dropFields?: Array<string> | undefined | null): Promise<Collection>
+  updateSchema(schema: Record<string, SchemaFieldSpec>, dropFields?: Array<string> | undefined | null, expectedSsn?: number | undefined | null): Promise<Collection>
   /** List partitions in the collection as an async iterator. */
   listPartitions(prefix?: string | undefined | null): PartitionListStream
   /** Delete a partition and all documents within it. */

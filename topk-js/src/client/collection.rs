@@ -248,6 +248,7 @@ impl CollectionClient {
         &self,
         #[napi(ts_arg_type = "Record<string, SchemaFieldSpec>")] schema: HashMap<String, FieldSpec>,
         drop_fields: Option<Vec<String>>,
+        expected_ssn: Option<u32>,
     ) -> Result<Collection> {
         let proto_schema: HashMap<String, topk_rs::proto::v1::control::FieldSpec> = schema
             .into_iter()
@@ -257,7 +258,7 @@ impl CollectionClient {
         let collection = self
             .client
             .collection(&self.collection)
-            .update_schema(proto_schema, drop_fields.unwrap_or_default())
+            .update_schema(proto_schema, drop_fields.unwrap_or_default(), expected_ssn)
             .await
             .map_err(TopkError::from)?;
 
