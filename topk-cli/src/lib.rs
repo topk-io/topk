@@ -8,6 +8,7 @@ pub mod host;
 pub mod import;
 pub mod management;
 pub mod output;
+pub mod pager;
 pub mod util;
 
 use std::fmt;
