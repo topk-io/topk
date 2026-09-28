@@ -6,7 +6,6 @@ use colored::Colorize;
 
 use crate::auth::Auth;
 use crate::config::Config;
-use crate::endpoint::ManagementEndpoint;
 
 // Registered Auth0 loopback callback ports.
 const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
@@ -19,13 +18,10 @@ pub struct LoginArgs {
 
     #[arg(long = "auth-callback-ports", env = "TOPK_AUTH_CALLBACK_PORTS", value_delimiter = ',', default_values_t = AUTH_CALLBACK_PORTS, hide = true)]
     pub callback_ports: Vec<u16>,
-
-    #[command(flatten)]
-    pub mgmt: ManagementEndpoint,
 }
 
-pub async fn run(args: &LoginArgs) -> Result<ExitCode> {
-    let auth = Auth::new(Config::new(args.mgmt.oauth.clone(), Config::dir()?))?;
+pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
+    let auth = Auth::new(config)?;
     let login = auth.login(&args.callback_ports).await?;
     if args.no_browser {
         eprintln!(

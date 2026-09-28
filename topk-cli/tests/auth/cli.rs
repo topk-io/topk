@@ -8,10 +8,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::time::{timeout, Duration};
 use url::Url;
 
-use topk::data::DataClient;
+use topk::auth::OAuthConfig;
+use topk::client::DataClient;
+use topk::config::Config;
 use topk::endpoint::DataEndpoint;
 
-use super::common::tenant_dir;
+use super::common::{host, tenant_dir};
 
 const AUTH_ISSUER: &str = "https://auth.example.test/";
 
@@ -215,6 +217,16 @@ async fn endpoint_selects_api_key_or_project_authentication() {
         DataEndpoint::from_arg_matches(&matches)
     };
     let parse = |args: &[&str]| try_parse(args).unwrap();
+    let dir = TempDir::new().unwrap();
+    let config = Config::new(
+        host(),
+        OAuthConfig {
+            issuer: Url::parse(AUTH_ISSUER).unwrap(),
+            client_id: "test-client".into(),
+            audience: "https://api.test".into(),
+        },
+        dir.path().to_owned(),
+    );
     assert!(try_parse(&[
         "test",
         "--region",
@@ -228,21 +240,30 @@ async fn endpoint_selects_api_key_or_project_authentication() {
     .unwrap()
     .to_string()
     .contains("cannot be used with"));
-    let client = DataClient::new(parse(&["test", "--region", "test", "--api-key", "key"])).unwrap();
+    let client = DataClient::new(
+        &config,
+        parse(&["test", "--region", "test", "--api-key", "key"]),
+    )
+    .unwrap();
     assert_eq!(client.config().headers()["authorization"], "Bearer key");
-    let client =
-        DataClient::new(parse(&["test", "--region", "test", "--project-id", "p1"])).unwrap();
+    let client = DataClient::new(
+        &config,
+        parse(&["test", "--region", "test", "--project-id", "p1"]),
+    )
+    .unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
-    assert!(DataClient::new(parse(&["test", "--region", "test"]))
-        .err()
-        .unwrap()
-        .to_string()
-        .contains("--api-key (or set TOPK_API_KEY) or --project-id is required"));
+    assert!(
+        DataClient::new(&config, parse(&["test", "--region", "test"]))
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("--api-key (or set TOPK_API_KEY) or --project-id is required")
+    );
 }
 
 #[test]
-fn logout_clears_project_tokens() {
+fn logout_clears_access_tokens() {
     let dir = TempDir::new().unwrap();
     let tokens = tenant_path(&dir).join("projects").join("tokens");
     std::fs::create_dir_all(&tokens).unwrap();
@@ -251,7 +272,7 @@ fn logout_clears_project_tokens() {
         "account credentials",
     )
     .unwrap();
-    std::fs::write(tokens.join("p1.toml"), "project token").unwrap();
+    std::fs::write(tokens.join("p1.toml"), "access token").unwrap();
     let result = command(&dir).arg("logout").output().unwrap();
     assert!(
         result.status.success(),

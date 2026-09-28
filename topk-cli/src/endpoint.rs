@@ -2,33 +2,7 @@ use std::fmt;
 
 use clap::builder::NonEmptyStringValueParser;
 
-use crate::auth::OAuthConfig;
 use crate::ProjectId;
-
-#[derive(clap::Args, Clone, Debug)]
-pub struct Host {
-    /// API domain
-    #[arg(
-        long,
-        env = "TOPK_HOST",
-        default_value = "topk.io",
-        global = true,
-        hide = true
-    )]
-    pub host: String,
-
-    /// Connect over HTTPS (default: true; --https false for a plaintext endpoint)
-    #[arg(
-        long,
-        env = "TOPK_HTTPS",
-        default_value = "true",
-        num_args = 0..=1,
-        default_missing_value = "true",
-        global = true,
-        hide = true
-    )]
-    pub https: bool,
-}
 
 #[derive(clap::Args, Clone)]
 pub struct DataEndpoint {
@@ -61,12 +35,6 @@ pub struct DataEndpoint {
         help_heading = "Connection options"
     )]
     pub region: Option<String>,
-
-    #[command(flatten)]
-    pub host: Host,
-
-    #[command(flatten)]
-    pub oauth: OAuthConfig,
 }
 
 impl fmt::Debug for DataEndpoint {
@@ -75,17 +43,6 @@ impl fmt::Debug for DataEndpoint {
             .field("api_key", &self.api_key.as_ref().map(|_| "***"))
             .field("project_id", &self.project_id)
             .field("region", &self.region)
-            .field("host", &self.host)
-            .field("oauth", &self.oauth)
             .finish()
     }
-}
-
-#[derive(clap::Args, Clone, Debug)]
-pub struct ManagementEndpoint {
-    #[command(flatten)]
-    pub host: Host,
-
-    #[command(flatten)]
-    pub oauth: OAuthConfig,
 }

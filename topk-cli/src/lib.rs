@@ -1,8 +1,9 @@
 pub mod auth;
+pub mod client;
 pub mod commands;
 pub mod config;
-pub mod data;
 pub mod endpoint;
+pub mod host;
 #[cfg(feature = "import")]
 pub mod import;
 pub mod management;

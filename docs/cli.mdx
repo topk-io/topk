@@ -232,7 +232,7 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 | files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
-| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's API key or project token |
+| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's API key or access token |
 
 #### Spec
 

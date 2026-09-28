@@ -9,13 +9,13 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::{Endpoint, Server};
 use tonic::{Code, Request, Response, Status};
 
+use topk::client::ManagementClient;
 use topk::management::proto::collection_service_server::{
     CollectionService, CollectionServiceServer,
 };
 use topk::management::proto::project_service_server::{ProjectService, ProjectServiceServer};
 use topk::management::proto::region_service_server::{RegionService, RegionServiceServer};
 use topk::management::proto::*;
-use topk::management::Client;
 use topk_rs::proto::v1::control::FieldSpec;
 
 use super::common::{response, seed, Server as OAuthServer};
@@ -138,7 +138,7 @@ impl RegionService for Services {
 struct Fixture {
     oauth: OAuthServer,
     dir: TempDir,
-    client: Client,
+    client: ManagementClient,
     requests: mpsc::UnboundedReceiver<(String, String)>,
     _shutdown: oneshot::Sender<()>,
 }
@@ -166,7 +166,7 @@ impl Fixture {
                 .await
                 .unwrap();
         });
-        let client = Client::connect(endpoint, oauth.auth(dir.path()));
+        let client = ManagementClient::connect(endpoint, oauth.auth(dir.path()));
         Self {
             oauth,
             dir,

@@ -43,8 +43,8 @@ impl<'a> Login<'a> {
                     .exchange_code(self.authorization, code)
                     .await?;
                 self.auth.config.session().await?.save(session)?;
-                // Clear cached project tokens
-                self.auth.config.project_tokens().clear()?;
+                // Clear cached access tokens
+                self.auth.config.access_tokens().clear()?;
                 Ok(claims)
             },
         )

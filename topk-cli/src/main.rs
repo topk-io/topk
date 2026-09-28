@@ -1,8 +1,13 @@
 use std::process::ExitCode;
 
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
+
+use topk::auth::OAuthConfig;
+use topk::config::Config;
+use topk::host::Host;
+use topk::output::Output;
 
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
@@ -28,13 +33,12 @@ struct Cli {
         help_heading = "Global options"
     )]
     output: Output,
-}
 
-/// `json` puts results on stdout as JSON; stderr chatter is the same either way.
-#[derive(Clone, Copy, PartialEq, ValueEnum)]
-enum Output {
-    Text,
-    Json,
+    #[command(flatten)]
+    host: Host,
+
+    #[command(flatten)]
+    oauth: OAuthConfig,
 }
 
 #[derive(Subcommand)]
@@ -93,23 +97,20 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
+    let config = Config::new(cli.host.clone(), cli.oauth.clone(), Config::dir()?);
     match &cli.command {
         Some(Commands::Project(args)) => {
-            topk::commands::project::run(args, cli.output == Output::Json, &mut std::io::stdout())
-                .await
+            topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
         }
         Some(Commands::Region(args)) => {
-            topk::commands::region::run(args, cli.output == Output::Json, &mut std::io::stdout())
-                .await
+            topk::commands::region::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
-        Some(Commands::Login(args)) => topk::commands::login::run(args).await,
-        Some(Commands::Logout(args)) => topk::commands::logout::run(args).await,
+        Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
+        Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,
 
         #[cfg(feature = "import")]
-        Some(Commands::Import(args)) => {
-            topk::commands::import::run(args, cli.output == Output::Json).await
-        }
+        Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,
 
         Some(Commands::Completions { shell }) => {
             generate(*shell, &mut Cli::command(), "topk", &mut std::io::stdout());

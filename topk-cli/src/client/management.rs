@@ -2,31 +2,30 @@ use anyhow::Result;
 use tonic::transport::{ClientTlsConfig, Endpoint};
 
 use crate::auth::Auth;
+use crate::client::transport::Transport;
 use crate::config::Config;
-use crate::endpoint::{Host, ManagementEndpoint};
+use crate::host::Host;
 use crate::management::proto::collection_service_client::CollectionServiceClient;
 use crate::management::proto::data_plane_service_client::DataPlaneServiceClient;
 use crate::management::proto::project_service_client::ProjectServiceClient;
 use crate::management::proto::region_service_client::RegionServiceClient;
-use crate::management::Transport;
 
 #[derive(Clone)]
-pub struct Client {
+pub struct ManagementClient {
     pub projects: ProjectServiceClient<Transport>,
     pub collections: CollectionServiceClient<Transport>,
     pub regions: RegionServiceClient<Transport>,
     pub tokens: DataPlaneServiceClient<Transport>,
 }
 
-impl Client {
-    pub fn new(endpoint: ManagementEndpoint) -> Result<Self> {
-        let Host { host, https } = &endpoint.host;
+impl ManagementClient {
+    pub fn new(config: Config) -> Result<Self> {
+        let Host { host, https } = config.host();
         let protocol = if *https { "https" } else { "http" };
         let mut grpc = Endpoint::from_shared(format!("{protocol}://api.{host}"))?;
         if *https {
             grpc = grpc.tls_config(ClientTlsConfig::new().with_native_roots())?;
         }
-        let config = Config::new(endpoint.oauth, Config::dir()?);
         Ok(Self::connect(grpc, Auth::new(config)?))
     }
 

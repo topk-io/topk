@@ -17,6 +17,14 @@ use url::Url;
 
 use topk::auth::{Auth, OAuthConfig};
 use topk::config::Config;
+use topk::host::Host;
+
+pub fn host() -> Host {
+    Host {
+        host: "topk.test".into(),
+        https: true,
+    }
+}
 
 pub struct AuthTestContext {
     pub dir: TempDir,
@@ -90,7 +98,7 @@ impl Server {
     }
 
     pub fn auth(&self, config_dir: &Path) -> Auth {
-        Auth::new(Config::new(self.config(), config_dir.to_owned())).unwrap()
+        Auth::new(Config::new(host(), self.config(), config_dir.to_owned())).unwrap()
     }
 
     pub async fn reply(&self, status: u16, body: Value) {

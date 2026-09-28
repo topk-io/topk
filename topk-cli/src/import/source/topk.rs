@@ -6,7 +6,8 @@ use wildmatch::WildMatch;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
 
-use crate::data::DataClient;
+use crate::client::DataClient;
+use crate::config::Config;
 use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::source::Record;
@@ -71,7 +72,7 @@ pub struct Topk {
 
 impl Topk {
     /// The uri names the region and may carry its own key; the host is the run's.
-    pub fn connect(uri: &Uri, endpoint: &DataEndpoint) -> Result<Topk, Error> {
+    pub fn connect(uri: &Uri, config: &Config, endpoint: &DataEndpoint) -> Result<Topk, Error> {
         let endpoint = DataEndpoint {
             // A key in the uri replaces the run's credentials, including `--project-id`.
             project_id: match uri.api_key {
@@ -80,10 +81,10 @@ impl Topk {
             },
             api_key: uri.api_key.clone().or_else(|| endpoint.api_key.clone()),
             region: Some(uri.region.clone()),
-            ..endpoint.clone()
         };
         Ok(Topk {
-            client: DataClient::new(endpoint).map_err(|e| Error::InvalidArgument(e.to_string()))?,
+            client: DataClient::new(config, endpoint)
+                .map_err(|e| Error::InvalidArgument(e.to_string()))?,
             collection: uri.collection.clone(),
         })
     }

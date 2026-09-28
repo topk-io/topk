@@ -10,11 +10,13 @@ use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use tokio::sync::Semaphore;
 
-use crate::data::DataClient;
+use crate::client::DataClient;
+use crate::config::Config;
 use crate::endpoint::DataEndpoint;
 use crate::import::{
     self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
+use crate::output::Output;
 
 const OBJECT_CONCURRENCY: usize = 8;
 
@@ -107,7 +109,12 @@ pub struct ImportArgs {
     pub data: DataEndpoint,
 }
 
-async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result<Spec, Error> {
+async fn plan(
+    source: &Source,
+    args: &ImportArgs,
+    config: &Config,
+    given: Option<Spec>,
+) -> Result<Spec, Error> {
     // Discovery reads the CLI source's catalog; a spec brings its own collections
     // but reuses that catalog when a source was named.
     let (mut spec, shared) = match given {
@@ -134,7 +141,7 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => file_catalogs(&spec, &args.data).await?,
+        None => file_catalogs(&spec, config, &args.data).await?,
     };
     import::validate_columns(&catalog, &spec)?;
     // A filter names one object's columns.
@@ -161,11 +168,15 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
 
 /// Columns for a bare `-f` spec, where each collection's `from` is its own file
 /// locator. A `from` reached through a sampled source contributes nothing.
-async fn file_catalogs(spec: &Spec, endpoint: &DataEndpoint) -> Result<Vec<import::Table>, Error> {
+async fn file_catalogs(
+    spec: &Spec,
+    config: &Config,
+    endpoint: &DataEndpoint,
+) -> Result<Vec<import::Table>, Error> {
     let mut tables = Vec::new();
     for target in spec.collections.values() {
         let uri: Uri = target.from.parse()?;
-        let source = Source::connect(&uri, endpoint).await?;
+        let source = Source::connect(&uri, config, endpoint).await?;
         if source.columns_are_exhaustive() {
             tables.extend(source.catalog().await?);
         }
@@ -200,8 +211,8 @@ fn human(elapsed: Duration) -> String {
     }
 }
 
-fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCode, Error> {
-    if json {
+fn report(outcomes: &BTreeMap<String, LoadOutcome>, output: Output) -> Result<ExitCode, Error> {
+    if output == Output::Json {
         println!("{}", serde_json::to_string(outcomes)?);
     } else {
         for (name, outcome) in outcomes {
@@ -221,7 +232,7 @@ fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCo
     })
 }
 
-pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
+pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::Result<ExitCode> {
     tracing::info!(?args, "import");
     let resumed = args.resume.as_deref().map(State::load).transpose()?;
     // Credentials never enter a spec: the CLI uri is the source, or every `from`
@@ -237,8 +248,8 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         (None, Some(state)) => Some(toml::from_str(&state.spec)?),
         (None, None) => None,
     };
-    let source = Source::connect(&uri, &args.data).await?;
-    let mut spec = plan(&source, args, given).await?;
+    let source = Source::connect(&uri, &config, &args.data).await?;
+    let mut spec = plan(&source, args, &config, given).await?;
 
     let source_name = uri.to_string();
     // Stored for --resume, and compared per collection against an edited -f.
@@ -290,7 +301,7 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         .iter()
         .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
         .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = DataClient::new(args.data.clone())?;
+    let client = DataClient::new(&config, args.data.clone())?;
     let mut pending = import::absent(&client, &spec).await?;
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
     // for the next run's schema to collide with.
@@ -310,11 +321,11 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let progress = match json {
-        false => MultiProgress::new(),
-        true => MultiProgress::with_draw_target(ProgressDrawTarget::hidden()),
+    let progress = match output {
+        Output::Text => MultiProgress::new(),
+        Output::Json => MultiProgress::with_draw_target(ProgressDrawTarget::hidden()),
     };
-    if !json {
+    if output == Output::Text {
         import::set_progress(progress.clone());
     }
     // An unwritable config dir costs the ability to resume, not the import.
@@ -360,5 +371,5 @@ pub async fn run(args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
     };
     let outcomes = outcomes.inspect_err(|_| resume_hint())?;
     State::remove(&run);
-    Ok(report(&outcomes, json)?)
+    Ok(report(&outcomes, output)?)
 }

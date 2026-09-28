@@ -14,6 +14,7 @@ use tonic::transport::{Endpoint, Server};
 use tonic::{Request, Response, Status};
 
 use topk::auth::{Auth, OAuthConfig};
+use topk::client::{AccessTokenInterceptor, ManagementClient};
 use topk::config::Config;
 use topk::management::proto::data_plane_service_server::{
     DataPlaneService, DataPlaneServiceServer,
@@ -22,7 +23,6 @@ use topk::management::proto::region_service_server::{RegionService, RegionServic
 use topk::management::proto::{
     ListRegionsRequest, ListRegionsResponse, MintAccessTokenRequest, MintAccessTokenResponse,
 };
-use topk::management::{Client as ManagementClient, ProjectToken};
 use topk::ProjectId;
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
 use topk_rs::proto::v1::data::{
@@ -31,18 +31,18 @@ use topk_rs::proto::v1::data::{
 };
 use topk_rs::{doc, Client, ClientConfig, Error};
 
-use super::common::{response, seed, tenant_dir, Server as OAuthServer};
+use super::common::{host, response, seed, tenant_dir, Server as OAuthServer};
 
 type Reply = Result<MintAccessTokenResponse, Status>;
 
-fn project_token(
+fn access_token(
     endpoint: Endpoint,
     config: &OAuthConfig,
     config_dir: &Path,
     project: &str,
-) -> Arc<ProjectToken> {
-    let config = Config::new(config.clone(), config_dir.to_owned());
-    Arc::new(ProjectToken::new(
+) -> Arc<AccessTokenInterceptor> {
+    let config = Config::new(host(), config.clone(), config_dir.to_owned());
+    Arc::new(AccessTokenInterceptor::new(
         ManagementClient::connect(endpoint, Auth::new(config.clone()).unwrap()),
         config,
         project.parse().unwrap(),
@@ -194,8 +194,8 @@ impl Fixture {
         self.oauth.request().await;
     }
 
-    fn provider(&self, project: &str) -> Arc<ProjectToken> {
-        project_token(
+    fn provider(&self, project: &str) -> Arc<AccessTokenInterceptor> {
+        access_token(
             self.endpoint.clone(),
             &self.oauth.config(),
             self.dir.path(),
@@ -310,7 +310,7 @@ async fn mint_child() {
         client_id: "test-client".into(),
         audience: "https://api.test".into(),
     };
-    let provider = project_token(
+    let provider = access_token(
         Endpoint::from_shared(std::env::var("TOPK_TEST_TOKEN_ENDPOINT").unwrap()).unwrap(),
         &config,
         Path::new(&dir),
@@ -328,7 +328,7 @@ async fn processes_share_one_mint() {
     for _ in 0..3 {
         children.push(
             tokio::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "project_token::mint_child"])
+                .args(["--exact", "access_token::mint_child"])
                 .env("TOPK_TEST_TOKEN_DIR", ctx.dir.path())
                 .env("TOPK_TEST_TOKEN_ISSUER", ctx.oauth.url.as_str())
                 .env("TOPK_TEST_TOKEN_ENDPOINT", ctx.endpoint.uri().to_string())
@@ -412,7 +412,7 @@ async fn cached_token_needs_no_account_but_renewal_uses_current_login() {
     assert_eq!(provider.token().await.unwrap().token, "cached");
     ctx.oauth.request().await;
     ctx.request("p1").await;
-    // A rejected refresh removes the account session but keeps project tokens.
+    // A rejected refresh removes the account session but keeps access tokens.
     ctx.oauth
         .reply(400, serde_json::json!({"error": "invalid_grant"}))
         .await;
@@ -476,7 +476,7 @@ async fn cancellation_releases_project_lock() {
 }
 
 #[tokio::test]
-async fn corrupt_project_token_is_repaired_once() {
+async fn corrupt_access_token_is_repaired_once() {
     let mut ctx = Fixture::new().await;
     ctx.login(3600).await;
     let path = ctx.token_path("p1");
@@ -524,7 +524,7 @@ async fn failed_mint_stops_upsert_without_retrying() {
 }
 
 #[tokio::test]
-async fn clear_removes_project_tokens_and_preserves_lock_files() {
+async fn clear_removes_access_tokens_and_preserves_lock_files() {
     let mut ctx = Fixture::new().await;
     ctx.login(3600).await;
     for project in ["p1", "p2"] {
@@ -535,9 +535,9 @@ async fn clear_removes_project_tokens_and_preserves_lock_files() {
     let lock_path = ctx.lock_path("p1");
     let lock = std::fs::File::open(&lock_path).unwrap();
     lock.lock().unwrap();
-    let config = Config::new(ctx.oauth.config(), ctx.dir.path().to_owned());
+    let config = Config::new(host(), ctx.oauth.config(), ctx.dir.path().to_owned());
     for _ in 0..2 {
-        config.project_tokens().clear().unwrap();
+        config.access_tokens().clear().unwrap();
     }
     for project in ["p1", "p2"] {
         assert!(!ctx.token_path(project).exists());

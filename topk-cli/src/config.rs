@@ -1,4 +1,5 @@
-//! The CLI's configuration directory: the login session, and the project tokens minted with it.
+//! The CLI's configuration: which API to talk to, the login session, and the
+//! access tokens minted with it.
 
 #[cfg(unix)]
 use std::fs::Permissions;
@@ -16,7 +17,8 @@ use tokio::time::{sleep, timeout};
 use toml::Table;
 
 use crate::auth::{OAuthConfig, Session};
-use crate::management::ProjectAccessToken;
+use crate::client::AccessToken;
+use crate::host::Host;
 
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -24,12 +26,13 @@ const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
 #[derive(Clone)]
 pub struct Config {
     dir: PathBuf,
+    host: Host,
     oauth: OAuthConfig,
 }
 
 impl Config {
-    pub fn new(oauth: OAuthConfig, dir: PathBuf) -> Self {
-        Self { oauth, dir }
+    pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
+        Self { dir, host, oauth }
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -39,8 +42,8 @@ impl Config {
         })
     }
 
-    pub fn project_tokens(&self) -> ProjectTokens {
-        ProjectTokens {
+    pub fn access_tokens(&self) -> AccessTokens {
+        AccessTokens {
             dir: self.tenant_dir().join("projects"),
         }
     }
@@ -50,6 +53,10 @@ impl Config {
             .map(PathBuf::from)
             .or_else(|| dirs::config_dir().map(|d| d.join("topk")))
             .context("no config directory")
+    }
+
+    pub fn host(&self) -> &Host {
+        &self.host
     }
 
     pub fn oauth(&self) -> &OAuthConfig {
@@ -110,30 +117,30 @@ impl LockedSession<'_> {
     }
 }
 
-/// The project access tokens minted with this session, cached per project.
-pub struct ProjectTokens {
+/// The access tokens minted with this session, cached per project.
+pub struct AccessTokens {
     dir: PathBuf,
 }
 
-impl ProjectTokens {
+impl AccessTokens {
     /// The project's cached token; a missing or corrupt file reads as `None`.
-    pub fn load(&self, project_id: &str) -> Result<Option<ProjectAccessToken>> {
+    pub fn load(&self, project_id: &str) -> Result<Option<AccessToken>> {
         Ok(read(&self.token_file(project_id))?.and_then(|raw| toml::from_str(&raw).ok()))
     }
 
-    /// Wait for the project token lock.
+    /// Wait for the project's token lock.
     pub async fn lock(&self, project_id: &str) -> Result<File> {
         lock(self.lock_file(project_id)).await
     }
 
-    pub fn save(&self, project_id: &str, token: &ProjectAccessToken) -> Result<()> {
+    pub fn save(&self, project_id: &str, token: &AccessToken) -> Result<()> {
         write_toml(&self.token_file(project_id), token)
     }
 
     pub fn clear(&self) -> Result<()> {
         match std::fs::remove_dir_all(self.tokens_dir()) {
             Err(error) if error.kind() != ErrorKind::NotFound => {
-                Err(error).context("clearing project token cache")
+                Err(error).context("clearing access token cache")
             }
             _ => Ok(()),
         }

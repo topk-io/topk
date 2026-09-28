@@ -7,12 +7,10 @@ use crate::config::Config;
 mod callback;
 mod login;
 mod oauth;
-mod oauth_config;
 mod session;
 
 pub use crate::auth::login::Login;
-pub use crate::auth::oauth::AccessTokenClaims;
-pub use crate::auth::oauth_config::OAuthConfig;
+pub use crate::auth::oauth::{AccessTokenClaims, OAuthConfig};
 pub use crate::auth::session::Session;
 
 const SESSION_EXPIRED_MSG: &str = "session expired. Run `topk login`.";
@@ -36,7 +34,7 @@ impl Auth {
 
     pub async fn logout(&self) -> Result<()> {
         self.config.session().await?.delete()?;
-        self.config.project_tokens().clear()
+        self.config.access_tokens().clear()
     }
 
     pub async fn access_token(&self) -> Result<String> {

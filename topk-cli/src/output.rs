@@ -1,9 +1,16 @@
 use std::io::Write;
 
 use anyhow::Result;
+use clap::ValueEnum;
 use comfy_table::presets::{NOTHING, UTF8_FULL};
 use comfy_table::{ContentArrangement, Table};
 use serde::Serialize;
+
+#[derive(Clone, Copy, PartialEq, ValueEnum)]
+pub enum Output {
+    Text,
+    Json,
+}
 
 pub trait Tabular: Serialize {
     /// Column labels for this resource in display order.
@@ -22,10 +29,10 @@ pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
 /// Text: a single resource prints as `label: value` rows, several print as a table
 pub fn print(
     out: &mut impl Write,
-    json: bool,
+    output: Output,
     items: impl IntoIterator<Item = impl Tabular>,
 ) -> Result<()> {
-    if json {
+    if output == Output::Json {
         for item in items {
             json_line(out, &item)?;
         }
