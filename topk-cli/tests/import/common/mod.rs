@@ -1,5 +1,8 @@
 pub mod seed;
 
+#[path = "../../common/command.rs"]
+mod command;
+
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write as _;
@@ -13,6 +16,7 @@ use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
+use command::TestCommand;
 use topk::auth::OAuthConfig;
 use topk::config::Config;
 use topk::endpoint::DataEndpoint;
@@ -111,34 +115,22 @@ pub fn state_dir() -> &'static Path {
 }
 
 pub fn run(args: &[&str], env: &[(&str, &str)]) -> Output {
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_topk"));
-    cmd.args(args);
-    cmd.env("TOPK_IMPORT_STATE_DIR", state_dir());
-    for (k, v) in env {
-        cmd.env(k, v);
-    }
-    cmd.output().expect("run topk")
+    command(args, env).output()
 }
 
 pub fn ok(args: &[&str], env: &[(&str, &str)]) -> String {
-    let out = run(args, env);
-    assert!(
-        out.status.success(),
-        "`topk {}` failed:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    String::from_utf8(out.stdout).unwrap()
+    command(args, env).ok()
 }
 
 pub fn fails(args: &[&str], env: &[(&str, &str)]) -> String {
-    let out = run(args, env);
-    assert!(
-        !out.status.success(),
-        "`topk {}` should have failed",
-        args.join(" ")
-    );
-    String::from_utf8_lossy(&out.stderr).into_owned()
+    command(args, env).fails()
+}
+
+fn command(args: &[&str], env: &[(&str, &str)]) -> TestCommand {
+    env.iter().fold(
+        TestCommand::new(args).env("TOPK_IMPORT_STATE_DIR", state_dir()),
+        |command, (key, value)| command.env(key, value),
+    )
 }
 
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
