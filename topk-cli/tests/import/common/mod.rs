@@ -13,17 +13,34 @@ use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
+use topk::auth::OAuthConfig;
+use topk::config::Config;
 use topk::endpoint::DataEndpoint;
+use topk::host::Host;
 use topk::import::{Field, Spec, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, Value};
 use topk_rs::{Client, ClientConfig};
 
-pub fn endpoint() -> DataEndpoint {
-    let matches = DataEndpoint::augment_args(Command::new("test"))
+/// A flag group's defaults, ignoring the environment.
+fn defaults<T: Args + FromArgMatches>() -> T {
+    let matches = T::augment_args(Command::new("test"))
         .mut_args(|arg| arg.env(None::<&str>))
         .get_matches_from(["test"]);
-    DataEndpoint::from_arg_matches(&matches).expect("default endpoint arguments")
+    T::from_arg_matches(&matches).expect("default arguments")
+}
+
+/// The production API and issuer; file sources never reach either.
+pub fn config() -> Config {
+    Config::new(
+        defaults::<Host>(),
+        defaults::<OAuthConfig>(),
+        std::env::temp_dir(),
+    )
+}
+
+pub fn endpoint() -> DataEndpoint {
+    defaults()
 }
 
 pub fn books() -> Vec<Document> {
@@ -127,7 +144,7 @@ pub fn fails(args: &[&str], env: &[(&str, &str)]) -> String {
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     let uri = locator.parse().expect("source uri parses");
     let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    let catalog = topk::import::Source::connect(&uri, &endpoint())
+    let catalog = topk::import::Source::connect(&uri, &config(), &endpoint())
         .await
         .expect("connect")
         .catalog()
@@ -150,7 +167,7 @@ pub async fn stream_docs_from(
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let source = topk::import::Source::connect(&uri, &endpoint()).await?;
+    let source = topk::import::Source::connect(&uri, &config(), &endpoint()).await?;
     let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = BTreeMap::new();
     while let Some(doc) = rows.next().await {

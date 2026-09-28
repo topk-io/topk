@@ -248,11 +248,14 @@ async fn partition(ctx: &mut Ctx) {
 
 #[test_context(Scratch)]
 #[tokio::test]
-async fn empty_region_reads_as_missing(ctx: &mut Scratch) {
+async fn empty_region_is_rejected(ctx: &mut Scratch) {
     let object = ctx.seed_parquet("books", books()).await;
     let spec = ctx.target_spec("empty-region", object);
     let err = fails(&["import", "-f", &spec, "--yes"], &[("TOPK_REGION", "")]);
-    assert!(err.contains("--region is required"), "got:\n{err}");
+    assert!(
+        err.contains("a value is required for '--region <REGION>'"),
+        "got:\n{err}"
+    );
 }
 
 #[test_context(Scratch)]

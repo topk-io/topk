@@ -5,18 +5,15 @@ use anyhow::Result;
 use clap::Subcommand;
 use serde::Serialize;
 
-use crate::endpoint::ManagementEndpoint;
+use crate::client::ManagementClient;
+use crate::config::Config;
 use crate::management::proto::ListRegionsRequest;
-use crate::management::Client;
-use crate::output::{print, Tabular};
+use crate::output::{print, Output, Tabular};
 
 #[derive(clap::Args)]
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
-
-    #[command(flatten)]
-    pub mgmt: ManagementEndpoint,
 }
 
 #[derive(Subcommand)]
@@ -37,11 +34,12 @@ impl Tabular for Region {
 }
 
 pub async fn run(
-    client: &mut Client,
+    config: Config,
     args: &Args,
-    json: bool,
+    output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
+    let mut client = ManagementClient::new(config)?;
     match args.command {
         Command::List => {
             let regions = client
@@ -50,7 +48,7 @@ pub async fn run(
                 .await?
                 .into_inner()
                 .regions;
-            print(out, json, regions.into_iter().map(|name| Region { name }))?;
+            print(out, output, regions.into_iter().map(|name| Region { name }))?;
         }
     }
     Ok(ExitCode::SUCCESS)

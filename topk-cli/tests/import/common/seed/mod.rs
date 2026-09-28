@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
-use super::endpoint;
+use super::{config, endpoint};
 
 #[async_trait(?Send)]
 pub trait Seed {
@@ -31,7 +31,7 @@ pub async fn discovered(target: Target, url: Option<String>) -> anyhow::Result<T
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let catalog = topk::import::Source::connect(&uri, &endpoint())
+    let catalog = topk::import::Source::connect(&uri, &config(), &endpoint())
         .await?
         .catalog()
         .await?;

@@ -5,21 +5,18 @@ use anyhow::{Context, Result};
 use clap::Subcommand;
 use serde_json::json;
 
-use crate::endpoint::ManagementEndpoint;
+use crate::client::ManagementClient;
+use crate::config::Config;
 use crate::management::proto::{
     CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
 };
-use crate::management::Client;
-use crate::output::{json_line, print, Tabular};
+use crate::output::{json_line, print, Output, Tabular};
 use crate::util::{confirm, timestamp};
 
 #[derive(clap::Args)]
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
-
-    #[command(flatten)]
-    pub mgmt: ManagementEndpoint,
 }
 
 #[derive(Subcommand)]
@@ -51,11 +48,12 @@ impl Tabular for Project {
 }
 
 pub async fn run(
-    client: &mut Client,
+    config: Config,
     args: &Args,
-    json: bool,
+    output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
+    let mut client = ManagementClient::new(config)?;
     match &args.command {
         Command::List => {
             let projects = client
@@ -64,7 +62,7 @@ pub async fn run(
                 .await?
                 .into_inner()
                 .projects;
-            print(out, json, projects)?;
+            print(out, output, projects)?;
         }
         Command::Get { project_id } => {
             let project = client
@@ -76,7 +74,7 @@ pub async fn run(
                 .into_inner()
                 .project
                 .context("management API returned no project")?;
-            print(out, json, [project])?;
+            print(out, output, [project])?;
         }
         Command::Create { name } => {
             let project = client
@@ -86,7 +84,7 @@ pub async fn run(
                 .into_inner()
                 .project
                 .context("management API returned no project")?;
-            print(out, json, [project])?;
+            print(out, output, [project])?;
         }
         Command::Delete { project_id, yes } => {
             if confirm(format!("Delete project {project_id:?}?"), *yes)
@@ -98,7 +96,7 @@ pub async fn run(
                         project_id: project_id.clone(),
                     })
                     .await?;
-                if json {
+                if output == Output::Json {
                     json_line(out, &json!({"deleted": true}))?;
                 }
             }
