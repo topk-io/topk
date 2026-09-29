@@ -4,7 +4,7 @@ mod management;
 mod sql;
 mod transport;
 
-pub use access_token::{AccessToken, AccessTokenInterceptor};
+pub use access_token::{AccessToken, AccessTokenInterceptor, AccessTokenProvider};
 pub use data::DataClient;
 pub use management::ManagementClient;
 pub use sql::SqlClient;

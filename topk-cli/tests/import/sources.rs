@@ -46,7 +46,9 @@ async fn roundtrip(ctx: &mut Ctx, #[case] backend: Box<dyn Seed>) {
             ..object
         },
     );
-    ok(&import_args(url.as_deref(), &spec, &["--yes"]), &[]);
+    topk()
+        .args(import_args(url.as_deref(), &spec, &["--yes"]))
+        .ok();
     let got = ctx.get(&collection, &["mockingbird", "pride"]).await;
     assert_eq!(
         field(&got["mockingbird"], "title"),
@@ -66,7 +68,10 @@ async fn a_bare_scheme_connects_from_the_environment(
     #[case] env: Vec<(&str, &str)>,
 ) {
     let (object, _) = seeded_books(&*backend).await;
-    let out = ok(&["import", scheme, &object.from, "--dry-run"], &env);
+    let out = topk()
+        .args(["import", scheme, &object.from, "--dry-run"])
+        .envs(&env)
+        .ok();
     assert!(
         out.contains(&object.from),
         "bare {scheme} didn't discover {}:\n{out}",

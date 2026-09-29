@@ -74,7 +74,6 @@ fn agent_mode() -> bool {
 
 fn main() -> ExitCode {
     // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
-    // A pager (`topk::pager`) ignores it again while it runs, to end the output quietly.
     #[cfg(unix)]
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL)

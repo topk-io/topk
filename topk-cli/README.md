@@ -116,10 +116,9 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 
 | argument | description |
 | --- | --- |
-| `[QUERY]` | SQL to run; required unless `--file` is given |
+| `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
 | `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
 | `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
-| `--idle-timeout <SECONDS>` | Maximum wait for the next SQL result (default `60`); `0` disables it. Time spent paging is excluded |
 | `--project-id <PROJECT_ID>` | Project to access with your login; required unless using an API key |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
@@ -144,15 +143,27 @@ See the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) for com
 
 ```bash
 topk sql -f queries.sql --project-id <project-id> --region aws-us-east-1-elastica
-echo "SELECT COUNT(*) FROM books" | topk sql -f - --project-id <project-id> --region aws-us-east-1-elastica
+echo "SELECT COUNT(*) FROM books" | topk sql - --project-id <project-id> --region aws-us-east-1-elastica
 ```
 
 > [!TIP]
 > Run multiple SQL statements in one call by separating them with `;`. Statements in one call can't depend on each other: run `CREATE TABLE` in its own call before inserting into the new table.
 
+#### Inspect tables
+
+psql-style commands list and describe tables:
+
+```bash
+topk sql '\dt' --project-id <project-id> --region aws-us-east-1-elastica          # all tables
+topk sql '\dt books*' --project-id <project-id> --region aws-us-east-1-elastica   # matching a pattern
+topk sql '\d books' --project-id <project-id> --region aws-us-east-1-elastica     # columns and indexes
+topk sql '\di' --project-id <project-id> --region aws-us-east-1-elastica          # all indexes
+topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica           # supported commands
+```
+
 #### Output
 
-Results print as tables by default. Use `-o json` for one JSON object per row. Long terminal output opens in a pager, selected from `$TOPK_PAGER`, then `$PAGER`, falling back to `less`. Set `PAGER=` to disable paging when `TOPK_PAGER` is unset; `TOPK_PAGER=` always disables it.
+Results print as tables by default, as rows arrive. Use `-o json` for one JSON object per row, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
 
 ### import
 

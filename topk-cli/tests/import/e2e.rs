@@ -57,7 +57,9 @@ sv = {{ type = \"f32_sparse_vector\" }}
 svlists = {{ type = \"f32_sparse_vector\" }}
 "
     );
-    ok(&["import", "-f", &ctx.spec_file(&toml), "--yes"], &[]);
+    topk()
+        .args(["import", "-f", &ctx.spec_file(&toml), "--yes"])
+        .ok();
 
     let got = ctx.get(&collection, &["1"]).await;
     let d = &got["1"];
@@ -104,7 +106,9 @@ id = \"id\"
 mat = {{ type = \"f32_matrix\", cols = 3, index = {{ multi_vector = {{}} }} }}
 "
     );
-    ok(&["import", "-f", &ctx.spec_file(&toml), "--yes"], &[]);
+    topk()
+        .args(["import", "-f", &ctx.spec_file(&toml), "--yes"])
+        .ok();
 
     let got = ctx.get(&collection, &["1"]).await;
     assert_eq!(field(&got["1"], "mat").as_array().unwrap().len(), 2);
@@ -133,7 +137,7 @@ async fn binary_vector(ctx: &mut Ctx) {
             r#"bits = { type = "binary_vector", dim = 4 }"#,
         ),
     );
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
     let got = ctx.get(&collection, &["1"]).await;
     assert_eq!(field(&got["1"], "bits"), json!([1, 2, 3, 4]));
 }
@@ -150,7 +154,7 @@ async fn exact_index(ctx: &mut Ctx) {
             ..object
         },
     );
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
 
     let coll = ctx.client().collections().get(&collection).await.unwrap();
     assert!(coll.schema["title"].required);
@@ -170,7 +174,7 @@ async fn batching(ctx: &mut Ctx) {
         .collect();
     let object = ctx.seed_parquet("big", docs).await;
     let spec = ctx.target_spec(&collection, object);
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
 
     let got = ctx.get(&collection, &["1", "2000", "2500"]).await;
     assert_eq!(got.len(), 3, "rows from both batches must be present");
@@ -189,7 +193,9 @@ async fn duplicate_ids(ctx: &mut Ctx) {
     let spec = ctx.target_spec(&collection, object);
 
     let run = outcome(
-        &ok(&["import", "-f", &spec, "--yes", "-o", "json"], &[]),
+        &topk()
+            .args(["import", "-f", &spec, "--yes", "-o", "json"])
+            .ok(),
         &collection,
     );
     assert_eq!(run["rows"], json!(3));
@@ -209,7 +215,7 @@ async fn multi_collection(ctx: &mut Ctx) {
     let b = ctx.collection("multi-b");
 
     let spec = ctx.multi_spec([(a.clone(), first), (b.clone(), second)]);
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
 
     assert_eq!(ctx.get(&a, &["mockingbird"]).await.len(), 1);
     assert_eq!(ctx.get(&b, &["2"]).await.len(), 1);
@@ -221,10 +227,9 @@ async fn partition(ctx: &mut Ctx) {
     let collection = ctx.collection("partition");
     let object = ctx.seed_parquet("partition", books()).await;
     let spec = ctx.target_spec(&collection, object);
-    ok(
-        &["import", "-f", &spec, "--partition", "acme", "--yes"],
-        &[],
-    );
+    topk()
+        .args(["import", "-f", &spec, "--partition", "acme", "--yes"])
+        .ok();
 
     let partitioned = ctx
         .client()
@@ -251,7 +256,10 @@ async fn partition(ctx: &mut Ctx) {
 async fn empty_region_is_rejected(ctx: &mut Scratch) {
     let object = ctx.seed_parquet("books", books()).await;
     let spec = ctx.target_spec("empty-region", object);
-    let err = fails(&["import", "-f", &spec, "--yes"], &[("TOPK_REGION", "")]);
+    let err = topk()
+        .args(["import", "-f", &spec, "--yes"])
+        .envs([("TOPK_REGION", "")])
+        .fails();
     assert!(
         err.contains("a value is required for '--region <REGION>'"),
         "got:\n{err}"
@@ -263,7 +271,7 @@ async fn empty_region_is_rejected(ctx: &mut Scratch) {
 async fn yes_required_without_tty(ctx: &mut Scratch) {
     let object = ctx.seed_parquet("books", books()).await;
     let spec = ctx.target_spec("confirm", object);
-    let err = fails(&["import", "-f", &spec], &[]);
+    let err = topk().args(["import", "-f", &spec]).fails();
     assert!(err.contains("pass --yes"), "got:\n{err}");
 }
 
@@ -291,7 +299,7 @@ async fn avro_roundtrip(ctx: &mut Ctx) {
     .await
     .unwrap();
     let spec = ctx.target_spec(&collection, object);
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
 
     let got = ctx.get(&collection, &["mockingbird", "pride"]).await;
     assert_eq!(
@@ -317,7 +325,10 @@ async fn s3_roundtrip(ctx: &mut Ctx) {
     let object = s3.seed(&unique_name("s3"), books()).await.unwrap();
     let collection = ctx.collection("s3");
     let spec = ctx.target_spec(&collection, object);
-    ok(&["import", "-f", &spec, "--yes"], rustfs::S3::ENV);
+    topk()
+        .args(["import", "-f", &spec, "--yes"])
+        .envs(rustfs::S3::ENV)
+        .ok();
     let got = ctx.get(&collection, &["mockingbird"]).await;
     assert_eq!(
         doc_json(&got["mockingbird"]),
@@ -353,7 +364,7 @@ async fn http_roundtrip(ctx: &mut Ctx) {
     };
     let collection = ctx.collection("http");
     let spec = ctx.target_spec(&collection, object);
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
     let got = ctx.get(&collection, &["mockingbird"]).await;
     assert_eq!(
         got["mockingbird"]["title"],
@@ -373,8 +384,14 @@ async fn nan_rejected(ctx: &mut Ctx) {
             r#"x = { type = "float" }"#,
         ),
     );
-    assert!(fails(&["import", "-f", &spec, "--dry-run"], &[]).contains("non-finite"));
-    assert!(fails(&["import", "-f", &spec, "--yes"], &[]).contains("non-finite"));
+    assert!(topk()
+        .args(["import", "-f", &spec, "--dry-run"])
+        .fails()
+        .contains("non-finite"));
+    assert!(topk()
+        .args(["import", "-f", &spec, "--yes"])
+        .fails()
+        .contains("non-finite"));
 }
 
 #[test_context(Ctx)]
@@ -391,7 +408,9 @@ async fn semantic_index(ctx: &mut Ctx) {
             ..object
         },
     );
-    ok(&import_args(db.url().as_deref(), &spec, &["--yes"]), &[]);
+    topk()
+        .args(import_args(db.url().as_deref(), &spec, &["--yes"]))
+        .ok();
 
     let docs = ctx.get(&collection, &["mockingbird"]).await;
     let keys: Vec<&String> = docs["mockingbird"].keys().collect();
@@ -408,7 +427,7 @@ async fn schema_drift(ctx: &mut Ctx) {
     let collection = ctx.collection("drift");
 
     let plain = ctx.target_spec(&collection, object.clone());
-    ok(&["import", "-f", &plain, "--yes"], &[]);
+    topk().args(["import", "-f", &plain, "--yes"]).ok();
 
     let indexed = ctx.target_spec(
         &collection,
@@ -417,7 +436,7 @@ async fn schema_drift(ctx: &mut Ctx) {
             ..object
         },
     );
-    let err = fails(&["import", "-f", &indexed, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &indexed, "--yes"]).fails();
     assert!(
         err.contains("schema mismatch") && err.contains("title"),
         "expected schema drift error, got:\n{err}"
@@ -435,14 +454,13 @@ async fn continue_on_error(ctx: &mut Ctx) {
         target(&file.display().to_string(), "id", r#"n = { type = "int" }"#),
     );
 
-    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &spec, "--yes"]).fails();
     assert!(err.contains(r#"doc "2" field "n""#), "got:\n{err}");
 
     // Skipping is opt-in and still exits non-zero, but the good rows land.
-    let err = fails(
-        &["import", "-f", &spec, "--yes", "--continue-on-error"],
-        &[],
-    );
+    let err = topk()
+        .args(["import", "-f", &spec, "--yes", "--continue-on-error"])
+        .fails();
     assert!(err.contains("2 rows written, 1 failed"), "got:\n{err}");
     let got = ctx.get(&collection, &["1", "2", "3"]).await;
     assert_eq!(got.len(), 2, "only the bad row is missing");
@@ -457,7 +475,9 @@ async fn reimport_is_idempotent(ctx: &mut Ctx) {
 
     for _ in 0..2 {
         let run = outcome(
-            &ok(&["import", "-f", &spec, "--yes", "-o", "json"], &[]),
+            &topk()
+                .args(["import", "-f", &spec, "--yes", "-o", "json"])
+                .ok(),
             &collection,
         );
         assert_eq!(run["rows"], json!(books().len()));
@@ -483,7 +503,7 @@ async fn unknown_field_column_fails_before_creating(ctx: &mut Ctx) {
     );
 
     // Without validation this "succeeds", writing a silent null for `ghost`.
-    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &spec, "--yes"]).fails();
     assert!(
         err.contains(r#"reads column "nonexistent_col""#) && err.contains("available: id, title"),
         "got:\n{err}"
@@ -509,7 +529,7 @@ async fn missing_required_field_fails_before_creating(ctx: &mut Ctx) {
         ),
     );
 
-    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &spec, "--yes"]).fails();
     assert!(
         err.contains(r#"field "absent""#) && err.contains("available: id, title"),
         "got:\n{err}"
@@ -532,10 +552,9 @@ async fn glob_unions_columns_across_files(ctx: &mut Ctx) {
     let collection = ctx.collection("glob-union");
     let glob = format!("{}/*.csv", dir.display());
 
-    ok(
-        &["import", &glob, "--to", &collection, "--id", "id", "--yes"],
-        &[],
-    );
+    topk()
+        .args(["import", &glob, "--to", &collection, "--id", "id", "--yes"])
+        .ok();
     let got = ctx.get(&collection, &["2"]).await;
     assert!(
         got["2"].contains_key("extra"),
@@ -569,7 +588,9 @@ short = {{ from = \"body\", type = \"text\", truncate = 2 }}
 key = {{ from = \"id\", type = \"text\" }}
 "
     );
-    ok(&["import", "-f", &ctx.spec_file(&toml), "--yes"], &[]);
+    topk()
+        .args(["import", "-f", &ctx.spec_file(&toml), "--yes"])
+        .ok();
 
     let got = ctx.get(&collection, &["k"]).await;
     let d = &got["k"];
@@ -588,7 +609,7 @@ async fn preflight(ctx: &mut Ctx) {
     let drifted = ctx.collection("preflight-drift");
 
     let seed = ctx.target_spec(&drifted, second.clone());
-    ok(&["import", "-f", &seed, "--yes"], &[]);
+    topk().args(["import", "-f", &seed, "--yes"]).ok();
 
     let both = ctx.multi_spec([
         (good.clone(), first),
@@ -600,7 +621,7 @@ async fn preflight(ctx: &mut Ctx) {
             },
         ),
     ]);
-    let err = fails(&["import", "-f", &both, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &both, "--yes"]).fails();
     assert!(err.contains("schema mismatch"), "got:\n{err}");
 
     assert!(
@@ -616,8 +637,8 @@ async fn unknown_id_column_fails_before_creating(ctx: &mut Ctx) {
     std::fs::write(&file, "id,title\n1,dune\n").unwrap();
     let collection = ctx.collection("bad-id");
 
-    let err = fails(
-        &[
+    let err = topk()
+        .args([
             "import",
             &file.display().to_string(),
             "--to",
@@ -625,9 +646,8 @@ async fn unknown_id_column_fails_before_creating(ctx: &mut Ctx) {
             "--id",
             "nope",
             "--yes",
-        ],
-        &[],
-    );
+        ])
+        .fails();
     assert!(
         err.contains(r#"id column "nope""#) && err.contains("available: id, title"),
         "got:\n{err}"
@@ -652,7 +672,7 @@ async fn blank_id(ctx: &mut Ctx) {
             r#"name = { type = "text" }"#,
         ),
     );
-    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &spec, "--yes"]).fails();
     assert!(err.contains(r#"field "id""#), "got:\n{err}");
 }
 
@@ -672,7 +692,7 @@ async fn json_as_struct(ctx: &mut Ctx) {
                tags = { type = "text_list" }"#,
         ),
     );
-    ok(&["import", "-f", &spec, "--yes"], &[]);
+    topk().args(["import", "-f", &spec, "--yes"]).ok();
 
     let got = ctx.get(&collection, &["1"]).await;
     assert_eq!(field(&got["1"], "meta"), json!({"k": {"deep": 1}}));
@@ -700,8 +720,8 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
     let collection = ctx.collection("parts");
 
     // Every row its own upsert, so checkpoints land before the failure.
-    let stderr = fails(
-        &[
+    let stderr = topk()
+        .args([
             "import",
             &glob,
             "--to",
@@ -709,9 +729,8 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
             "--yes",
             "--batch-bytes",
             "1",
-        ],
-        &[],
-    );
+        ])
+        .fails();
     let run = stderr
         .lines()
         .find_map(|l| l.strip_prefix("# run "))
@@ -728,8 +747,8 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
     assert!(state.contains("rows = 300"), "{state}");
 
     // Exits non-zero for the skipped row; the summary is still on stdout.
-    let out = crate::common::run(
-        &[
+    let out = topk()
+        .args([
             "import",
             &glob,
             "--resume",
@@ -740,9 +759,8 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
             "--continue-on-error",
             "-o",
             "json",
-        ],
-        &[],
-    );
+        ])
+        .output();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let summary = stdout.lines().next().expect("summary line");
     let rows = outcome(summary, &collection)["rows"].as_u64().unwrap();
@@ -768,15 +786,14 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
 async fn narrowing_a_spec_warns_that_rows_lose_fields(ctx: &mut Ctx) {
     let object = ctx.seed_parquet("narrow", books()).await;
     let collection = ctx.collection("narrow");
-    ok(
-        &[
+    topk()
+        .args([
             "import",
             "-f",
             &ctx.target_spec(&collection, object.clone()),
             "--yes",
-        ],
-        &[],
-    );
+        ])
+        .ok();
 
     let narrowed = ctx.target_spec(
         &collection,
@@ -785,7 +802,7 @@ async fn narrowing_a_spec_warns_that_rows_lose_fields(ctx: &mut Ctx) {
             ..object.clone()
         },
     );
-    let out = crate::common::run(&["import", "-f", &narrowed, "--yes"], &[]);
+    let out = topk().args(["import", "-f", &narrowed, "--yes"]).output();
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
         stderr.contains("in the collection but not in this spec"),
@@ -796,7 +813,7 @@ async fn narrowing_a_spec_warns_that_rows_lose_fields(ctx: &mut Ctx) {
     // all has nothing to clear and says nothing. (`target_spec` rewrites one
     // file, so the full spec has to be written again.)
     let full = ctx.target_spec(&collection, object);
-    let out = crate::common::run(&["import", "-f", &full, "--yes"], &[]);
+    let out = topk().args(["import", "-f", &full, "--yes"]).output();
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
         !stderr.contains("not in this spec"),
@@ -812,10 +829,9 @@ async fn limit_zero_creates_nothing(ctx: &mut Ctx) {
     let object = ctx.seed_parquet("zero", books()).await;
     let collection = ctx.collection("zero");
     let spec = ctx.target_spec(&collection, object);
-    let stdout = ok(
-        &["import", "-f", &spec, "--yes", "--limit", "0", "-o", "json"],
-        &[],
-    );
+    let stdout = topk()
+        .args(["import", "-f", &spec, "--yes", "--limit", "0", "-o", "json"])
+        .ok();
     assert_eq!(
         outcome(stdout.lines().next().unwrap(), &collection)["rows"],
         0
@@ -851,8 +867,8 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
     let glob = format!("{}/*.parquet", dir.display());
     let collection = ctx.collection("limited");
 
-    let stderr = fails(
-        &[
+    let stderr = topk()
+        .args([
             "import",
             &glob,
             "--to",
@@ -862,9 +878,8 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
             "500",
             "--batch-bytes",
             "1",
-        ],
-        &[],
-    );
+        ])
+        .fails();
     let run = stderr
         .lines()
         .find_map(|l| l.strip_prefix("# run "))
@@ -876,8 +891,8 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
     let state = std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap();
     assert!(!state.contains("after"), "no mark is kept: {state}");
 
-    let out = crate::common::run(
-        &[
+    let out = topk()
+        .args([
             "import",
             &glob,
             "--resume",
@@ -888,9 +903,8 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
             "--continue-on-error",
             "-o",
             "json",
-        ],
-        &[],
-    );
+        ])
+        .output();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let summary = stdout.lines().next().expect("summary line");
     assert_eq!(outcome(summary, &collection)["rows"], 499);
@@ -954,16 +968,15 @@ async fn topk_source_copies_schema_and_indexed_vectors(ctx: &mut Ctx) {
         .expect("seed source");
 
     let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
-    ok(
-        &[
+    topk()
+        .args([
             "import",
             &format!("topk://{region}/{source}"),
             "--to",
             &target,
             "--yes",
-        ],
-        &[],
-    );
+        ])
+        .ok();
 
     let stored = ctx
         .client()
@@ -1032,17 +1045,18 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
     let uri = format!("topk://{region}/{source}");
 
     // A limit takes the first ids in order, not an arbitrary thousand.
-    ok(
-        &["import", &uri, "--to", &target, "--yes", "--limit", "1000"],
-        &[],
-    );
+    topk()
+        .args(["import", &uri, "--to", &target, "--yes", "--limit", "1000"])
+        .ok();
     let head = ctx.get(&target, &["d0000", "d0999"]).await;
     assert_eq!(head.len(), 2, "the first thousand ids are the lowest ones");
     assert!(ctx.get(&target, &["d1000"]).await.is_empty());
 
     // Resuming from that boundary writes the tail and nothing before it.
     let run = "aaaa0001";
-    let spec = ok(&["import", &uri, "--to", &target, "--dry-run"], &[]);
+    let spec = topk()
+        .args(["import", &uri, "--to", &target, "--dry-run"])
+        .ok();
     std::fs::write(
         state_dir().join(format!("{run}.toml")),
         format!(
@@ -1054,10 +1068,9 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
         ),
     )
     .expect("write resume state");
-    let summary = ok(
-        &["import", &uri, "--resume", run, "--yes", "-o", "json"],
-        &[],
-    );
+    let summary = topk()
+        .args(["import", &uri, "--resume", run, "--yes", "-o", "json"])
+        .ok();
     assert_eq!(outcome(&summary, &target)["rows"], 1000, "only the tail");
     assert_eq!(ctx.get(&target, &["d1999"]).await.len(), 1);
 }

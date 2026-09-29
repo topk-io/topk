@@ -14,7 +14,7 @@ use tonic::transport::{Endpoint, Server};
 use tonic::{Request, Response, Status};
 
 use topk::auth::{Auth, OAuthConfig};
-use topk::client::{AccessTokenInterceptor, ManagementClient};
+use topk::client::{AccessTokenInterceptor, AccessTokenProvider, ManagementClient};
 use topk::config::Config;
 use topk::management::proto::data_plane_service_server::{
     DataPlaneService, DataPlaneServiceServer,
@@ -40,13 +40,13 @@ fn access_token(
     config: &OAuthConfig,
     config_dir: &Path,
     project: &str,
-) -> Arc<AccessTokenInterceptor> {
+) -> AccessTokenProvider {
     let config = Config::new(host(), config.clone(), config_dir.to_owned());
-    Arc::new(AccessTokenInterceptor::new(
+    AccessTokenProvider::new(
         ManagementClient::connect(endpoint, Auth::new(config.clone()).unwrap()),
         config,
         project.parse().unwrap(),
-    ))
+    )
 }
 
 struct Service {
@@ -194,7 +194,15 @@ impl Fixture {
         self.oauth.request().await;
     }
 
-    fn provider(&self, project: &str) -> Arc<AccessTokenInterceptor> {
+    fn provider(&self, project: &str) -> Arc<AccessTokenProvider> {
+        Arc::new(self.new_provider(project))
+    }
+
+    fn interceptor(&self, project: &str) -> Arc<AccessTokenInterceptor> {
+        Arc::new(self.new_provider(project).into())
+    }
+
+    fn new_provider(&self, project: &str) -> AccessTokenProvider {
         access_token(
             self.endpoint.clone(),
             &self.oauth.config(),
@@ -504,7 +512,7 @@ async fn failed_mint_stops_upsert_without_retrying() {
     let client = Client::from_channel(
         ClientConfig::default()
             .with_region("test")
-            .with_interceptor(ctx.provider("p1")),
+            .with_interceptor(ctx.interceptor("p1")),
         ctx.endpoint.connect_lazy(),
     );
     let error = client

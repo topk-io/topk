@@ -7,10 +7,9 @@ use anyhow::{Context, Result};
 use topk_rs::client::retry::{BackoffConfig, RetryConfig};
 use topk_rs::{Client, ClientConfig};
 
-use crate::client::{AccessTokenInterceptor, ManagementClient};
+use crate::client::{AccessTokenInterceptor, AccessTokenProvider, ManagementClient};
 use crate::config::Config;
 use crate::endpoint::{Credentials, DataEndpoint};
-use crate::host::Host;
 
 #[derive(Clone)]
 pub struct DataClient(Client);
@@ -25,19 +24,20 @@ impl DataClient {
             Credentials::ApiKey(api_key) => ClientConfig::new(api_key, region),
             Credentials::Project(project_id) => ClientConfig::default()
                 .with_region(region)
-                .with_interceptor(Arc::new(AccessTokenInterceptor::new(
-                    ManagementClient::new(config.clone())?,
-                    config.clone(),
-                    project_id,
+                .with_interceptor(Arc::new(AccessTokenInterceptor::from(
+                    AccessTokenProvider::new(
+                        ManagementClient::new(config.clone())?,
+                        config.clone(),
+                        project_id,
+                    ),
                 ))),
         };
-        let Host { host, https } = config.host();
         // A batch tool rides out `SlowDown`: retries never run out, an hour of
         // continuous throttling fails the request, and `--resume` picks up.
         Ok(Self(Client::new(
             client
-                .with_host(host.clone())
-                .with_https(*https)
+                .with_host(config.host().to_owned())
+                .with_https(config.https())
                 .with_retry_config(RetryConfig {
                     max_retries: usize::MAX,
                     timeout: Duration::from_secs(60 * 60),

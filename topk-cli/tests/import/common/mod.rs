@@ -7,7 +7,6 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write as _;
 use std::path::Path;
-use std::process::Output;
 
 use clap::{Args, Command, FromArgMatches};
 use futures::StreamExt;
@@ -16,7 +15,7 @@ use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
-use command::TestCommand;
+pub use command::TestCommand;
 use topk::auth::OAuthConfig;
 use topk::config::Config;
 use topk::endpoint::DataEndpoint;
@@ -114,23 +113,8 @@ pub fn state_dir() -> &'static Path {
     DIR.get_or_init(|| tempfile::tempdir().unwrap()).path()
 }
 
-pub fn run(args: &[&str], env: &[(&str, &str)]) -> Output {
-    command(args, env).output()
-}
-
-pub fn ok(args: &[&str], env: &[(&str, &str)]) -> String {
-    command(args, env).ok()
-}
-
-pub fn fails(args: &[&str], env: &[(&str, &str)]) -> String {
-    command(args, env).fails()
-}
-
-fn command(args: &[&str], env: &[(&str, &str)]) -> TestCommand {
-    env.iter().fold(
-        TestCommand::new(args).env("TOPK_IMPORT_STATE_DIR", state_dir()),
-        |command, (key, value)| command.env(key, value),
-    )
+pub fn topk() -> TestCommand {
+    TestCommand::new().envs([("TOPK_IMPORT_STATE_DIR", state_dir())])
 }
 
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
@@ -218,7 +202,7 @@ pub fn discover(source: &str, stream: Option<&str>) -> String {
     if let Some(s) = stream {
         args.push(s);
     }
-    ok(&args, &[])
+    topk().args(&args).ok()
 }
 
 /// `topk import [<source>] -f <spec> …`; the source is required for anything
@@ -244,7 +228,7 @@ pub fn dry_run_from(
     let mut extra = extra.to_vec();
     extra.push("--dry-run");
     let args = import_args(url, spec, &extra);
-    let out = run(&args, &[]);
+    let out = topk().args(&args).output();
     assert!(out.status.success(), "`topk {}` failed", args.join(" "));
     String::from_utf8_lossy(&out.stderr)
         .lines()
