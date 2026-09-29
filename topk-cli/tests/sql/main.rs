@@ -1,42 +1,15 @@
 use std::io::Write;
 
-use clap::Parser;
-use serde_json::{json, Value};
+use serde_json::json;
 use tempfile::NamedTempFile;
 use test_context::{test_context, AsyncTestContext};
 use uuid::Uuid;
 
-use topk::commands::sql::SqlArgs;
-
 #[path = "../common/command.rs"]
 mod command;
+mod meta;
 use command::TestCommand;
 
-/// `topk` with the environment's API key, region and host.
-fn ok(args: &[&str], stdin: Option<&str>) -> String {
-    command(args, stdin).ok()
-}
-
-fn fails(args: &[&str], stdin: Option<&str>) -> String {
-    command(args, stdin).fails()
-}
-
-fn command(args: &[&str], stdin: Option<&str>) -> TestCommand {
-    let command = TestCommand::new(args);
-    match stdin {
-        Some(input) => command.stdin(input),
-        None => command,
-    }
-}
-
-fn json_lines(stdout: &str) -> Vec<Value> {
-    stdout
-        .lines()
-        .map(|line| serde_json::from_str(line).unwrap())
-        .collect()
-}
-
-/// A collection of books, dropped after the test.
 struct Books {
     table: String,
 }
@@ -44,31 +17,28 @@ struct Books {
 impl AsyncTestContext for Books {
     async fn setup() -> Self {
         let table = format!("cli_sql_{}", &Uuid::new_v4().simple().to_string()[..8]);
-        ok(
-            &[
+        TestCommand::new()
+            .args([
                 "sql",
                 &format!("CREATE TABLE {table} (title TEXT NOT NULL INDEX keyword_index(), rating FLOAT)"),
-            ],
-            None,
-        );
-        ok(
-            &[
+            ])
+            .ok();
+        TestCommand::new()
+            .args([
                 "sql",
                 &format!(
                     "INSERT INTO {table} (_id, title, rating) \
                      VALUES ('1', 'Dune', 4.5), ('2', 'Emma', NULL)"
                 ),
-            ],
-            None,
-        );
+            ])
+            .ok();
         Self { table }
     }
 
     async fn teardown(self) {
-        ok(
-            &["sql", &format!("DROP TABLE IF EXISTS {}", self.table)],
-            None,
-        );
+        TestCommand::new()
+            .args(["sql", &format!("DROP TABLE IF EXISTS {}", self.table)])
+            .ok();
     }
 }
 
@@ -86,7 +56,9 @@ impl Books {
 #[tokio::test]
 async fn json_output_keeps_value_types(books: &mut Books) {
     assert_eq!(
-        json_lines(&ok(&["-o", "json", "sql", &books.select()], None)),
+        TestCommand::new()
+            .args(["-o", "json", "sql", &books.select()])
+            .json(),
         [
             json!({ "_id": "1", "title": "Dune", "rating": 4.5 }),
             json!({ "_id": "2", "title": "Emma", "rating": null }),
@@ -97,13 +69,12 @@ async fn json_output_keeps_value_types(books: &mut Books) {
 #[test_context(Books)]
 #[tokio::test]
 async fn text_output_prints_a_table_per_statement(books: &mut Books) {
-    let stdout = ok(
-        &[
+    let stdout = TestCommand::new()
+        .args([
             "sql",
             &format!("{}; SELECT COUNT(*) FROM {}", books.select(), books.table),
-        ],
-        None,
-    );
+        ])
+        .ok();
     assert!(stdout.contains("Dune"), "{stdout}");
     assert!(stdout.contains("(2 rows)"), "{stdout}");
     assert!(stdout.contains("_count"), "{stdout}");
@@ -115,24 +86,32 @@ async fn text_output_prints_a_table_per_statement(books: &mut Books) {
 async fn reads_statements_from_file_or_stdin(books: &mut Books) {
     let mut file = NamedTempFile::new().unwrap();
     write!(file, "{}", books.select()).unwrap();
-    let from_file = ok(
-        &["-o", "json", "sql", "-f", file.path().to_str().unwrap()],
-        None,
-    );
-    let from_stdin = ok(&["-o", "json", "sql", "-f", "-"], Some(&books.select()));
-    assert_eq!(json_lines(&from_file).len(), 2);
-    assert_eq!(from_file, from_stdin);
+    let json = |args: &[&str], stdin: Option<&str>| {
+        TestCommand::new()
+            .args(["-o", "json", "sql"])
+            .args(args)
+            .stdin(stdin)
+            .json()
+    };
+    let from_file = json(&["-f", file.path().to_str().unwrap()], None);
+    assert_eq!(from_file.len(), 2);
+    assert_eq!(json(&["-f", "-"], Some(&books.select())), from_file);
+    assert_eq!(json(&["-"], Some(&books.select())), from_file);
 }
 
 #[test_context(Books)]
 #[tokio::test]
 async fn failed_statement_exits_non_zero(books: &mut Books) {
-    let stderr = fails(&["sql", &format!("SELECT FROM {}", books.table)], None);
+    let stderr = TestCommand::new()
+        .args(["sql", &format!("SELECT FROM {}", books.table)])
+        .fails();
     assert!(stderr.contains("error"), "{stderr}");
 }
 
 #[test]
 fn rejects_missing_or_conflicting_input() {
+    let fails =
+        |args: &[&str], stdin: Option<&str>| TestCommand::new().args(args).stdin(stdin).fails();
     assert!(fails(&["sql", "-f", "-"], Some("  \n")).contains("no SQL to run"));
     assert!(fails(&["sql"], None).contains("required"));
     assert!(fails(&["sql", "SELECT 1", "-f", "q.sql"], None).contains("cannot be used with"));
@@ -145,25 +124,27 @@ async fn large_results_print_a_table_per_fifty_rows(books: &mut Books) {
         .map(|i| format!("('n{i:03}', 'Book {i}', {i}.5)"))
         .collect::<Vec<_>>()
         .join(", ");
-    ok(
-        &[
+    TestCommand::new()
+        .args([
             "sql",
             &format!(
                 "INSERT INTO {} (_id, title, rating) VALUES {values}",
                 books.table
             ),
-        ],
-        None,
-    );
+        ])
+        .ok();
     let select = format!(
         "SELECT _id FROM {} WITH (consistency = 'strong') ORDER BY _id LIMIT 200",
         books.table
     );
-    let stdout = ok(&["sql", &select], None);
+    let stdout = TestCommand::new().args(["sql", &select]).ok();
     assert_eq!(stdout.matches("│ _id").count(), 3, "{stdout}");
     assert!(stdout.ends_with("(122 rows)\n"), "{stdout}");
     assert_eq!(
-        json_lines(&ok(&["-o", "json", "sql", &select], None)).len(),
+        TestCommand::new()
+            .args(["-o", "json", "sql", &select])
+            .json()
+            .len(),
         122
     );
 }
@@ -175,30 +156,34 @@ async fn empty_select_prints_zero_rows(books: &mut Books) {
         "SELECT _id FROM {} WHERE rating > 100 LIMIT 10",
         books.table
     );
-    assert_eq!(ok(&["sql", &select], None), "(0 rows)\n");
-    assert_eq!(ok(&["-o", "json", "sql", &select], None), "");
+    assert_eq!(TestCommand::new().args(["sql", &select]).ok(), "(0 rows)\n");
+    assert_eq!(
+        TestCommand::new().args(["-o", "json", "sql", &select]).ok(),
+        ""
+    );
 }
 
-#[test]
-fn idle_timeout_can_be_overridden_or_disabled() {
-    #[derive(Parser)]
-    struct Args {
-        #[command(flatten)]
-        sql: SqlArgs,
-    }
-
+#[test_context(Books)]
+#[tokio::test]
+async fn meta_commands_list_and_describe_tables(books: &mut Books) {
+    let sql = |command: String| TestCommand::new().args(["sql", &command]).ok();
+    let prefix = &books.table[..books.table.len() - 2];
+    assert!(sql(format!("\\dt {prefix}*")).contains(&books.table));
     assert_eq!(
-        Args::try_parse_from(["sql", "SELECT 1"])
-            .unwrap()
-            .sql
-            .idle_timeout,
-        60
+        TestCommand::new()
+            .args(["-o", "json", "sql", &format!("\\dt {}", books.table)])
+            .json(),
+        [json!({ "name": books.table })]
     );
-    for seconds in ["0", "300"] {
-        let args = Args::try_parse_from(["sql", "SELECT 1", "--idle-timeout", seconds]).unwrap();
-        assert_eq!(args.sql.idle_timeout, seconds.parse::<u64>().unwrap());
+    let described = sql(format!("\\d {}", books.table));
+    for expected in ["title", "rating", "double precision", "keyword_index"] {
+        assert!(described.contains(expected), "{described}");
     }
-    for seconds in ["-1", "invalid"] {
-        assert!(Args::try_parse_from(["sql", "SELECT 1", "--idle-timeout", seconds]).is_err());
-    }
+    let indexes = sql(format!("\\di {}*", books.table));
+    assert!(indexes.contains("keyword_index"), "{indexes}");
+    assert!(sql("\\?".into()).contains("\\di [PATTERN]"));
+    assert!(TestCommand::new()
+        .args(["sql", "\\x"])
+        .fails()
+        .contains("unknown command \\x; run \\?"));
 }

@@ -1,9 +1,12 @@
 // Shared by several test crates; each uses a different part of it.
 #![allow(dead_code)]
 
+use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::io::Write;
 use std::process::{Command, Output, Stdio};
+
+use serde_json::Value;
 
 /// Runs the `topk` binary under test, as a user would from a shell.
 pub struct TestCommand {
@@ -12,26 +15,31 @@ pub struct TestCommand {
 }
 
 impl TestCommand {
-    pub fn new<I, S>(args: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
-    {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_topk"));
-        command.args(args);
+    pub fn new() -> Self {
         Self {
-            command,
+            command: Command::new(env!("CARGO_BIN_EXE_topk")),
             stdin: None,
         }
     }
 
-    pub fn env(mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> Self {
-        self.command.env(key, value);
+    pub fn args(mut self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Self {
+        self.command.args(args);
         self
     }
 
-    pub fn stdin(mut self, input: &str) -> Self {
-        self.stdin = Some(input.to_owned());
+    pub fn envs<K: AsRef<OsStr>, V: AsRef<OsStr>>(
+        mut self,
+        envs: impl IntoIterator<Item = impl Borrow<(K, V)>>,
+    ) -> Self {
+        for env in envs {
+            let (key, value) = env.borrow();
+            self.command.env(key, value);
+        }
+        self
+    }
+
+    pub fn stdin(mut self, input: Option<&str>) -> Self {
+        self.stdin = input.map(str::to_owned);
         self
     }
 
@@ -62,6 +70,14 @@ impl TestCommand {
             String::from_utf8_lossy(&output.stderr)
         );
         String::from_utf8(output.stdout).unwrap()
+    }
+
+    /// Stdout of a run that must succeed, one JSON value per line.
+    pub fn json(self) -> Vec<Value> {
+        self.ok()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect()
     }
 
     /// Stderr of a run that must fail.
