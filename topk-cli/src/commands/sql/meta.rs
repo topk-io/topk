@@ -3,6 +3,11 @@ use anyhow::{bail, ensure, Result};
 const TABLES: &str = include_str!("tables.sql");
 const DESCRIBE: &str = include_str!("describe.sql");
 const INDEXES: &str = include_str!("indexes.sql");
+const ACCESS_METHODS: &str = include_str!("access_methods.sql");
+const TYPES: &str = include_str!("types.sql");
+const SCHEMAS: &str = include_str!("schemas.sql");
+const DATABASES: &str = include_str!("databases.sql");
+const ROLES: &str = include_str!("roles.sql");
 const HELP: &str = include_str!("help.sql");
 
 #[derive(Debug, PartialEq)]
@@ -33,6 +38,11 @@ pub fn expand(input: &str) -> Result<Option<Expansion>> {
         ("d", Some(table)) => fill(DESCRIBE, "table", table),
         ("d" | "dt", pattern) => fill(TABLES, "pattern", &like(pattern.unwrap_or("*"))),
         ("di", pattern) => fill(INDEXES, "pattern", &like(pattern.unwrap_or("*"))),
+        ("dA", pattern) => fill(ACCESS_METHODS, "pattern", &like(pattern.unwrap_or("*"))),
+        ("dT", pattern) => fill(TYPES, "pattern", &like(pattern.unwrap_or("*"))),
+        ("dn", pattern) => fill(SCHEMAS, "pattern", &like(pattern.unwrap_or("*"))),
+        ("l", pattern) => fill(DATABASES, "pattern", &like(pattern.unwrap_or("*"))),
+        ("du" | "dg", pattern) => fill(ROLES, "pattern", &like(pattern.unwrap_or("*"))),
         ("?", None) => HELP.to_owned(),
         _ => bail!("unknown command \\{name}; run \\? for the supported commands"),
     };
