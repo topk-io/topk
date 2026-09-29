@@ -84,7 +84,9 @@ impl FromSql<DataType> for FieldType {
         match data_type {
             // Native scalar types
             Boolean => Ok(FieldType::boolean()),
-            Integer(_) | BigInt(_) | SmallInt(_) => Ok(FieldType::integer()),
+            Integer(_) | BigInt(_) | SmallInt(_) | Int(_) | Int2(_) | Int4(_) | Int8(_) => {
+                Ok(FieldType::integer())
+            }
             Float(_) | Float4 | Float8 | Real | DoublePrecision => Ok(FieldType::float()),
             Text | Varchar(_) => Ok(FieldType::text()),
             Bytea => Ok(FieldType::bytes()),
@@ -94,7 +96,9 @@ impl FromSql<DataType> for FieldType {
             // Native array types → list
             Array(ArrayElemTypeDef::SquareBracket(inner, _)) => match *inner {
                 Text | Varchar(_) => Ok(FieldType::list(ListValueType::String)),
-                Integer(_) | BigInt(_) | SmallInt(_) => Ok(FieldType::list(ListValueType::Integer)),
+                Integer(_) | BigInt(_) | SmallInt(_) | Int(_) | Int2(_) | Int4(_) | Int8(_) => {
+                    Ok(FieldType::list(ListValueType::Integer))
+                }
                 Float(_) | Float4 | Float8 | Real | DoublePrecision => {
                     Ok(FieldType::list(ListValueType::Float))
                 }
