@@ -1,7 +1,11 @@
 use std::collections::HashSet;
 
 use rstest::rstest;
+use sqlparser::ast::Statement as SqlStatement;
+
+use topk_rs::proto::v1::control::{field_type_list::ListValueType, FieldType};
 use topk_rs::{doc, proto::v1::data::Document};
+use topk_sql::{parse_sql, Statement};
 
 mod common;
 use common::{ids, Scope, TableScope};
@@ -176,4 +180,28 @@ async fn create_table_if_not_exists(
     .unwrap();
 
     assert_eq!(rows, expected);
+}
+
+#[rstest]
+#[case("INTEGER")]
+#[case("BIGINT")]
+#[case("SMALLINT")]
+#[case("INT")]
+#[case("INT2")]
+#[case("INT4")]
+#[case("INT8")]
+fn integer_types(#[case] data_type: &str) {
+    let sql = format!("CREATE TABLE integers (scalar {data_type}, list {data_type}[])");
+    let SqlStatement::CreateTable(table) = parse_sql(&sql).unwrap().pop().unwrap() else {
+        panic!("expected CREATE TABLE");
+    };
+    let Statement::CreateTable { schema, .. } = Statement::try_from(table).unwrap() else {
+        panic!("expected CREATE TABLE");
+    };
+
+    assert_eq!(schema["scalar"].data_type, Some(FieldType::integer()));
+    assert_eq!(
+        schema["list"].data_type,
+        Some(FieldType::list(ListValueType::Integer))
+    );
 }
