@@ -182,6 +182,11 @@ async fn meta_commands_list_and_describe_tables(books: &mut Books) {
     let indexes = sql(format!("\\di {}*", books.table));
     assert!(indexes.contains("keyword_index"), "{indexes}");
     assert!(sql("\\?".into()).contains("\\di [PATTERN]"));
+    assert!(sql("\\dA *vector*".into()).contains("multi_vector_index"));
+    assert!(sql("\\dT f32*".into()).contains("f32_vector"));
+    assert!(sql("\\dn".into()).contains("public"));
+    assert!(sql("\\l".into()).contains("default"));
+    assert!(sql("\\du".into()).contains("postgres"));
     assert!(TestCommand::new()
         .args(["sql", "\\x"])
         .fails()
