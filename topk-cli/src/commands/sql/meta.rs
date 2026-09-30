@@ -30,23 +30,27 @@ pub fn expand(input: &str) -> Result<Option<Expansion>> {
         words.next().is_none(),
         "\\{name} takes at most one argument"
     );
-    let describes = match (name, arg) {
-        ("d", Some(table)) => Some(table.to_owned()),
-        _ => None,
-    };
-    let sql = match (name, arg) {
-        ("d", Some(table)) => fill(DESCRIBE, "table", table),
-        ("d" | "dt", pattern) => fill(TABLES, "pattern", &like(pattern.unwrap_or("*"))),
-        ("di", pattern) => fill(INDEXES, "pattern", &like(pattern.unwrap_or("*"))),
-        ("dA", pattern) => fill(ACCESS_METHODS, "pattern", &like(pattern.unwrap_or("*"))),
-        ("dT", pattern) => fill(TYPES, "pattern", &like(pattern.unwrap_or("*"))),
-        ("dn", pattern) => fill(SCHEMAS, "pattern", &like(pattern.unwrap_or("*"))),
-        ("l", pattern) => fill(DATABASES, "pattern", &like(pattern.unwrap_or("*"))),
-        ("du" | "dg", pattern) => fill(ROLES, "pattern", &like(pattern.unwrap_or("*"))),
-        ("?", None) => HELP.to_owned(),
+    if let ("d", Some(table)) = (name, arg) {
+        return Ok(Some(Expansion {
+            sql: fill(DESCRIBE, "table", table),
+            describes: Some(table.to_owned()),
+        }));
+    }
+    let query = match name {
+        "d" | "dt" => TABLES,
+        "di" => INDEXES,
+        "dA" => ACCESS_METHODS,
+        "dT" => TYPES,
+        "dn" => SCHEMAS,
+        "l" => DATABASES,
+        "du" | "dg" => ROLES,
+        "?" => HELP,
         _ => bail!("unknown command \\{name}; run \\? for the supported commands"),
     };
-    Ok(Some(Expansion { sql, describes }))
+    Ok(Some(Expansion {
+        sql: fill(query, "pattern", &like(arg.unwrap_or("*"))),
+        describes: None,
+    }))
 }
 
 pub fn table(table: &str) -> String {

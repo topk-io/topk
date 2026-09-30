@@ -55,12 +55,8 @@ impl Config {
             .context("no config directory")
     }
 
-    pub fn host(&self) -> &str {
-        &self.host.host
-    }
-
-    pub fn https(&self) -> bool {
-        self.host.https
+    pub fn host(&self) -> &Host {
+        &self.host
     }
 
     pub fn oauth(&self) -> &OAuthConfig {
