@@ -395,6 +395,11 @@ URL: https://docs.topk.io/changelog
 {/* ## May 2026
   - structs */}
 
+#### September 2026
+
+- **Features**: [`semantic_index`](https://docs.topk.io/guides/semantic-search) is now powered by the production model of [`topk-embed-v1`](https://www.topk.io/blog/topk-embed-v1), TopK's new family of multi-vector embedding models for text and visual documents.
+- **Research**: Open-sourced [`topk-embed-v1-xsmall`](https://huggingface.co/topk-io/topk-embed-v1-xsmall) (0.8B) and [`topk-embed-v1-small`](https://huggingface.co/topk-io/topk-embed-v1-small) (2B) on Hugging Face under Apache 2.0.
+
 #### June 2026
 
 - **Features**: Added [`Partitioned Collections`](https://docs.topk.io/sdk/topk-py/index#collection) (Namespaces) for effortless multi-tenancy with fully isolated, on-demand partitions.
@@ -3374,14 +3379,16 @@ LIMIT 10;
 
 </CodeGroup>
 
-Under the hood, `semantic_index()` is powered by [Iso-ModernColBERT](https://huggingface.co/topk-io/Iso-ModernColBERT), TopK's own multi-vector embedding model, combined with [Sparse Multi-Vector Encoding (SMVE)](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) for scalable retrieval and quantized *MaxSim* reranking.
+Under the hood, `semantic_index()` is powered by the production model of [topk-embed-v1](https://www.topk.io/blog/topk-embed-v1), TopK's own family of multi-vector embedding models, combined with [Sparse Multi-Vector Encoding (SMVE)](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) for scalable retrieval and quantized *MaxSim* reranking.
+
+Learn more about the smaller models in the family, [topk-embed-v1-xsmall](https://huggingface.co/topk-io/topk-embed-v1-xsmall) and [topk-embed-v1-small](https://huggingface.co/topk-io/topk-embed-v1-small).
 
 <Note>
   **Why multi-vector?** Single-vector (dense) embeddings compress an entire document into one point in high-dimensional space.
 
-  Multi-vector models like [Iso-ModernColBERT](https://huggingface.co/topk-io/Iso-ModernColBERT) keep one embedding per token, enabling token-level matching via MaxSim scoring. This consistently outperforms dense models on out-of-domain content, long documents, specific clauses, tables, and structured data.
+  Multi-vector models like [topk-embed-v1](https://www.topk.io/blog/topk-embed-v1) keep one embedding per token, enabling token-level matching via MaxSim scoring. This consistently outperforms dense models on out-of-domain content, long documents, specific clauses, tables, and structured data.
 
-  Read [High-Quality Search, Out of the Box](https://www.topk.io/blog/20260611-semantic-index-multi-vector-retrieval) for benchmarks and a deep-dive into the architecture.
+  Read [Introducing topk-embed-v1](https://www.topk.io/blog/topk-embed-v1) for model benchmarks and [High-Quality Search, Out of the Box](https://www.topk.io/blog/20260611-semantic-index-multi-vector-retrieval) for a deep-dive into the architecture.
 </Note>
 
 #### How to perform a semantic search
@@ -3546,7 +3553,7 @@ LIMIT 10;
 
 Let's break down the example above:
 
-1. The `semantic_similarity()` function encodes the query `"classic American novel"` into multi-vector token embeddings using Iso-ModernColBERT and scores each document via quantized *MaxSim* — comparing every query token against every document token to find the best alignment.
+1. The `semantic_similarity()` function encodes the query `"classic American novel"` into multi-vector token embeddings using the topk-embed-v1 production model and scores each document via quantized *MaxSim* — comparing every query token against every document token to find the best alignment.
 2. Candidate retrieval is accelerated by [SMVE](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval), which uses fast sparse approximations to identify a small set of candidates before the full MaxSim pass.
 3. The results are ranked by their MaxSim score and the top 10 most relevant documents are returned.
 
