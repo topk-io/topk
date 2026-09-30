@@ -181,7 +181,7 @@ topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica         
 
 #### Output
 
-Results print as tables by default, as rows arrive. Use `-o json` for one JSON object per row, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
+Results print as one table per statement by default. Use `-o json` to stream one JSON object per row as it arrives, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
 
 ### import
 

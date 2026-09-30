@@ -119,7 +119,7 @@ fn rejects_missing_or_conflicting_input() {
 
 #[test_context(Books)]
 #[tokio::test]
-async fn large_results_print_a_table_per_fifty_rows(books: &mut Books) {
+async fn large_results_print_one_table(books: &mut Books) {
     let values = (0..120)
         .map(|i| format!("('n{i:03}', 'Book {i}', {i}.5)"))
         .collect::<Vec<_>>()
@@ -138,7 +138,7 @@ async fn large_results_print_a_table_per_fifty_rows(books: &mut Books) {
         books.table
     );
     let stdout = TestCommand::new().args(["sql", &select]).ok();
-    assert_eq!(stdout.matches("│ _id").count(), 3, "{stdout}");
+    assert_eq!(stdout.matches("│ _id").count(), 1, "{stdout}");
     assert!(stdout.ends_with("(122 rows)\n"), "{stdout}");
     assert_eq!(
         TestCommand::new()
