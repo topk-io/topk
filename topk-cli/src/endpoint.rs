@@ -1,6 +1,6 @@
 use std::fmt;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::builder::NonEmptyStringValueParser;
 
 use crate::ProjectId;
@@ -44,6 +44,13 @@ pub enum Credentials {
 }
 
 impl DataEndpoint {
+    pub fn region(&self) -> Result<&str> {
+        self.region.as_deref().context(
+            "--region is required (or set TOPK_REGION). \
+             List available regions with `topk region list` at https://docs.topk.io/regions",
+        )
+    }
+
     pub fn credentials(&self) -> Result<Credentials> {
         match (&self.api_key, &self.project_id) {
             // Clap rejects the combinations; this guards direct construction.

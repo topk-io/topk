@@ -4,6 +4,7 @@ use tonic::transport::{ClientTlsConfig, Endpoint};
 use crate::auth::Auth;
 use crate::client::transport::Transport;
 use crate::config::Config;
+use crate::host::Host;
 use crate::management::proto::collection_service_client::CollectionServiceClient;
 use crate::management::proto::data_plane_service_client::DataPlaneServiceClient;
 use crate::management::proto::project_service_client::ProjectServiceClient;
@@ -19,9 +20,10 @@ pub struct ManagementClient {
 
 impl ManagementClient {
     pub fn new(config: Config) -> Result<Self> {
-        let protocol = if config.https() { "https" } else { "http" };
-        let mut grpc = Endpoint::from_shared(format!("{protocol}://api.{}", config.host()))?;
-        if config.https() {
+        let Host { host, https } = config.host();
+        let protocol = if *https { "https" } else { "http" };
+        let mut grpc = Endpoint::from_shared(format!("{protocol}://api.{host}"))?;
+        if *https {
             grpc = grpc.tls_config(ClientTlsConfig::new().with_native_roots())?;
         }
         Ok(Self::connect(grpc, Auth::new(config)?))

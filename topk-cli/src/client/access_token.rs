@@ -71,19 +71,10 @@ impl AccessTokenProvider {
     }
 }
 
-/// Authorizes each request with the project's access token.
-pub struct AccessTokenInterceptor(AccessTokenProvider);
-
-impl From<AccessTokenProvider> for AccessTokenInterceptor {
-    fn from(provider: AccessTokenProvider) -> Self {
-        Self(provider)
-    }
-}
-
 #[tonic::async_trait]
-impl AsyncInterceptor for AccessTokenInterceptor {
+impl AsyncInterceptor for AccessTokenProvider {
     async fn call(&self, request: &mut Request<Body>) -> Result<()> {
-        let mut header = HeaderValue::from_str(&format!("Bearer {}", self.0.token().await?.token))?;
+        let mut header = HeaderValue::from_str(&format!("Bearer {}", self.token().await?.token))?;
         header.set_sensitive(true);
         request.headers_mut().insert(AUTHORIZATION, header);
         Ok(())

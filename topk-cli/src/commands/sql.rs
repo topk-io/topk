@@ -5,8 +5,6 @@ use std::time::Duration;
 use anyhow::{bail, ensure, Context, Result};
 use clap::ArgGroup;
 use clap_stdin::{FileOrStdin, MaybeStdin};
-use comfy_table::presets::UTF8_FULL;
-use comfy_table::{ContentArrangement, Table};
 use futures::{StreamExt, TryStreamExt};
 use serde_json::{Map, Value};
 use sqlx::postgres::PgRow;
@@ -16,12 +14,11 @@ use tokio::time::timeout;
 use crate::client::SqlClient;
 use crate::config::Config;
 use crate::endpoint::DataEndpoint;
-use crate::output::{json_line, Output};
+use crate::output::{json_line, table, Output};
 
 pub mod meta;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const MIN_WIDTH: u16 = 20;
 
 #[derive(clap::Args)]
 #[command(group(ArgGroup::new("input").required(true).args(["query", "file"])))]
@@ -71,7 +68,6 @@ pub async fn run(config: Config, args: &SqlArgs, output: Output) -> Result<ExitC
     }
     let mut printer = Printer::new(BufWriter::new(std::io::stdout().lock()), output);
     let mut results = client.execute(&sql);
-    // Each statement prints once its result is complete (JSON streams rows); an error stops the rest.
     while let Some(item) = results.next().await {
         match item? {
             Either::Right(row) => printer.row(row)?,
@@ -138,18 +134,11 @@ impl<W: Write> Printer<W> {
         let Some(first) = self.table.first() else {
             return Ok(());
         };
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .set_header(first.columns().iter().map(|column| column.name()));
-        // Wrap to the terminal, unless it reports no usable width.
-        if table.width().is_some_and(|width| width >= MIN_WIDTH) {
-            table.set_content_arrangement(ContentArrangement::Dynamic);
-        }
+        let mut rendered = table(first.columns().iter().map(|column| column.name()));
         for row in self.table.drain(..) {
-            table.add_row(
+            rendered.add_row(
                 (0..row.len())
-                    // As the server printed it; NULL is empty, as in psql.
+                    // As the server printed it; NULL is empty.
                     .map(|i| {
                         Ok(row
                             .try_get_unchecked::<Option<String>, _>(i)?
@@ -158,7 +147,7 @@ impl<W: Write> Printer<W> {
                     .collect::<Result<Vec<_>>>()?,
             );
         }
-        writeln!(self.out, "{table}")?;
+        writeln!(self.out, "{rendered}")?;
         Ok(self.out.flush()?)
     }
 }

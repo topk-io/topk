@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgQueryResult, PgRow, PgSslMode};
@@ -21,11 +21,7 @@ pub struct SqlClient {
 
 impl SqlClient {
     pub async fn connect(config: &Config, endpoint: &DataEndpoint) -> Result<Self> {
-        let region = endpoint.region.as_deref().context(
-            "--region is required (or set TOPK_REGION). \
-             List available regions at https://docs.topk.io/regions",
-        )?;
-        let host = format!("{region}.sql.{}", config.host());
+        let host = format!("{}.sql.{}", endpoint.region()?, config.host().host);
         let password = match endpoint.credentials()? {
             Credentials::ApiKey(api_key) => api_key,
             Credentials::Project(project_id) => {
@@ -46,7 +42,7 @@ impl SqlClient {
             .password(&password)
             .database(DATABASE)
             .application_name(APPLICATION_NAME)
-            .ssl_mode(match config.https() {
+            .ssl_mode(match config.host().https {
                 // Authenticate the endpoint before sending the API key or access token.
                 true => PgSslMode::VerifyFull,
                 // Disable SSL for non https connections.
