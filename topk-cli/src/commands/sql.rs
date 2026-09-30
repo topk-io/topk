@@ -21,8 +21,6 @@ use crate::output::{json_line, Output};
 pub mod meta;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-/// Text output prints a table per this many rows instead of holding the whole result.
-const TABLE_ROWS: usize = 50;
 const MIN_WIDTH: u16 = 20;
 
 #[derive(clap::Args)]
@@ -73,7 +71,7 @@ pub async fn run(config: Config, args: &SqlArgs, output: Output) -> Result<ExitC
     }
     let mut printer = Printer::new(BufWriter::new(std::io::stdout().lock()), output);
     let mut results = client.execute(&sql);
-    // Each statement's rows print as they arrive; an error stops the rest.
+    // Each statement prints once its result is complete (JSON streams rows); an error stops the rest.
     while let Some(item) = results.next().await {
         match item? {
             Either::Right(row) => printer.row(row)?,
@@ -111,12 +109,7 @@ impl<W: Write> Printer<W> {
                     .collect::<Result<Map<_, _>>>()?;
                 json_line(&mut self.out, &object)?;
             }
-            Output::Text => {
-                self.table.push(row);
-                if self.table.len() == TABLE_ROWS {
-                    self.print_table()?;
-                }
-            }
+            Output::Text => self.table.push(row),
         }
         Ok(())
     }
