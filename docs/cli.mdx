@@ -116,6 +116,73 @@ List available regions.
 topk region list
 ```
 
+### sql
+
+Create and manage collections, read and write documents, and run keyword, vector, and semantic searches with [TopK SQL](https://docs.topk.io/sdk/topk-sql/overview).
+
+```bash
+topk sql <QUERY|--file <FILE>> [OPTIONS]
+```
+
+| argument | description |
+| --- | --- |
+| `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
+| `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
+| `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
+| `--project-id <PROJECT_ID>` | Project to access with your login; required unless using an API key |
+| `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
+
+#### Run a query
+
+Log in and find your project ID, then run SQL against a collection. This example searches a `title` field with a semantic index:
+
+```bash
+topk login
+topk project list
+topk sql "SELECT _id, title, semantic_similarity(title, 'classic American novel') AS score
+          FROM books ORDER BY score DESC LIMIT 10" \
+  --project-id <project-id> --region aws-us-east-1-elastica
+```
+
+<Tip>
+
+Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of using your login and `--project-id`.
+
+</Tip>
+
+See the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) for complete documentation.
+
+#### Run SQL from a file or stdin
+
+```bash
+topk sql -f queries.sql --project-id <project-id> --region aws-us-east-1-elastica
+echo "SELECT COUNT(*) FROM books" | topk sql - --project-id <project-id> --region aws-us-east-1-elastica
+```
+
+<Tip>
+
+Run multiple SQL statements in one call by separating them with `;`. Statements in one call can't depend on each other: run `CREATE TABLE` in its own call before inserting into the new table.
+
+</Tip>
+
+#### Inspect tables
+
+psql-style commands list and describe tables:
+
+```bash
+topk sql '\dt' --project-id <project-id> --region aws-us-east-1-elastica          # all tables
+topk sql '\dt books*' --project-id <project-id> --region aws-us-east-1-elastica   # matching a pattern
+topk sql '\d books' --project-id <project-id> --region aws-us-east-1-elastica     # columns and indexes
+topk sql '\di' --project-id <project-id> --region aws-us-east-1-elastica          # all indexes
+topk sql '\dA' --project-id <project-id> --region aws-us-east-1-elastica          # index kinds
+topk sql '\dT' --project-id <project-id> --region aws-us-east-1-elastica          # column types
+topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica           # supported commands
+```
+
+#### Output
+
+Results print as one table per statement by default. Use `-o json` to stream one JSON object per row as it arrives, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
+
 ### import
 
 Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.

@@ -50,6 +50,7 @@ wildmatch = { version = "2", optional = true }
 clap = { version = "4", features = ["derive", "env"] }
 libc = { version = "0.2" }
 clap_complete = { version = "4" }
+clap-stdin = "0.8"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1" }
 anyhow = { version = "1" }
@@ -77,6 +78,12 @@ tonic = { version = "0.14.2", features = ["tls-ring", "tls-native-roots"] }
 tonic-prost = "0.14.2"
 tower = { version = "0.5", features = ["util"] }
 http = "1"
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "postgres",
+    "json",
+    "tls-rustls-ring-native-roots",
+] }
 
 [build-dependencies]
 tonic-prost-build = "0.14.2"
@@ -85,12 +92,7 @@ tonic-prost-build = "0.14.2"
 tokio-stream = { version = "0.1", features = ["net"] }
 async-trait = "0.1"
 rstest = "0.23"
-sqlx = { version = "0.8", features = [
-    "runtime-tokio",
-    "postgres",
-    "mysql",
-    "sqlite",
-] }
+sqlx = { version = "0.8", features = ["mysql", "sqlite"] }
 test-macros = { path = "../utils/test-macros" }
 test-context = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }

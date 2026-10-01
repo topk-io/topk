@@ -17,13 +17,13 @@ use crate::ProjectId;
 const REFRESH_EARLY_SECS: u64 = 60;
 
 /// Mints the project's access tokens and caches them with the login session.
-pub struct AccessTokenInterceptor {
+pub struct AccessTokenProvider {
     mgmt: ManagementClient,
     config: Config,
     project_id: ProjectId,
 }
 
-impl AccessTokenInterceptor {
+impl AccessTokenProvider {
     pub fn new(mgmt: ManagementClient, config: Config, project_id: ProjectId) -> Self {
         Self {
             mgmt,
@@ -71,9 +71,8 @@ impl AccessTokenInterceptor {
     }
 }
 
-/// Authorizes each request with the project's access token.
 #[tonic::async_trait]
-impl AsyncInterceptor for AccessTokenInterceptor {
+impl AsyncInterceptor for AccessTokenProvider {
     async fn call(&self, request: &mut Request<Body>) -> Result<()> {
         let mut header = HeaderValue::from_str(&format!("Bearer {}", self.token().await?.token))?;
         header.set_sensitive(true);
