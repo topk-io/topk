@@ -17,6 +17,25 @@ pub trait Tabular: Serialize {
     fn columns(&self) -> Vec<(&'static str, String)>;
 }
 
+#[derive(Serialize)]
+pub struct Selected<T> {
+    #[serde(flatten)]
+    pub item: T,
+    pub selected: bool,
+}
+
+impl<T: Tabular> Tabular for Selected<T> {
+    fn columns(&self) -> Vec<(&'static str, String)> {
+        let mut columns = self.item.columns();
+        if self.selected {
+            if let Some((_, name)) = columns.first_mut() {
+                name.push('*');
+            }
+        }
+        columns
+    }
+}
+
 /// One JSON object per line.
 pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
     serde_json::to_writer(&mut *out, value)?;
@@ -24,10 +43,22 @@ pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
     Ok(())
 }
 
-/// Print a list of resources or a single resource.
-/// JSON: one JSON object per line.
-/// Text: a single resource prints as `label: value` rows, several print as a table
-pub fn print(
+/// Print a single resource as labeled values, or one JSON object.
+pub fn print(out: &mut impl Write, output: Output, item: impl Tabular) -> Result<()> {
+    if output == Output::Json {
+        return json_line(out, &item);
+    }
+    let mut table = Table::new();
+    table.load_preset(NOTHING);
+    for (label, value) in item.columns() {
+        table.add_row([format!("{label}:"), value]);
+    }
+    writeln!(out, "{table}")?;
+    Ok(())
+}
+
+/// Print a list as a table even with one result, or one JSON object per line.
+pub fn print_list(
     out: &mut impl Write,
     output: Output,
     items: impl IntoIterator<Item = impl Tabular>,
@@ -38,27 +69,20 @@ pub fn print(
         }
         return Ok(());
     }
-    let mut rows: Vec<_> = items.into_iter().map(|item| item.columns()).collect();
+    let mut rows = items.into_iter().map(|item| item.columns());
+    let Some(first) = rows.next() else {
+        return Ok(());
+    };
     let mut table = Table::new();
-    match rows.as_mut_slice() {
-        [] => return Ok(()),
-        [row] => {
-            table.load_preset(NOTHING);
-            for (label, value) in row.drain(..) {
-                table.add_row([format!("{label}:"), value]);
-            }
-        }
-        [first, ..] => {
-            table
-                .load_preset(UTF8_FULL)
-                .set_content_arrangement(ContentArrangement::Dynamic)
-                .set_header(first.iter().map(|(label, _)| *label));
-            table.add_rows(
-                rows.into_iter()
-                    .map(|row| row.into_iter().map(|(_, value)| value)),
-            );
-        }
-    }
+    table
+        .load_preset(UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(first.iter().map(|(label, _)| *label));
+    table.add_rows(
+        std::iter::once(first)
+            .chain(rows)
+            .map(|row| row.into_iter().map(|(_, value)| value)),
+    );
     writeln!(out, "{table}")?;
     Ok(())
 }
