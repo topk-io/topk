@@ -2,7 +2,7 @@ use std::fmt;
 
 use clap::builder::NonEmptyStringValueParser;
 
-use crate::ProjectId;
+use crate::{ProjectId, Region};
 
 #[derive(clap::Args, Clone)]
 pub struct DataEndpoint {
@@ -20,6 +20,7 @@ pub struct DataEndpoint {
     /// Project to access with your login instead of an API key
     #[arg(
         long,
+        env = "TOPK_PROJECT_ID",
         conflicts_with = "api_key",
         global = true,
         help_heading = "Connection options"
@@ -30,11 +31,10 @@ pub struct DataEndpoint {
     #[arg(
         long,
         env = "TOPK_REGION",
-        value_parser = NonEmptyStringValueParser::new(),
         global = true,
         help_heading = "Connection options"
     )]
-    pub region: Option<String>,
+    pub region: Option<Region>,
 }
 
 impl fmt::Debug for DataEndpoint {

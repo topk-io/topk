@@ -25,9 +25,11 @@ fn command(dir: &TempDir) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_topk"));
     for key in [
         "TOPK_API_KEY",
+        "TOPK_PROJECT_ID",
         "TOPK_CONFIG_DIR",
         "TOPK_REGION",
         "TOPK_HOST",
+        "TOPK_HTTPS",
         "TOPK_AUTH_ISSUER",
         "TOPK_AUTH_CLIENT_ID",
         "TOPK_AUTH_AUDIENCE",
@@ -281,4 +283,26 @@ fn logout_clears_access_tokens() {
     );
     assert!(!tenant_path(&dir).join("credentials.toml").exists());
     assert!(!tokens.exists());
+}
+
+#[cfg(feature = "import")]
+#[test]
+fn project_environment_is_validated_overridden_by_flag_and_conflicts_with_api_key() {
+    let dir = TempDir::new().unwrap();
+    let source = dir.path().join("books.jsonl");
+    std::fs::write(&source, "{\"_id\":\"one\",\"title\":\"Book\"}\n").unwrap();
+    let run = |project: &str, extra: &[&str]| {
+        command(&dir)
+            .arg("import")
+            .arg(&source)
+            .args(["--dry-run", "--to", "books"])
+            .env("TOPK_PROJECT_ID", project)
+            .args(extra)
+            .output()
+            .unwrap()
+    };
+    assert!(run("p1", &[]).status.success());
+    assert_eq!(run("../invalid", &[]).status.code(), Some(2));
+    assert!(run("../invalid", &["--project-id", "p2"]).status.success());
+    assert_eq!(run("p1", &["--api-key", "test-key"]).status.code(), Some(2));
 }

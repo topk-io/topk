@@ -54,3 +54,36 @@ impl fmt::Display for ProjectId {
         f.write_str(&self.0)
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String")]
+pub struct Region(String);
+
+impl FromStr for Region {
+    type Err = Error;
+
+    fn from_str(region: &str) -> Result<Self> {
+        ensure!(!region.is_empty(), "region cannot be empty");
+        Ok(Self(region.to_owned()))
+    }
+}
+
+impl Region {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for Region {
+    type Error = Error;
+
+    fn try_from(region: String) -> Result<Self> {
+        region.parse()
+    }
+}
+
+impl fmt::Display for Region {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}

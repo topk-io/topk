@@ -4,6 +4,7 @@ use std::str::FromStr;
 use url::Url;
 
 use crate::import::error::Error;
+use crate::Region;
 
 use super::duck::Duckdb;
 use super::topk;
@@ -44,7 +45,9 @@ impl FromStr for Uri {
                 ));
             }
             return Ok(Uri::Topk(topk::Uri {
-                region: region.to_string(),
+                region: region
+                    .parse::<Region>()
+                    .map_err(|e| Error::InvalidArgument(e.to_string()))?,
                 api_key,
                 collection: collection.to_string(),
             }));
