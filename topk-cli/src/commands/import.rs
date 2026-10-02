@@ -17,6 +17,7 @@ use crate::import::{
     self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
 use crate::output::Output;
+use crate::Region;
 
 const OBJECT_CONCURRENCY: usize = 8;
 
@@ -316,7 +317,12 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         }
     );
     eprint!("{}", render(&spec, Some(&fresh), &after));
-    let region = args.data.region.as_deref().unwrap_or_default();
+    let region = args
+        .data
+        .region
+        .as_ref()
+        .map(Region::as_str)
+        .unwrap_or_default();
     if !args.yes && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }

@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::{bail, Context, Result};
 use clap::builder::NonEmptyStringValueParser;
 
-use crate::ProjectId;
+use crate::{ProjectId, Region};
 
 #[derive(clap::Args, Clone)]
 pub struct DataEndpoint {
@@ -21,6 +21,7 @@ pub struct DataEndpoint {
     /// Project to access with your login instead of an API key
     #[arg(
         long,
+        env = "TOPK_PROJECT_ID",
         conflicts_with = "api_key",
         global = true,
         help_heading = "Connection options"
@@ -31,11 +32,10 @@ pub struct DataEndpoint {
     #[arg(
         long,
         env = "TOPK_REGION",
-        value_parser = NonEmptyStringValueParser::new(),
         global = true,
         help_heading = "Connection options"
     )]
-    pub region: Option<String>,
+    pub region: Option<Region>,
 }
 
 pub enum Credentials {
@@ -45,7 +45,7 @@ pub enum Credentials {
 
 impl DataEndpoint {
     pub fn region(&self) -> Result<&str> {
-        self.region.as_deref().context(
+        self.region.as_ref().map(Region::as_str).context(
             "--region is required (or set TOPK_REGION). \
              List available regions with `topk region list` at https://docs.topk.io/regions",
         )
@@ -55,7 +55,7 @@ impl DataEndpoint {
         match (&self.api_key, &self.project_id) {
             // Clap rejects the combinations; this guards direct construction.
             (Some(_), Some(_)) => bail!("--project-id cannot be combined with an API key"),
-            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required"),
+            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required (or set TOPK_PROJECT_ID)"),
             (Some(api_key), None) => Ok(Credentials::ApiKey(api_key.clone())),
             (None, Some(project_id)) => Ok(Credentials::Project(project_id.clone())),
         }

@@ -13,13 +13,14 @@ use crate::import::error::Error;
 use crate::import::source::Record;
 use crate::import::spec::{Field, Target};
 use crate::import::ID;
+use crate::Region;
 
 use super::{Chunk, ChunkStream, Table};
 
 /// `topk://[<key>@]<region>/<collection>`; credentials default to the run's own.
 #[derive(Clone)]
 pub struct Uri {
-    pub region: String,
+    pub region: Region,
     pub api_key: Option<String>,
     pub collection: String,
 }
