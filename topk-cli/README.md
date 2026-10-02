@@ -70,10 +70,10 @@ topk project list
 
 #### select
 
-Select a default project. Omit the ID for an interactive picker:
+Select a default project.
 
 ```bash
-topk project select
+topk project select  # interactive picker
 topk project select <PROJECT_ID>
 ```
 
@@ -143,10 +143,10 @@ topk region list
 
 #### select
 
-Select a default region. Omit the name for an interactive picker:
+Select a default region.
 
 ```bash
-topk region select
+topk region select  # interactive picker
 topk region select aws-us-east-1-elastica
 ```
 
