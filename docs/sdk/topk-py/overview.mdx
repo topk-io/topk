@@ -205,13 +205,13 @@ except SlowDownError:
 | `PermissionDeniedError` | Invalid or missing API key |
 | `QuotaExceededError` | Usage quota exceeded |
 | `RequestTooLargeError` | Request payload too large |
-| `SlowDownError` | Rate limited by the server (retried automatically) |
+| `SlowDownError` | Rate limited by the server |
 | `QueryLsnTimeoutError` | Timed out waiting for write consistency |
 
 ### Retries
 
-The client automatically retries on `SlowDownError` and on LSN consistency
-timeouts. Retry behaviour can be configured via `RetryConfig`:
+The client automatically retries on transient server errors and on LSN
+consistency timeouts. Retry behaviour can be configured via `RetryConfig`:
 
 ```python
 from topk_sdk import Client, RetryConfig, BackoffConfig
