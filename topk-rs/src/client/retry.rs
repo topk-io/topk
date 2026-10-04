@@ -77,7 +77,7 @@ where
                             // This is intentional - QueryLsnTimeout should retry for at least 2 seconds.
                             start_time.elapsed() <= retry_duration
                         }
-                        // 2. `SlowDown`-like errors where client is expected to retry N times
+                        // 2. `Unavailable`-like errors where client is expected to retry N times
                         None => {
                             // For count-based retries, check max_retries
                             retry_config.max_retries > 0 && i < retry_config.max_retries - 1
@@ -166,11 +166,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn slow_down_is_not_retried() {
+        let retry_config = RetryConfig::default();
+
+        let (attempts, result, _) =
+            simulate(&retry_config, |_| Err(Error::SlowDown("test".to_string()))).await;
+
+        assert!(matches!(result, Err(crate::Error::SlowDown(_))));
+        assert_eq!(attempts, 1);
+    }
+
+    #[tokio::test]
     async fn retryable_error() {
         let retry_config = RetryConfig::default();
 
         let (attempts, result, _) = simulate(&retry_config, |count| match count {
-            0 => Err(crate::Error::SlowDown("test".to_string())),
+            0 => Err(crate::Error::Unavailable("test".to_string())),
             _ => Ok(()),
         })
         .await;
@@ -187,9 +198,9 @@ mod tests {
         };
 
         let (attempts, result, _) =
-            simulate(&retry_config, |_| Err(Error::SlowDown("test".to_string()))).await;
+            simulate(&retry_config, |_| Err(Error::Unavailable("test".to_string()))).await;
 
-        assert!(matches!(result, Err(crate::Error::SlowDown(_))));
+        assert!(matches!(result, Err(crate::Error::Unavailable(_))));
         assert_eq!(attempts, 5);
     }
 
@@ -227,7 +238,7 @@ mod tests {
 
         let start_time = Instant::now();
         let (attempts, result, _) = simulate(&retry_config, |_| {
-            Err(Error::SlowDown("please slow down".into()))
+            Err(Error::Unavailable("test".into()))
         })
         .await;
 
@@ -270,12 +281,12 @@ mod tests {
                 if i > 0 {
                     backoff_times.lock().unwrap().push(start_time.elapsed());
                 }
-                Err(Error::SlowDown("test".to_string()))
+                Err(Error::Unavailable("test".to_string()))
             }
         })
         .await;
 
-        assert!(matches!(result, Err(crate::Error::SlowDown(_))));
+        assert!(matches!(result, Err(crate::Error::Unavailable(_))));
         assert_eq!(attempts, 5);
 
         // Verify backoff times are increasing
@@ -303,9 +314,9 @@ mod tests {
         };
 
         let (attempts, result, _) =
-            simulate(&retry_config, |_| Err(Error::SlowDown("test".to_string()))).await;
+            simulate(&retry_config, |_| Err(Error::Unavailable("test".to_string()))).await;
 
-        assert!(matches!(result, Err(crate::Error::SlowDown(_))));
+        assert!(matches!(result, Err(crate::Error::Unavailable(_))));
         assert_eq!(attempts, 1); // Should fail immediately
     }
 }
