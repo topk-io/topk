@@ -61,6 +61,9 @@ impl FieldSpec {
 
     /// Creates an index on a field.
     ///
+    /// A field supports one index. Throws if the field already has one.
+    /// `semanticIndex()` also supports BM25 keyword search.
+    ///
     /// Example:
     ///
     /// ```javascript
@@ -71,11 +74,18 @@ impl FieldSpec {
     /// });
     /// ```
     #[napi]
-    pub fn index(&self, index: FieldIndex) -> Self {
-        Self {
+    pub fn index(&self, index: FieldIndex) -> Result<Self> {
+        if self.index.is_some() {
+            return Err(Error::new(
+                Status::InvalidArg,
+                "field already has an index; a field supports one index \
+                 (semanticIndex() also supports BM25 keyword search)",
+            ));
+        }
+        Ok(Self {
             index: Some(index),
             ..self.clone()
-        }
+        })
     }
 
     /// @ignore

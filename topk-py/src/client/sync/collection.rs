@@ -131,6 +131,7 @@ impl CollectionClient {
             .map_err(RustError)?)
     }
 
+    #[pyo3(signature = (documents, fail_on_missing=None))]
     pub fn update(
         &self,
         py: Python<'_>,

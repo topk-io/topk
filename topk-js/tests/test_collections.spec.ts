@@ -10,6 +10,7 @@ import {
   matrix,
   multiVectorIndex,
   ngramIndex,
+  semanticIndex,
   text,
   u8Vector,
   vectorIndex,
@@ -244,6 +245,12 @@ describe("Collections", () => {
       })
     ).rejects.toThrow(
       /InvalidIndex { field: \"name\", index: \"vector\", data_type: \"text\" }/
+    );
+  });
+
+  test("field with two indexes throws", () => {
+    expect(() => text().index(semanticIndex()).index(keywordIndex())).toThrow(
+      /already has an index/
     );
   });
 

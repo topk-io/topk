@@ -37,6 +37,9 @@ class FieldSpec:
         """
         Create an index on a field.
 
+        A field supports one index. Raises `ValueError` if the field already has one.
+        `semantic_index()` also supports BM25 keyword search.
+
         Example:
 
         ```python

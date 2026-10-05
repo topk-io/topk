@@ -12,6 +12,19 @@ def test_update_non_existent_collection(ctx: ProjectContext):
         ctx.client.collection("missing").update([{"_id": "one"}], False)
 
 
+def test_update_without_fail_on_missing(ctx: ProjectContext):
+    collection = ctx.client.collections().create(ctx.scope("test"), schema={})
+    ctx.client.collection(collection.name).upsert([{"_id": "1", "foo": "bar"}])
+
+    # `fail_on_missing` is optional and defaults to False
+    lsn = ctx.client.collection(collection.name).update(
+        [{"_id": "1", "foo": "baz"}, {"_id": "missing", "foo": "x"}]
+    )
+
+    docs = ctx.client.collection(collection.name).get(["1", "missing"], lsn=lsn)
+    assert docs == {"1": {"_id": "1", "foo": "baz"}}
+
+
 def test_update_batch(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
