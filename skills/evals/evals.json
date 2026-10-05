@@ -1,0 +1,44 @@
+[
+  {
+    "id": "docs-hybrid-search-python",
+    "skills": ["topk"],
+    "setup": "./setup.sh docs-hybrid-search-python <workdir>",
+    "query": "Index every markdown file in ./docs into a TopK collection named `<collection>` (one document per file, with title, path and content fields). Then write search.py: `python search.py \"<query>\"` should run a hybrid search (semantic similarity plus BM25 keyword score) and print the top 5 results with their scores. Run it against my TopK project for these queries and show me the real output: \"how do I filter by metadata\", \"read your own writes consistency\", \"maximum document size\".",
+    "expected_behavior": [
+      "Does not put text longer than 4,096 characters into a semantic_index() field (chunks it, or keeps full text in a keyword-indexed field)",
+      "Uses match() in the filter whenever bm25_score() is selected",
+      "Applies hybrid weights inside .sort(), not in a second .select()",
+      "Does not delete and recreate the collection under the same name",
+      "Indexing succeeds and the count matches the number of files",
+      "\"maximum document size\" ranks limits.md first"
+    ]
+  },
+  {
+    "id": "product-search-typescript",
+    "skills": ["topk"],
+    "setup": "./setup.sh product-search-typescript <workdir>",
+    "query": "Using the TopK TypeScript SDK, load products.json into a TopK collection named `<collection>`. Then write search.ts so that `npx tsx search.ts \"<query>\" [--category <c>] [--max-price <n>]` returns the 5 most relevant in-stock products. Rank mainly by how semantically relevant the product's name and description are to the query, but boost products whose name contains words from the query. Run it against my TopK project and show me the real output for: \"something to block noise while I work\"; \"coffee\" --max-price 100; \"shoes for running\" --category outdoor.",
+    "expected_behavior": [
+      "Uses topk-js with ESM (\"type\": \"module\") so top-level await works",
+      "Uses one index per field (no chained .index() calls)",
+      "Stores prices so that whole-number values are accepted and sortable (e.g. integer cents)",
+      "Filters on in_stock, plus category and max price when given",
+      "Boosts name matches with matchAny inside .sort()",
+      "\"something to block noise while I work\" ranks the Noise Machine for Focus first"
+    ]
+  },
+  {
+    "id": "multi-tenant-rag-python",
+    "skills": ["topk"],
+    "setup": "./setup.sh multi-tenant-rag-python <workdir>",
+    "query": "Build the retrieval layer for a multi-tenant support bot in Python. Each customer's docs are in ./tenants/<customer>/*.md. Index them into a TopK collection named `<collection>`, keeping each customer's data isolated so one customer can never see another's. Some files are long; all of their text must be searchable. Write retrieve.py with `retrieve(customer, question, k=5)` returning the best-matching passages with their source file, plus a small CLI. Then run against my TopK project and show me real output for: 1. acme: \"what is the max document size\" 2. \"how do I delete documents\" for both acme and globex, showing acme cannot see globex's content 3. delete all of globex's data, then show retrieve(\"globex\", \"how do I delete documents\") returns nothing.",
+    "expected_behavior": [
+      "Uses one partition per customer (not a tenant_id filter)",
+      "Chunks long files so all text is indexed (no truncation)",
+      "Treats PartitionNotFoundError as empty results",
+      "Uses delete_partition and confirms deletion by polling before reporting success (deletion takes about a minute to apply)",
+      "Never returns globex content for acme queries",
+      "Final retrieve(\"globex\", ...) returns an empty list"
+    ]
+  }
+]
