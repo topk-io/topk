@@ -146,8 +146,6 @@ topk sql -f queries.sql --project-id <project-id> --region aws-us-east-1-elastic
 echo "SELECT COUNT(*) FROM books" | topk sql - --project-id <project-id> --region aws-us-east-1-elastica
 ```
 
-> [!TIP]
-> Run multiple SQL statements in one call by separating them with `;`. Statements in one call can't depend on each other: run `CREATE TABLE` in its own call before inserting into the new table.
 
 #### Inspect tables
 
@@ -165,7 +163,7 @@ topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica         
 
 #### Output
 
-Results print as one table per statement by default. Use `-o json` to stream one JSON object per row as it arrives, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
+Results print as one table per statement by default, with row counts on stderr. Use `-o json` to stream one JSON object per row as it arrives, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
 
 ### import
 

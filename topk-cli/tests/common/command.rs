@@ -60,16 +60,18 @@ impl TestCommand {
         child.wait_with_output().unwrap()
     }
 
-    /// Stdout of a run that must succeed.
-    pub fn ok(self) -> String {
+    /// Stdout and stderr of a run that must succeed.
+    pub fn succeeds(self) -> (String, String) {
         let line = self.line();
         let output = self.output();
-        assert!(
-            output.status.success(),
-            "`{line}` failed:\n{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8(output.stdout).unwrap()
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(output.status.success(), "`{line}` failed:\n{stderr}");
+        (String::from_utf8(output.stdout).unwrap(), stderr)
+    }
+
+    /// Stdout of a run that must succeed.
+    pub fn ok(self) -> String {
+        self.succeeds().0
     }
 
     /// Stdout of a run that must succeed, one JSON value per line.

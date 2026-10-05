@@ -1,3 +1,5 @@
+//! psql-style meta-commands (`\d`, `\dt`, ...) expanded to catalog queries.
+
 use anyhow::{bail, ensure, Result};
 
 const TABLES: &str = include_str!("tables.sql");
@@ -31,6 +33,10 @@ pub fn expand(input: &str) -> Result<Option<Expansion>> {
         "\\{name} takes at most one argument"
     );
     if let ("d", Some(table)) = (name, arg) {
+        ensure!(
+            !table.contains(['*', '?']),
+            "\\d takes a table name, not a pattern; run \\dt {table} to list matching tables"
+        );
         return Ok(Some(Expansion {
             sql: fill(DESCRIBE, "table", table),
             describes: Some(table.to_owned()),
@@ -51,10 +57,6 @@ pub fn expand(input: &str) -> Result<Option<Expansion>> {
         sql: fill(query, "pattern", &like(arg.unwrap_or("*"))),
         describes: None,
     }))
-}
-
-pub fn table(table: &str) -> String {
-    fill(TABLES, "pattern", &like(table))
 }
 
 /// Converts psql-style wildcards (`*` and `?`) to SQL `LIKE` syntax for catalog queries.

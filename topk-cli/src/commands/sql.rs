@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{bail, ensure, Context, Result};
 use clap::ArgGroup;
 use clap_stdin::{FileOrStdin, MaybeStdin};
-use futures::{StreamExt, TryStreamExt};
+use futures::StreamExt;
 use serde_json::{Map, Value};
 use sqlx::postgres::PgRow;
 use sqlx::{Column, Either, Postgres, Row, Type, ValueRef};
@@ -14,9 +14,8 @@ use tokio::time::timeout;
 use crate::client::SqlClient;
 use crate::config::Config;
 use crate::endpoint::DataEndpoint;
+use crate::meta;
 use crate::output::{json_line, table, Output};
-
-pub mod meta;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -48,30 +47,25 @@ impl SqlArgs {
 
 pub async fn run(config: Config, args: &SqlArgs, output: Output) -> Result<ExitCode> {
     let sql = args.input_sql()?;
-    let (sql, describes) = match meta::expand(&sql)? {
+    let (sql, mut describes) = match meta::expand(&sql)? {
         Some(meta) => (meta.sql, meta.describes),
         None => (sql, None),
     };
     let mut client = timeout(CONNECT_TIMEOUT, SqlClient::connect(&config, &args.data))
         .await
         .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;
-    // Like psql, look the table up first rather than describing nothing.
-    if let Some(table) = describes {
-        let found = client
-            .execute(&meta::table(&table))
-            .try_fold(
-                false,
-                |found, item| async move { Ok(found || item.is_right()) },
-            )
-            .await?;
-        ensure!(found, "did not find a table named {table:?}");
-    }
     let mut printer = Printer::new(BufWriter::new(std::io::stdout().lock()), output);
     let mut results = client.execute(&sql);
     while let Some(item) = results.next().await {
         match item? {
             Either::Right(row) => printer.row(row)?,
-            Either::Left(done) => printer.done(done.rows_affected())?,
+            Either::Left(done) => {
+                // Describing a table that returns zero columns means the table does not exist.
+                if let Some(table) = describes.take() {
+                    ensure!(printer.rows > 0, "did not find a table named {table:?}");
+                }
+                printer.done(done.rows_affected())?
+            }
         }
     }
     Ok(ExitCode::SUCCESS)
@@ -111,20 +105,15 @@ impl<W: Write> Printer<W> {
     }
 
     fn done(&mut self, affected: u64) -> Result<()> {
-        // Without rows an empty SELECT and a CREATE look the same, so the wording fits both.
-        match (self.output, std::mem::take(&mut self.rows)) {
-            (Output::Json, _) => {}
-            (Output::Text, 0) => match affected {
-                0 => writeln!(self.out, "(0 rows)")?,
-                1 => writeln!(self.out, "OK, 1 row affected")?,
-                n => writeln!(self.out, "OK, {n} rows affected")?,
-            },
-            (Output::Text, rows) => {
-                self.print_table()?;
-                match rows {
-                    1 => writeln!(self.out, "(1 row)")?,
-                    n => writeln!(self.out, "({n} rows)")?,
-                }
+        let rows = std::mem::take(&mut self.rows);
+        if self.output == Output::Text {
+            self.print_table()?;
+            match (rows, affected) {
+                (0, 0) => eprintln!("(0 rows)"),
+                (0, 1) => eprintln!("OK, 1 row affected"),
+                (0, n) => eprintln!("OK, {n} rows affected"),
+                (1, _) => eprintln!("(1 row)"),
+                (n, _) => eprintln!("({n} rows)"),
             }
         }
         Ok(self.out.flush()?)
