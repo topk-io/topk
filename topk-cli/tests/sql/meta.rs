@@ -1,6 +1,6 @@
 use rstest::rstest;
 
-use topk::commands::sql::meta::expand;
+use topk::meta::expand;
 
 #[test]
 fn dg_is_du() {
@@ -22,6 +22,10 @@ fn describe_without_a_table_lists_tables() {
 #[case(r"\? books authors", r"\? takes no arguments")]
 #[case(r"\dt books authors", r"\dt takes at most one argument")]
 #[case(r"\x", r"unknown command \x; run \? for the supported commands")]
+#[case(
+    r"\d demo*",
+    r"\d takes a table name, not a pattern; run \dt demo* to list matching tables"
+)]
 fn rejects_invalid_commands(#[case] input: &str, #[case] message: &str) {
     assert_eq!(expand(input).unwrap_err().to_string(), message);
 }

@@ -69,16 +69,19 @@ async fn json_output_keeps_value_types(books: &mut Books) {
 #[test_context(Books)]
 #[tokio::test]
 async fn text_output_prints_a_table_per_statement(books: &mut Books) {
-    let stdout = TestCommand::new()
+    let (stdout, stderr) = TestCommand::new()
         .args([
             "sql",
             &format!("{}; SELECT COUNT(*) FROM {}", books.select(), books.table),
         ])
-        .ok();
+        .succeeds();
     assert!(stdout.contains("Dune"), "{stdout}");
-    assert!(stdout.contains("(2 rows)"), "{stdout}");
     assert!(stdout.contains("_count"), "{stdout}");
-    assert!(stdout.contains("(1 row)"), "{stdout}");
+    assert!(
+        !stdout.contains("row)") && !stdout.contains("rows)"),
+        "{stdout}"
+    );
+    assert!(stderr.ends_with("(2 rows)\n(1 row)\n"), "{stderr}");
 }
 
 #[test_context(Books)]
@@ -137,9 +140,9 @@ async fn large_results_print_one_table(books: &mut Books) {
         "SELECT _id FROM {} WITH (consistency = 'strong') ORDER BY _id LIMIT 200",
         books.table
     );
-    let stdout = TestCommand::new().args(["sql", &select]).ok();
+    let (stdout, stderr) = TestCommand::new().args(["sql", &select]).succeeds();
     assert_eq!(stdout.matches("│ _id").count(), 1, "{stdout}");
-    assert!(stdout.ends_with("(122 rows)\n"), "{stdout}");
+    assert!(stderr.ends_with("(122 rows)\n"), "{stderr}");
     assert_eq!(
         TestCommand::new()
             .args(["-o", "json", "sql", &select])
@@ -156,11 +159,14 @@ async fn empty_select_prints_zero_rows(books: &mut Books) {
         "SELECT _id FROM {} WHERE rating > 100 LIMIT 10",
         books.table
     );
-    assert_eq!(TestCommand::new().args(["sql", &select]).ok(), "(0 rows)\n");
-    assert_eq!(
-        TestCommand::new().args(["-o", "json", "sql", &select]).ok(),
-        ""
-    );
+    let (stdout, stderr) = TestCommand::new().args(["sql", &select]).succeeds();
+    assert_eq!(stdout, "");
+    assert!(stderr.ends_with("(0 rows)\n"), "{stderr}");
+    let (stdout, stderr) = TestCommand::new()
+        .args(["-o", "json", "sql", &select])
+        .succeeds();
+    assert_eq!(stdout, "");
+    assert!(!stderr.contains("rows)"), "{stderr}");
 }
 
 #[test_context(Books)]
@@ -179,6 +185,10 @@ async fn meta_commands_list_and_describe_tables(books: &mut Books) {
     for expected in ["title", "rating", "double precision", "keyword_index"] {
         assert!(described.contains(expected), "{described}");
     }
+    assert!(TestCommand::new()
+        .args(["sql", &format!("\\d {}_missing", books.table)])
+        .fails()
+        .contains("did not find a table named"));
     let indexes = sql(format!("\\di {}*", books.table));
     assert!(indexes.contains("keyword_index"), "{indexes}");
     assert!(sql("\\?".into()).contains("\\di [PATTERN]"));
