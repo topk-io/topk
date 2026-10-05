@@ -21,6 +21,7 @@ Start with the [documentation](https://docs.topk.io) for quickstart guides, API 
 - [JavaScript SDK](./topk-js/) - Javascript SDK for TopK API with full Typescript support
 - [Rust SDK](./topk-rs/) - Rust SDK for TopK API
 - [SQL](./topk-sql/) - Connect any PostgreSQL client to TopK
+- [Elasticsearch API](./topk-es/) - Point any Elasticsearch client at TopK
 
 ## CLI
 
