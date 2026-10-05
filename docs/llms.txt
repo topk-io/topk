@@ -4,7 +4,8 @@
 
 ## Overview
 
-- [Introduction](https://docs.topk.io/introduction)
+- [Introduction](https://docs.topk.io/introduction): TopK is a search engine for accuracy-critical AI applications. Learn what it does, what a query looks like, and how it is built.
+- [Quickstart](https://docs.topk.io/quickstart): Go from an empty account to a working hybrid search in about five minutes.
 - [Architecture](https://docs.topk.io/architecture)
 - [Concepts](https://docs.topk.io/concepts)
 - [Limits](https://docs.topk.io/limits): Production limits for collections.
