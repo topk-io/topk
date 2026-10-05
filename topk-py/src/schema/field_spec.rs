@@ -1,9 +1,6 @@
 use crate::schema::data_type::DataType;
 use crate::schema::field_index::FieldIndex;
-use pyo3::{exceptions::PyValueError, prelude::*};
-
-const ALREADY_INDEXED: &str = "field already has an index; a field supports one index \
-    (semantic_index() also supports BM25 keyword search)";
+use pyo3::prelude::*;
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
@@ -46,14 +43,11 @@ impl FieldSpec {
         }
     }
 
-    fn index(&self, index: FieldIndex) -> PyResult<Self> {
-        if self.index.is_some() {
-            return Err(PyValueError::new_err(ALREADY_INDEXED));
-        }
-        Ok(Self {
+    fn index(&self, index: FieldIndex) -> Self {
+        Self {
             index: Some(index),
             ..self.clone()
-        })
+        }
     }
 }
 

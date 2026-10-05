@@ -37,9 +37,6 @@ class FieldSpec:
         """
         Create an index on a field.
 
-        A field supports one index. Raises `ValueError` if the field already has one.
-        `semantic_index()` also supports BM25 keyword search.
-
         Example:
 
         ```python
@@ -385,6 +382,8 @@ def keyword_index(type: typing.Literal["text", "exact"] = "text") -> FieldIndex:
 def semantic_index() -> FieldIndex:
     """
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
+
+    `semantic_index()` also supports BM25 keyword search.
 
     Example:
 

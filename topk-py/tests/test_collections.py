@@ -5,7 +5,6 @@ from topk_sdk.schema import (
     matrix,
     multi_vector_index,
     ngram_index,
-    semantic_index,
     text,
     vector_index,
 )
@@ -120,8 +119,3 @@ def test_incorrect_schema(ctx: ProjectContext):
         'InvalidIndex { field: "name", index: "vector", data_type: "text" }'
         in str(exc_info.value)
     )
-
-
-def test_field_with_two_indexes_raises():
-    with pytest.raises(ValueError, match="already has an index"):
-        text().index(semantic_index()).index(keyword_index())

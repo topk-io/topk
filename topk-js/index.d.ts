@@ -933,9 +933,6 @@ export declare namespace schema {
     /**
      * Creates an index on a field.
      *
-     * A field supports one index. Throws if the field already has one.
-     * `semanticIndex()` also supports BM25 keyword search.
-     *
      * Example:
      *
      * ```javascript
@@ -1255,6 +1252,8 @@ export declare namespace schema {
   export function ngramIndex(): schema.FieldIndex
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
+   *
+   * `semanticIndex()` also supports BM25 keyword search.
    *
    * Example:
    *
