@@ -36,8 +36,8 @@ impl DataClient {
                 ))),
         };
         let Host { host, https } = config.host();
-        // A batch tool rides out `SlowDown`: retries never run out, an hour of
-        // continuous throttling fails the request, and `--resume` picks up.
+        // A batch tool rides out transient errors: retries never run out, an hour of
+        // continuous failures fails the request, and `--resume` picks up.
         Ok(Self(Client::new(
             client
                 .with_host(host.clone())
