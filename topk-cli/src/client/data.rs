@@ -11,20 +11,21 @@ use crate::client::{AccessTokenInterceptor, ManagementClient};
 use crate::config::Config;
 use crate::endpoint::DataEndpoint;
 use crate::host::Host;
+use crate::Region;
 
 #[derive(Clone)]
 pub struct DataClient(Client);
 
 impl DataClient {
     pub fn new(config: &Config, endpoint: DataEndpoint) -> Result<Self> {
-        let region = endpoint.region.as_deref().context(
+        let region = endpoint.region.as_ref().map(Region::as_str).context(
             "--region is required (or set TOPK_REGION). \
              List available regions at https://docs.topk.io/regions",
         )?;
         let client = match (endpoint.api_key, endpoint.project_id) {
             // Clap rejects the combinations; this guards direct construction.
             (Some(_), Some(_)) => bail!("--project-id cannot be combined with an API key"),
-            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required"),
+            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required (or set TOPK_PROJECT_ID)"),
             (Some(api_key), None) => ClientConfig::new(api_key, region),
             // `--project-id` authenticates with access tokens minted through the login.
             (None, Some(project_id)) => ClientConfig::default()

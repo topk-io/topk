@@ -18,7 +18,10 @@ async fn create_get_list_delete(ctx: &mut CliTestContext) {
         ctx.json(&["project", "get", &id]),
         std::slice::from_ref(&created)
     );
-    assert!(ctx.json(&["project", "list"]).contains(&created));
+    assert!(ctx
+        .json(&["project", "list"])
+        .iter()
+        .any(|project| project["project_id"] == id));
 
     let text = ctx.ok(&["project", "get", &id]);
     assert!(text.contains("Project ID:") && text.contains(&id), "{text}");
@@ -42,7 +45,10 @@ async fn create_get_list_delete(ctx: &mut CliTestContext) {
     assert!(ctx
         .fails(&["project", "delete", "-y", &id])
         .contains("not found"));
-    assert!(!ctx.json(&["project", "list"]).contains(&created));
+    assert!(!ctx
+        .json(&["project", "list"])
+        .iter()
+        .any(|project| project["project_id"] == id));
 }
 
 #[test_context(CliTestContext)]

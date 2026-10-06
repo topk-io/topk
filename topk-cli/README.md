@@ -13,8 +13,8 @@ brew install topk
 
 ```bash
 topk login
-topk import ./books.parquet --region aws-us-east-1-elastica
-topk import postgres://user:pw@host/db 'public.*' --region aws-us-east-1-elastica
+topk import ./books.parquet --project-id <PROJECT_ID> --region aws-us-east-1-elastica
+topk import postgres://user:pw@host/db 'public.*' --project-id <PROJECT_ID> --region aws-us-east-1-elastica
 ```
 
 > [!NOTE]
@@ -51,12 +51,38 @@ topk logout
 
 ### project
 
+Show the currently selected project:
+
+```bash
+topk project
+```
+
 #### list
 
 List projects in the current organization.
 
 ```bash
 topk project list
+```
+
+> [!NOTE]
+> `topk project list` marks the currently selected project with `*`.
+
+#### select
+
+Select a default project.
+
+```bash
+topk project select  # interactive picker
+topk project select <PROJECT_ID>
+```
+
+#### unselect
+
+Clear the selected project:
+
+```bash
+topk project unselect
 ```
 
 #### get
@@ -98,12 +124,38 @@ topk project delete <PROJECT_ID> [-y]
 
 ### region
 
+Show the currently selected region:
+
+```bash
+topk region
+```
+
 #### list
 
 List available regions.
 
 ```bash
 topk region list
+```
+
+> [!NOTE]
+> `topk region list` marks the currently selected region with `*`.
+
+#### select
+
+Select a default region.
+
+```bash
+topk region select  # interactive picker
+topk region select aws-us-east-1-elastica
+```
+
+#### unselect
+
+Clear the selected region:
+
+```bash
+topk region unselect
 ```
 
 ### import
@@ -131,7 +183,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
-| `--project-id <PROJECT_ID>` | Project to import into with your login; required unless using an API key |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); required unless using an API key |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Authenticate
@@ -144,12 +196,14 @@ topk project list
 topk import ./books.parquet --project-id <project-id> --region aws-us-east-1-elastica
 ```
 
+Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explicit flags override environment variables.
+
 > [!TIP]
 > Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
 > Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
 
 > [!WARNING]
-> `--project-id` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
+> `--project-id` or `TOPK_PROJECT_ID` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
 
 #### Import a database
 
