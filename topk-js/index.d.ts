@@ -1253,6 +1253,8 @@ export declare namespace schema {
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
    *
+   * `semanticIndex()` also supports BM25 keyword search.
+   *
    * Example:
    *
    * ```javascript
