@@ -199,6 +199,23 @@ jobs:
         run: |
           bun run utils/verify-sdk-docs-sync.ts check
 
+  skills:
+    name: Agent skills
+    runs-on: public-amd64
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+
+      - name: Validate skills against the Agent Skills spec
+        run: |
+          pip install skills-ref==0.1.1
+          for skill in skills/*/; do
+            if [ -f "$skill/SKILL.md" ]; then
+              agentskills validate "$skill"
+            fi
+          done
+
   pre_commit:
     name: pre-commit
     runs-on: public-amd64
@@ -226,7 +243,7 @@ jobs:
 
   verified:
     name: Verified
-    needs: [fmt, versions, docs_sync, pre_commit, pinact]
+    needs: [fmt, versions, docs_sync, skills, pre_commit, pinact]
     runs-on: ubuntu-latest
     steps:
       - run: echo verified
