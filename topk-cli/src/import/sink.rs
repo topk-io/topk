@@ -19,6 +19,12 @@ use crate::import::spec::Target;
 use crate::import::state::{Mark, State};
 use crate::import::ID;
 
+/// A batch tool rides out `SlowDown`: an hour of continuous throttling fails the batch, and
+/// `--resume` picks up.
+const SLOW_DOWN_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+const SLOW_DOWN_INIT_BACKOFF: Duration = Duration::from_millis(250);
+const SLOW_DOWN_MAX_BACKOFF: Duration = Duration::from_secs(10);
+
 #[derive(Default, serde::Serialize)]
 pub struct LoadOutcome {
     /// Rows written; rows sharing an id collapse into one document (upsert).
@@ -262,8 +268,20 @@ impl BatchWriter<'_> {
         self.inflight.push_back((
             tokio::spawn(async move {
                 let _permit = permit;
-                collection.upsert(docs).await?;
-                Ok::<(), Error>(())
+                let started = Instant::now();
+                let mut backoff = SLOW_DOWN_INIT_BACKOFF;
+                loop {
+                    match collection.upsert(docs.clone()).await {
+                        Ok(_) => return Ok::<(), Error>(()),
+                        Err(topk_rs::Error::SlowDown(_))
+                            if started.elapsed() < SLOW_DOWN_TIMEOUT =>
+                        {
+                            tokio::time::sleep(backoff).await;
+                            backoff = (backoff * 2).min(SLOW_DOWN_MAX_BACKOFF);
+                        }
+                        Err(e) => return Err(e.into()),
+                    }
+                }
             }),
             self.cursor.take(),
         ));

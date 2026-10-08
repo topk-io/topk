@@ -350,7 +350,7 @@ class RetryConfig:
     Configuration for retry behavior.
 
     By default, retries occur in two situations:
-    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](https://docs.topk.io/sdk/topk-py/error#slowdownerror).
+    1. When the server is temporarily unavailable.
     2. When using the `query(..., lsn=N)` to wait for writes to be available.
     """
 
