@@ -174,7 +174,7 @@ from topk_sdk.query import field, not_, all, any
 .filter(field("year") >= 2020)
 .filter((field("source") == "blog") & (field("year") < 2025))
 .filter(field("category").in_(["audio", "office"]))
-.filter(field("price").lte(100) & field("in_stock") == True)
+.filter((field("price") <= 100) & (field("in_stock") == True))
 .filter(field("title").starts_with("Intro"))
 .filter(field("tags").contains("search"))  # list fields
 .filter(field("deleted_at").is_null())
