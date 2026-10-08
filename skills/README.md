@@ -34,6 +34,7 @@ Then set `TOPK_API_KEY` and `TOPK_REGION` in the agent's environment. The agent 
 topk/
 ├── SKILL.md              # core rules and workflow (loaded when the skill triggers)
 ├── references/
+│   ├── patterns.md       # proven designs: long docs, per-customer data, agent tool, catalog search
 │   ├── python.md         # topk-sdk patterns (loaded on demand)
 │   ├── typescript.md     # topk-js patterns
 │   └── sql.md            # Postgres-wire SQL

@@ -11,22 +11,16 @@ metadata:
 
 TopK stores documents in **collections** and searches them with one query builder: `select` → `filter` → `sort` → `limit`. Text fields with a `semantic_index()` are embedded and reranked on the server, so no embedding provider is needed.
 
-## Start from a tested recipe
+## Start from a proven pattern
 
-If the task matches one of these, fetch the recipe and adapt it instead of writing from scratch. Each one runs against the live API in CI every night.
+If the task matches one of these, start from the pattern in [references/patterns.md](references/patterns.md) and adapt it. Each one avoids mistakes that raise no error: truncated text, leaked tenant data, invented citations.
 
-| Task | Recipe | Language |
-|---|---|---|
-| Search docs, articles or other long text (chunking, semantic + BM25, one result per file) | `search/docs-hybrid-search` | Python |
-| Product or catalog search with filters, price ranges and keyword boosts | `search/product-search-ts` | TypeScript |
-| RAG or agent retrieval that keeps each customer's data isolated, including deleting a customer | `agents/multi-tenant-support` | Python |
-| TopK as a Haystack document store | `integrations/haystack` | Python |
-
-```bash
-npx degit topk-io/cookbook/recipes/<recipe> <dir>
-```
-
-Every recipe README has the same sections. Read **Use when** / **Don't use when** to confirm the fit, follow **Adapt it** to swap in the user's data, and run **Verify** before reporting success. The full list with tags is at https://github.com/topk-io/cookbook/blob/main/recipes.json.
+| Task | Pattern |
+|---|---|
+| Search docs, articles or other long text (chunking, semantic + BM25, one result per file) | 1. Search long documents (Python) |
+| Keep each customer's data separate, including deleting a customer | 2. Per-customer partitions (Python) |
+| Give an agent a search tool that answers with checked citations | 3. Agent retrieval tool (Python) |
+| Product or catalog search with filters, price ranges and keyword boosts | 4. Catalog search (TypeScript) |
 
 ## Language references
 
@@ -98,7 +92,7 @@ Partitions are fully isolated sub-collections inside one collection: same schema
 Copy this checklist and track progress:
 
 ```
-- [ ] 0. If a recipe above matches the task, fetch it and adapt it; otherwise continue
+- [ ] 0. If a pattern above matches the task, start from it; otherwise continue
 - [ ] 1. Run `python scripts/topk_inspect.py check` to confirm credentials and region
 - [ ] 2. Design the schema (one index per field; semantic text ≤ 4,096 chars, so chunk)
 - [ ] 3. Create the collection with a fresh name; treat "already exists" as success
