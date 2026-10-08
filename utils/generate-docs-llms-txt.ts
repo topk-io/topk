@@ -202,7 +202,8 @@ function buildSections(): Section[] {
 
 const HEADER =
   "# TopK Documentation\n\n" +
-  "> Hybrid search, multi-vector search, document parsing, question answering, and more in one API.\n\n";
+  "> Hybrid retrieval engine: semantic, keyword (BM25), dense, sparse, and multi-vector search with filtering, custom ranking, and managed inference in one API.\n\n" +
+  "Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill for correct API usage and the common mistakes to avoid: `npx skills add topk-io/topk --skill topk`.\n\n";
 
 async function renderLinks(sections: Section[]): Promise<string> {
   let out = HEADER;

@@ -15,6 +15,14 @@
 
 Start with the [documentation](https://docs.topk.io) for quickstart guides, API reference, and product documentation.
 
+## Building with a coding agent
+
+Using Claude Code, Cursor, Codex, or another coding agent? Install the [TopK skill](./skills/topk/) so the agent writes correct TopK code. It covers schema design, chunking, hybrid queries, multi-tenancy, and the common mistakes.
+
+```sh
+npx skills add topk-io/topk --skill topk
+```
+
 ## SDKs
 
 - [Python SDK](./topk-py/) - Python SDK for TopK API
