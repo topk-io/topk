@@ -52,6 +52,9 @@ enum Commands {
     /// Remove saved credentials
     Logout(topk::commands::logout::LogoutArgs),
 
+    /// Run SQL against your collections
+    Sql(topk::commands::sql::SqlArgs),
+
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
     Import(topk::commands::import::ImportArgs),
@@ -105,6 +108,8 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         Some(Commands::Region(args)) => {
             topk::commands::region::run(config, args, cli.output, &mut std::io::stdout()).await
         }
+
+        Some(Commands::Sql(args)) => topk::commands::sql::run(config, args, cli.output).await,
 
         Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
         Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,

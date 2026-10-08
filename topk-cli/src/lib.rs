@@ -7,6 +7,7 @@ pub mod host;
 #[cfg(feature = "import")]
 pub mod import;
 pub mod management;
+pub mod meta;
 pub mod output;
 pub mod util;
 

@@ -14,7 +14,7 @@ use tonic::transport::{Endpoint, Server};
 use tonic::{Request, Response, Status};
 
 use topk::auth::{Auth, OAuthConfig};
-use topk::client::{AccessTokenInterceptor, ManagementClient};
+use topk::client::{AccessTokenProvider, ManagementClient};
 use topk::config::Config;
 use topk::management::proto::data_plane_service_server::{
     DataPlaneService, DataPlaneServiceServer,
@@ -40,13 +40,13 @@ fn access_token(
     config: &OAuthConfig,
     config_dir: &Path,
     project: &str,
-) -> Arc<AccessTokenInterceptor> {
+) -> AccessTokenProvider {
     let config = Config::new(host(), config.clone(), config_dir.to_owned());
-    Arc::new(AccessTokenInterceptor::new(
+    AccessTokenProvider::new(
         ManagementClient::connect(endpoint, Auth::new(config.clone()).unwrap()),
         config,
         project.parse().unwrap(),
-    ))
+    )
 }
 
 struct Service {
@@ -194,13 +194,13 @@ impl Fixture {
         self.oauth.request().await;
     }
 
-    fn provider(&self, project: &str) -> Arc<AccessTokenInterceptor> {
-        access_token(
+    fn provider(&self, project: &str) -> Arc<AccessTokenProvider> {
+        Arc::new(access_token(
             self.endpoint.clone(),
             &self.oauth.config(),
             self.dir.path(),
             project,
-        )
+        ))
     }
 
     fn pending_reply(&self) -> oneshot::Sender<Reply> {
