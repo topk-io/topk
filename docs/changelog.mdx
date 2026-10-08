@@ -9,7 +9,15 @@ icon: "history"
 ## September 2026
 
 - **Features**: [`semantic_index`](https://docs.topk.io/guides/semantic-search) is now powered by the production model of [`topk-embed-v1`](https://www.topk.io/blog/topk-embed-v1), TopK's new family of multi-vector embedding models for text and visual documents.
-- **Research**: Open-sourced [`topk-embed-v1-xsmall`](https://huggingface.co/topk-io/topk-embed-v1-xsmall) (0.8B) and [`topk-embed-v1-small`](https://huggingface.co/topk-io/topk-embed-v1-small) (2B) on Hugging Face under Apache 2.0.
+- **Research**: Open-sourced [`topk-embed-v1-xsmall`](https://huggingface.co/topk-io/topk-embed-v1-xsmall) (0.8B) and [`topk-embed-v1-small`](https://huggingface.co/topk-io/topk-embed-v1-small) (2B) on Hugging Face under Apache 2.0. **SQL**: Added support for INT, INT2, INT4, and INT8 type aliases in [`CREATE TABLE`](https://docs.topk.io/sdk/topk-sql/overview#create-table) statements, improving compatibility with familiar SQL syntax. **CLI**: Improved the [`TopK CLI`](https://docs.topk.io/cli) with separate data and management endpoints, authentication support for data operations, and project and region management capabilities.
+
+## August 2026
+
+- **Features**: Added Quantile and CountDistinct aggregations, expanding the available options for statistical analysis and distinct value counting.
+- **Search**: Added support for [`n-gram indexes`](https://docs.topk.io/sdk/topk-py/schema#ngram_index), enabling more flexible text search capabilities.
+- **SDKs**: Introduced [`timestamp`](https://docs.topk.io/sdk/topk-py/schema#timestamp) schema support, improving compatibility with time-based data.
+- **SQL**: Expanded supported index and table name lengths, providing greater flexibility when defining schemas.
+- **Platform**: Added new region in GCP (gcp-us-east4-aloe).
 
 ## June 2026
 
