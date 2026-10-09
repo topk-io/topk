@@ -1,12 +1,13 @@
 # TopK patterns
 
-Proven designs for common tasks. Each one avoids mistakes that raise no error and so go unnoticed: truncated text, leaked tenant data, invented citations. Start from the closest pattern and adapt it.
+Proven designs for common tasks. Each one avoids mistakes that raise no error and so go unnoticed: truncated text, leaked tenant data, invented citations, stale chunks after re-indexing, unsearchable scanned pages. Start from the closest pattern and adapt it.
 
 ## Contents
 - 1. Search long documents (chunking, hybrid ranking, one result per file) — Python
 - 2. Keep each customer's data separate (partitions, safe deletion) — Python
 - 3. Give an agent a retrieval tool (passages + checked citations) — Python
 - 4. Catalog search with filters and boosts — TypeScript
+- 5. Index PDF and Word files (text extraction, page/section citations, scanned pages) — Python
 
 Every Python snippet assumes:
 
@@ -62,6 +63,9 @@ def index(files: dict[str, str]) -> str:
         for source, body in files.items()
         for i, part in enumerate(chunk(body))
     ]
+    # Remove each file's old chunks first: a file that now produces fewer chunks would
+    # otherwise leave its old "file#5" behind, still showing up in search.
+    client.collection(COLLECTION).delete(field("source").in_(list(files)))
     lsn = ""
     for start in range(0, len(docs), 200):  # stay under the 8MB request limit
         lsn = client.collection(COLLECTION).upsert(docs[start : start + 200])
@@ -84,7 +88,7 @@ def search(query: str, k: int = 5) -> list[dict]:
     return sorted(best.values(), key=lambda r: r["score"], reverse=True)[:k]
 ```
 
-**Why:** one `semantic_index()` field serves both semantic and BM25 scoring. Chunking keeps every part of a long file searchable; truncating to fit doesn't. Weighting in a second `select()` returns wrong values, so it happens in `sort()`.
+**Why:** one `semantic_index()` field serves both semantic and BM25 scoring. Chunking keeps every part of a long file searchable; truncating to fit doesn't. Weighting in a second `select()` returns wrong values, so it happens in `sort()`. Re-indexing deletes a file's old chunks before writing the new ones; between the two calls that file briefly returns no results.
 
 ## 2. Keep each customer's data separate
 
@@ -110,7 +114,9 @@ def index_customer(customer: str, passages: list[dict]) -> str:
     except CollectionAlreadyExistsError:
         pass
     # One partition per customer, created on first write. Queries never cross partitions.
-    return client.collection(COLLECTION, customer).upsert(passages)
+    partition = client.collection(COLLECTION, customer)
+    partition.delete(field("source").in_(sorted({p["source"] for p in passages})))  # drop stale chunks
+    return partition.upsert(passages)
 
 
 def retrieve(customer: str, question: str, k: int = 5) -> list[dict]:
@@ -235,3 +241,76 @@ export async function search(query: string, opts: { category?: string; maxPrice?
 ```
 
 **Why:** integer cents avoid the whole-number rejection and sort correctly. `semanticIndex()` also supports `matchAny`, so the name field needs no second index. Semantic search always returns its nearest neighbours; add a minimum-score cutoff if off-topic queries should return nothing.
+
+## 5. Index PDF and Word files
+
+**Use when** source documents are PDFs or `.docx` files. TopK indexes text, not files: `semantic_index()` takes strings, so extract the text first. Builds on pattern 1 (`chunk()`, the collection and `search()`).
+
+```bash
+pip install "pypdf>=5" "python-docx>=1.1"
+```
+
+```python
+import re
+from collections import Counter
+from pathlib import Path
+
+from docx import Document
+from pypdf import PdfReader
+
+
+def pdf_units(path: Path) -> list[tuple[str, str]]:
+    """[(location, text)] per page, with repeated headers and footers removed."""
+    pages = [(page.extract_text() or "").splitlines() for page in PdfReader(path).pages]
+    # A line that appears on most pages (digits ignored, so "Page 3 of 9" matches) is a header/footer.
+    shape = lambda line: re.sub(r"\d+", "#", line.strip())
+    counts = Counter(shape(l) for lines in pages for l in set(lines) if l.strip())
+    repeated = {s for s, n in counts.items() if len(pages) > 2 and n > len(pages) / 2}
+    return [
+        (f"page {i}", "\n".join(l for l in lines if shape(l) not in repeated).strip())
+        for i, lines in enumerate(pages, 1)
+    ]
+
+
+def docx_units(path: Path) -> list[tuple[str, str]]:
+    """[(heading, text)] per section; tables stay under their heading, one row per line."""
+    units, heading, parts = [], "start", []
+    for block in Document(path).iter_inner_content():  # paragraphs and tables in document order
+        if hasattr(block, "rows"):  # a table
+            parts += [" | ".join(cell.text.strip() for cell in row.cells) for row in block.rows]
+        elif block.style.name.startswith(("Heading", "Title")):
+            if parts:
+                units.append((heading, "\n".join(parts)))
+            heading, parts = block.text.strip(), []
+        elif block.text.strip():
+            parts.append(block.text.strip())
+    if parts:
+        units.append((heading, "\n".join(parts)))
+    return units
+
+
+def index_file(path: Path) -> tuple[str, list[str]]:
+    """Index one PDF or .docx. Returns (lsn, locations that need OCR)."""
+    units = pdf_units(path) if path.suffix.lower() == ".pdf" else docx_units(path)
+    needs_ocr = [loc for loc, text in units if not text]  # e.g. scanned pages: no text layer
+    docs = [
+        {"_id": f"{path.name}#{loc}#{i}", "source": path.name, "location": loc, "text": part}
+        for loc, text in units if text
+        for i, part in enumerate(chunk(text))
+    ]
+    collection = client.collection(COLLECTION)
+    collection.delete(field("source") == path.name)  # re-indexing: drop the file's old chunks
+    lsn = ""
+    for start in range(0, len(docs), 200):
+        lsn = collection.upsert(docs[start : start + 200])
+    return lsn, needs_ocr
+```
+
+Select `"location"` in `search()` so answers can cite "handbook.pdf, page 2" or "onboarding.docx, Expense limits".
+
+**Why:**
+- **Keep the location on every chunk.** Page numbers and headings are lost after chunking unless they're stored, and citations without them are hard to check.
+- **Strip repeated headers and footers.** Otherwise they appear in every chunk, adding noise to every match.
+- **Scanned pages have no text layer.** Extraction returns nothing, or only the header, so the page would silently never be found. `index_file()` reports those pages so you can run OCR on them (for example `ocrmypdf`) instead of losing them.
+- **Keep tables with their heading,** one row per line, so a question like "hotel limit per night" finds the row with its column names.
+- **Complex layouts** (multi-column pages, tables spanning pages, forms) extract poorly with `pypdf`. Use a layout-aware parser such as Docling or Unstructured, and keep the same `(location, text)` output so the rest of the pattern stays the same.

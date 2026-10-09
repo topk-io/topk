@@ -4,7 +4,7 @@ description: Builds search and retrieval on TopK, a hosted search database with 
 license: MIT
 metadata:
   author: topk-io
-  version: "0.1.1"
+  version: "0.2.0"
 ---
 
 # TopK
@@ -13,7 +13,7 @@ TopK stores documents in **collections** and searches them with one query builde
 
 ## Start from a proven pattern
 
-If the task matches one of these, start from the pattern in [references/patterns.md](references/patterns.md) and adapt it. Each one avoids mistakes that raise no error: truncated text, leaked tenant data, invented citations.
+If the task matches one of these, start from the pattern in [references/patterns.md](references/patterns.md) and adapt it. Each one avoids mistakes that raise no error: truncated text, leaked tenant data, invented citations, stale chunks after re-indexing.
 
 | Task | Pattern |
 |---|---|
@@ -21,6 +21,7 @@ If the task matches one of these, start from the pattern in [references/patterns
 | Keep each customer's data separate, including deleting a customer | 2. Per-customer partitions (Python) |
 | Give an agent a search tool that answers with checked citations | 3. Agent retrieval tool (Python) |
 | Product or catalog search with filters, price ranges and keyword boosts | 4. Catalog search (TypeScript) |
+| Index PDF or Word files, with page or section citations | 5. PDF and Word files (Python) |
 
 ## Language references
 
@@ -63,7 +64,7 @@ A field holds **one** index. Chaining `.index(a).index(b)` silently keeps only `
 
 ## Rules that cause most failures
 
-1. **Chunk long text.** A value in a `semantic_index()` field longer than 4,096 characters fails with `DocumentValidationError ... TextTooLong { max_length: 4096 }`. Split long documents into passages of about 2,000–3,500 characters, one document per chunk. Store `source`, `chunk_index`, and the text on each chunk. Use smaller chunks for non-Latin scripts, because a document over 200KB *including its generated embeddings* fails with `DocumentTooLarge`. Don't truncate text to fit; truncated text can't be found by semantic search. If the user wants **one result per file**, still index chunks: query `limit(k * 4)`, keep the best-scoring chunk per `source`, and return the top `k` files.
+1. **Chunk long text.** A value in a `semantic_index()` field longer than 4,096 characters fails with `DocumentValidationError ... TextTooLong { max_length: 4096 }`. Split long documents into passages of about 2,000–3,500 characters, one document per chunk. Store `source`, `chunk_index`, and the text on each chunk. Use smaller chunks for non-Latin scripts, because a document over 200KB *including its generated embeddings* fails with `DocumentTooLarge`. Don't truncate text to fit; truncated text can't be found by semantic search. If the user wants **one result per file**, still index chunks: query `limit(k * 4)`, keep the best-scoring chunk per `source`, and return the top `k` files. When re-indexing a file, delete its old chunks first (`delete(field("source") == path)`); otherwise a file that shrank leaves stale chunks behind.
 2. **Always end a query with `.limit(k)`**, after `.sort(...)` when you rank by a score. Use `.count()` to count instead.
 3. **`bm25_score()` requires a `match(...)` in the filter**, on a field with a keyword or semantic index. `match(q)` keeps only documents that contain at least one query term. When keyword terms should *boost* without excluding documents, use `should(term)`.
 4. **Scores aren't normalized.** `semantic_similarity` and `bm25_score` have different, data-dependent ranges (for example, semantic about 1–4 and BM25 about 0.02–15). Before choosing hybrid weights, print a few real scores, or normalize them. Semantic search always returns its nearest neighbours, even when nothing is relevant. If "no results" is the right answer for an off-topic query, calibrate a minimum score from real queries and filter below it.

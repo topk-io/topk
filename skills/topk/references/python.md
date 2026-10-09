@@ -66,6 +66,9 @@ lsn = client.collection("articles").upsert([
 ### Chunk long text for `semantic_index()` fields
 
 ```python
+from topk_sdk.query import field
+
+
 def chunk(text: str, size: int = 3000, overlap: int = 200) -> list[str]:
     """Split on paragraph boundaries into chunks of at most `size` characters."""
     paras, chunks, cur = text.split("\n\n"), [], ""
@@ -83,6 +86,7 @@ docs = [
     {"_id": f"{path}#{i}", "source": path, "chunk_index": i, "title": title, "body": c}
     for i, c in enumerate(chunk(full_text))
 ]
+client.collection("articles").delete(field("source") == path)  # re-indexing: drop old chunks first
 for i in range(0, len(docs), 500):  # stay under the 8MB request limit
     lsn = client.collection("articles").upsert(docs[i : i + 500])
 ```
