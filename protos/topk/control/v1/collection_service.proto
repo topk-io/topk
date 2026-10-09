@@ -18,7 +18,13 @@ service CollectionService {
   rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse);
 }
 
-message ListCollectionsRequest {}
+// Without start_after or limit, all collections are returned.
+message ListCollectionsRequest {
+  // Last collection name of the previous page, exclusive.
+  optional string start_after = 1;
+  // Page size, capped at 100.
+  optional uint32 limit = 2;
+}
 message ListCollectionsResponse {
   repeated Collection collections = 1;
 }
