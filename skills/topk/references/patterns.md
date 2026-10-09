@@ -65,7 +65,9 @@ def index(files: dict[str, str]) -> str:
     ]
     # Remove each file's old chunks first: a file that now produces fewer chunks would
     # otherwise leave its old "file#5" behind, still showing up in search.
-    client.collection(COLLECTION).delete(field("source").in_(list(files)))
+    sources = list(files)
+    for start in range(0, len(sources), 200):  # batched, like the upserts
+        client.collection(COLLECTION).delete(field("source").in_(sources[start : start + 200]))
     lsn = ""
     for start in range(0, len(docs), 200):  # stay under the 8MB request limit
         lsn = client.collection(COLLECTION).upsert(docs[start : start + 200])
@@ -88,7 +90,7 @@ def search(query: str, k: int = 5) -> list[dict]:
     return sorted(best.values(), key=lambda r: r["score"], reverse=True)[:k]
 ```
 
-**Why:** one `semantic_index()` field serves both semantic and BM25 scoring. Chunking keeps every part of a long file searchable; truncating to fit doesn't. Weighting in a second `select()` returns wrong values, so it happens in `sort()`. Re-indexing deletes a file's old chunks before writing the new ones; between the two calls that file briefly returns no results.
+**Why:** one `semantic_index()` field serves both semantic and BM25 scoring. Chunking keeps every part of a long file searchable; truncating to fit doesn't. Weighting in a second `select()` returns wrong values, so it happens in `sort()`. Re-indexing deletes a file's old chunks before writing the new ones, so until the new chunks are visible that file can be missing from results. `index()` returns the LSN of its last write: pass it as `lsn=` to read after the write.
 
 ## 2. Keep each customer's data separate
 
@@ -115,7 +117,8 @@ def index_customer(customer: str, passages: list[dict]) -> str:
         pass
     # One partition per customer, created on first write. Queries never cross partitions.
     partition = client.collection(COLLECTION, customer)
-    partition.delete(field("source").in_(sorted({p["source"] for p in passages})))  # drop stale chunks
+    # Drop the files' old chunks. Safe on a brand-new partition: the delete matches nothing.
+    partition.delete(field("source").in_(sorted({p["source"] for p in passages})))
     return partition.upsert(passages)
 
 
@@ -259,26 +262,47 @@ from docx import Document
 from pypdf import PdfReader
 
 
+EDGE_LINES = 2  # headers and footers sit in the first and last lines of a page
+
+
+def shape(line: str) -> str:
+    """Digits ignored, so "Page 3 of 9" and "Page 4 of 9" have the same shape."""
+    return re.sub(r"\d+", "#", line.strip())
+
+
 def pdf_units(path: Path) -> list[tuple[str, str]]:
     """[(location, text)] per page, with repeated headers and footers removed."""
     pages = [(page.extract_text() or "").splitlines() for page in PdfReader(path).pages]
-    # A line that appears on most pages (digits ignored, so "Page 3 of 9" matches) is a header/footer.
-    shape = lambda line: re.sub(r"\d+", "#", line.strip())
-    counts = Counter(shape(l) for lines in pages for l in set(lines) if l.strip())
+
+    def is_edge(lines: list[str], j: int) -> bool:
+        return j < EDGE_LINES or j >= len(lines) - EDGE_LINES
+
+    # Only edge lines with letters can be headers/footers, so numbers in tables
+    # ("2024", "1,200") are never stripped.
+    counts = Counter(
+        s
+        for lines in pages
+        for s in {shape(l) for j, l in enumerate(lines) if is_edge(lines, j) and re.search(r"[A-Za-z]", l)}
+    )
     repeated = {s for s, n in counts.items() if len(pages) > 2 and n > len(pages) / 2}
     return [
-        (f"page {i}", "\n".join(l for l in lines if shape(l) not in repeated).strip())
+        (f"page {i}", "\n".join(
+            l for j, l in enumerate(lines) if not (is_edge(lines, j) and shape(l) in repeated)
+        ).strip())
         for i, lines in enumerate(pages, 1)
     ]
 
 
 def docx_units(path: Path) -> list[tuple[str, str]]:
     """[(heading, text)] per section; tables stay under their heading, one row per line."""
-    units, heading, parts = [], "start", []
+    units, heading, parts = [], "(before first heading)", []
     for block in Document(path).iter_inner_content():  # paragraphs and tables in document order
         if hasattr(block, "rows"):  # a table
-            parts += [" | ".join(cell.text.strip() for cell in row.cells) for row in block.rows]
-        elif block.style.name.startswith(("Heading", "Title")):
+            for row in block.rows:
+                # A merged cell is returned once per column it spans; keep it once.
+                cells = {id(cell._tc): cell.text.strip() for cell in row.cells}
+                parts.append(" | ".join(cells.values()))
+        elif (block.style.name if block.style else "").startswith(("Heading", "Title")):
             if parts:
                 units.append((heading, "\n".join(parts)))
             heading, parts = block.text.strip(), []
@@ -289,28 +313,38 @@ def docx_units(path: Path) -> list[tuple[str, str]]:
     return units
 
 
-def index_file(path: Path) -> tuple[str, list[str]]:
-    """Index one PDF or .docx. Returns (lsn, locations that need OCR)."""
+def index_file(path: Path, source: str | None = None) -> tuple[str, list[str]]:
+    """Index one PDF or .docx. Returns (lsn, locations that need OCR).
+
+    `source` must be unique per file; it defaults to the path as given. Pass a path relative to
+    your docs root (e.g. "policies/handbook.pdf") so two files named README.pdf don't collide.
+    """
+    source = source or path.as_posix()
     units = pdf_units(path) if path.suffix.lower() == ".pdf" else docx_units(path)
     needs_ocr = [loc for loc, text in units if not text]  # e.g. scanned pages: no text layer
     docs = [
-        {"_id": f"{path.name}#{loc}#{i}", "source": path.name, "location": loc, "text": part}
-        for loc, text in units if text
+        # Number the sections: two sections can share a heading, so the heading can't be the id.
+        {"_id": f"{source}#{n}#{i}", "source": source, "location": loc, "text": part}
+        for n, (loc, text) in enumerate(units) if text
         for i, part in enumerate(chunk(text))
     ]
     collection = client.collection(COLLECTION)
-    collection.delete(field("source") == path.name)  # re-indexing: drop the file's old chunks
+    collection.delete(field("source") == source)  # re-indexing: drop the file's old chunks
     lsn = ""
     for start in range(0, len(docs), 200):
         lsn = collection.upsert(docs[start : start + 200])
     return lsn, needs_ocr
 ```
 
-Select `"location"` in `search()` so answers can cite "handbook.pdf, page 2" or "onboarding.docx, Expense limits".
+To cite "handbook.pdf, page 2" or "onboarding.docx, Expense limits", add `"location"` to the select in pattern 1's `search()`:
+
+```python
+select("source", "location", "text", semantic=fn.semantic_similarity("text", query), keyword=fn.bm25_score())
+```
 
 **Why:**
 - **Keep the location on every chunk.** Page numbers and headings are lost after chunking unless they're stored, and citations without them are hard to check.
-- **Strip repeated headers and footers.** Otherwise they appear in every chunk, adding noise to every match.
+- **Strip repeated headers and footers.** Otherwise they appear in every chunk, adding noise to every match. Only a page's first and last lines that contain letters are candidates, so numbers in tables are never removed; a footer that is only a page number stays in.
 - **Scanned pages have no text layer.** Extraction returns nothing, or only the header, so the page would silently never be found. `index_file()` reports those pages so you can run OCR on them (for example `ocrmypdf`) instead of losing them.
 - **Keep tables with their heading,** one row per line, so a question like "hotel limit per night" finds the row with its column names.
 - **Complex layouts** (multi-column pages, tables spanning pages, forms) extract poorly with `pypdf`. Use a layout-aware parser such as Docling or Unstructured, and keep the same `(location, text)` output so the rest of the pattern stays the same.
