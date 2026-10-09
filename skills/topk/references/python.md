@@ -83,6 +83,9 @@ docs = [
     {"_id": f"{path}#{i}", "source": path, "chunk_index": i, "title": title, "body": c}
     for i, c in enumerate(chunk(full_text))
 ]
+from topk_sdk.query import field
+
+client.collection("articles").delete(field("source") == path)  # re-indexing: drop old chunks first
 for i in range(0, len(docs), 500):  # stay under the 8MB request limit
     lsn = client.collection("articles").upsert(docs[i : i + 500])
 ```
