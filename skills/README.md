@@ -26,7 +26,7 @@ Or copy the folder manually:
 git clone --depth 1 https://github.com/topk-io/topk /tmp/topk && cp -r /tmp/topk/skills/topk .claude/skills/
 ```
 
-Then set `TOPK_API_KEY` and `TOPK_REGION` in the agent's environment. The agent loads the skill on its own whenever a task involves TopK.
+Then set `TOPK_API_KEY` and `TOPK_REGION` in the agent's environment. Create an API key in the [console](https://console.topk.io/api-key), and pick a region from the [regions list](https://docs.topk.io/regions). The agent loads the skill on its own whenever a task involves TopK.
 
 ## Layout
 

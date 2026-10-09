@@ -20,6 +20,14 @@ pip install topk-sdk
 uv add topk-sdk
 ```
 
+## Building with a coding agent
+
+Using Claude Code, Cursor, Codex, or another coding agent? Install the [TopK skill](https://github.com/topk-io/topk/tree/main/skills/topk) so the agent writes correct TopK code. It covers schema design, chunking, hybrid queries, multi-tenancy, and the common mistakes.
+
+```sh
+npx skills add topk-io/topk --skill topk
+```
+
 ## Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
