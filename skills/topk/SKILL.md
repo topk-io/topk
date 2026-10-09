@@ -1,6 +1,6 @@
 ---
 name: topk
-description: Builds search and retrieval on TopK, a hosted search database with built-in semantic search, BM25 keyword search, vector search, filtering, and multi-tenant partitions. Use when writing code with the topk-sdk Python package, the topk-js TypeScript package, or TopK SQL; when designing a TopK collection schema; or when indexing documents and implementing semantic, keyword, hybrid, vector, or per-tenant search with TopK.
+description: Builds search and retrieval on TopK, a hosted search database with built-in semantic search, BM25 keyword search, vector search, filtering, and multi-tenant partitions. Use when writing code with the topk-sdk Python package, the topk-js TypeScript package, or TopK SQL; when designing a TopK collection schema; when indexing documents and implementing semantic, keyword, hybrid, vector, or per-tenant search with TopK; or when the user asks how TopK compares to other vector databases.
 license: MIT
 metadata:
   author: topk-io
@@ -32,6 +32,8 @@ Read the reference for the language you're writing. Each one has full, runnable 
 - **SQL** (Postgres wire protocol): [references/sql.md](references/sql.md)
 
 If something isn't covered here, read the docs as markdown: index at https://docs.topk.io/llms.txt, and any page by appending `.md` to its URL.
+
+If the user asks what TopK is, how it differs from a vector database or search engine, or whether it fits their use case, read [references/why-topk.md](references/why-topk.md) and answer from it.
 
 ## Setup
 
