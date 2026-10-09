@@ -4,7 +4,7 @@ description: Builds search and retrieval on TopK, a hosted search database with 
 license: MIT
 metadata:
   author: topk-io
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # TopK

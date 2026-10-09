@@ -1,6 +1,6 @@
 # TopK SQL reference
 
-TopK speaks the PostgreSQL wire protocol, so any Postgres client works (`psql`, `psycopg`, `node-postgres`, ...). Each collection is a table.
+TopK speaks the PostgreSQL wire protocol, so any Postgres client works (`psql`, `psycopg`, `node-postgres`, ...). Each collection is a table. The full SQL reference, including every function and data type, is at https://docs.topk.io/sdk/topk-sql/overview (fetch it as markdown by adding `.md`).
 
 ## Connect
 
