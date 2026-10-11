@@ -35,7 +35,7 @@ impl CollectionsClient {
 
             async move {
                 client
-                    .list_collections(ListCollectionsRequest {})
+                    .list_collections(ListCollectionsRequest::default())
                     .map_err(Error::from)
                     .await
             }

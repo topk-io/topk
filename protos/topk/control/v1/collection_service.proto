@@ -18,7 +18,13 @@ service CollectionService {
   rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse);
 }
 
-message ListCollectionsRequest {}
+// Without cursor or limit, all collections are returned.
+message ListCollectionsRequest {
+  // Last collection name of the previous page, exclusive.
+  optional string cursor = 1;
+  // Collections per page, 1–100 (default 100).
+  optional uint32 limit = 2;
+}
 message ListCollectionsResponse {
   repeated Collection collections = 1;
 }
