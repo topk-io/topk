@@ -212,7 +212,7 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .client
         .collections
         .list_collections(ListCollectionsRequest {
-            name_prefix: None,
+            search: None,
             project_id: "project-1".into(),
             start_after: None,
             limit: None,
