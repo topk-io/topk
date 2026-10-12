@@ -148,8 +148,9 @@ try {
 
 ### Retries
 
-The client automatically retries on slow-down and LSN consistency
-timeouts. Retry behaviour can be configured via `retryConfig`:
+The client automatically retries transient errors (server unavailable,
+network failures) and LSN consistency timeouts.
+Retry behaviour can be configured via `retryConfig`:
 
 ```typescript
 import { Client } from "topk-js";
