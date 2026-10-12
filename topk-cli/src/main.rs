@@ -109,7 +109,9 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
             topk::commands::region::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
-        Some(Commands::Sql(args)) => topk::commands::sql::run(config, args, cli.output).await,
+        Some(Commands::Sql(args)) => {
+            topk::commands::sql::run(config, args, cli.output, &mut std::io::stdout()).await
+        }
 
         Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
         Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,

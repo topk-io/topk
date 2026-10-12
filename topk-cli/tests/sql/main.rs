@@ -28,7 +28,7 @@ impl AsyncTestContext for Books {
                 "sql",
                 &format!(
                     "INSERT INTO {table} (_id, title, rating) \
-                     VALUES ('1', 'Dune', 4.5), ('2', 'Emma', NULL)"
+                     VALUES ('1', 'Dune', 4.1), ('2', 'Emma', NULL)"
                 ),
             ])
             .ok();
@@ -45,7 +45,7 @@ impl AsyncTestContext for Books {
 impl Books {
     fn select(&self) -> String {
         format!(
-            "SELECT _id, title, rating::float8 FROM {} WITH (consistency = 'strong') \
+            "SELECT _id, title, rating::float4 FROM {} WITH (consistency = 'strong') \
              ORDER BY _id LIMIT 10",
             self.table
         )
@@ -60,7 +60,7 @@ async fn json_output_keeps_value_types(books: &mut Books) {
             .args(["-o", "json", "sql", &books.select()])
             .json(),
         [
-            json!({ "_id": "1", "title": "Dune", "rating": 4.5 }),
+            json!({ "_id": "1", "title": "Dune", "rating": 4.1 }),
             json!({ "_id": "2", "title": "Emma", "rating": null }),
         ]
     );

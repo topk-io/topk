@@ -45,7 +45,12 @@ impl SqlArgs {
     }
 }
 
-pub async fn run(config: Config, args: &SqlArgs, output: Output) -> Result<ExitCode> {
+pub async fn run(
+    config: Config,
+    args: &SqlArgs,
+    output: Output,
+    out: &mut impl Write,
+) -> Result<ExitCode> {
     let sql = args.input_sql()?;
     let (sql, mut describes) = match meta::expand(&sql)? {
         Some(meta) => (meta.sql, meta.describes),
@@ -54,7 +59,7 @@ pub async fn run(config: Config, args: &SqlArgs, output: Output) -> Result<ExitC
     let mut client = timeout(CONNECT_TIMEOUT, SqlClient::connect(&config, &args.data))
         .await
         .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;
-    let mut printer = Printer::new(BufWriter::new(std::io::stdout().lock()), output);
+    let mut printer = Printer::new(BufWriter::new(out), output);
     let mut results = client.execute(&sql);
     while let Some(item) = results.next().await {
         match item? {
@@ -151,8 +156,13 @@ fn value(row: &PgRow, i: usize) -> Result<Value> {
         ty if <i16 as Type<Postgres>>::compatible(ty) => row.try_get::<i16, _>(i)?.into(),
         ty if <i32 as Type<Postgres>>::compatible(ty) => row.try_get::<i32, _>(i)?.into(),
         ty if <i64 as Type<Postgres>>::compatible(ty) => row.try_get::<i64, _>(i)?.into(),
-        ty if <f32 as Type<Postgres>>::compatible(ty) => row.try_get::<f32, _>(i)?.into(),
-        ty if <f64 as Type<Postgres>>::compatible(ty) => row.try_get::<f64, _>(i)?.into(),
+        ty if <f32 as Type<Postgres>>::compatible(ty)
+            || <f64 as Type<Postgres>>::compatible(ty) =>
+        {
+            row.try_get_unchecked::<String, _>(i)?
+                .parse::<f64>()?
+                .into()
+        }
         ty if <Value as Type<Postgres>>::compatible(ty) => row.try_get::<Value, _>(i)?,
         _ => row.try_get_unchecked::<String, _>(i)?.into(),
     })
