@@ -18,7 +18,6 @@ service CollectionService {
   rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse);
 }
 
-// Without cursor or limit, all collections are returned.
 message ListCollectionsRequest {
   // Last collection name of the previous page, exclusive.
   optional string cursor = 1;
