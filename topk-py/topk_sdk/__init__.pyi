@@ -350,7 +350,7 @@ class RetryConfig:
     Configuration for retry behavior.
 
     By default, retries occur in two situations:
-    1. When the server is temporarily unavailable.
+    1. On transient errors (server unavailable, network failures).
     2. When using the `query(..., lsn=N)` to wait for writes to be available.
     """
 

@@ -203,7 +203,7 @@ except PermissionDeniedError:
 except QuotaExceededError:
     print("Usage quota exceeded")
 except SlowDownError:
-    print("Rate limited — the client will retry automatically")
+    print("Rate limited — back off and retry")
 ```
 
 | Error | Description |
@@ -222,8 +222,9 @@ except SlowDownError:
 
 ### Retries
 
-The client automatically retries on transient server errors and on LSN
-consistency timeouts. Retry behaviour can be configured via `RetryConfig`:
+The client automatically retries transient errors (server unavailable,
+network failures) and LSN consistency timeouts.
+Retry behaviour can be configured via `RetryConfig`:
 
 ```python
 from topk_sdk import Client, RetryConfig, BackoffConfig

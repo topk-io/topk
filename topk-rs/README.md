@@ -182,7 +182,7 @@ async fn main() -> Result<(), Error> {
             eprintln!("Check your API key")
         }
         Err(Error::QuotaExceeded(_)) => eprintln!("Usage quota exceeded"),
-        Err(Error::SlowDown(_)) => eprintln!("Rate limited; retry later"),
+        Err(Error::SlowDown(_)) => eprintln!("Rate limited; back off and retry"),
         Err(err) => eprintln!("Unexpected error: {err}"),
     }
 
@@ -207,7 +207,7 @@ async fn main() -> Result<(), Error> {
 
 ### Retries
 
-The client automatically retries on `Unavailable`, transport errors, and LSN consistency timeouts. Retry behaviour can be configured via `RetryConfig`:
+The client automatically retries transient errors (`Unavailable`, `TransportError`) and LSN consistency timeouts. Retry behaviour can be configured via `RetryConfig`:
 
 ```rust
 use std::time::Duration;
