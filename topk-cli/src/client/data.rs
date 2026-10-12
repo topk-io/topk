@@ -10,7 +10,6 @@ use topk_rs::{Client, ClientConfig};
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
 use crate::endpoint::{Credentials, DataEndpoint};
-use crate::host::Host;
 
 #[derive(Clone)]
 pub struct DataClient(Client);
@@ -28,13 +27,12 @@ impl DataClient {
                     project_id,
                 ))),
         };
-        let Host { host, https } = config.host();
         // A batch tool rides out transient errors: retries never run out, an hour of
         // continuous failures fails the request, and `--resume` picks up.
         Ok(Self(Client::new(
             client
-                .with_host(host.clone())
-                .with_https(*https)
+                .with_host(config.host())
+                .with_https(config.https())
                 .with_retry_config(RetryConfig {
                     max_retries: usize::MAX,
                     timeout: Duration::from_secs(60 * 60),

@@ -21,7 +21,7 @@ pub struct SqlClient {
 
 impl SqlClient {
     pub async fn connect(config: &Config, endpoint: &DataEndpoint) -> Result<Self> {
-        let host = format!("{}.sql.{}", endpoint.region()?, config.host().host);
+        let host = format!("{}.sql.{}", endpoint.region()?, config.host());
         let password = match endpoint.credentials()? {
             Credentials::ApiKey(api_key) => api_key,
             Credentials::Project(project_id) => {
@@ -42,7 +42,7 @@ impl SqlClient {
             .password(&password)
             .database(DATABASE)
             .application_name(APPLICATION_NAME)
-            .ssl_mode(match config.host().https {
+            .ssl_mode(match config.https() {
                 // Authenticate the endpoint before sending the API key or access token.
                 true => PgSslMode::VerifyFull,
                 // Disable SSL for non https connections.
