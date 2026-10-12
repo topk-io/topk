@@ -112,10 +112,11 @@ impl Error {
         match self {
             // Retryable
             Error::QueryLsnTimeout => true,
-            Error::SlowDown(_) => true,
             Error::Unavailable(_) => true,
             Error::TransportError(_) => true,
             // Not retryable
+            // The server is out of capacity; retrying right away only adds load.
+            Error::SlowDown(_) => false,
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
             Error::CollectionNotFound => false,
