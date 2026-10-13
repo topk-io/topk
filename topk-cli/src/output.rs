@@ -3,8 +3,10 @@ use std::io::Write;
 use anyhow::Result;
 use clap::ValueEnum;
 use comfy_table::presets::{NOTHING, UTF8_FULL};
-use comfy_table::{ContentArrangement, Table};
+use comfy_table::{ContentArrangement, Row, Table};
 use serde::Serialize;
+
+const MIN_WIDTH: u16 = 20;
 
 #[derive(Clone, Copy, PartialEq, ValueEnum)]
 pub enum Output {
@@ -39,26 +41,34 @@ pub fn print(
         return Ok(());
     }
     let mut rows: Vec<_> = items.into_iter().map(|item| item.columns()).collect();
-    let mut table = Table::new();
-    match rows.as_mut_slice() {
+    let table = match rows.as_mut_slice() {
         [] => return Ok(()),
         [row] => {
+            let mut table = Table::new();
             table.load_preset(NOTHING);
             for (label, value) in row.drain(..) {
                 table.add_row([format!("{label}:"), value]);
             }
+            table
         }
         [first, ..] => {
-            table
-                .load_preset(UTF8_FULL)
-                .set_content_arrangement(ContentArrangement::Dynamic)
-                .set_header(first.iter().map(|(label, _)| *label));
+            let mut table = self::table(first.iter().map(|(label, _)| *label));
             table.add_rows(
                 rows.into_iter()
                     .map(|row| row.into_iter().map(|(_, value)| value)),
             );
+            table
         }
-    }
+    };
     writeln!(out, "{table}")?;
     Ok(())
+}
+
+pub fn table(header: impl Into<Row>) -> Table {
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL).set_header(header);
+    if table.width().is_some_and(|width| width >= MIN_WIDTH) {
+        table.set_content_arrangement(ContentArrangement::Dynamic);
+    }
+    table
 }
