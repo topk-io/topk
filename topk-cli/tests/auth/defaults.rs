@@ -2,11 +2,10 @@ use clap::{Args, Command, FromArgMatches};
 use tempfile::TempDir;
 
 use topk::auth::OAuthConfig;
-use topk::commands::{project, region};
-use topk::config::{Config, Defaults};
+use topk::commands::project;
+use topk::config::Config;
 use topk::host::Host;
 use topk::output::Output;
-use topk::Region;
 
 use crate::common::host;
 
@@ -21,37 +20,19 @@ fn config(dir: &TempDir) -> Config {
     )
 }
 
-#[test]
-fn saved_regions_accept_existing_strings_and_reject_empty_values() {
-    let defaults: Defaults = toml::from_str("region = 'local-0-emulator'").unwrap();
-    assert_eq!(defaults.region.unwrap().as_str(), "local-0-emulator");
-    assert!(toml::from_str::<Defaults>("region = ''").is_err());
-}
-
 #[tokio::test]
-async fn defaults_persist_independently_and_are_scoped_to_host_and_issuer() {
+async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
     assert!(config.defaults().unwrap().project_id.is_none());
-    let (project, region) = tokio::join!(
-        config.set_project_id(Some("p1".parse().unwrap())),
-        config.set_region(Some("region-1".parse().unwrap())),
-    );
-    project.unwrap();
-    region.unwrap();
+    config
+        .set_project_id(Some("p1".parse().unwrap()))
+        .await
+        .unwrap();
     let loaded = Config::new(host(), config.oauth().clone(), dir.path().to_owned());
     assert_eq!(
         loaded.defaults().unwrap().project_id.unwrap().as_str(),
         "p1"
-    );
-    assert_eq!(
-        loaded
-            .defaults()
-            .unwrap()
-            .region
-            .as_ref()
-            .map(Region::as_str),
-        Some("region-1")
     );
 
     let other = Host {
@@ -70,31 +51,22 @@ async fn defaults_persist_independently_and_are_scoped_to_host_and_issuer() {
     assert!(Config::new(host(), oauth, dir.path().to_owned())
         .defaults()
         .unwrap()
-        .region
+        .project_id
         .is_none());
 
     config.session().await.unwrap().delete().unwrap();
     assert_eq!(
-        config
-            .defaults()
-            .unwrap()
-            .region
-            .as_ref()
-            .map(Region::as_str),
-        Some("region-1")
+        config.defaults().unwrap().project_id.unwrap().as_str(),
+        "p1"
     );
 }
 
 #[tokio::test]
-async fn current_and_unselect_work_offline_and_preserve_the_other_selection() {
+async fn current_and_unselect_work_offline() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
     config
         .set_project_id(Some("p1".parse().unwrap()))
-        .await
-        .unwrap();
-    config
-        .set_region(Some("region-1".parse().unwrap()))
         .await
         .unwrap();
     let mut out = Vec::new();
@@ -110,19 +82,6 @@ async fn current_and_unselect_work_offline_and_preserve_the_other_selection() {
         serde_json::from_slice::<serde_json::Value>(&out).unwrap()["project_id"],
         "p1"
     );
-    out.clear();
-    region::run(
-        config.clone(),
-        &region::Args { command: None },
-        Output::Json,
-        &mut out,
-    )
-    .await
-    .unwrap();
-    assert_eq!(
-        serde_json::from_slice::<serde_json::Value>(&out).unwrap()["region"],
-        "region-1"
-    );
     project::run(
         config.clone(),
         &project::Args {
@@ -134,24 +93,4 @@ async fn current_and_unselect_work_offline_and_preserve_the_other_selection() {
     .await
     .unwrap();
     assert!(config.defaults().unwrap().project_id.is_none());
-    assert_eq!(
-        config
-            .defaults()
-            .unwrap()
-            .region
-            .as_ref()
-            .map(Region::as_str),
-        Some("region-1")
-    );
-    region::run(
-        config.clone(),
-        &region::Args {
-            command: Some(region::Command::Unselect),
-        },
-        Output::Text,
-        &mut Vec::new(),
-    )
-    .await
-    .unwrap();
-    assert!(config.defaults().unwrap().region.is_none());
 }

@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::{bail, Context, Result};
 use clap::builder::NonEmptyStringValueParser;
 
-use crate::{ProjectId, Region};
+use crate::ProjectId;
 
 #[derive(clap::Args, Clone)]
 pub struct DataEndpoint {
@@ -32,10 +32,11 @@ pub struct DataEndpoint {
     #[arg(
         long,
         env = "TOPK_REGION",
+        value_parser = NonEmptyStringValueParser::new(),
         global = true,
         help_heading = "Connection options"
     )]
-    pub region: Option<Region>,
+    pub region: Option<String>,
 }
 
 pub enum Credentials {
@@ -45,7 +46,7 @@ pub enum Credentials {
 
 impl DataEndpoint {
     pub fn region(&self) -> Result<&str> {
-        self.region.as_ref().map(Region::as_str).context(
+        self.region.as_deref().context(
             "--region is required (or set TOPK_REGION). \
              List available regions with `topk region list` at https://docs.topk.io/regions",
         )

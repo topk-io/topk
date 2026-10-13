@@ -124,38 +124,12 @@ topk project delete <PROJECT_ID> [-y]
 
 ### region
 
-Show the currently selected region:
-
-```bash
-topk region
-```
-
 #### list
 
 List available regions.
 
 ```bash
 topk region list
-```
-
-> [!NOTE]
-> `topk region list` marks the currently selected region with `*`.
-
-#### select
-
-Select a default region.
-
-```bash
-topk region select  # interactive picker
-topk region select aws-us-east-1-elastica
-```
-
-#### unselect
-
-Clear the selected region:
-
-```bash
-topk region unselect
 ```
 
 ### sql
@@ -171,7 +145,7 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 | `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
 | `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
 | `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
-| `--project-id <PROJECT_ID>` | Project to access with your login; required unless using an API key |
+| `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); required unless using an API key |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Run a query

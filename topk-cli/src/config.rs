@@ -20,7 +20,7 @@ use toml::Table;
 use crate::auth::{OAuthConfig, Session};
 use crate::client::AccessToken;
 use crate::host::Host;
-use crate::{ProjectId, Region};
+use crate::ProjectId;
 
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -35,7 +35,6 @@ pub struct Config {
 #[derive(Default, Serialize, Deserialize)]
 pub struct Defaults {
     pub project_id: Option<ProjectId>,
-    pub region: Option<Region>,
 }
 
 impl Config {
@@ -84,11 +83,6 @@ impl Config {
 
     pub async fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
         self.update_defaults(|defaults| defaults.project_id = project_id)
-            .await
-    }
-
-    pub async fn set_region(&self, region: Option<Region>) -> Result<()> {
-        self.update_defaults(|defaults| defaults.region = region)
             .await
     }
 

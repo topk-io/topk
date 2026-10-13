@@ -45,7 +45,7 @@ struct Cli {
 enum Commands {
     /// Manage projects
     Project(topk::commands::project::Args),
-    /// List available regions and manage the selected region
+    /// List available regions
     Region(topk::commands::region::Args),
     /// Log in with your TopK account in the browser
     Login(topk::commands::login::LoginArgs),
