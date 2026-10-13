@@ -27,6 +27,7 @@ pub enum AggType {
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
     Cardinality(CardinalityAggBody),
+    Percentiles(PercentilesAggBody),
     DateHistogram(DateHistogramBody),
 }
 
@@ -39,6 +40,31 @@ pub struct CardinalityAggBody {
     #[serde(default)]
     #[allow(dead_code)]
     pub precision_threshold: Option<u32>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PercentilesAggBody {
+    pub field: FieldName,
+
+    #[serde(default = "default_percents")]
+    pub percents: Vec<f64>,
+
+    #[serde(default = "default_keyed")]
+    pub keyed: bool,
+
+    // Accepted, not honoured: topk `quantile` has no compression setting.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub tdigest: Option<Value>,
+}
+
+fn default_percents() -> Vec<f64> {
+    vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0]
+}
+
+fn default_keyed() -> bool {
+    true
 }
 
 #[derive(Clone, Deserialize)]
@@ -110,6 +136,23 @@ pub enum AggResult {
     Histogram {
         buckets: Buckets,
     },
+    Percentiles {
+        values: Percentiles,
+    },
+}
+
+#[serde_as]
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum Percentiles {
+    List(Vec<Percentile>),
+    Keyed(#[serde_as(as = "Map<_, _>")] Vec<(String, Option<f64>)>),
+}
+
+#[derive(Serialize)]
+pub struct Percentile {
+    pub key: f64,
+    pub value: Option<f64>,
 }
 
 #[serde_as]

@@ -1,4 +1,5 @@
 use std::collections::btree_map::BTreeMap;
+use std::collections::HashMap;
 
 use chrono::DateTime;
 use topk_rs::json::Value as JsonValue;
@@ -6,7 +7,10 @@ use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as To
 use topk_rs::query::{field, filter};
 
 use super::Schema;
-use crate::api::{AggClause, AggResult, AggType, Bucket, Buckets, DateHistogramBody};
+use crate::api::{
+    AggClause, AggResult, AggType, Bucket, Buckets, DateHistogramBody, Percentile, Percentiles,
+    PercentilesAggBody,
+};
 use crate::date::{self, Unit, Zone};
 use crate::value::{compare, ValueExt};
 use crate::Error;
@@ -23,7 +27,7 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
     let bucket_aggs = || {
         let mut aggs = vec![("doc_count".to_string(), AggregateExpr::count(None))];
         for (name, sub) in &clause.aggs {
-            aggs.push((name.clone(), AggregateExpr::try_from(sub.ty.clone())?));
+            aggs.extend(sub.ty.exprs(name)?);
         }
         Ok::<_, Error>(aggs)
     };
@@ -61,10 +65,7 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
 
         metric => Ok(filter(gate.clone()).group_by(
             [("_bucket".to_string(), LogicalExpr::literal(true))],
-            [(
-                "value".to_string(),
-                AggregateExpr::try_from(metric.clone())?,
-            )],
+            metric.exprs("value")?,
         )),
     }
 }
@@ -77,13 +78,10 @@ pub fn collect(
     match &clause.ty {
         AggType::Terms(t) => Ok(terms(schema, clause, t.field.as_str(), docs)),
         AggType::DateHistogram(h) => histogram(schema, clause, h, docs),
-        ty => Ok(metric(
+        ty => Ok(ty.render(
             schema,
-            ty,
-            docs.into_iter()
-                .next()
-                .and_then(|mut doc| doc.fields.remove("value"))
-                .and_then(|v| v.number()),
+            "value",
+            &mut docs.into_iter().next().unwrap_or_default().fields,
         )),
     }
 }
@@ -126,10 +124,7 @@ fn bucket(
         sub_aggs: clause
             .aggs
             .iter()
-            .map(|(name, sub)| {
-                let value = doc.fields.remove(name).and_then(|v| v.number());
-                (name.clone(), metric(schema, &sub.ty, value))
-            })
+            .map(|(name, sub)| (name.clone(), sub.ty.render(schema, name, &mut doc.fields)))
             .collect(),
     }
 }
@@ -312,20 +307,80 @@ fn histogram(
     Ok(AggResult::Histogram { buckets })
 }
 
-impl TryFrom<AggType> for AggregateExpr {
-    type Error = Error;
-    fn try_from(value: AggType) -> Result<Self, Self::Error> {
-        match value {
-            AggType::Sum(m) => Ok(AggregateExpr::sum(m.field)),
-            AggType::Avg(m) => Ok(AggregateExpr::avg(m.field)),
-            AggType::Min(m) => Ok(AggregateExpr::min(m.field)),
-            AggType::Max(m) => Ok(AggregateExpr::max(m.field)),
-            AggType::ValueCount(m) => Ok(AggregateExpr::count(Some(m.field.into()))),
-            AggType::Cardinality(m) => Ok(AggregateExpr::count_distinct(m.field)),
-            AggType::Terms(_) | AggType::DateHistogram(_) => Err(Error::Unsupported(
-                "Nested bucket sub-aggregations are not supported".into(),
-            )),
+impl AggType {
+    /// The aggregations computing this agg's value(s), as output columns named after `name`.
+    fn exprs(&self, name: &str) -> Result<Vec<(String, AggregateExpr)>, Error> {
+        let expr = match self {
+            AggType::Sum(m) => AggregateExpr::sum(m.field.as_str()),
+            AggType::Avg(m) => AggregateExpr::avg(m.field.as_str()),
+            AggType::Min(m) => AggregateExpr::min(m.field.as_str()),
+            AggType::Max(m) => AggregateExpr::max(m.field.as_str()),
+            AggType::ValueCount(m) => AggregateExpr::count(Some(m.field.as_str().to_owned())),
+            AggType::Cardinality(m) => AggregateExpr::count_distinct(m.field.as_str()),
+            AggType::Percentiles(p) => {
+                return Ok(p
+                    .percents
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &percent)| {
+                        (
+                            percentile_column(name, i),
+                            AggregateExpr::quantile(p.field.as_str(), percent / 100.0),
+                        )
+                    })
+                    .collect());
+            }
+            AggType::Terms(_) | AggType::DateHistogram(_) => {
+                return Err(Error::Unsupported(
+                    "Nested bucket sub-aggregations are not supported".into(),
+                ));
+            }
+        };
+        Ok(vec![(name.to_string(), expr)])
+    }
+
+    /// Reads this agg's value(s) back from the output columns named after `name`.
+    fn render(
+        &self,
+        schema: &Schema,
+        name: &str,
+        fields: &mut HashMap<String, Value>,
+    ) -> AggResult {
+        match self {
+            AggType::Percentiles(p) => percentiles(p, name, fields),
+            ty => metric(schema, ty, fields.remove(name).and_then(|v| v.number())),
         }
+    }
+}
+
+fn percentile_column(name: &str, i: usize) -> String {
+    format!("{name}[{i}]")
+}
+
+fn percentiles(
+    p: &PercentilesAggBody,
+    name: &str,
+    fields: &mut HashMap<String, Value>,
+) -> AggResult {
+    let values = p.percents.iter().enumerate().map(|(i, &percent)| {
+        let value = fields
+            .remove(&percentile_column(name, i))
+            .and_then(|v| v.number());
+        (percent, value)
+    });
+    AggResult::Percentiles {
+        values: match p.keyed {
+            true => Percentiles::Keyed(
+                values
+                    .map(|(percent, value)| (format!("{percent:?}"), value))
+                    .collect(),
+            ),
+            false => Percentiles::List(
+                values
+                    .map(|(key, value)| Percentile { key, value })
+                    .collect(),
+            ),
+        },
     }
 }
 

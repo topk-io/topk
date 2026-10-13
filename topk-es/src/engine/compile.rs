@@ -23,6 +23,21 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
             ensure_aggregatable(schema, m.field.as_str())?
         }
         AggType::Cardinality(m) => ensure_aggregatable(schema, m.field.as_str())?,
+        AggType::Percentiles(p) => {
+            ensure_aggregatable(schema, p.field.as_str())?;
+            if p.percents.is_empty() {
+                return Err(Error::BadRequest("[percents] must not be empty".into()));
+            }
+            if let Some(percent) = p
+                .percents
+                .iter()
+                .find(|percent| !(0.0..=100.0).contains(*percent))
+            {
+                return Err(Error::BadRequest(format!(
+                    "[percents] must be in [0, 100], got [{percent:?}]"
+                )));
+            }
+        }
         AggType::DateHistogram(h) => ensure_aggregatable(schema, h.field.as_str())?,
         AggType::ValueCount(_) => {}
     }
