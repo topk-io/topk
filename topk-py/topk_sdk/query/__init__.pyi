@@ -407,7 +407,7 @@ class AggregateExpr:
     *Internal*
 
     Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
-    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2), [`agg.avg()`](#avg), [`agg.quantile()`](#quantile) or [`agg.count_distinct()`](#count-distinct).
     """
 
     ...
@@ -887,7 +887,8 @@ class agg:
     """
     The `query.agg` submodule exposes functions for creating aggregate expressions used in
     [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
-    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+    [`agg.min()`](#min-2), [`agg.max()`](#max-2), [`agg.avg()`](#avg), [`agg.quantile()`](#quantile)
+    or [`agg.count_distinct()`](#count-distinct).
     """
 
     ...
@@ -935,5 +936,17 @@ class agg:
     def avg(field: builtins.str) -> AggregateExpr:
         """
         Calculate the average value of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def quantile(field: builtins.str, q: builtins.float) -> AggregateExpr:
+        """
+        Calculate the approximate `q`-quantile of `field` across the group, where `q` is in `[0, 1]`.
+        """
+        ...
+    @staticmethod
+    def count_distinct(field: builtins.str) -> AggregateExpr:
+        """
+        Count the approximate number of distinct non-null values of `field` across the group.
         """
         ...

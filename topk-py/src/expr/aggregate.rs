@@ -8,6 +8,8 @@ pub enum AggregateExpr {
     Min { field: String },
     Max { field: String },
     Avg { field: String },
+    Quantile { field: String, q: f64 },
+    CountDistinct { field: String },
 }
 
 impl From<AggregateExpr> for topk_rs::proto::v1::data::AggregateExpr {
@@ -18,6 +20,12 @@ impl From<AggregateExpr> for topk_rs::proto::v1::data::AggregateExpr {
             AggregateExpr::Min { field } => topk_rs::proto::v1::data::AggregateExpr::min(field),
             AggregateExpr::Max { field } => topk_rs::proto::v1::data::AggregateExpr::max(field),
             AggregateExpr::Avg { field } => topk_rs::proto::v1::data::AggregateExpr::avg(field),
+            AggregateExpr::Quantile { field, q } => {
+                topk_rs::proto::v1::data::AggregateExpr::quantile(field, q)
+            }
+            AggregateExpr::CountDistinct { field } => {
+                topk_rs::proto::v1::data::AggregateExpr::count_distinct(field)
+            }
         }
     }
 }

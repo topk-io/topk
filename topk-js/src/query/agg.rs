@@ -31,3 +31,15 @@ pub fn max(field: String) -> AggregateExpression {
 pub fn avg(field: String) -> AggregateExpression {
     AggregateExpression(AggregateExpressionUnion::Avg { field })
 }
+
+/// Calculate the approximate `q`-quantile of the given field, where `q` is in `[0, 1]`.
+#[napi(namespace = "query_agg", ts_return_type = "query.AggregateExpression")]
+pub fn quantile(field: String, q: f64) -> AggregateExpression {
+    AggregateExpression(AggregateExpressionUnion::Quantile { field, q })
+}
+
+/// Count the approximate number of distinct non-null values of the given field.
+#[napi(namespace = "query_agg", ts_return_type = "query.AggregateExpression")]
+pub fn count_distinct(field: String) -> AggregateExpression {
+    AggregateExpression(AggregateExpressionUnion::CountDistinct { field })
+}

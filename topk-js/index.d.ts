@@ -850,10 +850,14 @@ export declare namespace query_agg {
    * If not provided, count the number of rows in the input.
    */
   export function count(field?: string | undefined | null): query.AggregateExpression
+  /** Count the approximate number of distinct non-null values of the given field. */
+  export function countDistinct(field: string): query.AggregateExpression
   /** Find the maximum value of the given field. */
   export function max(field: string): query.AggregateExpression
   /** Find the minimum value of the given field. */
   export function min(field: string): query.AggregateExpression
+  /** Calculate the approximate `q`-quantile of the given field, where `q` is in `[0, 1]`. */
+  export function quantile(field: string, q: number): query.AggregateExpression
   /** Sum the values of the given field. */
   export function sum(field: string): query.AggregateExpression
 }

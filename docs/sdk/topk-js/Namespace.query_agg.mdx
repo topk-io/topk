@@ -47,6 +47,26 @@ If not provided, count the number of rows in the input.
 
 ***
 
+### countDistinct()
+
+```ts
+function countDistinct(field: string): AggregateExpression;
+```
+
+Count the approximate number of distinct non-null values of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
 ### max()
 
 ```ts
@@ -80,6 +100,27 @@ Find the minimum value of the given field.
 | Parameter | Type |
 | ------ | ------ |
 | `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+### quantile()
+
+```ts
+function quantile(field: string, q: number): AggregateExpression;
+```
+
+Calculate the approximate `q`-quantile of the given field, where `q` is in `[0, 1]`.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+| `q` | `number` |
 
 **Returns**
 

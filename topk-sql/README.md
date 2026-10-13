@@ -416,6 +416,8 @@ Every item in the SELECT list of a GROUP BY query must be either a group key or 
 | `MIN(field)` | Minimum value of `field` in the group |
 | `MAX(field)` | Maximum value of `field` in the group |
 | `AVG(field)` | Average value of `field` in the group |
+| `APPROX_PERCENTILE(field, q)` | Approximate `q`-quantile of `field` in the group, with `q` a number in `[0, 1]` |
+| `APPROX_COUNT_DISTINCT(field)` | Approximate number of distinct non-null values of `field` in the group |
 
 `HAVING` filters on the grouped/aggregated output and requires a `GROUP BY` clause:
 
