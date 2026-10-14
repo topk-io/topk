@@ -105,7 +105,7 @@ pub async fn run(
                         .into_inner()
                         .project
                         .context("management API returned no project")?;
-                    writeln!(out, "Default project: {} ({id})", project.name)?;
+                    writeln!(out, "Default project: {project}")?;
                 }
             }
         }
