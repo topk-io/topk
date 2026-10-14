@@ -209,10 +209,10 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
         .client
         .collection(collection.name)
         .upsert(vec![
-            doc!("_id" => "one", "payload" => "x".repeat(500 * 1024)), // 500KB, too large
-            doc!("_id" => "two", "payload" => "xxx"),                  // ok
-            doc!("_id" => "three", "payload" => "x".repeat(230 * 1024)), // 230KB, too large
-            doc!("_id" => "four", "payload" => "x".repeat(126 * 1024)), // 126KB (plus overhead), ok
+            doc!("_id" => "one", "payload" => "x".repeat(2500 * 1024)), // 2500KB, too large
+            doc!("_id" => "two", "payload" => "xxx"),                   // ok
+            doc!("_id" => "three", "payload" => "x".repeat(2100 * 1024)), // 2100KB, too large
+            doc!("_id" => "four", "payload" => "x".repeat(512 * 1024)), // 512KB (plus overhead), ok
         ])
         .await
         .expect_err("should not be able to upsert a batch containing oversized documents");
@@ -240,7 +240,7 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
                     got_size_bytes,
                 } => {
                     assert_eq!(doc_id, "one");
-                    assert_eq!(*max_size_bytes, 200000);
+                    assert_eq!(*max_size_bytes, 2000000);
                     assert!(
                         *got_size_bytes > *max_size_bytes,
                         "expected got_size_bytes > max_size_bytes"
@@ -256,7 +256,7 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
                     got_size_bytes,
                 } => {
                     assert_eq!(doc_id, "three");
-                    assert_eq!(*max_size_bytes, 200000);
+                    assert_eq!(*max_size_bytes, 2000000);
                     assert!(
                         *got_size_bytes > *max_size_bytes,
                         "expected got_size_bytes > max_size_bytes"
