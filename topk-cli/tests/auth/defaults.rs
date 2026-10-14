@@ -25,10 +25,7 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
     assert!(config.defaults().unwrap().project_id.is_none());
-    config
-        .set_project_id(Some("p1".parse().unwrap()))
-        .await
-        .unwrap();
+    config.set_project_id(Some("p1".parse().unwrap())).unwrap();
     let loaded = Config::new(host(), config.oauth().clone(), dir.path().to_owned());
     assert_eq!(
         loaded.defaults().unwrap().project_id.unwrap().as_str(),
@@ -65,14 +62,13 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
 async fn current_and_unselect_work_offline() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
-    config
-        .set_project_id(Some("p1".parse().unwrap()))
-        .await
-        .unwrap();
+    config.set_project_id(Some("p1".parse().unwrap())).unwrap();
     let mut out = Vec::new();
     project::run(
         config.clone(),
-        &project::Args { command: None },
+        &project::Args {
+            command: project::Command::Current,
+        },
         Output::Json,
         &mut out,
     )
@@ -85,7 +81,7 @@ async fn current_and_unselect_work_offline() {
     project::run(
         config.clone(),
         &project::Args {
-            command: Some(project::Command::Unselect),
+            command: project::Command::Unselect,
         },
         Output::Text,
         &mut Vec::new(),
@@ -93,4 +89,15 @@ async fn current_and_unselect_work_offline() {
     .await
     .unwrap();
     assert!(config.defaults().unwrap().project_id.is_none());
+    let error = project::run(
+        config.clone(),
+        &project::Args {
+            command: project::Command::Current,
+        },
+        Output::Json,
+        &mut Vec::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(error.to_string().contains("no project selected"), "{error}");
 }

@@ -81,17 +81,8 @@ impl Config {
         }
     }
 
-    pub async fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
-        self.update_defaults(|defaults| defaults.project_id = project_id)
-            .await
-    }
-
-    async fn update_defaults(&self, update: impl FnOnce(&mut Defaults)) -> Result<()> {
-        let path = self.defaults_file();
-        let _lock = lock(path.with_extension("lock")).await?;
-        let mut defaults = self.defaults()?;
-        update(&mut defaults);
-        write_toml(&path, &defaults)
+    pub fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
+        write_toml(&self.defaults_file(), &Defaults { project_id })
     }
 
     fn config_file(&self) -> PathBuf {

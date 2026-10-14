@@ -1,9 +1,11 @@
-use std::io::Write;
+use std::fmt;
+use std::io::{stdin, IsTerminal, Write};
 use std::process::ExitCode;
 
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use clap::Subcommand;
 use colored::Colorize;
+use serde::Serialize;
 use serde_json::json;
 
 use crate::client::ManagementClient;
@@ -11,18 +13,20 @@ use crate::config::Config;
 use crate::management::proto::{
     CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
 };
-use crate::output::{json_line, print, print_list, Output, Selected, Tabular};
+use crate::output::{json_line, print_list, print_one, Output, Tabular};
 use crate::util::{confirm, select, timestamp};
 use crate::ProjectId;
 
 #[derive(clap::Args)]
 pub struct Args {
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub command: Command,
 }
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Show the selected project
+    Current,
     /// Select the default project
     Select { project_id: Option<ProjectId> },
     /// Clear the saved project selection
@@ -52,47 +56,66 @@ impl Tabular for Project {
     }
 }
 
+impl fmt::Display for Project {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({})", self.name, self.project_id)
+    }
+}
+
+#[derive(Serialize)]
+struct Row {
+    #[serde(flatten)]
+    project: Project,
+    selected: bool,
+}
+
+impl Tabular for Row {
+    fn columns(&self) -> Vec<(&'static str, String)> {
+        let mut columns = self.project.columns();
+        if self.selected {
+            columns[0].1.push('*');
+        }
+        columns
+    }
+}
+
 pub async fn run(
     config: Config,
     args: &Args,
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
-    match &args.command {
-        None => {
-            let project_id = config.defaults()?.project_id;
-            if output == Output::Json {
-                json_line(out, &json!({"project_id": project_id}))?;
-            } else if let Some(id) = project_id {
-                let project = ManagementClient::new(config.clone())?
-                    .projects
-                    .get_project(GetProjectRequest {
-                        project_id: id.to_string(),
-                    })
-                    .await
-                    .with_context(|| format!("loading default project {id}"))?
-                    .into_inner()
-                    .project
-                    .context("management API returned no project")?;
-                writeln!(out, "Default project: {} ({id})", project.name)?;
-            } else {
-                writeln!(out, "No default project selected")?;
-            }
-            return Ok(ExitCode::SUCCESS);
-        }
-        Some(Command::Unselect) => {
-            config.set_project_id(None).await?;
-            if output == Output::Json {
-                json_line(out, &json!({"project_id": null}))?;
-            } else {
-                writeln!(out, "Project selection cleared")?;
-            }
-            return Ok(ExitCode::SUCCESS);
-        }
-        _ => {}
-    }
     let mut client = ManagementClient::new(config.clone())?;
-    match args.command.as_ref().expect("handled missing command") {
+    match &args.command {
+        Command::Current => {
+            let id = config
+                .defaults()?
+                .project_id
+                .context("no project selected; run `topk project select`")?;
+            match output {
+                Output::Json => json_line(out, &json!({"project_id": id}))?,
+                Output::Text => {
+                    let project = client
+                        .projects
+                        .get_project(GetProjectRequest {
+                            project_id: id.to_string(),
+                        })
+                        .await
+                        .with_context(|| format!("loading default project {id}"))?
+                        .into_inner()
+                        .project
+                        .context("management API returned no project")?;
+                    writeln!(out, "Default project: {} ({id})", project.name)?;
+                }
+            }
+        }
+        Command::Unselect => {
+            config.set_project_id(None)?;
+            match output {
+                Output::Json => json_line(out, &json!({"project_id": null}))?,
+                Output::Text => writeln!(out, "Project selection cleared")?,
+            }
+        }
         Command::Select { project_id } => {
             let project = match project_id {
                 Some(id) => client
@@ -105,6 +128,10 @@ pub async fn run(
                     .project
                     .context("management API returned no project")?,
                 None => {
+                    ensure!(
+                        stdin().is_terminal(),
+                        "no project ID given and stdin is not a terminal; run `topk project select <PROJECT_ID>`"
+                    );
                     let mut projects = client
                         .projects
                         .list_projects(ListProjectsRequest {})
@@ -112,45 +139,35 @@ pub async fn run(
                         .into_inner()
                         .projects;
                     let current = config.defaults()?.project_id;
-                    let labels = projects
-                        .iter()
-                        .map(|p| format!("{} ({})", p.name, p.project_id))
-                        .collect::<Vec<_>>();
-                    let Some(index) = select(
-                        "Select project",
-                        &labels,
-                        projects.iter().position(|p| {
-                            current
-                                .as_ref()
-                                .is_some_and(|id| id.as_str() == p.project_id)
-                        }),
-                    )?
-                    else {
-                        return Ok(ExitCode::SUCCESS);
+                    let selected = projects.iter().position(|p| {
+                        current
+                            .as_ref()
+                            .is_some_and(|id| id.as_str() == p.project_id)
+                    });
+                    let Some(index) = select("Select project", &projects, selected)? else {
+                        // Cancelling the picker exits with 130.
+                        return Ok(ExitCode::from(130));
                     };
                     projects.remove(index)
                 }
             };
-            let id = project.project_id.parse()?;
-            config.set_project_id(Some(id)).await?;
-            if output == Output::Json {
-                json_line(
+            config.set_project_id(Some(project.project_id.parse()?))?;
+            match output {
+                Output::Json => json_line(
                     out,
-                    &Selected {
-                        item: project,
+                    &Row {
+                        project,
                         selected: true,
                     },
-                )?;
-            } else {
-                writeln!(
+                )?,
+                Output::Text => writeln!(
                     out,
                     "{} {} has been selected as the default project.",
                     "✓".green(),
                     project.name
-                )?;
+                )?,
             }
         }
-        Command::Unselect => unreachable!("handled above"),
         Command::List => {
             let projects = client
                 .projects
@@ -162,11 +179,11 @@ pub async fn run(
             print_list(
                 out,
                 output,
-                projects.into_iter().map(|project| Selected {
+                projects.into_iter().map(|project| Row {
                     selected: current
                         .as_ref()
                         .is_some_and(|id| id.as_str() == project.project_id),
-                    item: project,
+                    project,
                 }),
             )?;
         }
@@ -180,7 +197,7 @@ pub async fn run(
                 .into_inner()
                 .project
                 .context("management API returned no project")?;
-            print(out, output, project)?;
+            print_one(out, output, project)?;
         }
         Command::Create { name } => {
             let project = client
@@ -190,7 +207,7 @@ pub async fn run(
                 .into_inner()
                 .project
                 .context("management API returned no project")?;
-            print(out, output, project)?;
+            print_one(out, output, project)?;
         }
         Command::Delete { project_id, yes } => {
             if confirm(format!("Delete project {project_id:?}?"), *yes)

@@ -13,8 +13,8 @@ brew install topk
 
 ```bash
 topk login
-topk import ./books.parquet --project-id <PROJECT_ID> --region aws-us-east-1-elastica
-topk import postgres://user:pw@host/db 'public.*' --project-id <PROJECT_ID> --region aws-us-east-1-elastica
+topk import ./books.parquet [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
+topk import postgres://user:pw@host/db 'public.*' [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
 ```
 
 > [!NOTE]
@@ -51,12 +51,6 @@ topk logout
 
 ### project
 
-Show the currently selected project:
-
-```bash
-topk project
-```
-
 #### list
 
 List projects in the current organization.
@@ -83,6 +77,14 @@ Clear the selected project:
 
 ```bash
 topk project unselect
+```
+
+#### current
+
+Show the currently selected project.
+
+```bash
+topk project current
 ```
 
 #### get

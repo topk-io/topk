@@ -4,11 +4,11 @@ use anyhow::{bail, ensure, Result};
 use chrono::DateTime;
 use dialoguer::{Confirm, Select};
 
-pub fn select(prompt: &str, items: &[String], current: Option<usize>) -> Result<Option<usize>> {
-    ensure!(
-        std::io::stdin().is_terminal(),
-        "pass a selection argument when stdin is not a terminal"
-    );
+pub fn select(
+    prompt: &str,
+    items: &[impl ToString],
+    current: Option<usize>,
+) -> Result<Option<usize>> {
     ensure!(!items.is_empty(), "no choices available");
     match Select::new()
         .with_prompt(prompt)

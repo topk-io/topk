@@ -19,25 +19,6 @@ pub trait Tabular: Serialize {
     fn columns(&self) -> Vec<(&'static str, String)>;
 }
 
-#[derive(Serialize)]
-pub struct Selected<T> {
-    #[serde(flatten)]
-    pub item: T,
-    pub selected: bool,
-}
-
-impl<T: Tabular> Tabular for Selected<T> {
-    fn columns(&self) -> Vec<(&'static str, String)> {
-        let mut columns = self.item.columns();
-        if self.selected {
-            if let Some((_, name)) = columns.first_mut() {
-                name.push('*');
-            }
-        }
-        columns
-    }
-}
-
 /// One JSON object per line.
 pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
     serde_json::to_writer(&mut *out, value)?;
@@ -46,7 +27,7 @@ pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
 }
 
 /// Print a single resource as labeled values, or one JSON object.
-pub fn print(out: &mut impl Write, output: Output, item: impl Tabular) -> Result<()> {
+pub fn print_one(out: &mut impl Write, output: Output, item: impl Tabular) -> Result<()> {
     if output == Output::Json {
         return json_line(out, &item);
     }
