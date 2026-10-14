@@ -1,5 +1,4 @@
 use std::collections::btree_map::BTreeMap;
-use std::collections::HashMap;
 
 use chrono::DateTime;
 use topk_rs::json::Value as JsonValue;
@@ -80,8 +79,14 @@ pub fn collect(
         AggType::DateHistogram(h) => histogram(schema, clause, h, docs),
         ty => Ok(ty.render(
             schema,
-            "value",
-            &mut docs.into_iter().next().unwrap_or_default().fields,
+            ty.columns("value")
+                .iter()
+                .map(|column| {
+                    docs.first()
+                        .and_then(|doc| doc.fields.get(column))
+                        .and_then(|v| v.number())
+                })
+                .collect(),
         )),
     }
 }
@@ -124,7 +129,15 @@ fn bucket(
         sub_aggs: clause
             .aggs
             .iter()
-            .map(|(name, sub)| (name.clone(), sub.ty.render(schema, name, &mut doc.fields)))
+            .map(|(name, sub)| {
+                let values = sub
+                    .ty
+                    .columns(name)
+                    .iter()
+                    .map(|column| doc.fields.remove(column).and_then(|v| v.number()))
+                    .collect();
+                (name.clone(), sub.ty.render(schema, values))
+            })
             .collect(),
     }
 }
@@ -308,76 +321,63 @@ fn histogram(
 }
 
 impl AggType {
-    /// The aggregations computing this agg's value(s), as output columns named after `name`.
+    /// Output columns holding this agg's value(s), named after `name`.
+    fn columns(&self, name: &str) -> Vec<String> {
+        match self {
+            AggType::Percentiles(p) => (0..p.percents.len())
+                .map(|i| format!("{name}[{i}]"))
+                .collect(),
+            _ => vec![name.to_string()],
+        }
+    }
+
+    /// The aggregations computing each of `columns`.
     fn exprs(&self, name: &str) -> Result<Vec<(String, AggregateExpr)>, Error> {
-        let expr = match self {
-            AggType::Sum(m) => AggregateExpr::sum(m.field.as_str()),
-            AggType::Avg(m) => AggregateExpr::avg(m.field.as_str()),
-            AggType::Min(m) => AggregateExpr::min(m.field.as_str()),
-            AggType::Max(m) => AggregateExpr::max(m.field.as_str()),
-            AggType::ValueCount(m) => AggregateExpr::count(Some(m.field.as_str().to_owned())),
-            AggType::Cardinality(m) => AggregateExpr::count_distinct(m.field.as_str()),
-            AggType::Percentiles(p) => {
-                return Ok(p
-                    .percents
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &percent)| {
-                        (
-                            percentile_column(name, i),
-                            AggregateExpr::quantile(p.field.as_str(), percent / 100.0),
-                        )
-                    })
-                    .collect());
-            }
+        let exprs = match self {
+            AggType::Sum(m) => vec![AggregateExpr::sum(m.field.as_str())],
+            AggType::Avg(m) => vec![AggregateExpr::avg(m.field.as_str())],
+            AggType::Min(m) => vec![AggregateExpr::min(m.field.as_str())],
+            AggType::Max(m) => vec![AggregateExpr::max(m.field.as_str())],
+            AggType::ValueCount(m) => vec![AggregateExpr::count(Some(m.field.as_str().into()))],
+            AggType::Cardinality(m) => vec![AggregateExpr::count_distinct(m.field.as_str())],
+            AggType::Percentiles(p) => p
+                .percents
+                .iter()
+                .map(|percent| AggregateExpr::quantile(p.field.as_str(), percent / 100.0))
+                .collect(),
             AggType::Terms(_) | AggType::DateHistogram(_) => {
                 return Err(Error::Unsupported(
                     "Nested bucket sub-aggregations are not supported".into(),
                 ));
             }
         };
-        Ok(vec![(name.to_string(), expr)])
+        Ok(self.columns(name).into_iter().zip(exprs).collect())
     }
 
-    /// Reads this agg's value(s) back from the output columns named after `name`.
-    fn render(
-        &self,
-        schema: &Schema,
-        name: &str,
-        fields: &mut HashMap<String, Value>,
-    ) -> AggResult {
+    /// Builds the result from the values of `columns`, in order.
+    fn render(&self, schema: &Schema, values: Vec<Option<f64>>) -> AggResult {
         match self {
-            AggType::Percentiles(p) => percentiles(p, name, fields),
-            ty => metric(schema, ty, fields.remove(name).and_then(|v| v.number())),
+            AggType::Percentiles(p) => percentiles(p, values),
+            ty => metric(schema, ty, values.into_iter().next().flatten()),
         }
     }
 }
 
-fn percentile_column(name: &str, i: usize) -> String {
-    format!("{name}[{i}]")
-}
-
-fn percentiles(
-    p: &PercentilesAggBody,
-    name: &str,
-    fields: &mut HashMap<String, Value>,
-) -> AggResult {
-    let values = p.percents.iter().enumerate().map(|(i, &percent)| {
-        let value = fields
-            .remove(&percentile_column(name, i))
-            .and_then(|v| v.number());
-        (percent, value)
-    });
+fn percentiles(p: &PercentilesAggBody, values: Vec<Option<f64>>) -> AggResult {
     AggResult::Percentiles {
         values: match p.keyed {
             true => Percentiles::Keyed(
-                values
+                p.percents
+                    .iter()
+                    .zip(values)
                     .map(|(percent, value)| (format!("{percent:?}"), value))
                     .collect(),
             ),
             false => Percentiles::List(
-                values
-                    .map(|(key, value)| Percentile { key, value })
+                p.percents
+                    .iter()
+                    .zip(values)
+                    .map(|(&key, value)| Percentile { key, value })
                     .collect(),
             ),
         },
