@@ -71,13 +71,13 @@ def test_upsert_max_doc_size(ctx: ProjectContext):
     with pytest.raises(error.DocumentValidationError) as exc_info:
         ctx.client.collection(collection.name).upsert(
             [
-                {"_id": "one", "payload": "x" * (500 * 1024)},  # 500KB, too large
+                {"_id": "one", "payload": "x" * (2500 * 1024)},  # 2500KB, too large
                 {"_id": "two", "payload": "xxx"},  # ok
-                {"_id": "three", "payload": "x" * (230 * 1024)},  # 230KB, too large
+                {"_id": "three", "payload": "x" * (2100 * 1024)},  # 2100KB, too large
                 {
                     "_id": "four",
-                    "payload": "x" * (126 * 1024),
-                },  # 126KB (plus overhead), ok
+                    "payload": "x" * (512 * 1024),
+                },  # 512KB (plus overhead), ok
             ]
         )
 
