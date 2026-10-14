@@ -4,6 +4,7 @@ use tempfile::TempDir;
 use topk::auth::OAuthConfig;
 use topk::commands::project;
 use topk::config::Config;
+use topk::endpoint::{Credentials, DataEndpoint};
 use topk::host::Host;
 use topk::output::Output;
 
@@ -100,4 +101,36 @@ async fn current_and_clear_work_offline() {
     .await
     .unwrap_err();
     assert!(error.to_string().contains("no project selected"), "{error}");
+}
+
+#[test]
+fn credentials_fall_back_to_the_selected_project() {
+    let dir = TempDir::new().unwrap();
+    let config = config(&dir);
+    let endpoint = |api_key: Option<&str>, project_id: Option<&str>| DataEndpoint {
+        api_key: api_key.map(Into::into),
+        project_id: project_id.map(|id| id.parse().unwrap()),
+        region: None,
+    };
+    let project = |endpoint: DataEndpoint| match endpoint.credentials(&config).unwrap() {
+        Credentials::Project(id) => id.as_str().to_owned(),
+        Credentials::ApiKey(_) => panic!("expected project credentials"),
+    };
+
+    let error = endpoint(None, None)
+        .credentials(&config)
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(error.contains("topk project select"), "{error}");
+
+    config
+        .set_project_id(Some("selected".parse().unwrap()))
+        .unwrap();
+    assert_eq!(project(endpoint(None, None)), "selected");
+    assert_eq!(project(endpoint(None, Some("flag"))), "flag");
+    assert!(matches!(
+        endpoint(Some("key"), None).credentials(&config).unwrap(),
+        Credentials::ApiKey(key) if key == "key"
+    ));
 }

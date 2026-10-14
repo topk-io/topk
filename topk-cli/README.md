@@ -147,7 +147,7 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 | `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
 | `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
 | `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
-| `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); required unless using an API key |
+| `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Run a query
@@ -218,7 +218,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
-| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); required unless using an API key |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Authenticate
@@ -235,6 +235,7 @@ Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explici
 
 > [!TIP]
 > Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
+> Run `topk project select` once to omit `--project-id` from later commands.
 > Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
 
 > [!WARNING]

@@ -22,7 +22,7 @@ pub struct SqlClient {
 impl SqlClient {
     pub async fn connect(config: &Config, endpoint: &DataEndpoint) -> Result<Self> {
         let host = format!("{}.sql.{}", endpoint.region()?, config.host());
-        let password = match endpoint.credentials()? {
+        let password = match endpoint.credentials(config)? {
             Credentials::ApiKey(api_key) => api_key,
             Credentials::Project(project_id) => {
                 AccessTokenProvider::new(
