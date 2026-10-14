@@ -14,6 +14,8 @@ module.exports.agg = {
   min: query_agg.min,
   max: query_agg.max,
   avg: query_agg.avg,
+  quantile: query_agg.quantile,
+  countDistinct: query_agg.countDistinct,
 };
 module.exports.groupBy = query.groupBy;
 module.exports.literal = query.literal;

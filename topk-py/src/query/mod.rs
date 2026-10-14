@@ -296,6 +296,8 @@ pub fn agg_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(min_agg))?;
     m.add_wrapped(wrap_pyfunction!(max_agg))?;
     m.add_wrapped(wrap_pyfunction!(avg))?;
+    m.add_wrapped(wrap_pyfunction!(quantile))?;
+    m.add_wrapped(wrap_pyfunction!(count_distinct))?;
 
     Ok(())
 }
@@ -326,4 +328,14 @@ pub fn max_agg(field: String) -> AggregateExpr {
 #[pyfunction]
 pub fn avg(field: String) -> AggregateExpr {
     AggregateExpr::Avg { field }
+}
+
+#[pyfunction]
+pub fn quantile(field: String, q: f64) -> AggregateExpr {
+    AggregateExpr::Quantile { field, q }
+}
+
+#[pyfunction]
+pub fn count_distinct(field: String) -> AggregateExpr {
+    AggregateExpr::CountDistinct { field }
 }
