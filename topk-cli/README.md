@@ -71,12 +71,12 @@ topk project select  # interactive picker
 topk project select <PROJECT_ID>
 ```
 
-#### unselect
+#### clear
 
 Clear the selected project:
 
 ```bash
-topk project unselect
+topk project clear
 ```
 
 #### current

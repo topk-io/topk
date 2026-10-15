@@ -59,7 +59,7 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
 }
 
 #[tokio::test]
-async fn current_and_unselect_work_offline() {
+async fn current_and_clear_work_offline() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
     config.set_project_id(Some("p1".parse().unwrap())).unwrap();
@@ -81,7 +81,7 @@ async fn current_and_unselect_work_offline() {
     project::run(
         config.clone(),
         &project::Args {
-            command: project::Command::Unselect,
+            command: project::Command::Clear,
         },
         Output::Text,
         &mut Vec::new(),

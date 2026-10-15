@@ -30,7 +30,7 @@ pub enum Command {
     /// Select the default project
     Select { project_id: Option<ProjectId> },
     /// Clear the saved project selection
-    Unselect,
+    Clear,
     /// List projects in the current organization
     List,
     /// Get a project by ID
@@ -51,6 +51,7 @@ impl Tabular for Project {
         vec![
             ("Name", self.name.clone()),
             ("Project ID", self.project_id.clone()),
+            ("Org ID", self.org_id.clone()),
             ("Created at", timestamp(self.created_at)),
         ]
     }
@@ -94,22 +95,10 @@ pub async fn run(
                 .context("no project selected; run `topk project select`")?;
             match output {
                 Output::Json => json_line(out, &json!({"project_id": id}))?,
-                Output::Text => {
-                    let project = client
-                        .projects
-                        .get_project(GetProjectRequest {
-                            project_id: id.to_string(),
-                        })
-                        .await
-                        .with_context(|| format!("loading default project {id}"))?
-                        .into_inner()
-                        .project
-                        .context("management API returned no project")?;
-                    writeln!(out, "Default project: {project}")?;
-                }
+                Output::Text => writeln!(out, "Default project: {id}")?,
             }
         }
-        Command::Unselect => {
+        Command::Clear => {
             config.set_project_id(None)?;
             match output {
                 Output::Json => json_line(out, &json!({"project_id": null}))?,

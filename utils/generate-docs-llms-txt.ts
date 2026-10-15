@@ -145,6 +145,17 @@ function buildSections(): Section[] {
     }
   }
 
+  // CLI
+  const cliTab = docs.navigation.tabs.find((t) => t.tab === "CLI");
+  if (cliTab) {
+    sections.push({
+      heading: "CLI",
+      entries: normalizeTabPages(cliTab.pages).flatMap((g) =>
+        g.pages.map((slug): Entry => ({ type: "slug", slug }))
+      ),
+    });
+  }
+
   // Python SDK Reference
   const pyTab = docs.navigation.tabs.find((t) => t.tab === "Python SDK");
   const pyRef = pyTab && normalizeTabPages(pyTab.pages).find((g) => g.group === "SDK Reference");
