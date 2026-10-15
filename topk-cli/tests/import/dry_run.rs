@@ -39,7 +39,7 @@ async fn deterministic_output(ctx: &mut Scratch) {
     let spec = ctx.target_spec("c", object);
 
     let runs: Vec<String> = (0..3)
-        .map(|_| ok(&["import", "-f", &spec, "--dry-run"], &[]))
+        .map(|_| topk().args(["import", "-f", &spec, "--dry-run"]).ok())
         .collect();
     assert_eq!(runs[0], runs[1], "printed spec differs between runs");
     assert_eq!(runs[1], runs[2], "printed spec differs between runs");
@@ -101,16 +101,15 @@ async fn missing_id(ctx: &mut Scratch) {
     // the declared id is not there. The catalog catches it before any scan.
     let file = ctx.scratch().join("ragged.csv");
     std::fs::write(&file, "id,a,b\n1,x,y\n2,z\n").unwrap();
-    let err = fails(
-        &[
+    let err = topk()
+        .args([
             "import",
             &file.display().to_string(),
             "--id",
             "id",
             "--dry-run",
-        ],
-        &[],
-    );
+        ])
+        .fails();
     assert!(err.contains("available: id,a,b"), "got: {err}");
 }
 
@@ -129,12 +128,12 @@ async fn id_placeholder(ctx: &mut Scratch) {
     );
     // A dry run renders the template, placeholder included, so it can be
     // captured and filled in; only a real import insists on a resolved id.
-    let out = ok(&["import", "-f", &spec, "--dry-run"], &[]);
+    let out = topk().args(["import", "-f", &spec, "--dry-run"]).ok();
     assert!(
         out.contains(r#"id = "<column>""#),
         "dry-run must render the placeholder spec:\n{out}"
     );
-    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    let err = topk().args(["import", "-f", &spec, "--yes"]).fails();
     assert!(
         err.contains("--id"),
         "a real import must point at --id:\n{err}"
@@ -158,7 +157,7 @@ async fn bad_filter_names_the_filter(ctx: &mut Scratch) {
 #[test_context(Scratch)]
 #[tokio::test]
 async fn missing_spec_names_the_path(_ctx: &mut Scratch) {
-    let err = fails(&["import", "-f", "/nope/spec.toml"], &[]);
+    let err = topk().args(["import", "-f", "/nope/spec.toml"]).fails();
     assert!(err.contains("/nope/spec.toml"), "got: {err}");
 }
 
@@ -168,8 +167,8 @@ async fn missing_spec_names_the_path(_ctx: &mut Scratch) {
 #[tokio::test]
 async fn a_cli_filter_reaches_the_target(ctx: &mut Scratch) {
     let object = ctx.seed_parquet("books", books()).await;
-    let out = run(
-        &[
+    let out = topk()
+        .args([
             "import",
             &object.from,
             "--to",
@@ -177,9 +176,8 @@ async fn a_cli_filter_reaches_the_target(ctx: &mut Scratch) {
             "--filter",
             "published_year > 1950",
             "--dry-run",
-        ],
-        &[],
-    );
+        ])
+        .output();
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(out.status.success(), "got:\n{stderr}");
@@ -209,16 +207,15 @@ async fn a_cli_filter_needs_a_single_object() {
         (format!("public.{base}_b"), columns),
     ]);
 
-    let err = fails(
-        &[
+    let err = topk()
+        .args([
             "import",
             pg::Pg::URL,
             &format!("{base}*"),
             "--filter",
             "id > 1",
             "--dry-run",
-        ],
-        &[],
-    );
+        ])
+        .fails();
     assert!(err.contains("applies to a single object"), "got: {err}");
 }
