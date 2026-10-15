@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tempfile::{NamedTempFile, TempPath};
 use tokio::time::{sleep, timeout};
 use toml::Table;
@@ -19,6 +20,7 @@ use toml::Table;
 use crate::auth::{OAuthConfig, Session};
 use crate::client::AccessToken;
 use crate::host::Host;
+use crate::ProjectId;
 
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
@@ -28,6 +30,11 @@ pub struct Config {
     dir: PathBuf,
     host: Host,
     oauth: OAuthConfig,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct Defaults {
+    pub project_id: Option<ProjectId>,
 }
 
 impl Config {
@@ -67,8 +74,26 @@ impl Config {
         &self.oauth
     }
 
+    pub fn defaults(&self) -> Result<Defaults> {
+        match read(&self.defaults_file())? {
+            Some(raw) => toml::from_str(&raw).context("invalid saved defaults"),
+            None => Ok(Defaults::default()),
+        }
+    }
+
+    pub fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
+        write_toml(&self.defaults_file(), &Defaults { project_id })
+    }
+
     fn config_file(&self) -> PathBuf {
         self.dir.join("config.toml")
+    }
+
+    fn defaults_file(&self) -> PathBuf {
+        let key = Sha256::digest(format!("{}:{}", self.host.https, self.host.host).as_bytes());
+        self.tenant_dir()
+            .join("defaults")
+            .join(format!("{key:x}.toml"))
     }
 
     /// Everything scoped to this issuer's session lives here.

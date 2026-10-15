@@ -21,6 +21,7 @@ pub struct DataEndpoint {
     /// Project to access with your login instead of an API key
     #[arg(
         long,
+        env = "TOPK_PROJECT_ID",
         conflicts_with = "api_key",
         global = true,
         help_heading = "Connection options"
@@ -55,7 +56,7 @@ impl DataEndpoint {
         match (&self.api_key, &self.project_id) {
             // Clap rejects the combinations; this guards direct construction.
             (Some(_), Some(_)) => bail!("--project-id cannot be combined with an API key"),
-            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required"),
+            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required (or set TOPK_PROJECT_ID)"),
             (Some(api_key), None) => Ok(Credentials::ApiKey(api_key.clone())),
             (None, Some(project_id)) => Ok(Credentials::Project(project_id.clone())),
         }
