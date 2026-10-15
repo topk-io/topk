@@ -235,7 +235,7 @@ Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explici
 
 > [!TIP]
 > Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
-> Run `topk project select` once to omit `--project-id` from later commands.
+> Run `topk project select` once to omit `--project-id` from later commands. An API key (`--api-key` or `TOPK_API_KEY`) takes precedence over the selected project.
 > Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
 
 > [!WARNING]
