@@ -191,7 +191,7 @@ fn local_dry_run_requires_no_authentication() {
         (vec![], "--region is required"),
         (
             vec!["--region", "test"],
-            "--api-key (or set TOPK_API_KEY) or --project-id is required",
+            "or select a default project with `topk project select`",
         ),
     ] {
         let output = command(&dir)
@@ -260,7 +260,7 @@ async fn endpoint_selects_api_key_or_project_authentication() {
             .err()
             .unwrap()
             .to_string()
-            .contains("--api-key (or set TOPK_API_KEY) or --project-id is required")
+            .contains("or select a default project with `topk project select`")
     );
 }
 
