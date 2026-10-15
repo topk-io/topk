@@ -54,7 +54,6 @@ impl DataEndpoint {
         )
     }
 
-    /// An API key or `--project-id` wins over the project saved by `topk project select`.
     pub fn credentials(&self, config: &Config) -> Result<Credentials> {
         match (&self.api_key, &self.project_id) {
             // Clap rejects the combinations; this guards direct construction.
