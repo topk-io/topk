@@ -134,9 +134,9 @@ impl Source {
         !matches!(self, Source::Mongo(_))
     }
 
-    pub fn concurrency_limit(&self) -> usize {
+    pub fn concurrency_limit<'a>(&self, targets: impl IntoIterator<Item = &'a Target>) -> usize {
         match self {
-            Source::Duck(duck) => duck.concurrency_limit(),
+            Source::Duck(duck) => duck.concurrency_limit(targets),
             _ => usize::MAX,
         }
     }

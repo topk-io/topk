@@ -97,31 +97,54 @@ pub(super) fn lit(value: &str) -> String {
 /// Per-reader duckdb budget. duckdb's default is 80% of RAM *per connection*,
 /// which concurrent readers multiply into an OOM-kill; a 1.3 GiB single-row-group
 /// parquet needs the whole column chunk resident.
-const READER_MEMORY: &str = "4GiB";
+const READER_MEMORY: u64 = 4 << 30;
 
-/// How many `READER_MEMORY` readers fit in RAM. duckdb's default `memory_limit`
-/// is 80% of RAM (cgroup-aware), which is how RAM is read without a dependency.
-fn max_readers() -> Option<usize> {
+/// Bytes all readers may hold together. duckdb's default `memory_limit` is 80% of
+/// RAM (cgroup-aware), which is how RAM is read without a dependency.
+fn reader_budget() -> Option<u64> {
     let conn = Connection::open_in_memory().ok()?;
     let mut stmt = conn
         .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
         .ok()?;
     let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
     let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
     // Two thirds of RAM: batches, arrow copies and proto encoding live outside
     // duckdb's accounting. 10/8 × 2/3 = 5/6.
-    Some((reported * 5 / 6 / each).max(1) as usize)
+    Some(reported * 5 / 6)
+}
+
+/// A reader holds about one decoded row group: at most 8× a local file's size,
+/// `READER_MEMORY` for anything that can't be stat'ed.
+fn reader_memory(from: &str) -> u64 {
+    local_path(from)
+        .and_then(|path| std::fs::metadata(path).ok())
+        .map_or(READER_MEMORY, |meta| (meta.len() * 8).min(READER_MEMORY))
 }
 
 impl Duckdb {
     /// Each duckdb scan holds a row group; too many OOM-kill the process
     /// regardless of the per-connection `memory_limit`.
-    pub fn concurrency_limit(&self) -> usize {
-        max_readers().map_or(usize::MAX, |readers| match self {
-            Duckdb::Files(_) => (readers / (1 + READ_AHEAD)).max(1),
-            _ => readers,
-        })
+    pub fn concurrency_limit<'a>(&self, targets: impl IntoIterator<Item = &'a Target>) -> usize {
+        let budget = match reader_budget() {
+            Some(budget) => budget,
+            None => return usize::MAX,
+        };
+        let mut need: Vec<u64> = targets
+            .into_iter()
+            .map(|target| match self {
+                Duckdb::Files(_) => reader_memory(&target.from) * (1 + READ_AHEAD as u64),
+                _ => READER_MEMORY,
+            })
+            .collect();
+        need.sort_unstable_by(|a, b| b.cmp(a));
+        need.iter()
+            .scan(0, |held, n| {
+                *held += n;
+                Some(*held)
+            })
+            .take_while(|held| *held <= budget)
+            .count()
+            .max(1)
     }
 
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
@@ -130,8 +153,9 @@ impl Duckdb {
         // One thread, in order: rows arrive as stored, which makes a row offset
         // a resume point; more threads measured the same.
         conn.execute_batch(&format!(
-            "SET preserve_insertion_order = true; SET memory_limit = '{READER_MEMORY}'; \
+            "SET preserve_insertion_order = true; SET memory_limit = '{}MiB'; \
              SET threads = 1; SET temp_directory = '{}';",
+            READER_MEMORY >> 20,
             lit(&std::env::temp_dir()
                 .join("topk-import")
                 .display()
