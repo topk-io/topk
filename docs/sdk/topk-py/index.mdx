@@ -609,14 +609,22 @@ Get information about a specific collection.
 #### list()
 
 ```python
-list(self) -> list[Collection]
+list(self, prefix: Optional[str] = None) -> CollectionListIterator
 ```
 
-List all collections.
+List collections, ordered by name.
+
+If `prefix` is provided, only collections with names starting with the prefix are listed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
 
 **Returns**
 
-list[[`Collection`](#collection)]
+[`CollectionListIterator`](#collectionlistiterator)
 
 ***
 
@@ -690,14 +698,22 @@ Awaitable[[`Collection`](#collection)]
 #### list()
 
 ```python
-list(self) -> Awaitable[list[Collection]]
+list(self, prefix: Optional[str] = None) -> AsyncCollectionListIterator
 ```
 
-List all collections asynchronously.
+List collections, ordered by name, asynchronously.
+
+If `prefix` is provided, only collections with names starting with the prefix are listed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
 
 **Returns**
 
-Awaitable[list[[`Collection`](#collection)]]
+[`AsyncCollectionListIterator`](#asynccollectionlistiterator)
 
 ***
 
@@ -753,6 +769,14 @@ Iterator for synchronous partition list responses.
 ### AsyncPartitionListIterator
 
 Iterator for asynchronous partition list responses.
+
+### CollectionListIterator
+
+Iterator for synchronous collection list responses.
+
+### AsyncCollectionListIterator
+
+Iterator for asynchronous collection list responses.
 
 ### ConsistencyLevel
 

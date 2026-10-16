@@ -7,14 +7,14 @@ from . import AsyncProjectContext
 @pytest.mark.asyncio
 async def test_async_list_collections(async_ctx: AsyncProjectContext):
     c = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
-    response = await async_ctx.client.collections().list()
+    response = [cc async for cc in async_ctx.client.collections().list()]
     assert c in response
 
 
 @pytest.mark.asyncio
 async def test_async_create_collection(async_ctx: AsyncProjectContext):
     c = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
-    collections = await async_ctx.client.collections().list()
+    collections = [cc async for cc in async_ctx.client.collections().list()]
     assert c in collections
 
 
@@ -37,7 +37,7 @@ async def test_async_delete_collection(async_ctx: AsyncProjectContext):
     c = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
     await async_ctx.client.collections().delete(async_ctx.scope("test"))
 
-    collections = await async_ctx.client.collections().list()
+    collections = [cc async for cc in async_ctx.client.collections().list()]
     assert c not in collections
 
 

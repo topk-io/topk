@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+
+use futures::TryStreamExt;
 use test_context::test_context;
 use topk_rs::{
     error::{SchemaValidationError, ValidationErrorBag},
@@ -27,11 +29,58 @@ async fn test_list_collections(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .collections()
-        .list()
+        .list(None)
         .await
-        .expect("could not list collections");
+        .expect("could not list collections")
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("could not receive collections from stream");
 
     assert!(response.iter().any(|cc| cc == &c));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_collections_with_prefix(ctx: &mut ProjectTestContext) {
+    let names = ["a", "ab", "b"].map(|name| ctx.wrap(name));
+    for name in &names {
+        ctx.client
+            .collections()
+            .create(name, HashMap::default(), None)
+            .await
+            .expect("could not create collection");
+    }
+
+    for (prefix, expected) in [
+        (ctx.scope.clone(), &names[..]),
+        (ctx.wrap("a"), &names[..2]),
+    ] {
+        let listed = ctx
+            .client
+            .collections()
+            .list(Some(prefix))
+            .await
+            .expect("could not list collections")
+            .map_ok(|c| c.name)
+            .try_collect::<Vec<_>>()
+            .await
+            .expect("could not receive collections from stream");
+        assert_eq!(listed, expected);
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_collections_with_invalid_prefix(ctx: &mut ProjectTestContext) {
+    let err = ctx
+        .client
+        .collections()
+        .list(Some("-books".into()))
+        .await
+        .err()
+        .expect("should not be able to list with invalid prefix");
+
+    assert!(matches!(err, Error::InvalidArgument(_)), "{err:?}");
 }
 
 #[test_context(ProjectTestContext)]
@@ -47,9 +96,12 @@ async fn test_create_collection(ctx: &mut ProjectTestContext) {
     let collections = ctx
         .client
         .collections()
-        .list()
+        .list(None)
         .await
-        .expect("could not list collections");
+        .expect("could not list collections")
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("could not receive collections from stream");
 
     assert!(collections.iter().any(|cc| cc == &c));
 }
@@ -121,9 +173,12 @@ async fn test_delete_collection(ctx: &mut ProjectTestContext) {
     let collections = ctx
         .client
         .collections()
-        .list()
+        .list(None)
         .await
-        .expect("could not list collections");
+        .expect("could not list collections")
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("could not receive collections from stream");
 
     assert!(!collections.iter().any(|cc| *cc == c));
 }

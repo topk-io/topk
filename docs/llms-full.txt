@@ -3213,31 +3213,13 @@ CREATE TABLE books (
 
 #### List
 
-You can list all collections in a project by calling [`client.collections().list()`](/sdk/topk-py#list):
+You can list all collections in a project by iterating over [`client.collections().list()`](/sdk/topk-py#list).
+Collections are returned in name order:
 
 <CodeGroup>
 
 ```python Python
-collections = client.collections().list()
-```
-
-
-```typescript Javascript
-const collections = await client.collections().list();
-```
-
-```sql SQL
-SELECT table_name FROM information_schema.tables;
-```
-
-</CodeGroup>
-
-The `list()` function returns a list of `Collection` objects:
-
-<CodeGroup>
-
-```python Python
-for collection in collections:
+for collection in client.collections().list():
     print(f"Collection name: {collection.name}")
     print(f"Organization ID: {collection.org_id}")
     print(f"Project ID: {collection.project_id}")
@@ -3246,14 +3228,33 @@ for collection in collections:
 ```
 
 
-```js Javascript
-for (const collection of collections) {
+```typescript Javascript
+for await (const collection of client.collections().list()) {
   console.log(`Collection name: ${collection.name}`);
   console.log(`Organization ID: ${collection.orgId}`);
   console.log(`Project ID: ${collection.projectId}`);
   console.log(`Region: ${collection.region}`);
   console.log(`Schema: ${collection.schema}`);
 }
+```
+
+```sql SQL
+SELECT table_name FROM information_schema.tables;
+```
+
+</CodeGroup>
+
+To list only collections whose name starts with a given string, pass it as `prefix`:
+
+<CodeGroup>
+
+```python Python
+collections = client.collections().list(prefix="books")
+```
+
+
+```typescript Javascript
+const collections = client.collections().list({ prefix: "books" });
 ```
 
 </CodeGroup>
@@ -5824,14 +5825,22 @@ Get information about a specific collection.
 ###### list()
 
 ```python
-list(self) -> list[Collection]
+list(self, prefix: Optional[str] = None) -> CollectionListIterator
 ```
 
-List all collections.
+List collections, ordered by name.
+
+If `prefix` is provided, only collections with names starting with the prefix are listed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
 
 **Returns**
 
-list[[`Collection`](#collection)]
+[`CollectionListIterator`](#collectionlistiterator)
 
 ***
 
@@ -5905,14 +5914,22 @@ Awaitable[[`Collection`](#collection)]
 ###### list()
 
 ```python
-list(self) -> Awaitable[list[Collection]]
+list(self, prefix: Optional[str] = None) -> AsyncCollectionListIterator
 ```
 
-List all collections asynchronously.
+List collections, ordered by name, asynchronously.
+
+If `prefix` is provided, only collections with names starting with the prefix are listed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
 
 **Returns**
 
-Awaitable[list[[`Collection`](#collection)]]
+[`AsyncCollectionListIterator`](#asynccollectionlistiterator)
 
 ***
 
@@ -5968,6 +5985,14 @@ Iterator for synchronous partition list responses.
 ##### AsyncPartitionListIterator
 
 Iterator for asynchronous partition list responses.
+
+##### CollectionListIterator
+
+Iterator for synchronous collection list responses.
+
+##### AsyncCollectionListIterator
+
+Iterator for asynchronous collection list responses.
 
 ##### ConsistencyLevel
 
@@ -9675,6 +9700,55 @@ Inserts or updates documents in the collection.
 
 ***
 
+##### CollectionListStream
+
+Iterator for collection list responses.
+
+This type implements JavaScript's async iterable protocol.
+It can be used with `for await...of` loops.
+
+**See**
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new CollectionListStream(): CollectionListStream;
+```
+
+**Returns**
+
+[`CollectionListStream`](/sdk/topk-js/index#collectionliststream)
+
+**Methods**
+
+###### \[asyncIterator\]()
+
+```ts
+asyncIterator: AsyncGenerator<Collection, void, undefined>;
+```
+
+**Returns**
+
+`AsyncGenerator`\<[`Collection`](/sdk/topk-js/index#collection-1), `void`, `undefined`\>
+
+###### next()
+
+```ts
+next(): Promise<Collection>;
+```
+
+Returns the next collection in the stream.
+
+**Returns**
+
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
+
+***
+
 ##### CollectionsClient
 
 **`Internal`**
@@ -9747,14 +9821,20 @@ Retrieves information about a specific collection.
 ###### list()
 
 ```ts
-list(): Promise<Collection[]>;
+list(options?: ListCollectionsOptions): CollectionListStream;
 ```
 
-Lists all collections in the current project.
+Lists collections in the current project, ordered by name, as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`ListCollectionsOptions`](/sdk/topk-js/index#listcollectionsoptions) |
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)[]\>
+[`CollectionListStream`](/sdk/topk-js/index#collectionliststream)
 
 ***
 
@@ -9878,6 +9958,18 @@ including its data type, whether it's required, and any index configuration.
 | <a id="property-datatype"></a> `dataType` | `DataType` | Data type of the field |
 | <a id="property-index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
 | <a id="property-required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
+
+***
+
+##### ListCollectionsOptions
+
+Options for listing collections.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-prefix"></a> `prefix?` | `string` | Only list collections whose name starts with this prefix |
 
 ***
 

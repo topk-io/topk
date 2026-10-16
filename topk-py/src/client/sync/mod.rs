@@ -5,7 +5,7 @@ mod runtime;
 use std::sync::Arc;
 
 pub use collection::{CollectionClient, PartitionListIterator};
-pub use collections::CollectionsClient;
+pub use collections::{CollectionListIterator, CollectionsClient};
 
 use crate::client::{sync::runtime::Runtime, topk_client, NativeRetryConfig};
 

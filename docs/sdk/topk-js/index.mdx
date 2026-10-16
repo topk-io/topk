@@ -253,6 +253,55 @@ Inserts or updates documents in the collection.
 
 ***
 
+### CollectionListStream
+
+Iterator for collection list responses.
+
+This type implements JavaScript's async iterable protocol.
+It can be used with `for await...of` loops.
+
+**See**
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new CollectionListStream(): CollectionListStream;
+```
+
+**Returns**
+
+[`CollectionListStream`](/sdk/topk-js/index#collectionliststream)
+
+**Methods**
+
+##### \[asyncIterator\]()
+
+```ts
+asyncIterator: AsyncGenerator<Collection, void, undefined>;
+```
+
+**Returns**
+
+`AsyncGenerator`\<[`Collection`](/sdk/topk-js/index#collection-1), `void`, `undefined`\>
+
+##### next()
+
+```ts
+next(): Promise<Collection>;
+```
+
+Returns the next collection in the stream.
+
+**Returns**
+
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
+
+***
+
 ### CollectionsClient
 
 **`Internal`**
@@ -325,14 +374,20 @@ Retrieves information about a specific collection.
 ##### list()
 
 ```ts
-list(): Promise<Collection[]>;
+list(options?: ListCollectionsOptions): CollectionListStream;
 ```
 
-Lists all collections in the current project.
+Lists collections in the current project, ordered by name, as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`ListCollectionsOptions`](/sdk/topk-js/index#listcollectionsoptions) |
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)[]\>
+[`CollectionListStream`](/sdk/topk-js/index#collectionliststream)
 
 ***
 
@@ -456,6 +511,18 @@ including its data type, whether it's required, and any index configuration.
 | <a id="property-datatype"></a> `dataType` | `DataType` | Data type of the field |
 | <a id="property-index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
 | <a id="property-required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
+
+***
+
+### ListCollectionsOptions
+
+Options for listing collections.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-prefix"></a> `prefix?` | `string` | Only list collections whose name starts with this prefix |
 
 ***
 

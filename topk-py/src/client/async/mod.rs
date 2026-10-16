@@ -8,7 +8,7 @@ mod collection;
 mod collections;
 
 pub use collection::{AsyncCollectionClient, AsyncPartitionListIterator};
-pub use collections::AsyncCollectionsClient;
+pub use collections::{AsyncCollectionListIterator, AsyncCollectionsClient};
 
 #[pyclass]
 pub struct AsyncClient {

@@ -1,7 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
+use futures_util::StreamExt;
 use pyo3::prelude::*;
+use tokio::sync::mpsc;
 
+use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::data::collection::Collection;
 use crate::error::RustError;
 use crate::schema::SchemaFieldSpec;
@@ -30,13 +33,43 @@ impl CollectionsClient {
         Ok(collection.into())
     }
 
-    pub fn list(&self, py: Python<'_>) -> PyResult<Vec<Collection>> {
-        let collections = self
-            .runtime
-            .block_on(py, self.client.collections().list())
-            .map_err(RustError)?;
+    #[pyo3(signature = (prefix=None))]
+    pub fn list(&self, prefix: Option<String>) -> PyResult<CollectionListIterator> {
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-        Ok(collections.into_iter().map(|i| i.into()).collect())
+        self.runtime.spawn({
+            let client = self.client.clone();
+            async move {
+                let mut stream = match client.collections().list(prefix).await {
+                    Ok(stream) => stream,
+                    Err(e) => {
+                        let _ = tx.send(Err(RustError(e).into())).await;
+                        return;
+                    }
+                };
+
+                while let Some(result) = stream.next().await {
+                    match result {
+                        Ok(collection) => {
+                            if let Err(mpsc::error::SendError(_)) =
+                                tx.send(Ok(collection.into())).await
+                            {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(RustError(e).into())).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(CollectionListIterator {
+            runtime: self.runtime.clone(),
+            receiver: rx,
+        })
     }
 
     pub fn create(
@@ -65,5 +98,23 @@ impl CollectionsClient {
             .runtime
             .block_on(py, self.client.collections().delete(&collection_name))
             .map_err(RustError)?)
+    }
+}
+
+#[pyclass]
+pub struct CollectionListIterator {
+    runtime: Arc<Runtime>,
+    receiver: mpsc::Receiver<PyResult<Collection>>,
+}
+
+#[pymethods]
+impl CollectionListIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<Collection>> {
+        self.runtime
+            .block_on(py, async { self.receiver.recv().await.transpose() })
     }
 }
