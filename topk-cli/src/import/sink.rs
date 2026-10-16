@@ -26,6 +26,8 @@ const SLOW_DOWN_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const SLOW_DOWN_INIT_BACKOFF: Duration = Duration::from_millis(250);
 const SLOW_DOWN_MAX_BACKOFF: Duration = Duration::from_secs(10);
 const OBJECT_CONCURRENCY: usize = 8;
+/// Batches buffered across partitions before a full drain, which is what a checkpoint rides on.
+const BUFFER_BATCHES: usize = 32;
 
 #[derive(Default, serde::Serialize)]
 pub struct LoadOutcome {
@@ -313,7 +315,7 @@ struct BatchWriter<'a> {
     batch_bytes: usize,
     state: &'a Mutex<State>,
     name: &'a str,
-    batches: IndexMap<Option<String>, Vec<Document>>,
+    batches: IndexMap<Option<String>, (usize, Vec<Document>)>,
     /// Buffered across every partition.
     bytes: usize,
     /// A source prefix is covered only by the last request of a full buffer drain.
@@ -324,13 +326,23 @@ struct BatchWriter<'a> {
 
 impl BatchWriter<'_> {
     async fn push(&mut self, partition: Option<String>, doc: Document) -> Result<(), Error> {
-        self.bytes += doc.encoded_len();
-        self.batches.entry(partition).or_default().push(doc);
-        if self.bytes >= self.batch_bytes {
-            while let Some((partition, docs)) = self.batches.pop() {
+        let size = doc.encoded_len();
+        self.bytes += size;
+        let entry = self.batches.entry(partition);
+        let index = entry.index();
+        let batch = entry.or_default();
+        batch.0 += size;
+        batch.1.push(doc);
+        if self.bytes >= BUFFER_BATCHES * self.batch_bytes {
+            while let Some((partition, (_, docs))) = self.batches.pop() {
                 self.flush(partition, docs).await?;
             }
             self.bytes = 0;
+        } else if batch.0 >= self.batch_bytes {
+            if let Some((partition, (bytes, docs))) = self.batches.swap_remove_index(index) {
+                self.bytes -= bytes;
+                self.flush(partition, docs).await?;
+            }
         }
         Ok(())
     }
@@ -392,7 +404,7 @@ impl BatchWriter<'_> {
     }
 
     async fn finish(mut self) -> Result<(), Error> {
-        while let Some((partition, batch)) = self.batches.pop() {
+        while let Some((partition, (_, batch))) = self.batches.pop() {
             self.flush(partition, batch).await?;
         }
         while !self.inflight.is_empty() {
