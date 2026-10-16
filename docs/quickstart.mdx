@@ -1,0 +1,500 @@
+---
+title: "Quickstart"
+icon: "rocket"
+description: "Go from an empty account to a working hybrid search in about five minutes."
+---
+
+In this quickstart you create a collection of books, add five documents, search them by meaning, and then combine that with keyword matching and a metadata filter in a single query. It takes about five minutes with the Python SDK, the JavaScript SDK, or plain SQL.
+
+<Info>
+  **Prerequisites**
+
+  - A TopK account ([sign up here](https://console.topk.io/login))
+  - A TopK API key ([create one here](https://console.topk.io/api-key))
+</Info>
+
+## Set your credentials
+
+Every example below reads your API key and region from the environment:
+
+```bash
+export TOPK_API_KEY="<your-api-key>"
+export TOPK_REGION="aws-us-east-1-elastica"
+```
+
+Pick the region closest to you from the list of [available regions](/regions).
+
+## Build your first search
+
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <Steps>
+      <Step title="Install the SDK">
+        <CodeGroup>
+          ```bash pip
+          pip install topk-sdk
+          ```
+          ```bash uv
+          uv add topk-sdk
+          ```
+        </CodeGroup>
+      </Step>
+
+      <Step title="Create a client">
+        ```python
+        import os
+        from topk_sdk import Client
+
+        client = Client(
+            api_key=os.environ["TOPK_API_KEY"],
+            region=os.environ["TOPK_REGION"],
+        )
+        ```
+
+        <Note>
+          `AsyncClient` has the same interface with `await` on every call. See the [Python SDK reference](/sdk/topk-py/overview).
+        </Note>
+      </Step>
+
+      <Step title="Create a collection">
+        A collection stores JSON-like documents. You declare an index only for the fields you want to search on. Here `content` gets a semantic index, so you can query it with plain text, and `title` and `genre` get keyword indexes for exact matches. Every other field is stored as is and can still be filtered.
+
+        ```python
+        from topk_sdk.schema import text, keyword_index, semantic_index
+
+        client.collections().create(
+            "books",
+            schema={
+                "title": text().required().index(keyword_index()),
+                "content": text().required().index(semantic_index()),
+                "genre": text().required().index(keyword_index()),
+            },
+        )
+        ```
+
+        If a collection named `books` already exists in your account, creating it fails with a "collection already exists" error. Delete it first or choose another name.
+      </Step>
+
+      <Step title="Add documents">
+        Every document needs an `_id`. TopK embeds the `content` field for you during the write, so there is no separate embedding step. The call returns a log sequence number (LSN). Pass it to later queries to guarantee they see this write.
+
+        ```python
+        lsn = client.collection("books").upsert([
+            {
+                "_id": "hobbit",
+                "title": "The Hobbit",
+                "author": "J.R.R. Tolkien",
+                "genre": "fantasy adventure",
+                "rating": 4.3,
+                "content": "A reluctant hobbit leaves the Shire with a company of dwarves to reclaim their mountain home from a dragon.",
+            },
+            {
+                "_id": "1984",
+                "title": "1984",
+                "author": "George Orwell",
+                "genre": "dystopian fiction",
+                "rating": 4.7,
+                "content": "In a surveillance state, a clerk who rewrites history for the Party begins to doubt everything it tells him.",
+            },
+            {
+                "_id": "dune",
+                "title": "Dune",
+                "author": "Frank Herbert",
+                "genre": "science fiction",
+                "rating": 4.5,
+                "content": "A noble family takes charge of a desert planet whose spice is the most valuable substance in the universe.",
+            },
+            {
+                "_id": "brave-new-world",
+                "title": "Brave New World",
+                "author": "Aldous Huxley",
+                "genre": "dystopian fiction",
+                "rating": 4.0,
+                "content": "An engineered society keeps its citizens content with conditioning, pleasure, and a drug called soma.",
+            },
+            {
+                "_id": "left-hand",
+                "title": "The Left Hand of Darkness",
+                "author": "Ursula K. Le Guin",
+                "genre": "science fiction",
+                "rating": 4.2,
+                "content": "An envoy to a frozen planet must earn the trust of a people who have no fixed sex.",
+            },
+        ])
+        ```
+      </Step>
+
+      <Step title="Search by meaning">
+        A query selects the fields and scores to return, then sorts and limits. `semantic_similarity` compares your query text with the `content` field and returns a similarity score, where higher means closer in meaning.
+
+        ```python
+        from topk_sdk.query import select, field, fn
+
+        docs = client.collection("books").query(
+            select(
+                "title",
+                semantic_score=fn.semantic_similarity("content", "a state that controls what its citizens think"),
+            )
+            .sort(field("semantic_score"), asc=False)
+            .limit(3),
+            lsn=lsn,
+        )
+
+        print(docs)
+        ```
+
+        The two dystopian novels come first, even though neither summary contains the words in the query:
+
+        ```python
+        [
+            {"_id": "1984", "title": "1984", "semantic_score": 7.49},
+            {"_id": "brave-new-world", "title": "Brave New World", "semantic_score": 7.45},
+            {"_id": "left-hand", "title": "The Left Hand of Darkness", "semantic_score": 7.13},
+        ]
+        ```
+      </Step>
+
+      <Step title="Add keywords and a filter">
+        Now make it a hybrid query. `match` requires the word "dystopian" in the keyword-indexed `genre` field, `bm25_score` reports how well each document matched, and a plain comparison filters on `rating`. The sort expression blends the two scores.
+
+        ```python
+        from topk_sdk.query import select, field, fn, match
+
+        docs = client.collection("books").query(
+            select(
+                "title", "author", "rating",
+                semantic_score=fn.semantic_similarity("content", "a state that controls what its citizens think"),
+                keyword_score=fn.bm25_score(),
+            )
+            .filter(match("dystopian", field="genre"))
+            .filter(field("rating") >= 4.0)
+            .sort(field("semantic_score") * 0.7 + field("keyword_score") * 0.3, asc=False)
+            .limit(10),
+            lsn=lsn,
+        )
+
+        print(docs)
+        ```
+
+        Filters run before ranking, so every document that matches both conditions is eligible for the result:
+
+        ```python
+        [
+            {"_id": "1984", "title": "1984", "author": "George Orwell", "rating": 4.7, "semantic_score": 7.49, "keyword_score": 0.88},
+            {"_id": "brave-new-world", "title": "Brave New World", "author": "Aldous Huxley", "rating": 4.0, "semantic_score": 7.45, "keyword_score": 0.88},
+        ]
+        ```
+
+        <Tip>
+          To keep the keyword optional, replace `match` with `should`. Documents without the term stay eligible and just score lower. See [keyword search](/collections/query#keyword-search).
+        </Tip>
+      </Step>
+
+      <Step title="Clean up">
+        ```python
+        client.collections().delete("books")
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    <Steps>
+      <Step title="Install the SDK">
+        <CodeGroup>
+          ```bash npm
+          npm install topk-js
+          ```
+          ```bash yarn
+          yarn add topk-js
+          ```
+          ```bash pnpm
+          pnpm add topk-js
+          ```
+        </CodeGroup>
+      </Step>
+
+      <Step title="Create a client">
+        ```typescript
+        import { Client } from "topk-js";
+
+        const client = new Client({
+          apiKey: process.env.TOPK_API_KEY!,
+          region: process.env.TOPK_REGION!,
+        });
+        ```
+      </Step>
+
+      <Step title="Create a collection">
+        A collection stores JSON-like documents. You declare an index only for the fields you want to search on. Here `content` gets a semantic index, so you can query it with plain text, and `title` and `genre` get keyword indexes for exact matches. Every other field is stored as is and can still be filtered.
+
+        ```typescript
+        import { text, keywordIndex, semanticIndex } from "topk-js/schema";
+
+        await client.collections().create("books", {
+          title: text().required().index(keywordIndex()),
+          content: text().required().index(semanticIndex()),
+          genre: text().required().index(keywordIndex()),
+        });
+        ```
+
+        If a collection named `books` already exists in your account, creating it fails with a "collection already exists" error. Delete it first or choose another name.
+      </Step>
+
+      <Step title="Add documents">
+        Every document needs an `_id`. TopK embeds the `content` field for you during the write, so there is no separate embedding step. The call returns a log sequence number (LSN). Pass it to later queries to guarantee they see this write.
+
+        ```typescript
+        const lsn = await client.collection("books").upsert([
+          {
+            _id: "hobbit",
+            title: "The Hobbit",
+            author: "J.R.R. Tolkien",
+            genre: "fantasy adventure",
+            rating: 4.3,
+            content: "A reluctant hobbit leaves the Shire with a company of dwarves to reclaim their mountain home from a dragon.",
+          },
+          {
+            _id: "1984",
+            title: "1984",
+            author: "George Orwell",
+            genre: "dystopian fiction",
+            rating: 4.7,
+            content: "In a surveillance state, a clerk who rewrites history for the Party begins to doubt everything it tells him.",
+          },
+          {
+            _id: "dune",
+            title: "Dune",
+            author: "Frank Herbert",
+            genre: "science fiction",
+            rating: 4.5,
+            content: "A noble family takes charge of a desert planet whose spice is the most valuable substance in the universe.",
+          },
+          {
+            _id: "brave-new-world",
+            title: "Brave New World",
+            author: "Aldous Huxley",
+            genre: "dystopian fiction",
+            rating: 4.0,
+            content: "An engineered society keeps its citizens content with conditioning, pleasure, and a drug called soma.",
+          },
+          {
+            _id: "left-hand",
+            title: "The Left Hand of Darkness",
+            author: "Ursula K. Le Guin",
+            genre: "science fiction",
+            rating: 4.2,
+            content: "An envoy to a frozen planet must earn the trust of a people who have no fixed sex.",
+          },
+        ]);
+        ```
+      </Step>
+
+      <Step title="Search by meaning">
+        A query selects the fields and scores to return, then sorts and limits. `semanticSimilarity` compares your query text with the `content` field and returns a similarity score, where higher means closer in meaning.
+
+        ```typescript
+        import { select, field, fn } from "topk-js/query";
+
+        const docs = await client.collection("books").query(
+          select({
+            title: field("title"),
+            semantic_score: fn.semanticSimilarity("content", "a state that controls what its citizens think"),
+          })
+            .sort(field("semantic_score"), false)
+            .limit(3),
+          { lsn }
+        );
+
+        console.log(docs);
+        ```
+
+        The two dystopian novels come first, even though neither summary contains the words in the query:
+
+        ```typescript
+        [
+          { _id: "1984", title: "1984", semantic_score: 7.49 },
+          { _id: "brave-new-world", title: "Brave New World", semantic_score: 7.45 },
+          { _id: "left-hand", title: "The Left Hand of Darkness", semantic_score: 7.13 },
+        ]
+        ```
+      </Step>
+
+      <Step title="Add keywords and a filter">
+        Now make it a hybrid query. `match` requires the word "dystopian" in the keyword-indexed `genre` field, `bm25Score` reports how well each document matched, and a plain comparison filters on `rating`. The sort expression blends the two scores.
+
+        ```typescript
+        import { select, field, fn, match } from "topk-js/query";
+
+        const docs = await client.collection("books").query(
+          select({
+            title: field("title"),
+            author: field("author"),
+            rating: field("rating"),
+            semantic_score: fn.semanticSimilarity("content", "a state that controls what its citizens think"),
+            keyword_score: fn.bm25Score(),
+          })
+            .filter(match("dystopian", { field: "genre" }))
+            .filter(field("rating").gte(4.0))
+            .sort(field("semantic_score").mul(0.7).add(field("keyword_score").mul(0.3)), false)
+            .limit(10),
+          { lsn }
+        );
+
+        console.log(docs);
+        ```
+
+        Filters run before ranking, so every document that matches both conditions is eligible for the result:
+
+        ```typescript
+        [
+          { _id: "1984", title: "1984", author: "George Orwell", rating: 4.7, semantic_score: 7.49, keyword_score: 0.88 },
+          { _id: "brave-new-world", title: "Brave New World", author: "Aldous Huxley", rating: 4, semantic_score: 7.45, keyword_score: 0.88 },
+        ]
+        ```
+
+        <Tip>
+          To keep the keyword optional, replace `match` with `should`. Documents without the term stay eligible and just score lower. See [keyword search](/collections/query#keyword-search).
+        </Tip>
+      </Step>
+
+      <Step title="Clean up">
+        ```typescript
+        await client.collections().delete("books");
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="SQL" icon="database">
+    <Steps>
+      <Step title="Connect">
+        TopK speaks the PostgreSQL wire protocol, so any Postgres client works. Use your API key as the password.
+
+        ```bash
+        psql "host=$TOPK_REGION.sql.topk.io port=5432 user=topk password=$TOPK_API_KEY dbname=topk"
+        ```
+      </Step>
+
+      <Step title="Create a collection">
+        A collection stores JSON-like documents. You declare an index only for the columns you want to search on. Here `content` gets a semantic index, so you can query it with plain text, and `title` and `genre` get keyword indexes for exact matches. Columns without an index are stored as is and can still be filtered.
+
+        ```sql
+        CREATE TABLE books (
+          title   TEXT NOT NULL INDEX keyword_index(),
+          content TEXT NOT NULL INDEX semantic_index(),
+          genre   TEXT NOT NULL INDEX keyword_index(),
+          author  TEXT NOT NULL,
+          rating  FLOAT
+        );
+        ```
+
+        If a collection named `books` already exists in your account, creating it fails with a "collection already exists" error. Delete it first or choose another name.
+      </Step>
+
+      <Step title="Add documents">
+        Every row needs an `_id`. TopK embeds the `content` column for you during the insert, so there is no separate embedding step.
+
+        ```sql
+        INSERT INTO books (_id, title, author, genre, rating, content)
+        VALUES
+          ('hobbit', 'The Hobbit', 'J.R.R. Tolkien', 'fantasy adventure', 4.3,
+           'A reluctant hobbit leaves the Shire with a company of dwarves to reclaim their mountain home from a dragon.'),
+          ('1984', '1984', 'George Orwell', 'dystopian fiction', 4.7,
+           'In a surveillance state, a clerk who rewrites history for the Party begins to doubt everything it tells him.'),
+          ('dune', 'Dune', 'Frank Herbert', 'science fiction', 4.5,
+           'A noble family takes charge of a desert planet whose spice is the most valuable substance in the universe.'),
+          ('brave-new-world', 'Brave New World', 'Aldous Huxley', 'dystopian fiction', 4.0,
+           'An engineered society keeps its citizens content with conditioning, pleasure, and a drug called soma.'),
+          ('left-hand', 'The Left Hand of Darkness', 'Ursula K. Le Guin', 'science fiction', 4.2,
+           'An envoy to a frozen planet must earn the trust of a people who have no fixed sex.');
+        ```
+      </Step>
+
+      <Step title="Search by meaning">
+        `semantic_similarity` compares your query text with the `content` column and returns a similarity score, where higher means closer in meaning.
+
+        ```sql
+        SELECT
+          _id,
+          title,
+          semantic_similarity(content, 'a state that controls what its citizens think') AS semantic_score
+        FROM books
+        ORDER BY semantic_score DESC
+        LIMIT 3;
+        ```
+
+        The two dystopian novels come first, even though neither summary contains the words in the query:
+
+        ```text
+               _id       |           title           | semantic_score
+        -----------------+---------------------------+----------------
+         1984            | 1984                      |           7.49
+         brave-new-world | Brave New World           |           7.45
+         left-hand       | The Left Hand of Darkness |           7.13
+        ```
+      </Step>
+
+      <Step title="Add keywords and a filter">
+        Now make it a hybrid query. `match` requires the word "dystopian" in the keyword-indexed `genre` column, `bm25_score` reports how well each row matched, and a plain comparison filters on `rating`. The `ORDER BY` expression blends the two scores.
+
+        ```sql
+        SELECT
+          _id,
+          title,
+          author,
+          rating,
+          semantic_similarity(content, 'a state that controls what its citizens think') AS semantic_score,
+          bm25_score() AS keyword_score
+        FROM books
+        WHERE match('dystopian', genre)
+          AND rating >= 4.0
+        ORDER BY semantic_score * 0.7 + keyword_score * 0.3 DESC
+        LIMIT 10;
+        ```
+
+        Filters run before ranking, so every row that matches both conditions is eligible for the result:
+
+        ```text
+               _id       |      title      |     author     | rating | semantic_score | keyword_score
+        -----------------+-----------------+----------------+--------+----------------+---------------
+         1984            | 1984            | George Orwell  |    4.7 |           7.49 |          0.88
+         brave-new-world | Brave New World | Aldous Huxley  |    4.0 |           7.45 |          0.88
+        ```
+
+        <Tip>
+          To keep the keyword optional, replace `match` with `should`. Rows without the term stay eligible and just score lower. See the [SQL reference](/sdk/topk-sql/overview).
+        </Tip>
+      </Step>
+
+      <Step title="Clean up">
+        ```sql
+        DROP TABLE books;
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## What you built
+
+- A collection with a semantic index, two keyword indexes, and unindexed metadata, all on the same documents.
+- A semantic query that found the right books from a description, with TopK generating the embeddings.
+- A hybrid query that scored, filtered, and ranked across all of those fields in one request, with no merging in application code.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Hybrid search guide" icon="layers" href="/guides/true-hybrid-search">
+    Weighting, boosting, and custom scoring in depth.
+  </Card>
+  <Card title="Bring your own vectors" icon="waypoints" href="/guides/vector-search">
+    Dense, sparse, and multi-vector indexes for embeddings you already have.
+  </Card>
+  <Card title="Import your data" icon="terminal" href="/cli#import">
+    Load a collection from Postgres, MongoDB, Parquet, S3, or Hugging Face with one command.
+  </Card>
+  <Card title="Query reference" icon="search" href="/collections/query">
+    Every stage, function, and operator available in a query.
+  </Card>
+</CardGroup>
