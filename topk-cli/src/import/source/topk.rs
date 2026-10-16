@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use futures::{future, TryStreamExt};
 use wildmatch::WildMatch;
 
 use topk_rs::proto::v1::data::Value;
@@ -97,10 +98,13 @@ impl Topk {
             true => {
                 let pattern =
                     WildMatch::new(collection.is_empty().then_some("*").unwrap_or(collection));
-                let all = self.client.collections().list().await?;
-                all.into_iter()
-                    .filter(|c| pattern.matches(&c.name))
-                    .collect()
+                self.client
+                    .collections()
+                    .list(None)
+                    .await?
+                    .try_filter(|c| future::ready(pattern.matches(&c.name)))
+                    .try_collect()
+                    .await?
             }
             false => vec![self.client.collections().get(collection).await?],
         };

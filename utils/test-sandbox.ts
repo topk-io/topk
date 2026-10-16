@@ -105,7 +105,9 @@ async function reset(client: Client, opts: Opts, limit: LimitFunction) {
 async function discoverState(client: Client, opts: Opts): Promise<State> {
   log.info(`Discovering state for ${formatOpts(opts)}`);
 
-  const allCollections = await withRetry(() => client.collections().list());
+  const allCollections = await withRetry(() =>
+    Array.fromAsync(client.collections().list())
+  );
   log.info(`Found ${allCollections.length} collections`);
 
   const collections = allCollections.filter((c) => {

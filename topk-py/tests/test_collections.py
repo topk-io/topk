@@ -14,13 +14,28 @@ from . import ProjectContext
 
 def test_list_collections(ctx: ProjectContext):
     c = ctx.client.collections().create(ctx.scope("test"), schema={})
-    response = ctx.client.collections().list()
+    response = list(ctx.client.collections().list())
     assert c in response
+
+
+def test_list_collections_with_prefix(ctx: ProjectContext):
+    names = [ctx.scope(name) for name in ["a", "ab", "b"]]
+    for name in names:
+        ctx.client.collections().create(name, schema={})
+
+    for prefix, expected in [(ctx.scope_prefix, names), (ctx.scope("a"), names[:2])]:
+        collections = list(ctx.client.collections().list(prefix=prefix))
+        assert [c.name for c in collections] == expected
+
+
+def test_list_collections_with_invalid_prefix(ctx: ProjectContext):
+    with pytest.raises(error.InvalidArgumentError):
+        list(ctx.client.collections().list(prefix="-books"))
 
 
 def test_create_collection(ctx: ProjectContext):
     c = ctx.client.collections().create(ctx.scope("test"), schema={})
-    collections = ctx.client.collections().list()
+    collections = list(ctx.client.collections().list())
     assert c in collections
 
 
@@ -29,7 +44,7 @@ def test_collection_schema_with_exact_keyword_index_round_trip(ctx: ProjectConte
 
     created = ctx.client.collections().create(ctx.scope("test"), schema=schema)
     fetched = ctx.client.collections().get(created.name)
-    collections = ctx.client.collections().list()
+    collections = list(ctx.client.collections().list())
     listed = next(c for c in collections if c.name == created.name)
 
     assert created.schema["title"] == schema["title"]
@@ -42,7 +57,7 @@ def test_collection_schema_with_ngram_index_round_trip(ctx: ProjectContext):
 
     created = ctx.client.collections().create(ctx.scope("test"), schema=schema)
     fetched = ctx.client.collections().get(created.name)
-    collections = ctx.client.collections().list()
+    collections = list(ctx.client.collections().list())
     listed = next(c for c in collections if c.name == created.name)
 
     assert created.schema["title"] == schema["title"]
@@ -66,7 +81,7 @@ def test_delete_collection(ctx: ProjectContext):
     c = ctx.client.collections().create(ctx.scope("test"), schema={})
     ctx.client.collections().delete(ctx.scope("test"))
 
-    collections = ctx.client.collections().list()
+    collections = list(ctx.client.collections().list())
     assert c not in collections
 
 

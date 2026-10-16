@@ -20,9 +20,10 @@ async fn test_invalid_api_key() {
 
     let response = client
         .collections()
-        .list()
+        .list(None)
         .await
-        .expect_err("should not be able to list collections");
+        .err()
+        .expect("should not be able to list collections");
 
     assert!(matches!(response, Error::Unauthenticated(_)));
 }

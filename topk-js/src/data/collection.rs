@@ -1,6 +1,10 @@
 use crate::schema::{data_type::DataType, field_index::FieldIndexUnion};
+use napi::bindgen_prelude::*;
+use napi::tokio::sync::{mpsc, Mutex};
 use napi_derive::napi;
 use std::collections::HashMap;
+use std::future::Future;
+use std::sync::Arc;
 
 /// Represents a collection in the TopK service.
 ///
@@ -65,6 +69,69 @@ impl From<topk_rs::proto::v1::control::FieldSpec> for CollectionFieldSpec {
                 .unwrap_or(DataType::Unknown),
             required: field_spec.required,
             index: field_spec.index.map(|index| index.into()),
+        }
+    }
+}
+
+pub(crate) type CollectionListStreamMessage = std::result::Result<Collection, String>;
+
+/// Iterator for collection list responses.
+#[napi(async_iterator)]
+pub struct CollectionListStream {
+    receiver: Arc<Mutex<mpsc::Receiver<CollectionListStreamMessage>>>,
+}
+
+impl CollectionListStream {
+    pub(crate) fn new(receiver: mpsc::Receiver<CollectionListStreamMessage>) -> Self {
+        Self {
+            receiver: Arc::new(Mutex::new(receiver)),
+        }
+    }
+}
+
+#[napi]
+impl AsyncGenerator for CollectionListStream {
+    type Yield = Collection;
+    type Next = ();
+    type Return = ();
+
+    fn next(
+        &mut self,
+        _value: Option<Self::Next>,
+    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+        let receiver = self.receiver.clone();
+        async move {
+            let mut guard = receiver.lock().await;
+            match guard.recv().await {
+                Some(Ok(v)) => Ok(Some(v)),
+                Some(Err(e)) => Err(napi::Error::from_reason(e)),
+                None => Ok(None),
+            }
+        }
+    }
+
+    fn complete(
+        &mut self,
+        _value: Option<Self::Return>,
+    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+        let receiver = self.receiver.clone();
+        async move {
+            receiver.lock().await.close();
+            Ok(None)
+        }
+    }
+}
+
+#[napi]
+impl CollectionListStream {
+    /// Returns the next collection in the stream.
+    #[napi]
+    pub async unsafe fn next(&mut self) -> napi::Result<Option<Collection>> {
+        let mut guard = self.receiver.lock().await;
+        match guard.recv().await {
+            Some(Ok(v)) => Ok(Some(v)),
+            Some(Err(e)) => Err(napi::Error::from_reason(e)),
+            None => Ok(None),
         }
     }
 }

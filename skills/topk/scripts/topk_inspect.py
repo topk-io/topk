@@ -57,7 +57,7 @@ def check(_args) -> None:
 
     c, region = client()
     try:
-        collections = c.collections().list()
+        collections = list(c.collections().list())
     except PermissionDeniedError:
         fail("Permission denied: TOPK_API_KEY is invalid, revoked, or for a different project.")
     except Exception as e:  # bad key (Unauthenticated), network, or region problems
