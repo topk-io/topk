@@ -113,16 +113,16 @@ impl State {
             }
             true
         });
-        after.retain(|name, checkpoint| {
-            if spec.collections[name]
-                .limit
-                .is_some_and(|limit| checkpoint.consumed >= limit)
-            {
-                state.cursors.insert(name.clone(), Mark::Done);
-                return false;
+        for (name, checkpoint) in &after {
+            if let Some(limit) = spec.collections[name].limit {
+                if checkpoint.consumed > limit {
+                    return Err(Error::InvalidArgument(format!(
+                        "{name}: checkpoint consumed {} rows, exceeding limit {limit}",
+                        checkpoint.consumed
+                    )));
+                }
             }
-            true
-        });
+        }
         let done = state
             .cursors
             .values()

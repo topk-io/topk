@@ -151,20 +151,24 @@ fn a_resume_cannot_switch_projects() {
 }
 
 #[test]
-fn checkpoint_at_limit_finishes_the_collection() {
+fn checkpoint_past_limit_is_rejected() {
     let mut plan: Spec = toml::from_str(&spec("limit = 5", "", "")).unwrap();
     let (mut state, _, _) = State::prepare(None, "books.parquet", None, &mut plan).unwrap();
     state.cursors.insert(
         "a".to_string(),
         Mark::After(Checkpoint {
-            cursor: Cursor::Key("5".to_string()),
-            consumed: 5,
+            cursor: Cursor::Key("6".to_string()),
+            consumed: 6,
         }),
     );
-    let (state, done, after) =
-        State::prepare(Some(state), "books.parquet", None, &mut plan).unwrap();
-    assert_eq!(done, 1);
-    assert!(after.is_empty());
-    assert!(matches!(state.cursors.get("a"), Some(Mark::Done)));
-    assert!(!plan.collections.contains_key("a"));
+    let error = refused(State::prepare(
+        Some(state),
+        "books.parquet",
+        None,
+        &mut plan,
+    ));
+    assert!(
+        error.contains("checkpoint consumed 6 rows, exceeding limit 5"),
+        "{error}"
+    );
 }

@@ -149,8 +149,11 @@ impl Mongo {
                 .sort(doc! { &id: 1 })
                 .allow_disk_use(true)
                 .no_cursor_timeout(true);
-            if let Some(n) = limit {
-                find = find.limit(n as i64);
+            // Mongo reads `limit(0)` as no limit; a resume at its limit has nothing left.
+            match limit {
+                Some(0) => return,
+                Some(n) => find = find.limit(n as i64),
+                None => {}
             }
             let mut cursor = match find.await {
                 Ok(cursor) => cursor,
