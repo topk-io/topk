@@ -72,7 +72,7 @@ fn read_options(hints: Vec<SqlExpr>) -> Result<ReadOptions, Error> {
 fn is_aggregate_fn(func: &SqlFunction) -> bool {
     matches!(
         func.name().to_ascii_lowercase().as_str(),
-        "count" | "sum" | "min" | "max" | "avg"
+        "count" | "sum" | "min" | "max" | "avg" | "approx_percentile" | "approx_count_distinct"
     )
 }
 
@@ -133,7 +133,8 @@ fn lower_group_by(
                 sql_unsupported!(
                     !group_keys.iter().any(|(_, key)| key == &logical),
                     "`{out_name}` in a GROUP BY query must be a group key or an \
-                     aggregate function call (COUNT/SUM/MIN/MAX/AVG)"
+                     aggregate function call \
+                     (COUNT/SUM/MIN/MAX/AVG/APPROX_PERCENTILE/APPROX_COUNT_DISTINCT)"
                 );
                 if !keys.iter().any(|(name, _)| name == &out_name) {
                     keys.push((out_name.clone(), logical));

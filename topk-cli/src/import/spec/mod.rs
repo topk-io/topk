@@ -57,6 +57,7 @@ impl Target {
     pub fn source_columns(&self) -> IndexSet<&str> {
         std::iter::once(self.id_column())
             .chain(self.fields.iter().map(|(name, field)| field.source(name)))
+            .chain(self.partition.as_deref())
             .collect()
     }
 }
@@ -105,6 +106,11 @@ impl TryFrom<IndexMap<String, Target>> for Spec {
     fn try_from(collections: IndexMap<String, Target>) -> Result<Spec, Error> {
         for (name, target) in collections.iter() {
             collection_name(name)?;
+            if target.limit == Some(0) {
+                return Err(Error::InvalidArgument(format!(
+                    "{name}: limit must be greater than zero"
+                )));
+            }
             if target.from.trim().is_empty() {
                 return Err(Error::InvalidArgument(
                     "`from` is empty — name the table, index, collection or file path to read"

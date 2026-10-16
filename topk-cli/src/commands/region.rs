@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::client::ManagementClient;
 use crate::config::Config;
 use crate::management::proto::ListRegionsRequest;
-use crate::output::{print, Output, Tabular};
+use crate::output::{print_list, Output, Tabular};
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -48,7 +48,7 @@ pub async fn run(
                 .await?
                 .into_inner()
                 .regions;
-            print(out, output, regions.into_iter().map(|name| Region { name }))?;
+            print_list(out, output, regions.into_iter().map(|name| Region { name }))?;
         }
     }
     Ok(ExitCode::SUCCESS)

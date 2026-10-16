@@ -342,31 +342,13 @@ CREATE TABLE books (
 
 ## List
 
-You can list all collections in a project by calling [`client.collections().list()`](/sdk/topk-py#list):
+You can list all collections in a project by iterating over [`client.collections().list()`](/sdk/topk-py#list).
+Collections are returned in name order:
 
 <CodeGroup>
 
 ```python Python
-collections = client.collections().list()
-```
-
-
-```typescript Javascript
-const collections = await client.collections().list();
-```
-
-```sql SQL
-SELECT table_name FROM information_schema.tables;
-```
-
-</CodeGroup>
-
-The `list()` function returns a list of `Collection` objects:
-
-<CodeGroup>
-
-```python Python
-for collection in collections:
+for collection in client.collections().list():
     print(f"Collection name: {collection.name}")
     print(f"Organization ID: {collection.org_id}")
     print(f"Project ID: {collection.project_id}")
@@ -375,14 +357,33 @@ for collection in collections:
 ```
 
 
-```js Javascript
-for (const collection of collections) {
+```typescript Javascript
+for await (const collection of client.collections().list()) {
   console.log(`Collection name: ${collection.name}`);
   console.log(`Organization ID: ${collection.orgId}`);
   console.log(`Project ID: ${collection.projectId}`);
   console.log(`Region: ${collection.region}`);
   console.log(`Schema: ${collection.schema}`);
 }
+```
+
+```sql SQL
+SELECT table_name FROM information_schema.tables;
+```
+
+</CodeGroup>
+
+To list only collections whose name starts with a given string, pass it as `prefix`:
+
+<CodeGroup>
+
+```python Python
+collections = client.collections().list(prefix="books")
+```
+
+
+```typescript Javascript
+const collections = client.collections().list({ prefix: "books" });
 ```
 
 </CodeGroup>

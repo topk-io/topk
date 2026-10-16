@@ -52,6 +52,8 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<client::sync::PartitionListIterator>()?;
     m.add_class::<client::r#async::AsyncPartitionListIterator>()?;
+    m.add_class::<client::sync::CollectionListIterator>()?;
+    m.add_class::<client::r#async::AsyncCollectionListIterator>()?;
 
     // classes
     m.add_class::<data::collection::Collection>()?;

@@ -14,6 +14,8 @@ export declare const agg: {
   min: typeof query_agg.min;
   max: typeof query_agg.max;
   avg: typeof query_agg.avg;
+  quantile: typeof query_agg.quantile;
+  countDistinct: typeof query_agg.countDistinct;
 };
 export declare const groupBy: typeof query.groupBy;
 export declare const literal: typeof query.literal;

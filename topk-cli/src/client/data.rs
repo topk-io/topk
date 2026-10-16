@@ -17,7 +17,7 @@ pub struct DataClient(Client);
 impl DataClient {
     pub fn new(config: &Config, endpoint: DataEndpoint) -> Result<Self> {
         let region = endpoint.region()?;
-        let client = match endpoint.credentials()? {
+        let client = match endpoint.credentials(config)? {
             Credentials::ApiKey(api_key) => ClientConfig::new(api_key, region),
             Credentials::Project(project_id) => ClientConfig::default()
                 .with_region(region)

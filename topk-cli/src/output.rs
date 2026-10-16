@@ -26,10 +26,22 @@ pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
     Ok(())
 }
 
-/// Print a list of resources or a single resource.
-/// JSON: one JSON object per line.
-/// Text: a single resource prints as `label: value` rows, several print as a table
-pub fn print(
+/// Print a single resource as labeled values, or one JSON object.
+pub fn print_one(out: &mut impl Write, output: Output, item: impl Tabular) -> Result<()> {
+    if output == Output::Json {
+        return json_line(out, &item);
+    }
+    let mut table = Table::new();
+    table.load_preset(NOTHING);
+    for (label, value) in item.columns() {
+        table.add_row([format!("{label}:"), value]);
+    }
+    writeln!(out, "{table}")?;
+    Ok(())
+}
+
+/// Print a list as a table even with one result, or one JSON object per line.
+pub fn print_list(
     out: &mut impl Write,
     output: Output,
     items: impl IntoIterator<Item = impl Tabular>,
@@ -40,26 +52,16 @@ pub fn print(
         }
         return Ok(());
     }
-    let mut rows: Vec<_> = items.into_iter().map(|item| item.columns()).collect();
-    let table = match rows.as_mut_slice() {
-        [] => return Ok(()),
-        [row] => {
-            let mut table = Table::new();
-            table.load_preset(NOTHING);
-            for (label, value) in row.drain(..) {
-                table.add_row([format!("{label}:"), value]);
-            }
-            table
-        }
-        [first, ..] => {
-            let mut table = self::table(first.iter().map(|(label, _)| *label));
-            table.add_rows(
-                rows.into_iter()
-                    .map(|row| row.into_iter().map(|(_, value)| value)),
-            );
-            table
-        }
+    let mut rows = items.into_iter().map(|item| item.columns());
+    let Some(first) = rows.next() else {
+        return Ok(());
     };
+    let mut table = table(first.iter().map(|(label, _)| *label));
+    table.add_rows(
+        std::iter::once(first)
+            .chain(rows)
+            .map(|row| row.into_iter().map(|(_, value)| value)),
+    );
     writeln!(out, "{table}")?;
     Ok(())
 }

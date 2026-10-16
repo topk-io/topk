@@ -49,7 +49,7 @@ Other field types: `f32_vector(dim)`, `f16_vector`, `f8_vector`, `u8_vector`, `i
 
 Vector index: `f32_vector(dimension=1536).index(vector_index(metric="cosine"))`.
 
-To manage collections, use `client.collections().list()`, `.get(name)`, and `.delete(name)`. Don't recreate a deleted collection under the same name; use a new name.
+To manage collections, use `client.collections().list()`, `.get(name)`, and `.delete(name)`. `list(prefix=None)` returns an iterator over collections in name order, optionally only those whose name starts with `prefix`. Don't recreate a deleted collection under the same name; use a new name.
 
 ## Write documents
 

@@ -14,7 +14,7 @@ pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Re
     let mut rows = import::documents(source, &target)?;
     let mut shown = 0;
     while let Some(row) = rows.next().await {
-        let doc = row?;
+        let (partition, doc) = row?;
         if shown == 0 {
             eprintln!("# → {name}");
         }
@@ -28,7 +28,8 @@ pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Re
         pairs.sort_by_key(|(k, _)| (k != ID, k.clone()));
         let doc = serde_json::Value::Object(pairs.into_iter().collect());
         // stderr, so `--dry-run > spec.toml` captures the spec alone.
-        eprintln!("{}", elide(&doc));
+        let note = partition.map_or_else(String::new, |p| format!(" # partition {p}"));
+        eprintln!("{}{note}", elide(&doc));
     }
     if shown == PREVIEW_ROWS {
         eprintln!("# … showing the first {PREVIEW_ROWS} rows");

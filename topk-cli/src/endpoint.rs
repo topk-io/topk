@@ -3,6 +3,7 @@ use std::fmt;
 use anyhow::{bail, Context, Result};
 use clap::builder::NonEmptyStringValueParser;
 
+use crate::config::Config;
 use crate::ProjectId;
 
 #[derive(clap::Args, Clone)]
@@ -18,9 +19,11 @@ pub struct DataEndpoint {
     )]
     pub api_key: Option<String>,
 
-    /// Project to access with your login instead of an API key
+    /// Project to access with your login instead of an API key; defaults to the currently
+    /// selected project
     #[arg(
         long,
+        env = "TOPK_PROJECT_ID",
         conflicts_with = "api_key",
         global = true,
         help_heading = "Connection options"
@@ -51,13 +54,19 @@ impl DataEndpoint {
         )
     }
 
-    pub fn credentials(&self) -> Result<Credentials> {
+    pub fn credentials(&self, config: &Config) -> Result<Credentials> {
         match (&self.api_key, &self.project_id) {
             // Clap rejects the combinations; this guards direct construction.
             (Some(_), Some(_)) => bail!("--project-id cannot be combined with an API key"),
-            (None, None) => bail!("--api-key (or set TOPK_API_KEY) or --project-id is required"),
             (Some(api_key), None) => Ok(Credentials::ApiKey(api_key.clone())),
             (None, Some(project_id)) => Ok(Credentials::Project(project_id.clone())),
+            (None, None) => match config.defaults()?.project_id {
+                Some(project_id) => Ok(Credentials::Project(project_id)),
+                None => bail!(
+                    "--project-id (or TOPK_PROJECT_ID) or --api-key (or TOPK_API_KEY) is required, \
+                     or select a default project with `topk project select`"
+                ),
+            },
         }
     }
 }

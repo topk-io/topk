@@ -24,6 +24,8 @@ pub enum AggregateExpressionUnion {
     Min { field: String },
     Max { field: String },
     Avg { field: String },
+    Quantile { field: String, q: f64 },
+    CountDistinct { field: String },
 }
 
 impl From<AggregateExpression> for topk_rs::proto::v1::data::AggregateExpr {
@@ -43,6 +45,12 @@ impl From<AggregateExpression> for topk_rs::proto::v1::data::AggregateExpr {
             }
             AggregateExpressionUnion::Avg { field } => {
                 topk_rs::proto::v1::data::AggregateExpr::avg(field)
+            }
+            AggregateExpressionUnion::Quantile { field, q } => {
+                topk_rs::proto::v1::data::AggregateExpr::quantile(field, q)
+            }
+            AggregateExpressionUnion::CountDistinct { field } => {
+                topk_rs::proto::v1::data::AggregateExpr::count_distinct(field)
             }
         }
     }

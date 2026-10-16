@@ -16,6 +16,17 @@ import {
 } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
+async function listCollections(
+  ctx: ProjectContext,
+  options?: { prefix?: string }
+) {
+  const collections = [];
+  for await (const collection of ctx.client.collections().list(options)) {
+    collections.push(collection);
+  }
+  return collections;
+}
+
 describe("Collections", () => {
   const contexts: ProjectContext[] = [];
 
@@ -33,20 +44,46 @@ describe("Collections", () => {
     const ctx = getContext();
 
     const a = await ctx.createCollection("books", {});
-    const collections1 = await ctx.client.collections().list();
+    const collections1 = await listCollections(ctx);
     expect(collections1).toContainEqual(a);
 
     const b = await ctx.createCollection("books2", {});
-    const collections2 = await ctx.client.collections().list();
+    const collections2 = await listCollections(ctx);
     expect(collections2).toContainEqual(a);
     expect(collections2).toContainEqual(b);
 
     const c = await ctx.createCollection("books3", {});
 
-    const collections3 = await ctx.client.collections().list();
+    const collections3 = await listCollections(ctx);
     expect(collections3).toContainEqual(a);
     expect(collections3).toContainEqual(b);
     expect(collections3).toContainEqual(c);
+  });
+
+  test("list collections with prefix", async () => {
+    const ctx = getContext();
+
+    const names = (
+      await Promise.all(
+        ["a", "ab", "b"].map((name) => ctx.createCollection(name, {}))
+      )
+    ).map((c) => c.name);
+
+    for (const [prefix, expected] of [
+      [ctx.scopePrefix, names],
+      [ctx.scope("a"), names.slice(0, 2)],
+    ] as const) {
+      const collections = await listCollections(ctx, { prefix });
+      expect(collections.map((c) => c.name)).toEqual(expected);
+    }
+  });
+
+  test("list collections with invalid prefix", async () => {
+    const ctx = getContext();
+
+    await expect(listCollections(ctx, { prefix: "-books" })).rejects.toThrow(
+      "Invalid collection name"
+    );
   });
 
   test("get collection", async () => {
@@ -70,7 +107,7 @@ describe("Collections", () => {
   test("create collection", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test", {});
-    const collections = await ctx.client.collections().list();
+    const collections = await listCollections(ctx);
     expect(collections).toContainEqual(collection);
   });
 
@@ -81,7 +118,7 @@ describe("Collections", () => {
     });
 
     const fetched = await ctx.client.collections().get(collection.name);
-    const collections = await ctx.client.collections().list();
+    const collections = await listCollections(ctx);
     const listed = collections.find(({ name }) => name === collection.name);
 
     expect(collection.schema.title.index).toMatchObject({
@@ -105,7 +142,7 @@ describe("Collections", () => {
     });
 
     const fetched = await ctx.client.collections().get(collection.name);
-    const collections = await ctx.client.collections().list();
+    const collections = await listCollections(ctx);
     const listed = collections.find(({ name }) => name === collection.name);
 
     expect(collection.schema.title.index).toMatchObject({
@@ -250,14 +287,14 @@ describe("Collections", () => {
   test("delete collection", async () => {
     const ctx = getContext();
 
-    const collectionsBeforeCreate = await ctx.client.collections().list();
+    const collectionsBeforeCreate = await listCollections(ctx);
     expect(collectionsBeforeCreate.map((c) => c.name)).not.toContain(
       ctx.scope("books")
     );
 
     await ctx.createCollection("books", {});
 
-    const collectionsAfterCreate = await ctx.client.collections().list();
+    const collectionsAfterCreate = await listCollections(ctx);
     expect(collectionsAfterCreate.map((c) => c.name)).toContain(
       ctx.scope("books")
     );
@@ -268,7 +305,7 @@ describe("Collections", () => {
       (name) => name !== ctx.scope("books")
     );
 
-    const collectionsAfterDelete = await ctx.client.collections().list();
+    const collectionsAfterDelete = await listCollections(ctx);
     expect(collectionsAfterDelete.map((c) => c.name)).not.toContain(
       ctx.scope("books")
     );

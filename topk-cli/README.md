@@ -13,8 +13,8 @@ brew install topk
 
 ```bash
 topk login
-topk import ./books.parquet --region aws-us-east-1-elastica
-topk import postgres://user:pw@host/db 'public.*' --region aws-us-east-1-elastica
+topk import ./books.parquet [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
+topk import postgres://user:pw@host/db 'public.*' [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
 ```
 
 > [!NOTE]
@@ -57,6 +57,34 @@ List projects in the current organization.
 
 ```bash
 topk project list
+```
+
+> [!NOTE]
+> `topk project list` marks the currently selected project with `*`.
+
+#### select
+
+Select a default project.
+
+```bash
+topk project select  # interactive picker
+topk project select <PROJECT_ID>
+```
+
+#### clear
+
+Clear the selected project:
+
+```bash
+topk project clear
+```
+
+#### current
+
+Show the currently selected project.
+
+```bash
+topk project current
 ```
 
 #### get
@@ -119,7 +147,7 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 | `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
 | `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
 | `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
-| `--project-id <PROJECT_ID>` | Project to access with your login; required unless using an API key |
+| `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Run a query
@@ -190,7 +218,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
-| `--project-id <PROJECT_ID>` | Project to import into with your login; required unless using an API key |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 | `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Authenticate
@@ -203,12 +231,15 @@ topk project list
 topk import ./books.parquet --project-id <project-id> --region aws-us-east-1-elastica
 ```
 
+Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explicit flags override environment variables.
+
 > [!TIP]
 > Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
+> Run `topk project select` once to omit `--project-id` from later commands. An API key (`--api-key` or `TOPK_API_KEY`) takes precedence over the selected project.
 > Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
 
 > [!WARNING]
-> `--project-id` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
+> `--project-id` or `TOPK_PROJECT_ID` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
 
 #### Import a database
 
@@ -241,6 +272,14 @@ topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monste
 
 Schema and indexes copy as-is; the copy is additive.
 
+#### Split rows across partitions
+
+```bash
+topk import ./events.parquet --partition tenant               # one partition per `tenant` value
+```
+
+Each row goes to the partition named by that column, so one source stream writes into as many partitions as the column has values; the column does not have to be an imported field.
+
 #### Preview and edit the plan
 
 ```bash
@@ -260,7 +299,7 @@ Stop a run — `^C`, a lost connection — and pick it up where it left off:
 topk import postgres://host/db --resume 01J9...               # run id printed at start
 ```
 
-Resume skips finished collections and continues the in-flight one from a checkpoint. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
 #### Sources
 
@@ -276,7 +315,7 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 
 #### Spec
 
-One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import):
+One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags (`partition` names a column), and a `fields` whitelist (only declared fields import):
 
 ```toml
 [books]

@@ -574,6 +574,7 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
+module.exports.CollectionListStream = nativeBinding.CollectionListStream
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
 module.exports.PartitionListStream = nativeBinding.PartitionListStream
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel

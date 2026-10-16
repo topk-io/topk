@@ -26,11 +26,11 @@ pub struct Es {
 }
 
 /// A query DSL object; the default matches everything.
-pub struct Filter(JsonValue);
+pub struct Filter(Map<String, JsonValue>);
 
 impl Default for Filter {
     fn default() -> Filter {
-        Filter(json!({ "match_all": {} }))
+        Filter(Map::from_iter([("match_all".to_string(), json!({}))]))
     }
 }
 
@@ -40,7 +40,7 @@ impl FromStr for Filter {
     fn from_str(filter: &str) -> Result<Filter, Error> {
         serde_json::from_str(filter).map(Filter).map_err(|e| {
             Error::InvalidArgument(format!(
-                "filter {filter:?} is not JSON — elasticsearch filters are query DSL \
+                "filter {filter:?} is not a JSON object — elasticsearch filters are query DSL \
                  objects, e.g. '{{\"range\": {{\"year\": {{\"gt\": 2000}}}}}}' ({e})"
             ))
         })

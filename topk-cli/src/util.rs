@@ -1,8 +1,26 @@
 use std::io::{ErrorKind, IsTerminal};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, ensure, Result};
 use chrono::DateTime;
-use dialoguer::Confirm;
+use dialoguer::{Confirm, Select};
+
+pub fn select(
+    prompt: &str,
+    items: &[impl ToString],
+    current: Option<usize>,
+) -> Result<Option<usize>> {
+    ensure!(!items.is_empty(), "no choices available");
+    match Select::new()
+        .with_prompt(prompt)
+        .items(items)
+        .default(current.unwrap_or(0))
+        .interact_opt()
+    {
+        Ok(selected) => Ok(selected),
+        Err(dialoguer::Error::IO(error)) if error.kind() == ErrorKind::Interrupted => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
 
 pub fn confirm(prompt: String, yes: bool) -> Result<bool> {
     if yes {

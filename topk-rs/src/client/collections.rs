@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::Arc;
 
+use futures::{Stream, TryStreamExt};
 use futures_util::TryFutureExt;
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
@@ -11,7 +13,7 @@ use crate::create_client;
 use crate::error::Error;
 use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
 use crate::proto::v1::control::{
-    Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
+    Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsStreamRequest,
 };
 use crate::proto::v1::control::{FieldSpec, GetCollectionRequest};
 
@@ -27,22 +29,30 @@ impl CollectionsClient {
         Self { config, channel }
     }
 
-    pub async fn list(&self) -> Result<Vec<Collection>, Error> {
+    /// Lists collections, ordered by name.
+    ///
+    /// If `prefix` is provided, only collections with names starting with the prefix will be listed.
+    pub async fn list(
+        &self,
+        prefix: Option<String>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Collection, Error>> + Send>>, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let stream = call_with_retry(&self.config.retry_config(), || {
+            let prefix = prefix.clone();
             let mut client = client.clone();
 
             async move {
                 client
-                    .list_collections(ListCollectionsRequest::default())
+                    .list_collections_stream(ListCollectionsStreamRequest { prefix })
                     .map_err(Error::from)
                     .await
             }
         })
-        .await?;
+        .await?
+        .into_inner();
 
-        Ok(response.into_inner().collections)
+        Ok(Box::pin(stream.map_err(Error::from)))
     }
 
     pub async fn get(&self, name: impl Into<String>) -> Result<Collection, Error> {

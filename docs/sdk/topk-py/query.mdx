@@ -1009,7 +1009,7 @@ boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> Logica
 *Internal*
 
 Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
-Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2), [`agg.avg()`](#avg), [`agg.quantile()`](#quantile) or [`agg.count_distinct()`](#count-distinct).
 
 ### TextExpr
 
@@ -1353,7 +1353,8 @@ client.collection("books").query(
 
 The `query.agg` submodule exposes functions for creating aggregate expressions used in
 [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
-[`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+[`agg.min()`](#min-2), [`agg.max()`](#max-2), [`agg.avg()`](#avg), [`agg.quantile()`](#quantile)
+or [`agg.count_distinct()`](#count-distinct).
 
 **Methods**
 
@@ -1459,6 +1460,47 @@ avg(field: str) -> AggregateExpr
 ```
 
 Calculate the average value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+#### quantile()
+
+```python
+quantile(field: str, q: float) -> AggregateExpr
+```
+
+Calculate the approximate `q`-quantile of `field` across the group, where `q` is in `[0, 1]`.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+| `q` | float |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+#### count\_distinct()
+
+```python
+count_distinct(field: str) -> AggregateExpr
+```
+
+Count the approximate number of distinct non-null values of `field` across the group.
 
 **Parameters**
 

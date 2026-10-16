@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use http::header::InvalidHeaderValue;
 use http::{Method, Request as HttpRequest, Version};
 use tokio::net::TcpListener;
@@ -19,9 +19,9 @@ use topk_rs::proto::v1::control::collection_service_server::{
     CollectionService, CollectionServiceServer,
 };
 use topk_rs::proto::v1::control::{
-    CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
+    Collection, CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
     DeleteCollectionResponse, GetCollectionRequest, GetCollectionResponse, ListCollectionsRequest,
-    ListCollectionsResponse,
+    ListCollectionsResponse, ListCollectionsStreamRequest,
 };
 use topk_rs::proto::v1::data::query_service_server::{QueryService, QueryServiceServer};
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
@@ -68,10 +68,18 @@ struct Service(mpsc::UnboundedSender<String>);
 
 #[tonic::async_trait]
 impl CollectionService for Service {
+    type ListCollectionsStreamStream = futures::stream::Empty<Result<Collection, Status>>;
+
     async fn list_collections(
         &self,
-        request: Request<ListCollectionsRequest>,
+        _: Request<ListCollectionsRequest>,
     ) -> Result<Response<ListCollectionsResponse>, Status> {
+        Err(Status::unimplemented("unused"))
+    }
+    async fn list_collections_stream(
+        &self,
+        request: Request<ListCollectionsStreamRequest>,
+    ) -> Result<Response<Self::ListCollectionsStreamStream>, Status> {
         let token = request
             .metadata()
             .get("authorization")
@@ -91,9 +99,7 @@ impl CollectionService for Service {
         if token == "Bearer token-0" {
             return Err(Status::unavailable("retry"));
         }
-        Ok(Response::new(ListCollectionsResponse {
-            collections: vec![],
-        }))
+        Ok(Response::new(futures::stream::empty()))
     }
     async fn get_collection(
         &self,
@@ -262,7 +268,14 @@ async fn interceptor_runs_on_each_attempt_and_errors_stop_before_dispatch() {
     let mut ctx = Fixture::new().await;
     let interceptor = Arc::new(Interceptor(AtomicUsize::new(0)));
     let client = ctx.client(interceptor.clone());
-    client.collections().list().await.unwrap();
+    client
+        .collections()
+        .list(None)
+        .await
+        .unwrap()
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
     assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer token-0");
     assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer token-1");
     let collection = client.clone().collection("books").partition("tenant");
@@ -276,7 +289,7 @@ async fn interceptor_runs_on_each_attempt_and_errors_stop_before_dispatch() {
         .await
         .unwrap();
     assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer token-3");
-    let error = client.collections().list().await.unwrap_err();
+    let error = client.collections().list(None).await.err().unwrap();
     assert!(matches!(error, Error::Interceptor(_)));
     assert!(error.to_string().contains("login expired"));
     assert_eq!(interceptor.0.load(Ordering::SeqCst), 5);
@@ -285,7 +298,14 @@ async fn interceptor_runs_on_each_attempt_and_errors_stop_before_dispatch() {
         ClientConfig::new("api-key", "test").with_headers([("x-custom", "preserved")]),
         ctx.channel.clone(),
     );
-    api_key.collections().list().await.unwrap();
+    api_key
+        .collections()
+        .list(None)
+        .await
+        .unwrap()
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
     assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer api-key");
 }
 
@@ -335,9 +355,10 @@ async fn interceptor_statuses_keep_their_sources_and_never_retry() {
         let error = ctx
             .client(interceptor.clone())
             .collections()
-            .list()
+            .list(None)
             .await
-            .unwrap_err();
+            .err()
+            .unwrap();
         assert!(matches!(error, Error::Interceptor(_)), "{error:?}");
         assert!(!error.is_retryable());
         let status = std::iter::successors(error.source(), |e| (*e).source())
@@ -360,9 +381,10 @@ async fn malformed_interceptor_token_never_reaches_server() {
     let error = ctx
         .client(interceptor.clone())
         .collections()
-        .list()
+        .list(None)
         .await
-        .unwrap_err();
+        .err()
+        .unwrap();
     assert!(matches!(error, Error::Interceptor(_)));
     assert!(!error.is_retryable());
     assert!(error.source().unwrap().is::<InvalidHeaderValue>());
@@ -401,7 +423,7 @@ async fn retry_deadline_cancels_pending_interceptor() {
             }),
         ctx.channel.clone(),
     );
-    let error = client.collections().list().await.unwrap_err();
+    let error = client.collections().list(None).await.err().unwrap();
     assert!(matches!(error, Error::RetryTimeout));
     assert!(interceptor.0.load(Ordering::SeqCst));
     assert!(ctx.requests.try_recv().is_err());
@@ -447,7 +469,7 @@ async fn channel_failures_retain_retry_behavior() {
             }),
         endpoint.connect_lazy(),
     );
-    let error = client.collections().list().await.unwrap_err();
+    let error = client.collections().list(None).await.err().unwrap();
     assert!(error.is_retryable(), "{error:?}");
     assert_eq!(interceptor.calls.load(Ordering::SeqCst), 2);
 }
@@ -460,12 +482,12 @@ impl AsyncInterceptor for InspectInterceptor {
         assert_eq!(request.method(), Method::POST);
         assert_eq!(
             request.uri().path(),
-            "/topk.control.v1.CollectionService/ListCollections"
+            "/topk.control.v1.CollectionService/ListCollectionsStream"
         );
         assert_eq!(request.version(), Version::HTTP_2);
         assert_eq!(
             request.extensions().get::<GrpcMethod>().unwrap().method(),
-            "ListCollections"
+            "ListCollectionsStream"
         );
         assert_eq!(request.headers()["x-configured"], "present");
         request.headers_mut().remove("x-remove");
@@ -489,7 +511,14 @@ async fn interception_preserves_request_and_applies_custom_changes() {
             .with_interceptor(Arc::new(InspectInterceptor)),
         ctx.channel.clone(),
     );
-    client.collections().list().await.unwrap();
+    client
+        .collections()
+        .list(None)
+        .await
+        .unwrap()
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
     assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer refreshed");
 }
 
@@ -505,7 +534,7 @@ async fn invalid_configured_headers_are_rejected() {
             ctx.channel.clone(),
         );
         assert!(matches!(
-            client.collections().list().await,
+            client.collections().list(None).await,
             Err(Error::Input(_))
         ));
         assert!(ctx.requests.try_recv().is_err());

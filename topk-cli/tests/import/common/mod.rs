@@ -146,8 +146,9 @@ pub async fn stream_docs_from(
     let source = topk::import::Source::connect(&uri, &config(), &endpoint()).await?;
     let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = BTreeMap::new();
-    while let Some(doc) = rows.next().await {
-        let map = json(&doc?);
+    while let Some(row) = rows.next().await {
+        let (_, doc) = row?;
+        let map = json(&doc);
         let id = map["_id"].as_str().expect("string id").to_string();
         out.insert(id, serde_json::Value::Object(map));
     }
@@ -325,6 +326,26 @@ impl Ctx {
     ) -> HashMap<String, HashMap<String, Value>> {
         self.client
             .collection(collection)
+            .get(
+                ids.iter().copied(),
+                None,
+                None,
+                None,
+                Some(ConsistencyLevel::Strong),
+            )
+            .await
+            .expect("get documents")
+    }
+
+    pub async fn get_in(
+        &self,
+        partition: &str,
+        collection: &str,
+        ids: &[&str],
+    ) -> HashMap<String, HashMap<String, Value>> {
+        self.client
+            .collection(collection)
+            .partition(partition)
             .get(
                 ids.iter().copied(),
                 None,

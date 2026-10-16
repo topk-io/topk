@@ -3,7 +3,7 @@ use tonic::codec::{Codec, DecodeBuf, Decoder};
 use tonic::{Code, Status};
 
 #[derive(Clone, Default)]
-pub(crate) struct ProstDecoder<T> {
+pub struct ProstDecoder<T> {
     inner: tonic_prost::ProstDecoder<T>,
 }
 
@@ -29,7 +29,7 @@ where
 }
 
 #[derive(Clone, Default)]
-pub(crate) struct ProstCodec<Req, Resp> {
+pub struct ProstCodec<Req, Resp> {
     #[allow(dead_code)]
     inner: tonic_prost::ProstCodec<Req, Resp>,
 }

@@ -120,6 +120,37 @@ def test_group_by_avg(ctx: ProjectContext):
     assert abs(avgs[False] - 1966.5) < 1e-9
 
 
+def test_group_by_quantile(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        group_by(
+            {"is_old": field("published_year") < 1940},
+            {"median_year": agg.quantile("published_year", 0.5)},
+        )
+    )
+
+    medians = {row["is_old"]: row["median_year"] for row in result}
+
+    # approximate: old median lies between 1851 and 1925, new between 1954 and 1960
+    assert 1851 <= medians[True] <= 1925
+    assert 1954 <= medians[False] <= 1960
+
+
+def test_group_by_count_distinct(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        group_by(
+            {"is_old": field("published_year") < 1940},
+            {"years": agg.count_distinct("published_year")},
+        )
+    )
+
+    # every book has a distinct published_year
+    assert {row["is_old"]: row["years"] for row in result} == {True: 4, False: 6}
+
+
 def test_group_by_multiple_aggregations(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
