@@ -27,6 +27,7 @@ impl CollectionsClient {
         Self { config, channel }
     }
 
+    #[allow(deprecated)]
     pub async fn list(&self) -> Result<Vec<Collection>, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
 
