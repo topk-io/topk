@@ -19,9 +19,9 @@ use topk_rs::proto::v1::control::collection_service_server::{
     CollectionService, CollectionServiceServer,
 };
 use topk_rs::proto::v1::control::{
-    CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
+    Collection, CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
     DeleteCollectionResponse, GetCollectionRequest, GetCollectionResponse, ListCollectionsRequest,
-    ListCollectionsResponse,
+    ListCollectionsResponse, ListCollectionsStreamRequest,
 };
 use topk_rs::proto::v1::data::query_service_server::{QueryService, QueryServiceServer};
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
@@ -67,6 +67,8 @@ struct Service(mpsc::UnboundedSender<String>);
 
 #[tonic::async_trait]
 impl CollectionService for Service {
+    type ListCollectionsStreamStream = futures::stream::Empty<Result<Collection, Status>>;
+
     async fn list_collections(
         &self,
         request: Request<ListCollectionsRequest>,
@@ -93,6 +95,12 @@ impl CollectionService for Service {
         Ok(Response::new(ListCollectionsResponse {
             collections: vec![],
         }))
+    }
+    async fn list_collections_stream(
+        &self,
+        _: Request<ListCollectionsStreamRequest>,
+    ) -> Result<Response<Self::ListCollectionsStreamStream>, Status> {
+        Err(Status::unimplemented("unused"))
     }
     async fn get_collection(
         &self,
