@@ -3,12 +3,12 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::import::preview::elide;
-use crate::import::source::Cursor;
 use crate::import::spec::{Spec, Type};
+use crate::import::state::Checkpoint;
 
 /// What prints here is what `--spec` would re-run. `fresh` is None before a
 /// cluster has been consulted (--dry-run); `after` holds the resume cursors.
-pub fn render(spec: &Spec, fresh: Option<&[&str]>, after: &BTreeMap<String, Cursor>) -> String {
+pub fn render(spec: &Spec, fresh: Option<&[&str]>, after: &BTreeMap<String, Checkpoint>) -> String {
     let mut out = String::new();
     let mut indexed: Vec<String> = Vec::new();
     // An unindexed float_list imports fine and silently is not searchable.
@@ -28,7 +28,7 @@ pub fn render(spec: &Spec, fresh: Option<&[&str]>, after: &BTreeMap<String, Curs
         if let Some(cursor) = after.get(name) {
             out.push_str(&format!(
                 "# resuming after {}\n",
-                elide(&serde_json::Value::String(cursor.to_string()))
+                elide(&serde_json::Value::String(cursor.cursor.to_string()))
             ));
         }
         out.push_str(&format!("[{}]\n", key(name)));
