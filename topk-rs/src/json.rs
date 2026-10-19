@@ -335,6 +335,7 @@ impl TryFrom<TopkValue> for serde_json::Value {
 
                 Ok(Self::Array(rows))
             }
+            Some(value::Value::Image(_)) => todo!("Implement image -> json serialization"),
         }
     }
 }

@@ -30,6 +30,8 @@ message Value {
     Struct struct = 18;
     // Matrix
     Matrix matrix = 19;
+    // Image
+    Image image = 20;
   }
 }
 
@@ -160,3 +162,10 @@ message Matrix {
 }
 
 message Null {}
+
+message Image {
+  oneof data {
+    bytes jpeg = 1;
+    bytes png = 2;
+  }
+}

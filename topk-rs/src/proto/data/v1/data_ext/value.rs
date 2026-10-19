@@ -6,7 +6,8 @@ use std::collections::HashMap;
 
 use crate::proto::data::v1::{
     data_ext::{IntoListValues, IntoMatrixValues, IntoSparseValues, IntoTimestamp},
-    list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
+    image, list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct,
+    Value,
 };
 
 impl Value {
@@ -386,6 +387,11 @@ impl value::Value {
                 None => "null_matrix".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
+            value::Value::Image(v) => match &v.data {
+                Some(image::Data::Jpeg(_)) => "image<jpeg>".to_string(),
+                Some(image::Data::Png(_)) => "image<png>".to_string(),
+                None => "null_image".to_string(),
+            },
         }
     }
 }

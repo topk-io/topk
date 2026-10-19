@@ -66,6 +66,8 @@ fn build_topk_v1_protos() {
         "topk.data.v1.Matrix.U8",
         "topk.data.v1.Matrix.I8",
         "topk.data.v1.Null",
+        "topk.data.v1.Image",
+        "topk.data.v1.Image.data",
         // field spec
         "topk.control.v1.FieldSpec",
         // field type
