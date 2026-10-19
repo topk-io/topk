@@ -4,8 +4,11 @@ use std::ops::Deref;
 use serde::de::Error as DeError;
 use serde::ser::Error as SerError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::json;
 
-use crate::proto::v1::data::{list, matrix, sparse_vector, value, vector, Value as TopkValue};
+use crate::proto::v1::data::{
+    image, list, matrix, sparse_vector, value, vector, Value as TopkValue,
+};
 
 macro_rules! array_of {
     ($values:expr, $mapper:expr) => {
@@ -335,7 +338,11 @@ impl TryFrom<TopkValue> for serde_json::Value {
 
                 Ok(Self::Array(rows))
             }
-            Some(value::Value::Image(_)) => todo!("Implement image -> json serialization"),
+            Some(value::Value::Image(v)) => Ok(match v.data {
+                Some(image::Data::Png(data)) => json!({"type": "image/png", "data": data}),
+                Some(image::Data::Jpeg(data)) => json!({"type": "image/jpeg", "data": data}),
+                None => Self::Null,
+            }),
         }
     }
 }
