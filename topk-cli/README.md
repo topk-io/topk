@@ -214,7 +214,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--resume <RUN>` | Continue a run that stopped, by the id in its header; `-f` swaps in an edited spec |
 | `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
 | `--limit <LIMIT>` | Read at most this many rows per object |
-| `--partition <PARTITION>` | Import into this partition |
+| `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
@@ -278,7 +278,10 @@ Schema and indexes copy as-is; the copy is additive.
 topk import ./events.parquet --partition tenant               # one partition per `tenant` value
 ```
 
-Each row goes to the partition named by that column, so one source stream writes into as many partitions as the column has values; the column does not have to be an imported field.
+Each row goes to the partition named by that column, so one source stream writes into as many partitions as the column has values.
+
+> [!TIP]
+> The column only has to exist in the source. It does not have to be an imported field.
 
 #### Preview and edit the plan
 
