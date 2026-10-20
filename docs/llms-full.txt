@@ -6,20 +6,6 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 
 ## Overview
 
-### Quickstart
-
-URL: https://docs.topk.io/quickstart
-
-<div className="agent-prompt">
-<Card title="Paste this into your coding agent" icon="sparkles">
-  ```text
-  Set up TopK: docs.topk.io/start
-  ```
-
-  Works with Claude Code, Cursor, Codex, or any agent with terminal access.
-</Card>
-</div>
-
 ### Introduction
 
 URL: https://docs.topk.io/introduction

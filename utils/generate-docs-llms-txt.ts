@@ -92,7 +92,7 @@ async function readPageContent(slug: string): Promise<string> {
 
 // --- Navigation ---
 
-const OVERVIEW_EXCLUDE = new Set(["cli"]);
+const OVERVIEW_EXCLUDE = new Set(["cli", "quickstart"]);
 const LLMS_EXCLUDE = new Set(["usage"]);
 
 const API_ENTRIES: Entry[] = [

@@ -1,15 +1,106 @@
 ---
-title: "Quickstart"
-description: "Set up TopK in a few minutes by pasting one prompt into your coding agent."
+title: "TopK Documentation"
+sidebarTitle: "Quickstart"
+description: "TopK is a hybrid retrieval engine built on object storage for 10x lower cost and massive scale. Semantic, keyword, dense, sparse, and multi-vector search with filtering and custom ranking, in one API."
 icon: "rocket"
+mode: "wide"
 ---
 
 <div className="agent-prompt">
-<Card title="Paste this into your coding agent" icon="sparkles">
+<Card title="Set up with a coding agent" icon="sparkles">
+  Paste this into Claude Code, Cursor, Codex, or any agent with terminal access. It sets everything up from the CLI.
+
   ```text
   Set up TopK: docs.topk.io/start
   ```
-
-  Works with Claude Code, Cursor, Codex, or any agent with terminal access.
 </Card>
+</div>
+
+## Get started
+
+<div className="get-started">
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
+    Search from Python. TopK embeds your text for you.
+
+    ```python
+    # pip install topk-sdk
+    client.collection("books").query(
+      select(
+        score=fn.semantic_similarity(
+          "content", "meaning of life"
+        ),
+      )
+      .sort(field("score"), asc=False)
+      .limit(10)
+    )
+    ```
+  </Card>
+
+  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
+    Search from TypeScript or JavaScript. Same API.
+
+    ```typescript
+    // npm install topk-js
+    await client.collection("books").query(
+      select({
+        score: fn.semanticSimilarity(
+          "content", "meaning of life"
+        ),
+      })
+      .sort(field("score"), false)
+      .limit(10)
+    );
+    ```
+  </Card>
+
+  <Card title="CLI" icon="terminal" href="/cli">
+    Import data and run SQL from your terminal.
+
+    ```bash
+    brew tap topk-io/topk
+    brew install topk
+    topk login
+    topk import ./books.parquet \
+      --region aws-us-east-1-elastica
+    ```
+  </Card>
+
+  <Card title="SQL" icon="database" href="/sdk/topk-sql/overview">
+    Search with any PostgreSQL client.
+
+    ```sql
+    SELECT title,
+      semantic_similarity(content,
+        'meaning of life') AS score
+    FROM books
+    ORDER BY score DESC LIMIT 10;
+    ```
+  </Card>
+</CardGroup>
+</div>
+
+## Search types
+
+<div className="search-types">
+<CardGroup cols={3}>
+  <Card title="Semantic search" icon="brain" href="/guides/semantic-search">
+    Search by meaning. No embedding pipeline, vector store, or reranker to run.
+  </Card>
+  <Card title="True hybrid search" icon="layers" href="/guides/true-hybrid-search">
+    Blend meaning, keywords, and filters in one query.
+  </Card>
+  <Card title="Keyword search" icon="text-search" href="/guides/keyword-search">
+    Full-text search ranked with BM25.
+  </Card>
+  <Card title="Dense vector search" icon="chart-scatter" href="/guides/vector-search">
+    ANN search with >95% recall and p99 under 50 ms.
+  </Card>
+  <Card title="Sparse vector search" icon="grid-3x3" href="/guides/sparse-vector-search">
+    Exact retrieval over learned sparse models like SPLADE.
+  </Card>
+  <Card title="Multi-vector search" icon="rows-3" href="/guides/multi-vector-search">
+    Late interaction with MaxSim for long documents.
+  </Card>
+</CardGroup>
 </div>
