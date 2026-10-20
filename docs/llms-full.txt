@@ -10,11 +10,15 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 
 URL: https://docs.topk.io/quickstart
 
-Paste this into Claude Code, Cursor, Codex, or any coding agent with terminal access:
+<div className="agent-prompt">
+<Card title="Paste this into your coding agent" icon="sparkles">
+  ```text
+  Set up TopK: docs.topk.io/start
+  ```
 
-```text
-Set up TopK: docs.topk.io/start
-```
+  Works with Claude Code, Cursor, Codex, or any agent with terminal access.
+</Card>
+</div>
 
 ### Introduction
 

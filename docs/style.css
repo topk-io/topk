@@ -1,3 +1,10 @@
 .mermaid > svg {
   margin: auto;
 }
+
+.agent-prompt > a,
+.agent-prompt > div {
+  border: 1px solid rgb(255 80 0 / 0.55) !important;
+  background: linear-gradient(135deg, rgb(255 80 0 / 0.10), transparent 60%) !important;
+  box-shadow: 0 0 32px -8px rgb(255 80 0 / 0.45);
+}
