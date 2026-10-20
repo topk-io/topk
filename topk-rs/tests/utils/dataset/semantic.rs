@@ -37,6 +37,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
     schema!(
         "title" => FieldSpec::text(true).with_index(FieldIndex::semantic()),
         "summary" => FieldSpec::text(false).with_index(FieldIndex::semantic()),
+        "image" => FieldSpec::image(false).with_index(FieldIndex::semantic()),
     )
 }
 
