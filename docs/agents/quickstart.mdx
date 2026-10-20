@@ -13,8 +13,9 @@ Rules:
 
 - Use the `topk` CLI only. Don't write Python or JavaScript, and don't ask the user for an API key: `topk login` is enough.
 - Pass `--region <REGION>` to every `topk sql` command. Environment variables you `export` may not survive between your commands.
-- Use `-o json` when you need to read IDs from a command's output.
-- If `TOPK_API_KEY` is set in the environment, run `topk` commands with it unset (`env -u TOPK_API_KEY topk …`): an API key takes precedence over the login and can't be combined with a selected project.
+- Use `-o json` when you need to read IDs from a command's output. It prints one JSON object per line, not an array.
+- If `TOPK_API_KEY` is set in the environment, run `topk` commands with it unset (`env -u TOPK_API_KEY topk …`): an API key silently overrides the login and the selected project.
+- Never run a `topk` command that waits for keyboard input: always pass the IDs and flags shown below.
 
 ### 1. Install the CLI
 
@@ -43,7 +44,7 @@ Then run:
 topk login
 ```
 
-The command waits until the user finishes in the browser (up to 5 minutes) and prints `Logged in`. If the browser doesn't open, run `topk login --no-browser` and give the user the URL it prints.
+The command waits until the user finishes in the browser, for up to 5 minutes, so run it with a timeout longer than 5 minutes or in the background. On success it prints a line starting with `✓ Logged in` to stderr. If the browser doesn't open, run `topk login --no-browser` and give the user the URL it prints. The browser must be on the same machine as the CLI.
 
 ### 3. Select a project
 
@@ -51,6 +52,9 @@ The command waits until the user finishes in the browser (up to 5 minutes) and p
 topk project list -o json
 ```
 
+Each line is one project with `project_id`, `name`, and `selected` fields.
+
+- A project has `"selected": true`: it's already selected. Go to step 4.
 - No projects: create one, then select it with the `project_id` from the output:
 
   ```bash
@@ -59,7 +63,9 @@ topk project list -o json
   ```
 
 - One project: select it with `topk project select <PROJECT_ID>`.
-- Several projects: ask the user which one to use, then select it.
+- Several projects: ask the user which one to use, then select it with its `project_id`.
+
+Always pass the ID: `topk project select` without one opens an interactive picker.
 
 ### 4. Pick a region
 
@@ -67,7 +73,7 @@ topk project list -o json
 topk region list
 ```
 
-Use the region closest to the user. If you don't know where they are, use `aws-us-east-1-elastica` when it's listed. Use the same region for every command below.
+Use `aws-us-east-1-elastica` if it's listed, otherwise the first region listed. Don't ask the user. Use the same region for every command below.
 
 ### 5. Create a collection
 
@@ -127,7 +133,7 @@ If a search returns no rows right after the insert, wait a few seconds and run i
 
 Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
-- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. If the user says yes, follow [Go bigger](#go-bigger) below.
+- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes about 3 minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
 - Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
@@ -164,7 +170,7 @@ Tell the user it takes about 3 minutes, then run:
 topk import -f wikipedia.toml --region <REGION> --yes
 ```
 
-The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, rerun the command with `--resume <RUN>`, using the run id printed when the import started.
+The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
 
 ### 3. Ask it questions
 
@@ -196,7 +202,7 @@ If the first query returns few or no results, the semantic index may still be ca
 | --- | --- |
 | `not logged in` or `session expired` | Run `topk login` again. |
 | `--region is required` | Add `--region <REGION>` to the command. |
-| An error about the project | Run `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>`. |
+| `--project-id … is required, or select a default project` | Run `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>`. |
 | An error combining `--project-id` with an API key | Unset `TOPK_API_KEY`: `env -u TOPK_API_KEY topk …`. |
 | `SELECT *` fails | List the columns you want; `SELECT *` isn't supported. |
 | `brew: command not found` | Tell the user the TopK CLI installs with Homebrew. |
