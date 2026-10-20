@@ -7,6 +7,7 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 ## Overview
 
 - [Introduction](https://docs.topk.io/introduction)
+- [Agent quickstart](https://docs.topk.io/agent-quickstart): Step-by-step instructions for coding agents to set a user up with TopK using only the CLI: sign up, create a collection, and run a semantic search.
 - [Architecture](https://docs.topk.io/architecture)
 - [Concepts](https://docs.topk.io/concepts)
 - [Limits](https://docs.topk.io/limits): Production limits for collections.

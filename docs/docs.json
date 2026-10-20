@@ -91,6 +91,7 @@
             "group": "Overview",
             "pages": [
               "introduction",
+              "agent-quickstart",
               "architecture",
               "concepts",
               "limits",
