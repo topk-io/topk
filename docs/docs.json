@@ -91,7 +91,6 @@
             "group": "Overview",
             "pages": [
               "introduction",
-              "agent-quickstart",
               "architecture",
               "concepts",
               "limits",
@@ -112,6 +111,21 @@
             "pages": [
               "collections/manage",
               "usage"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agents",
+        "icon": "bot",
+        "hidden": true,
+        "searchable": true,
+        "pages": [
+          {
+            "group": "Agents",
+            "pages": [
+              "agents/index",
+              "agents/quickstart"
             ]
           }
         ]
