@@ -13,6 +13,10 @@
   },
   "redirects": [
     {
+      "source": "/start",
+      "destination": "/agents/quickstart"
+    },
+    {
       "source": "/installation",
       "destination": "/introduction"
     },
