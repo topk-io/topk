@@ -187,10 +187,10 @@ topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'invent
 Then run a true hybrid search: one query whose ranking blends meaning (semantic similarity on the article text) with keyword relevance (BM25 on the title). Most search systems run two separate searches and merge the results afterwards; TopK scores both in a single query:
 
 ```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'conflicts that redrew national borders') AS meaning, bm25_score() AS keywords FROM wikipedia WHERE match('war treaty partition', title) ORDER BY meaning + keywords * 0.1 DESC LIMIT 5"
+topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'agreements that ended a war and changed borders') AS meaning, bm25_score() AS keywords FROM wikipedia WHERE match('treaty', title) ORDER BY meaning + keywords * 0.1 DESC LIMIT 5"
 ```
 
-Show both the `meaning` and `keywords` columns, and point out how each article's two scores combine into its rank. BM25 scores run several times larger than semantic scores, so the `0.1` weight puts them on a similar scale; changing the weights changes the ranking.
+The keyword match finds articles with "treaty" in the title; the meaning score ranks them by whether they ended a war and moved borders. Show both the `meaning` and `keywords` columns, and point out how each article's two scores combine into its rank. BM25 scores run several times larger than semantic scores, so the `0.1` weight puts them on a similar scale; changing the weights changes the ranking.
 
 Show the results as tables, then invite the user to ask their own questions and run them the same way.
 
