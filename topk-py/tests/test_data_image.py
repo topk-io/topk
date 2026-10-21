@@ -1,4 +1,5 @@
 import io
+import sys
 
 import pytest
 from PIL import Image
@@ -37,6 +38,35 @@ def test_image_from_pil_jpeg():
     assert repr(img).startswith("Image(jpeg, ")
     assert img.format == "jpeg"
     assert Image.open(io.BytesIO(img.data)).format == "JPEG"
+
+
+def test_image_equality():
+    data = (IMAGES / "cat.jpg").read_bytes()
+
+    assert image(data) == image(data)
+    assert image(data) != image((IMAGES / "form.png").read_bytes())
+
+
+def test_image_to_pil():
+    decoded = image((IMAGES / "form.png").read_bytes()).to_pil()
+
+    assert decoded.format == "PNG"
+    assert decoded.tobytes() == Image.open(IMAGES / "form.png").tobytes()
+
+
+def test_image_to_pil_corrupt():
+    with pytest.raises(OSError):
+        image(b"\xff\xd8\xff" + b"\x00" * 64).to_pil()
+
+
+def test_image_to_pil_without_pillow(monkeypatch: pytest.MonkeyPatch):
+    img = image((IMAGES / "form.png").read_bytes())
+
+    # Make `import PIL.Image` fail
+    monkeypatch.setitem(sys.modules, "PIL.Image", None)
+
+    with pytest.raises(ImportError, match="pip install pillow"):
+        img.to_pil()
 
 
 def test_image_from_pil_png():

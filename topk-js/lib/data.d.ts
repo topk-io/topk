@@ -25,4 +25,3 @@ export declare const Image: typeof data.Image;
 export declare type Image = data.Image;
 export declare const UnknownValue: typeof data.UnknownValue;
 export declare type MatrixValueType = data.MatrixValueType;
-export declare type ImageFormat = data.ImageFormat;

@@ -245,7 +245,7 @@ pub fn matrix_(values: &Bound<'_, PyAny>, value_type: Option<String>) -> PyResul
 #[pyfunction(name = "image")]
 pub fn image_(data: &Bound<'_, PyAny>) -> PyResult<Image> {
     if let Ok(py_bytes) = data.cast::<PyBytes>() {
-        Image::from_bytes(py_bytes)
+        Image::from_bytes(py_bytes.as_bytes())
     } else if let Some(image) = Image::from_pil(data)? {
         Ok(image)
     } else {

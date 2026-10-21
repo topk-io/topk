@@ -95,8 +95,9 @@ def should_link_type(type_str: str) -> bool:
     ):
         return True
 
-    # Only link if it looks like a class name (starts with capital letter)
-    return bool(type_str and type_str[0].isupper())
+    # Only link if it looks like a local class name (starts with capital letter),
+    # dotted names from other packages (e.g. `PIL.Image.Image`) have no page to link to
+    return bool(type_str and type_str[0].isupper() and "." not in type_str)
 
 
 def create_type_link(type_str: str) -> str:

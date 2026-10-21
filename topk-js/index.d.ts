@@ -265,8 +265,12 @@ export declare namespace data {
    */
   export class Image {
     /** Encoding format of the image. */
-    get format(): data.ImageFormat
-    /** Encoded image bytes. */
+    get format(): 'jpeg' | 'png'
+    /**
+     * Encoded image bytes.
+     *
+     * The same `Buffer` is returned on every access, modifying it doesn't change the image.
+     */
     get data(): Buffer
     /** @ignore */
     toString(): string
@@ -466,9 +470,6 @@ export declare namespace data {
    * ```
    */
   export function image(data: Buffer | Uint8Array): data.Image
-  /** Image encoding format. */
-  export type ImageFormat =  'jpeg'|
-  'png';
   /**
    * Create a [Matrix](https://docs.topk.io/sdk/topk-js/data#Matrix) type containing matrix values.
    *

@@ -1,9 +1,8 @@
-use std::ffi::CString;
-
 use bytes::Bytes;
 use pyo3::{
-    exceptions::{PyException, PyImportError, PyUserWarning, PyValueError},
+    exceptions::PyImportError,
     prelude::*,
+    sync::PyOnceLock,
     types::{PyBytes, PyDict},
 };
 use topk_rs::proto::v1::data::image;
@@ -13,112 +12,52 @@ use crate::error::InvalidArgumentError;
 /// PIL modes that can be written as PNG without a conversion.
 const PNG_MODES: &[&str] = &["1", "L", "LA", "I", "I;16", "I;16B", "P", "RGB", "RGBA"];
 
-const JPEG_SIGNATURE: &[u8] = b"\xFF\xD8\xFF";
-const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1A\n";
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum ImageFormat {
-    Jpeg,
-    Png,
-}
-
-impl ImageFormat {
-    /// Detect the format from the file signature.
-    fn detect(data: &[u8]) -> Option<Self> {
-        if data.starts_with(JPEG_SIGNATURE) {
-            Some(ImageFormat::Jpeg)
-        } else if data.starts_with(PNG_SIGNATURE) {
-            Some(ImageFormat::Png)
-        } else {
-            None
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            ImageFormat::Jpeg => "jpeg",
-            ImageFormat::Png => "png",
-        }
-    }
-
-    /// Format name used by PIL.
-    fn pil_name(self) -> &'static str {
-        match self {
-            ImageFormat::Jpeg => "JPEG",
-            ImageFormat::Png => "PNG",
-        }
-    }
-}
-
-/// Encoded image held in a document `Value`.
-#[derive(Clone, PartialEq)]
-pub struct ImageValue(pub(crate) image::Data);
-
-impl std::fmt::Debug for ImageValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (format, data) = self.parts();
-        write!(f, "{}, {} bytes", format.as_str(), data.len())
-    }
-}
-
-impl ImageValue {
-    fn parts(&self) -> (ImageFormat, &Bytes) {
-        match &self.0 {
-            image::Data::Jpeg(data) => (ImageFormat::Jpeg, data),
-            image::Data::Png(data) => (ImageFormat::Png, data),
-        }
-    }
-
-    /// Convert into a PIL image. If Pillow is not installed or can't decode the data,
-    /// warn and return an `Image` instead, so one image can't fail the whole read.
-    pub(crate) fn into_py<'py>(self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let (format, data) = self.parts();
-        let data = PyBytes::new(py, data);
-
-        match open_pil(py, &data, format) {
-            Ok(image) => Ok(image),
-            Err(err) if err.is_instance_of::<PyException>(py) => {
-                let message = if err.is_instance_of::<PyImportError>(py) {
-                    "Pillow is not installed, returning image values as `topk_sdk.data.Image`. \
-                     Install it with `pip install pillow` to get PIL images."
-                        .to_string()
-                } else {
-                    format!(
-                        "Cannot decode image value, returning it as `topk_sdk.data.Image`: {err}"
-                    )
-                };
-                let message =
-                    CString::new(message).map_err(|e| PyValueError::new_err(e.to_string()))?;
-                PyErr::warn(py, py.get_type::<PyUserWarning>().as_any(), &message, 1)?;
-
-                let image = Image {
-                    format,
-                    data: data.unbind(),
-                };
-                Ok(Bound::new(py, image)?.into_any())
-            }
-            Err(err) => Err(err),
-        }
-    }
-}
-
-fn open_pil<'py>(
-    py: Python<'py>,
-    data: &Bound<'py, PyBytes>,
-    format: ImageFormat,
-) -> PyResult<Bound<'py, PyAny>> {
-    let pil = py.import("PIL.Image")?;
-    let buf = py.import("io")?.getattr("BytesIO")?.call1((data,))?;
-
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("formats", [format.pil_name()])?;
-    pil.call_method("open", (buf,), Some(&kwargs))
-}
-
-#[pyclass(frozen)]
+#[pyclass(frozen, eq)]
 pub struct Image {
-    format: ImageFormat,
-    data: Py<PyBytes>,
+    pub(crate) data: image::Data,
+    /// `data` as a Python `bytes` object, created on first access
+    bytes: PyOnceLock<Py<PyBytes>>,
+}
+
+impl Image {
+    pub(crate) fn new(data: image::Data) -> Self {
+        Image {
+            data,
+            bytes: PyOnceLock::new(),
+        }
+    }
+
+    fn format_str(&self) -> &'static str {
+        match self.data {
+            image::Data::Jpeg(_) => "jpeg",
+            image::Data::Png(_) => "png",
+        }
+    }
+
+    fn bytes<'py>(&self, py: Python<'py>) -> &Bound<'py, PyBytes> {
+        self.bytes
+            .get_or_init(py, || PyBytes::new(py, self.data.bytes()).unbind())
+            .bind(py)
+    }
+}
+
+impl Clone for Image {
+    fn clone(&self) -> Self {
+        Image::new(self.data.clone())
+    }
+}
+
+impl PartialEq for Image {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let len = self.data.bytes().len();
+        write!(f, "Image({}, {len} bytes)", self.format_str())
+    }
 }
 
 #[pymethods]
@@ -126,35 +65,47 @@ impl Image {
     /// Encoding format of the image, `jpeg` or `png`.
     #[getter]
     fn format(&self) -> &'static str {
-        self.format.as_str()
+        self.format_str()
     }
 
     /// Encoded image bytes.
     #[getter]
     fn data(&self, py: Python<'_>) -> Py<PyBytes> {
-        self.data.clone_ref(py)
+        self.bytes(py).clone().unbind()
     }
 
-    fn __repr__(&self, py: Python<'_>) -> String {
-        format!(
-            "Image({}, {} bytes)",
-            self.format.as_str(),
-            self.data.bind(py).as_bytes().len()
-        )
+    /// Decode into a PIL image.
+    fn to_pil<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let pil = py.import("PIL.Image").map_err(|e| {
+            let err = PyImportError::new_err(
+                "Pillow is required to decode images, install it with `pip install pillow`",
+            );
+            err.set_cause(py, Some(e));
+            err
+        })?;
+
+        let buf = py
+            .import("io")?
+            .getattr("BytesIO")?
+            .call1((self.bytes(py),))?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("formats", [self.format_str().to_uppercase()])?;
+        pil.call_method("open", (buf,), Some(&kwargs))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{self:?}")
     }
 }
 
 impl Image {
     /// Create an image from encoded JPEG or PNG bytes.
-    pub(crate) fn from_bytes(data: &Bound<'_, PyBytes>) -> PyResult<Self> {
-        let format = ImageFormat::detect(data.as_bytes()).ok_or_else(|| {
-            InvalidArgumentError::new_err("Unsupported image format, expected JPEG or PNG data")
-        })?;
-
-        Ok(Image {
-            format,
-            data: data.clone().unbind(),
-        })
+    pub(crate) fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        image::Data::from_bytes(Bytes::copy_from_slice(data))
+            .map(Image::new)
+            .ok_or_else(|| {
+                InvalidArgumentError::new_err("Unsupported image format, expected JPEG or PNG data")
+            })
     }
 
     /// Encode a PIL image. Returns `None` if `obj` is not a PIL image.
@@ -190,44 +141,36 @@ impl Image {
         let (obj, format) = match format.as_deref() {
             Some("JPEG") => {
                 kwargs.set_item("quality", "keep")?;
-                (obj.clone(), ImageFormat::Jpeg)
+                (obj.clone(), "JPEG")
             }
             // Multi-picture JPEG, Pillow can only "keep" the quality of plain JPEGs
             Some("MPO") => {
                 kwargs.set_item("quality", 95)?;
-                (obj.clone(), ImageFormat::Jpeg)
+                (obj.clone(), "JPEG")
             }
             _ => {
                 let mode: String = obj.getattr("mode")?.extract()?;
                 if PNG_MODES.contains(&mode.as_str()) {
-                    (obj.clone(), ImageFormat::Png)
+                    (obj.clone(), "PNG")
                 } else {
                     let bands: Vec<String> = obj.call_method0("getbands")?.extract()?;
                     let mode = match bands.iter().any(|b| b == "A" || b == "a") {
                         true => "RGBA",
                         false => "RGB",
                     };
-                    (obj.call_method1("convert", (mode,))?, ImageFormat::Png)
+                    (obj.call_method1("convert", (mode,))?, "PNG")
                 }
             }
         };
 
         let buf = py.import("io")?.getattr("BytesIO")?.call0()?;
-        obj.call_method("save", (&buf, format.pil_name()), Some(&kwargs))?;
-        let data = buf.call_method0("getvalue")?.cast_into::<PyBytes>()?;
+        obj.call_method("save", (&buf, format), Some(&kwargs))?;
+        let encoded = buf.call_method0("getvalue")?;
+        let encoded = Bytes::copy_from_slice(encoded.cast::<PyBytes>()?.as_bytes());
 
-        Ok(Some(Image {
-            format,
-            data: data.unbind(),
-        }))
-    }
-
-    /// Copy the encoded bytes into a document value.
-    pub(crate) fn to_value(&self, py: Python<'_>) -> ImageValue {
-        let data = Bytes::copy_from_slice(self.data.bind(py).as_bytes());
-        ImageValue(match self.format {
-            ImageFormat::Jpeg => image::Data::Jpeg(data),
-            ImageFormat::Png => image::Data::Png(data),
-        })
+        Ok(Some(Image::new(match format {
+            "JPEG" => image::Data::Jpeg(encoded),
+            _ => image::Data::Png(encoded),
+        })))
     }
 }

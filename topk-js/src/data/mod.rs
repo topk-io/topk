@@ -5,7 +5,7 @@ pub(crate) use collection::CollectionListStreamMessage;
 
 mod image;
 pub use image::Image;
-use image::{ImageBytes, ImageFormat};
+use image::ImageBytes;
 
 mod list;
 pub use list::List;
@@ -30,7 +30,6 @@ mod vector;
 pub use vector::SparseVector;
 use vector::SparseVectorData;
 
-use napi::Env;
 use napi_derive::napi;
 
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
@@ -58,14 +57,12 @@ pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) 
 /// image(readFileSync("cover.jpg"))
 /// ```
 #[napi(namespace = "data")]
-pub fn image(
-    env: &Env,
-    #[napi(ts_arg_type = "Buffer | Uint8Array")] data: ImageBytes,
-) -> napi::Result<Image> {
-    let format = ImageFormat::detect(&data.0).ok_or_else(|| {
-        napi::Error::from_reason("Unsupported image format, expected JPEG or PNG data")
-    })?;
-    Image::new(env, format, &data.0)
+pub fn image(#[napi(ts_arg_type = "Buffer | Uint8Array")] data: ImageBytes) -> napi::Result<Image> {
+    topk_rs::proto::v1::data::image::Data::from_bytes(data.0.to_vec())
+        .map(Image::new)
+        .ok_or_else(|| {
+            napi::Error::from_reason("Unsupported image format, expected JPEG or PNG data")
+        })
 }
 
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit float vector.

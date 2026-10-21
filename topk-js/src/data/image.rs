@@ -1,65 +1,8 @@
+use std::sync::OnceLock;
+
 use napi::{bindgen_prelude::*, JsValue, UnknownRef};
 use napi_derive::napi;
 use topk_rs::proto::v1::data::image;
-
-const JPEG_SIGNATURE: &[u8] = b"\xFF\xD8\xFF";
-const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1A\n";
-
-/// Image encoding format.
-#[napi(string_enum = "lowercase", namespace = "data")]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ImageFormat {
-    Jpeg,
-    Png,
-}
-
-impl ImageFormat {
-    /// Detect the format from the file signature.
-    pub(crate) fn detect(data: &[u8]) -> Option<Self> {
-        if data.starts_with(JPEG_SIGNATURE) {
-            Some(ImageFormat::Jpeg)
-        } else if data.starts_with(PNG_SIGNATURE) {
-            Some(ImageFormat::Png)
-        } else {
-            None
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            ImageFormat::Jpeg => "jpeg",
-            ImageFormat::Png => "png",
-        }
-    }
-}
-
-/// Encoded image held in a document [`Value`](crate::data::Value).
-#[derive(Clone, PartialEq)]
-pub struct ImageValue(pub(crate) image::Data);
-
-impl std::fmt::Debug for ImageValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (format, data) = self.parts();
-        write!(f, "{}, {} bytes", format.as_str(), data.len())
-    }
-}
-
-impl ImageValue {
-    fn parts(&self) -> (ImageFormat, &[u8]) {
-        match &self.0 {
-            image::Data::Jpeg(data) => (ImageFormat::Jpeg, data),
-            image::Data::Png(data) => (ImageFormat::Png, data),
-        }
-    }
-}
-
-impl ToNapiValue for ImageValue {
-    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let (format, data) = val.parts();
-        let image = Image::new(&Env::from_raw(env), format, data)?;
-        Image::to_napi_value(env, image)
-    }
-}
 
 /// @hideconstructor
 /// Instances of the `Image` class are used to represent images in TopK.
@@ -78,62 +21,86 @@ impl ToNapiValue for ImageValue {
 /// ```
 #[napi(namespace = "data", custom_finalize)]
 pub struct Image {
-    format: ImageFormat,
-    /// JS `Buffer` with the encoded bytes, returned as-is from the `data` getter
-    data: UnknownRef<false>,
+    pub(crate) data: image::Data,
+    /// `data` as a JS `Buffer`, created on first access
+    buffer: OnceLock<BufferRef>,
 }
 
+/// Reference to the JS `Buffer` returned from `Image.data`.
+struct BufferRef(UnknownRef<false>);
+
+// SAFETY: the reference is only read and released through an `Env`, which only exists on the
+// JS thread. Dropping it on another thread doesn't call into the JS engine.
+unsafe impl Sync for BufferRef {}
+
 impl Image {
-    /// Create an image backed by a new JS `Buffer` holding a copy of `data`.
-    pub(crate) fn new(env: &Env, format: ImageFormat, data: &[u8]) -> Result<Self> {
-        let buffer = BufferSlice::copy_from(env, data)?;
-        let data = unsafe { UnknownRef::from_napi_value(env.raw(), buffer.raw())? };
-        Ok(Image { format, data })
+    pub(crate) fn new(data: image::Data) -> Self {
+        Image {
+            data,
+            buffer: OnceLock::new(),
+        }
     }
+}
 
-    fn buffer<'env>(&self, env: &'env Env) -> Result<BufferSlice<'env>> {
-        let buffer = self.data.get_value(env)?;
-        unsafe { BufferSlice::from_napi_value(env.raw(), buffer.raw()) }
+/// Clones only the image data, the cached `Buffer` belongs to the JS object.
+impl Clone for Image {
+    fn clone(&self) -> Self {
+        Image::new(self.data.clone())
     }
+}
 
-    /// Copy the encoded bytes into a document value.
-    pub(crate) fn to_value(&self, env: &Env) -> Result<ImageValue> {
-        let data = self.buffer(env)?.to_vec().into();
-        Ok(ImageValue(match self.format {
-            ImageFormat::Jpeg => image::Data::Jpeg(data),
-            ImageFormat::Png => image::Data::Png(data),
-        }))
+impl PartialEq for Image {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let len = self.data.bytes().len();
+        write!(f, "Image({}, {len} bytes)", self.format())
     }
 }
 
 #[napi(namespace = "data")]
 impl Image {
     /// Encoding format of the image.
-    #[napi(getter)]
-    pub fn format(&self) -> ImageFormat {
-        self.format
+    #[napi(getter, ts_return_type = "'jpeg' | 'png'")]
+    pub fn format(&self) -> &'static str {
+        match self.data {
+            image::Data::Jpeg(_) => "jpeg",
+            image::Data::Png(_) => "png",
+        }
     }
 
     /// Encoded image bytes.
+    ///
+    /// The same `Buffer` is returned on every access, modifying it doesn't change the image.
     #[napi(getter)]
     pub fn data<'env>(&self, env: &'env Env) -> Result<BufferSlice<'env>> {
-        self.buffer(env)
+        if self.buffer.get().is_none() {
+            let buffer = BufferSlice::copy_from(env, self.data.bytes())?;
+            let buffer = unsafe { UnknownRef::from_napi_value(env.raw(), buffer.raw())? };
+            let _ = self.buffer.set(BufferRef(buffer));
+        }
+
+        let buffer = self.buffer.get().unwrap().0.get_value(env)?;
+        unsafe { BufferSlice::from_napi_value(env.raw(), buffer.raw()) }
     }
 
     /// @ignore
     #[napi]
-    pub fn to_string(&self, env: &Env) -> Result<String> {
-        Ok(format!(
-            "Image({}, {} bytes)",
-            self.format.as_str(),
-            self.buffer(env)?.len()
-        ))
+    pub fn to_string(&self) -> String {
+        format!("{self:?}")
     }
 }
 
 impl ObjectFinalize for Image {
     fn finalize(self, env: Env) -> Result<()> {
-        self.data.unref(&env)
+        match self.buffer.into_inner() {
+            Some(BufferRef(buffer)) => buffer.unref(&env),
+            None => Ok(()),
+        }
     }
 }
 

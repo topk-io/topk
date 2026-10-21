@@ -46,14 +46,30 @@ class Struct:
 class Image:
     """
     Instances of the `Image` class are used to represent images in TopK.
-    Usually created using the [`image()`](#image) helper.
+    Created using the [`image()`](#image) helper and returned for image fields in query results.
 
-    Image values are read back as PIL images. `Image` is returned instead, with a warning,
-    when Pillow is not installed or cannot decode the image data.
+    Images read from TopK can be written back as-is without re-encoding.
+
+    Example:
+
+    ```python
+    docs = client.collection("books").get(["gatsby"])
+    cover = docs["gatsby"]["cover"]
+
+    cover.format  # "jpeg"
+    cover.to_pil().save("cover.jpg")
+    ```
     """
 
     format: typing.Annotated[typing.Literal["jpeg", "png"], "Encoding format of the image."]
     data: typing.Annotated[builtins.bytes, "Encoded image bytes."]
+
+    def to_pil(self) -> PIL.Image.Image:
+        """
+        Decode the image into a [PIL image](https://pillow.readthedocs.io/en/stable/reference/Image.html).
+        Requires [Pillow](https://pypi.org/project/pillow/) (`pip install pillow`).
+        """
+        ...
 
 class UnknownValue:
     """
@@ -328,8 +344,7 @@ def image(data: typing.Union[builtins.bytes, PIL.Image.Image]) -> Image:
     PIL images can also be used as document values directly. Images decoded from JPEG are kept as JPEG,
     everything else is encoded as PNG.
 
-    Image values are returned as PIL images when [Pillow](https://pypi.org/project/pillow/) is installed (`pip install pillow`).
-    Otherwise, or if Pillow cannot decode the data, they are returned as [Image](https://docs.topk.io/sdk/topk-py/data#Image) with a warning.
+    Image fields are returned as [Image](https://docs.topk.io/sdk/topk-py/data#Image), use `to_pil()` to decode them.
 
     Example:
 

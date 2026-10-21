@@ -332,20 +332,18 @@ impl Value {
 
     // Image
 
-    pub fn png(data: impl Into<Bytes>) -> Self {
+    pub fn image(data: image::Data) -> Self {
         Value {
-            value: Some(value::Value::Image(Image {
-                data: Some(image::Data::Png(data.into())),
-            })),
+            value: Some(value::Value::Image(Image { data: Some(data) })),
         }
     }
 
+    pub fn png(data: impl Into<Bytes>) -> Self {
+        Value::image(image::Data::Png(data.into()))
+    }
+
     pub fn jpeg(data: impl Into<Bytes>) -> Self {
-        Value {
-            value: Some(value::Value::Image(Image {
-                data: Some(image::Data::Jpeg(data.into())),
-            })),
-        }
+        Value::image(image::Data::Jpeg(data.into()))
     }
 }
 
@@ -849,6 +847,29 @@ impl sparse_vector::U8Values {
 }
 
 impl image::Data {
+    const JPEG_SIGNATURE: &[u8] = b"\xFF\xD8\xFF";
+    const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1A\n";
+
+    /// Detect the image format from the file signature.
+    /// Returns `None` if the data is neither a JPEG nor a PNG image.
+    pub fn from_bytes(data: impl Into<Bytes>) -> Option<Self> {
+        let data = data.into();
+        if data.starts_with(Self::JPEG_SIGNATURE) {
+            Some(Self::Jpeg(data))
+        } else if data.starts_with(Self::PNG_SIGNATURE) {
+            Some(Self::Png(data))
+        } else {
+            None
+        }
+    }
+
+    /// Encoded image bytes.
+    pub fn bytes(&self) -> &Bytes {
+        match self {
+            Self::Jpeg(data) | Self::Png(data) => data,
+        }
+    }
+
     /// Encode the image data as a base64 URI.
     pub fn as_base64_uri(&self) -> String {
         let mut output = String::new();
@@ -957,5 +978,24 @@ mod tests {
             let decoded = image::Data::try_from(b64).unwrap();
             assert_eq!(data, decoded);
         }
+    }
+
+    #[test]
+    fn image_from_bytes_detects_format() {
+        let jpeg = include_bytes!("../../../../../../assets/test/img/cat.jpg").as_slice();
+        let png = include_bytes!("../../../../../../assets/test/img/form.png").as_slice();
+
+        assert_eq!(
+            image::Data::from_bytes(jpeg),
+            Some(image::Data::Jpeg(jpeg.into()))
+        );
+        assert_eq!(
+            image::Data::from_bytes(png),
+            Some(image::Data::Png(png.into()))
+        );
+        assert_eq!(image::Data::from_bytes(b"GIF89a".as_slice()), None);
+        // Truncated PNG signature
+        assert_eq!(image::Data::from_bytes(b"\x89PNG".as_slice()), None);
+        assert_eq!(image::Data::from_bytes(Bytes::new()), None);
     }
 }
