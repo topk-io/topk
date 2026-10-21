@@ -15,6 +15,7 @@ Rules:
 - Pass `--region <REGION>` to every `topk sql` command. Environment variables you `export` may not survive between your commands.
 - Use `-o json` when you need to read IDs from a command's output. It prints one JSON object per line, not an array.
 - If `TOPK_API_KEY` is set in the environment, run `topk` commands with it unset (`env -u TOPK_API_KEY topk …`): an API key silently overrides the login and the selected project.
+- If `TOPK_PROJECT_ID` is set in the environment, it overrides the project you select in step 3. Run `topk` commands with it unset (`env -u TOPK_PROJECT_ID topk …`), or pass `--project-id <PROJECT_ID>` explicitly.
 - Never run a `topk` command that waits for keyboard input: always pass the IDs and flags shown below.
 
 ### 1. Install the CLI
@@ -170,7 +171,7 @@ Tell the user it takes about 3 minutes, then run:
 topk import -f wikipedia.toml --region <REGION> --yes
 ```
 
-The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
+The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`, adding `--yes` so it doesn't wait for confirmation. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
 
 ### 3. Ask it questions
 
