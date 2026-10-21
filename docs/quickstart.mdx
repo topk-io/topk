@@ -61,13 +61,10 @@ mode: "wide"
     brew tap topk-io/topk
     brew install topk
     topk login
+    topk project select
     topk import ./books.parquet \
       --region aws-us-east-1-elastica
     ```
-
-    <Tip>
-      `topk login` doesn't select a project. Run `topk project list`, then `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>` to each command. `TOPK_PROJECT_ID` overrides the selected project when set.
-    </Tip>
   </Card>
 
   <Card title="SQL" icon="database" href="/sdk/topk-sql/overview">
