@@ -10,16 +10,33 @@ from .utils.dataset import IMAGES
 
 def test_image_from_jpeg_bytes():
     data = (IMAGES / "cat.jpg").read_bytes()
-    assert repr(image(data)) == f"Image(jpeg, {len(data)} bytes)"
+    img = image(data)
+
+    assert repr(img) == f"Image(jpeg, {len(data)} bytes)"
+    assert img.format == "jpeg"
+    assert img.data == data
 
 
 def test_image_from_png_bytes():
     data = (IMAGES / "form.png").read_bytes()
-    assert repr(image(data)) == f"Image(png, {len(data)} bytes)"
+    img = image(data)
+
+    assert repr(img) == f"Image(png, {len(data)} bytes)"
+    assert img.format == "png"
+    assert img.data == data
+
+
+def test_image_data_is_not_copied():
+    img = image((IMAGES / "cat.jpg").read_bytes())
+    assert img.data is img.data
 
 
 def test_image_from_pil_jpeg():
-    assert repr(image(Image.open(IMAGES / "cat.jpg"))).startswith("Image(jpeg, ")
+    img = image(Image.open(IMAGES / "cat.jpg"))
+
+    assert repr(img).startswith("Image(jpeg, ")
+    assert img.format == "jpeg"
+    assert Image.open(io.BytesIO(img.data)).format == "JPEG"
 
 
 def test_image_from_pil_png():
@@ -57,6 +74,10 @@ def test_image_unsupported_bytes():
 
     with pytest.raises(error.InvalidArgumentError, match="expected JPEG or PNG"):
         image(b"")
+
+    # Truncated PNG signature
+    with pytest.raises(error.InvalidArgumentError, match="expected JPEG or PNG"):
+        image(b"\x89PNG")
 
 
 def test_image_invalid_input():

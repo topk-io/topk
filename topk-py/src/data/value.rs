@@ -11,7 +11,7 @@ use pyo3::{
 use std::collections::HashMap;
 
 use crate::data::{
-    image::Image,
+    image::{Image, ImageValue},
     list::{List, Values},
     matrix::{Matrix, MatrixValues},
     r#struct::Struct,
@@ -34,7 +34,7 @@ pub enum Value {
     List(List),
     Matrix(Matrix),
     Struct(HashMap<String, Value>),
-    Image(Image),
+    Image(ImageValue),
     Unknown,
 }
 
@@ -52,7 +52,7 @@ impl FromPyObject<'_, '_> for Value {
         } else if let Ok(v) = obj.cast::<Struct>() {
             Ok(Value::Struct(v.borrow().fields.clone()))
         } else if let Ok(v) = obj.cast::<Image>() {
-            Ok(Value::Image(v.get().clone()))
+            Ok(Value::Image(v.get().to_value(obj.py())))
         // Check if the object is an instance of Matrix
         } else if let Ok(v) = obj.cast::<Matrix>() {
             Ok(Value::Matrix(v.borrow().clone()))
@@ -143,7 +143,7 @@ impl FromPyObject<'_, '_> for Value {
         } else if let Ok(_) = obj.cast_exact::<PyNone>() {
             Ok(Value::Null())
         } else if let Some(image) = Image::from_pil(&obj)? {
-            Ok(Value::Image(image))
+            Ok(Value::Image(image.to_value(obj.py())))
         } else {
             Err(PyTypeError::new_err(format!(
                 "Can't convert from {:?} to Value",
@@ -300,7 +300,7 @@ impl<'py> IntoPyObject<'py> for Value {
                 }
                 Ok(dict.into_py_any(py)?.into_bound(py))
             }
-            Value::Image(image) => image.to_pil(py),
+            Value::Image(image) => image.into_py(py),
             Value::Unknown => Ok(UnknownValue {}.into_py_any(py)?.into_bound(py)),
         }
     }
@@ -448,7 +448,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     .collect(),
             ),
             Some(topk_rs::proto::v1::data::value::Value::Image(image)) => match image.data {
-                Some(data) => Value::Image(Image { data }),
+                Some(data) => Value::Image(ImageValue(data)),
                 None => Value::Unknown,
             },
             None => Value::Unknown,
@@ -509,7 +509,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::Struct(fields) => topk_rs::proto::v1::data::Value::r#struct(
                 fields.into_iter().map(|(k, v)| (k, v.into())),
             ),
-            Value::Image(image) => match image.data {
+            Value::Image(image) => match image.0 {
                 topk_rs::proto::v1::data::image::Data::Jpeg(data) => {
                     topk_rs::proto::v1::data::Value::jpeg(data)
                 }

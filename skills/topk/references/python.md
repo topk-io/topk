@@ -47,7 +47,7 @@ except CollectionAlreadyExistsError:
 
 Other field types: `f32_vector(dim)`, `f16_vector`, `f8_vector`, `u8_vector`, `i8_vector`, `binary_vector`, `f32_sparse_vector()`, `u8_sparse_vector()`, `matrix(...)`, `bytes()`, `timestamp()`, `image()`, `list("text" | "integer" | "float")`, `struct({...})`.
 
-Image fields take PIL images (`Image.open("cat.jpg")`) or `topk_sdk.data.image(jpeg_or_png_bytes)`, and come back as PIL images, which requires Pillow (`pip install pillow`). `image().index(semantic_index())` makes them searchable with `fn.semantic_similarity`.
+Image fields take PIL images (`Image.open("cat.jpg")`) or `topk_sdk.data.image(jpeg_or_png_bytes)`, and come back as PIL images when Pillow is installed (`pip install pillow`). Without Pillow, or if the data can't be decoded, they come back as `topk_sdk.data.Image` (`.format`, `.data`) with a warning. `image().index(semantic_index())` makes them searchable with `fn.semantic_similarity`.
 
 Vector index: `f32_vector(dimension=1536).index(vector_index(metric="cosine"))`.
 

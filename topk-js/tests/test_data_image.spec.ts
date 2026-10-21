@@ -26,6 +26,19 @@ describe("image", () => {
     expect(img.data).toEqual(data);
   });
 
+  test("data is not copied on access", () => {
+    const img = image(readFileSync(join(IMAGES, "cat.jpg")));
+    expect(img.data).toBe(img.data);
+  });
+
+  test("data is a snapshot of the input", () => {
+    const data = readFileSync(join(IMAGES, "cat.jpg"));
+    const img = image(data);
+
+    data[100] ^= 0xff;
+    expect(img.data[100]).not.toBe(data[100]);
+  });
+
   test("uint8array", () => {
     const data = readFileSync(join(IMAGES, "form.png"));
     const img = image(new Uint8Array(data));
@@ -37,6 +50,8 @@ describe("image", () => {
   test("unsupported format", () => {
     expect(() => image(Buffer.from("GIF89a"))).toThrow(UNSUPPORTED_FORMAT);
     expect(() => image(Buffer.alloc(0))).toThrow(UNSUPPORTED_FORMAT);
+    // Truncated PNG signature
+    expect(() => image(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toThrow(UNSUPPORTED_FORMAT);
   });
 
   test("invalid arguments", () => {

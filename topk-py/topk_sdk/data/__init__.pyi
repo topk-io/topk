@@ -45,13 +45,15 @@ class Struct:
 
 class Image:
     """
-    *Internal*
-
     Instances of the `Image` class are used to represent images in TopK.
     Usually created using the [`image()`](#image) helper.
+
+    Image values are read back as PIL images. `Image` is returned instead, with a warning,
+    when Pillow is not installed or cannot decode the image data.
     """
 
-    ...
+    format: typing.Annotated[typing.Literal["jpeg", "png"], "Encoding format of the image."]
+    data: typing.Annotated[builtins.bytes, "Encoded image bytes."]
 
 class UnknownValue:
     """
@@ -326,7 +328,8 @@ def image(data: typing.Union[builtins.bytes, PIL.Image.Image]) -> Image:
     PIL images can also be used as document values directly. Images decoded from JPEG are kept as JPEG,
     everything else is encoded as PNG.
 
-    Image values are returned as PIL images, which requires [Pillow](https://pypi.org/project/pillow/) (`pip install pillow`).
+    Image values are returned as PIL images when [Pillow](https://pypi.org/project/pillow/) is installed (`pip install pillow`).
+    Otherwise, or if Pillow cannot decode the data, they are returned as [Image](https://docs.topk.io/sdk/topk-py/data#Image) with a warning.
 
     Example:
 

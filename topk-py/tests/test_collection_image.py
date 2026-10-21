@@ -1,5 +1,8 @@
+import sys
+
 import pytest
 from PIL import Image
+from topk_sdk import data
 from topk_sdk.data import image as data_image
 from topk_sdk.query import field, select
 from topk_sdk.schema import image
@@ -100,6 +103,50 @@ def test_image_reupsert(ctx: ProjectContext):
 
     assert copy["image"].format == "PNG"
     assert copy["image"].tobytes() == doc["image"].tobytes()
+
+
+def test_image_corrupt(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"image": image()},
+    )
+
+    corrupt = b"\xff\xd8\xff" + b"\x00" * 64
+    lsn = ctx.client.collection(collection.name).upsert(
+        [{"_id": "corrupt", "title": "Corrupt", "image": data_image(corrupt)}]
+    )
+
+    # The image is returned undecoded, the rest of the document is unaffected
+    with pytest.warns(UserWarning, match="Cannot decode image value"):
+        docs = ctx.client.collection(collection.name).get(["corrupt"], lsn=lsn)
+
+    assert docs["corrupt"]["title"] == "Corrupt"
+    assert isinstance(docs["corrupt"]["image"], data.Image)
+    assert docs["corrupt"]["image"].format == "jpeg"
+    assert docs["corrupt"]["image"].data == corrupt
+
+
+def test_image_without_pillow(ctx: ProjectContext, monkeypatch: pytest.MonkeyPatch):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"image": image()},
+    )
+
+    png = (IMAGES / "form.png").read_bytes()
+    lsn = ctx.client.collection(collection.name).upsert(
+        [{"_id": "form", "title": "Form", "image": data_image(png)}]
+    )
+
+    # Make `import PIL.Image` fail
+    monkeypatch.setitem(sys.modules, "PIL.Image", None)
+
+    with pytest.warns(UserWarning, match="Pillow is not installed"):
+        docs = ctx.client.collection(collection.name).get(["form"], lsn=lsn)
+
+    assert docs["form"]["title"] == "Form"
+    assert isinstance(docs["form"]["image"], data.Image)
+    assert docs["form"]["image"].format == "png"
+    assert docs["form"]["image"].data == png
 
 
 @pytest.mark.asyncio

@@ -39,6 +39,7 @@ describe("Image", () => {
     expect(docs.jpeg.image).toBeInstanceOf(Image);
     expect(docs.jpeg.image.format).toBe("jpeg");
     expect(docs.jpeg.image.data).toEqual(jpeg);
+    expect(docs.jpeg.image.data).toBe(docs.jpeg.image.data);
 
     expect(docs.png.image).toBeInstanceOf(Image);
     expect(docs.png.image.format).toBe("png");
