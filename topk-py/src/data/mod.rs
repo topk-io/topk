@@ -4,6 +4,7 @@ use numpy::PyUntypedArray;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
+use crate::data::image::Image;
 use crate::data::list::List;
 use crate::data::matrix::Matrix;
 use crate::data::r#struct::Struct;
@@ -12,6 +13,7 @@ use crate::data::value::Value;
 use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
 
 pub mod collection;
+pub mod image;
 pub mod list;
 pub mod matrix;
 pub mod partition;
@@ -32,6 +34,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<SparseVector>()?;
     m.add_class::<Matrix>()?;
     m.add_class::<Struct>()?;
+    m.add_class::<Image>()?;
     m.add_class::<UnknownValue>()?;
 
     // (Dense) Vectors
@@ -56,6 +59,8 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(struct_))?;
     // Matrix
     m.add_wrapped(wrap_pyfunction!(matrix_))?;
+    // Image
+    m.add_wrapped(wrap_pyfunction!(image_))?;
 
     Ok(())
 }
@@ -234,5 +239,18 @@ pub fn matrix_(values: &Bound<'_, PyAny>, value_type: Option<String>) -> PyResul
             &values.as_borrowed(),
             value_type.as_deref(),
         )?)
+    }
+}
+
+#[pyfunction(name = "image")]
+pub fn image_(data: &Bound<'_, PyAny>) -> PyResult<Image> {
+    if let Ok(py_bytes) = data.cast::<PyBytes>() {
+        Image::from_bytes(py_bytes.as_bytes())
+    } else if let Some(image) = Image::from_pil(data)? {
+        Ok(image)
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected bytes or PIL.Image.Image for image() function",
+        ))
     }
 }

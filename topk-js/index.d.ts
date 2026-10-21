@@ -247,6 +247,36 @@ export interface RetryConfig {
 
 export declare namespace data {
   /**
+   * @hideconstructor
+   * Instances of the `Image` class are used to represent images in TopK.
+   * Created using the [`image()`](https://docs.topk.io/sdk/topk-js/data#image) helper and returned for image fields by `get()`.
+   * Image fields can't be selected in queries, use `get()` with the `_id`s returned from a query instead.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import sharp from "sharp";
+   *
+   * const docs = await client.collection("books").get(["gatsby"]);
+   * const cover = docs["gatsby"].cover;
+   *
+   * cover.format // "jpeg"
+   * await sharp(cover.data).resize(64).toFile("thumbnail.png");
+   * ```
+   */
+  export class Image {
+    /** Encoding format of the image. */
+    get format(): 'jpeg' | 'png'
+    /**
+     * Encoded image bytes.
+     *
+     * The same `Buffer` is returned on every access, modifying it doesn't change the image.
+     */
+    get data(): Buffer
+    /** @ignore */
+    toString(): string
+  }
+  /**
    * @internal
    * @hideconstructor
    * Instances of the `List` class are used to represent lists of values in TopK.
@@ -428,6 +458,19 @@ export declare namespace data {
    * ```
    */
   export function i8Vector(values: Array<number>): data.List
+  /**
+   * Creates an [Image](https://docs.topk.io/sdk/topk-js/data#Image) type from encoded JPEG or PNG bytes.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { readFileSync } from "fs";
+   * import { image } from "topk-js/data";
+   *
+   * image(readFileSync("cover.jpg"))
+   * ```
+   */
+  export function image(data: Buffer | Uint8Array): data.Image
   /**
    * Create a [Matrix](https://docs.topk.io/sdk/topk-js/data#Matrix) type containing matrix values.
    *
@@ -1032,6 +1075,7 @@ export declare namespace schema {
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
     | { type: 'Timestamp' }
+    | { type: 'Image' }
     | { type: 'List', valueType: ListValueType }
     | { type: 'Struct', fields: Record<string, FieldSpec> }
     | { type: 'Matrix', dimension: number, valueType: data.MatrixValueType }
@@ -1130,6 +1174,22 @@ export declare namespace schema {
    * ```
    */
   export function i8Vector(options: schema.VectorOptions): schema.FieldSpec
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `image` values.
+   *
+   * Images are stored as JPEG or PNG. When upserting images, use [`image()`](https://docs.topk.io/sdk/topk-js/data#image).
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { image, semanticIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   cover: image().index(semanticIndex())
+   * });
+   * ```
+   */
+  export function image(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `int` values.
    *

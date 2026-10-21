@@ -952,6 +952,7 @@ The following value types are supported:
 | **Matrix**            | _use helper_     | _use helper_    | [`matrix()`](../sdk/topk-py/data#matrix-2)                      |
 | **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
 | **Struct**            | `dict[str, Any]` | `Record<string, any>` | [`struct()`](../sdk/topk-py/data#struct)                 |
+| **Image**             | `PIL.Image.Image` | _use helper_   | [`image()`](../sdk/topk-py/data#image)                          |
 
 
 #### Delete documents
@@ -3185,11 +3186,12 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | Type | Use case |
 |------|----------|
 | [`text()`](/sdk/topk-py/schema#text) | Strings, descriptions, content, IDs |
-| [`bytes()`](/sdk/topk-py/schema#bytes) | Binary data, images, files |
+| [`bytes()`](/sdk/topk-py/schema#bytes) | Binary data, files |
 | [`int()`](/sdk/topk-py/schema#int) | Integers, counts, IDs |
 | [`float()`](/sdk/topk-py/schema#float) | Decimal numbers, prices |
 | [`bool()`](/sdk/topk-py/schema#bool) | true/false values |
 | [`timestamp()`](/sdk/topk-py/schema#timestamp) | Timestamps, stored as milliseconds since UNIX epoch |
+| [`image()`](/sdk/topk-py/schema#image) | JPEG and PNG images, searchable with a semantic index |
 | [`list(value_type)`](/sdk/topk-py/schema#list) | Arrays of text, integer, or float elements |
 | [`struct(fields)`](/sdk/topk-py/schema#struct) | Nested objects with named fields |
 | [`f8_vector(dim)`](/sdk/topk-py/schema#f8_vector) | 8-bit float embeddings |
@@ -6377,6 +6379,48 @@ Usually created using data constructors such as [`matrix()`](#matrix-2).
 Instances of the `Struct` class are used to represent nested object values in TopK.
 Usually created using the [`struct()`](#struct) helper.
 
+##### Image
+
+Instances of the `Image` class are used to represent images in TopK.
+Created using the [`image()`](#image) helper and returned for image fields by `get()`.
+Image fields can't be selected in queries, use `get()` with the `_id`s returned from a query instead.
+
+Images read from TopK can be written back as-is without re-encoding.
+
+Example:
+
+```python
+docs = client.collection("books").get(["gatsby"])
+cover = docs["gatsby"]["cover"]
+
+cover.format  # "jpeg"
+cover.to_pil().save("cover.jpg")
+```
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `format` | Literal['jpeg', 'png'] | Encoding format of the image. |
+| `data` | bytes | Encoded image bytes. |
+
+**Methods**
+
+###### to\_pil()
+
+```python
+to_pil(self) -> PIL.Image.Image
+```
+
+Decode the image into a [PIL image](https://pillow.readthedocs.io/en/stable/reference/Image.html).
+Requires [Pillow](https://pypi.org/project/pillow/) (`pip install pillow`).
+
+**Returns**
+
+PIL.Image.Image
+
+***
+
 ##### UnknownValue
 
 *Internal*
@@ -6870,6 +6914,44 @@ matrix(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float16))
 **Returns**
 
 [`Matrix`](#matrix)
+
+***
+
+##### image()
+
+```python
+image(data: bytes | PIL.Image.Image) -> Image
+```
+
+Create an [Image](/sdk/topk-py/data#Image) type from encoded JPEG or PNG bytes, or from a [PIL image](https://pillow.readthedocs.io/en/stable/reference/Image.html).
+
+PIL images can also be used as document values directly. Images decoded from JPEG are kept as JPEG,
+everything else is encoded as PNG.
+
+Image fields are returned as [Image](/sdk/topk-py/data#Image), use `to_pil()` to decode them.
+
+Example:
+
+```python
+from topk_sdk.data import image
+from PIL import Image
+
+### Encoded JPEG or PNG bytes
+image(open("cat.jpg", "rb").read())
+
+### PIL image
+image(Image.open("cat.jpg"))
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | bytes &#124; PIL.Image.Image |
+
+**Returns**
+
+[`Image`](#image)
 
 ***
 
@@ -8995,7 +9077,7 @@ Instances of the `FieldIndex` class represents a field index created by [`vector
 
 *Internal*
 
-Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
+Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`timestamp`](#timestamp), [`image`](#image), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
 
 **Methods**
 
@@ -9431,6 +9513,36 @@ from topk_sdk.schema import timestamp
 
 client.collections().create("books", schema={
     "published_ts": timestamp()
+})
+```
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+##### image()
+
+```python
+image() -> FieldSpec
+```
+
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `image` values.
+
+Images are stored as JPEG or PNG.
+
+When upserting images, use:
+- ``PIL.Image.Image`` — images decoded from JPEG are kept as JPEG, everything else is encoded as PNG
+- [`image()`](/sdk/topk-py/data#image) — encoded JPEG or PNG bytes
+
+Example:
+
+```python
+from topk_sdk.schema import image, semantic_index
+
+client.collections().create("books", schema={
+    "cover": image().index(semantic_index())
 })
 ```
 
@@ -10636,6 +10748,35 @@ i8Vector([-128, 127, -1, 0, 1])
 
 ***
 
+##### image()
+
+```ts
+function image(data: Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike>): Image;
+```
+
+Creates an [Image](https://docs.topk.io/sdk/topk-js/data#Image) type from encoded JPEG or PNG bytes.
+
+Example:
+
+```javascript
+import { readFileSync } from "fs";
+import { image } from "topk-js/data";
+
+image(readFileSync("cover.jpg"))
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `data` | `Uint8Array`\<`ArrayBufferLike`\> \| `Buffer`\<`ArrayBufferLike`\> |
+
+**Returns**
+
+[`Image`](/sdk/topk-js/Namespace.data#image)
+
+***
+
 ##### matrix()
 
 ```ts
@@ -10810,6 +10951,58 @@ u8Vector([0, 255, 1, 2, 3])
 [`List`](/sdk/topk-js/Namespace.data#list)
 
 #### Classes
+
+##### Image
+
+Instances of the `Image` class are used to represent images in TopK.
+Created using the [`image()`](https://docs.topk.io/sdk/topk-js/data#image) helper and returned for image fields by `get()`.
+Image fields can't be selected in queries, use `get()` with the `_id`s returned from a query instead.
+
+Example:
+
+```javascript
+import sharp from "sharp";
+
+const docs = await client.collection("books").get(["gatsby"]);
+const cover = docs["gatsby"].cover;
+
+cover.format // "jpeg"
+await sharp(cover.data).resize(64).toFile("thumbnail.png");
+```
+
+###### Accessors
+
+###### data
+
+###### Get Signature
+
+```ts
+get data(): Buffer;
+```
+
+Encoded image bytes.
+
+The same `Buffer` is returned on every access, modifying it doesn't change the image.
+
+**Returns**
+
+`Buffer`
+
+###### format
+
+###### Get Signature
+
+```ts
+get format(): "jpeg" | "png";
+```
+
+Encoding format of the image.
+
+**Returns**
+
+`"jpeg"` \| `"png"`
+
+***
 
 ##### List
 
@@ -13143,6 +13336,32 @@ await client.collections().create("books", {
 | Parameter | Type |
 | ------ | ------ |
 | `options` | [`VectorOptions`](/sdk/topk-js/Namespace.schema#vectoroptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+##### image()
+
+```ts
+function image(): FieldSpec;
+```
+
+Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `image` values.
+
+Images are stored as JPEG or PNG. When upserting images, use [`image()`](https://docs.topk.io/sdk/topk-js/data#image).
+
+Example:
+
+```javascript
+import { image, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  cover: image().index(semanticIndex())
+});
+```
 
 **Returns**
 

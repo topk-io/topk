@@ -1,6 +1,7 @@
 import builtins
 import typing
 import numpy
+import PIL.Image
 
 class List:
     """
@@ -41,6 +42,35 @@ class Struct:
     """
 
     ...
+
+class Image:
+    """
+    Instances of the `Image` class are used to represent images in TopK.
+    Created using the [`image()`](#image) helper and returned for image fields by `get()`.
+    Image fields can't be selected in queries, use `get()` with the `_id`s returned from a query instead.
+
+    Images read from TopK can be written back as-is without re-encoding.
+
+    Example:
+
+    ```python
+    docs = client.collection("books").get(["gatsby"])
+    cover = docs["gatsby"]["cover"]
+
+    cover.format  # "jpeg"
+    cover.to_pil().save("cover.jpg")
+    ```
+    """
+
+    format: typing.Annotated[typing.Literal["jpeg", "png"], "Encoding format of the image."]
+    data: typing.Annotated[builtins.bytes, "Encoded image bytes."]
+
+    def to_pil(self) -> PIL.Image.Image:
+        """
+        Decode the image into a [PIL image](https://pillow.readthedocs.io/en/stable/reference/Image.html).
+        Requires [Pillow](https://pypi.org/project/pillow/) (`pip install pillow`).
+        """
+        ...
 
 class UnknownValue:
     """
@@ -304,6 +334,30 @@ def matrix(
 
     # Numpy array infers type from dtype
     matrix(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float16))
+    ```
+    """
+    ...
+
+def image(data: typing.Union[builtins.bytes, PIL.Image.Image]) -> Image:
+    """
+    Create an [Image](https://docs.topk.io/sdk/topk-py/data#Image) type from encoded JPEG or PNG bytes, or from a [PIL image](https://pillow.readthedocs.io/en/stable/reference/Image.html).
+
+    PIL images can also be used as document values directly. Images decoded from JPEG are kept as JPEG,
+    everything else is encoded as PNG.
+
+    Image fields are returned as [Image](https://docs.topk.io/sdk/topk-py/data#Image), use `to_pil()` to decode them.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import image
+    from PIL import Image
+
+    # Encoded JPEG or PNG bytes
+    image(open("cat.jpg", "rb").read())
+
+    # PIL image
+    image(Image.open("cat.jpg"))
     ```
     """
     ...

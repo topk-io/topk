@@ -40,6 +40,7 @@ pub enum DataType {
     U8SparseVector,
     Bytes,
     Timestamp,
+    Image,
     List {
         value_type: ListValueType,
     },
@@ -169,6 +170,7 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                 topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
                     DataType::Timestamp
                 }
+                topk_rs::proto::v1::control::field_type::DataType::Image(_) => DataType::Image,
                 topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                     value_type: match list.value_type() {
                         ListValueTypePb::Integer => ListValueType::Integer,

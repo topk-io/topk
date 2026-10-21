@@ -45,7 +45,9 @@ try {
 }
 ```
 
-Other types: `f32Vector({ dimension })`, `f16Vector`, `f8Vector`, `u8Vector`, `i8Vector`, `binaryVector`, `f32SparseVector()`, `u8SparseVector()`, `matrix(...)`, `bytes()`, `timestamp()`, `list({ valueType })`, `struct({...})`.
+Other types: `f32Vector({ dimension })`, `f16Vector`, `f8Vector`, `u8Vector`, `i8Vector`, `binaryVector`, `f32SparseVector()`, `u8SparseVector()`, `matrix(...)`, `bytes()`, `timestamp()`, `image()`, `list({ valueType })`, `struct({...})`.
+
+Image fields take `image(buffer)` from `topk-js/data` (JPEG or PNG bytes) and come back from `get()` as `Image` objects with `.format` (`"jpeg" | "png"`) and `.data` (`Buffer`). Image fields can't be selected in queries: query for `_id`s, then `get()` those documents. Returned images can be upserted again as-is. `image().index(semanticIndex())` makes them searchable with `fn.semanticSimilarity`.
 
 Vector index: `f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" }))`.
 

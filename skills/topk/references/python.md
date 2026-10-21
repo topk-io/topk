@@ -45,7 +45,9 @@ except CollectionAlreadyExistsError:
 
 `int`, `float`, `bool`, and `list` shadow Python builtins when you import them. Alias them if needed: `from topk_sdk.schema import int as int_`.
 
-Other field types: `f32_vector(dim)`, `f16_vector`, `f8_vector`, `u8_vector`, `i8_vector`, `binary_vector`, `f32_sparse_vector()`, `u8_sparse_vector()`, `matrix(...)`, `bytes()`, `timestamp()`, `list("text" | "integer" | "float")`, `struct({...})`.
+Other field types: `f32_vector(dim)`, `f16_vector`, `f8_vector`, `u8_vector`, `i8_vector`, `binary_vector`, `f32_sparse_vector()`, `u8_sparse_vector()`, `matrix(...)`, `bytes()`, `timestamp()`, `image()`, `list("text" | "integer" | "float")`, `struct({...})`.
+
+Image fields take PIL images (`Image.open("cat.jpg")`) or `topk_sdk.data.image(jpeg_or_png_bytes)`, and come back from `get()` as `topk_sdk.data.Image` (`.format`, `.data`, `.to_pil()`, which requires Pillow). Image fields can't be selected in queries: query for `_id`s, then `get()` those documents. Returned images can be upserted again without re-encoding. `image().index(semantic_index())` makes them searchable with `fn.semantic_similarity`.
 
 Vector index: `f32_vector(dimension=1536).index(vector_index(metric="cosine"))`.
 
