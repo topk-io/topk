@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
 use chrono::{DateTime, TimeZone, Utc};
@@ -844,6 +845,63 @@ impl sparse_vector::F32Values {
 impl sparse_vector::U8Values {
     pub fn len(&self) -> usize {
         self.values.len()
+    }
+}
+
+impl image::Data {
+    /// Encode the image data as a base64 URI.
+    pub fn as_base64_uri(&self) -> String {
+        let mut output = String::new();
+        match self {
+            Self::Jpeg(data) => {
+                output.push_str("data:image/jpeg;base64,");
+                BASE64_STANDARD.encode_string(data, &mut output);
+            }
+            Self::Png(data) => {
+                output.push_str("data:image/png;base64,");
+                BASE64_STANDARD.encode_string(data, &mut output);
+            }
+        }
+        output
+    }
+}
+
+impl Into<String> for image::Data {
+    fn into(self) -> String {
+        self.as_base64_uri()
+    }
+}
+
+impl TryFrom<String> for image::Data {
+    type Error = crate::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        // Try JPEG
+        if let Some(jpeg) = value.strip_prefix("data:image/jpeg;base64,") {
+            let data = BASE64_STANDARD.decode(jpeg).map_err(|_| {
+                crate::Error::InvalidArgument(
+                    "Cannot parse provided string as JPEG image data".into(),
+                )
+            })?;
+
+            return Ok(Self::Jpeg(data.into()));
+        }
+
+        // Try PNG
+        if let Some(png) = value.strip_prefix("data:image/png;base64,") {
+            let data = BASE64_STANDARD.decode(png).map_err(|_| {
+                crate::Error::InvalidArgument(
+                    "Cannot parse provided string as PNG image data".into(),
+                )
+            })?;
+
+            return Ok(Self::Png(data.into()));
+        }
+
+        // Unsupported format
+        Err(crate::Error::InvalidArgument(
+            "Cannot parse provided string as image data".into(),
+        ))
     }
 }
 

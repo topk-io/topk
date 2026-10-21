@@ -4,10 +4,9 @@ use std::ops::Deref;
 use serde::de::Error as DeError;
 use serde::ser::Error as SerError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::json;
 
 use crate::proto::v1::data::{
-    image, list, matrix, sparse_vector, value, vector, Value as TopkValue,
+    image, list, matrix, sparse_vector, value, vector, Image, Value as TopkValue,
 };
 
 macro_rules! array_of {
@@ -75,7 +74,15 @@ impl TryFrom<serde_json::Value> for TopkValue {
         match value {
             serde_json::Value::Null => Ok(TopkValue::null()),
             serde_json::Value::Bool(value) => Ok(TopkValue::bool(value)),
-            serde_json::Value::String(value) => Ok(TopkValue::string(value)),
+            serde_json::Value::String(value) => {
+                if value.starts_with("data:image/") {
+                    let data = image::Data::try_from(value)?;
+                    return Ok(TopkValue {
+                        value: Some(value::Value::Image(Image { data: Some(data) })),
+                    });
+                }
+                Ok(TopkValue::string(value))
+            }
             serde_json::Value::Number(value) => Ok(TopkValue::try_from(value)?),
             serde_json::Value::Object(value) => Ok(TopkValue::try_from(value)?),
             serde_json::Value::Array(value) => Ok(TopkValue::try_from(value)?),
@@ -339,8 +346,7 @@ impl TryFrom<TopkValue> for serde_json::Value {
                 Ok(Self::Array(rows))
             }
             Some(value::Value::Image(v)) => Ok(match v.data {
-                Some(image::Data::Png(data)) => json!({"type": "image/png", "data": data}),
-                Some(image::Data::Jpeg(data)) => json!({"type": "image/jpeg", "data": data}),
+                Some(data) => Self::String(data.into()),
                 None => Self::Null,
             }),
         }
