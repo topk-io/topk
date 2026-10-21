@@ -908,7 +908,7 @@ impl TryFrom<String> for image::Data {
 #[cfg(test)]
 mod tests {
     use prost::Message;
-    use rand::Rng;
+    use rand::{Rng, RngCore};
 
     use super::*;
 
@@ -936,6 +936,26 @@ mod tests {
                 }
                 _ => panic!("Expected F16 values"),
             }
+        }
+    }
+
+    #[test]
+    fn fuzz_image_base64_roundtrip() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let size = rng.gen_range(128..512);
+            let mut data = vec![0u8; size];
+            rng.fill_bytes(&mut data);
+
+            let data = match rng.gen_range(0..=1) {
+                0 => image::Data::Jpeg(data.into()),
+                1 => image::Data::Png(data.into()),
+                _ => unreachable!(),
+            };
+
+            let b64 = data.as_base64_uri();
+            let decoded = image::Data::try_from(b64).unwrap();
+            assert_eq!(data, decoded);
         }
     }
 }
