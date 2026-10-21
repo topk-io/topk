@@ -393,6 +393,12 @@ pub enum DocumentValidationError {
         doc_id: String,
     },
 
+    InvalidImage {
+        doc_id: String,
+        field: String,
+        reason: String,
+    },
+
     TextTooLong {
         doc_id: String,
         field: String,

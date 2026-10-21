@@ -2,7 +2,7 @@ use crate::utils::ProjectTestContext;
 use std::collections::HashMap;
 use topk_rs::proto::v1::{
     control::{Collection, FieldIndex, FieldSpec},
-    data::Document,
+    data::{Document, Value},
 };
 use topk_rs::{doc, schema};
 
@@ -37,6 +37,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
     schema!(
         "title" => FieldSpec::text(true).with_index(FieldIndex::semantic()),
         "summary" => FieldSpec::text(false).with_index(FieldIndex::semantic()),
+        "image" => FieldSpec::image(false).with_index(FieldIndex::semantic()),
     )
 }
 
@@ -48,12 +49,14 @@ pub fn docs() -> Vec<Document> {
             "title" => "To Kill a Mockingbird",
             "published_year" => 1960 as u32,
             "summary" => "A young girl confronts racial injustice in the Deep South through the eyes of her lawyer father.",
+            "image" => Value::jpeg(include_bytes!("./../../../../assets/test/img/cat.jpg").as_slice()),
         ),
         doc!(
             "_id" => "1984",
             "title" => "1984",
             "published_year" => 1949 as u32,
             "summary" => "A totalitarian regime uses surveillance and mind control to oppress its citizens.",
+            "image" => Value::png(include_bytes!("./../../../../assets/test/img/form.png").as_slice()),
         ),
         doc!(
             "_id" => "pride",
@@ -66,6 +69,7 @@ pub fn docs() -> Vec<Document> {
             "title" => "The Great Gatsby",
             "published_year" => 1925 as u32,
             "summary" => "A mysterious millionaire navigates love and wealth in the Roaring Twenties.",
+            "image" => Value::jpeg(include_bytes!("./../../../../assets/test/img/skier.jpg").as_slice()),
         ),
         doc!(
             "_id" => "catcher",
@@ -84,6 +88,7 @@ pub fn docs() -> Vec<Document> {
             "title" => "The Hobbit",
             "published_year" => 1937 as u32,
             "summary" => "A reluctant hobbit embarks on a quest to help a group of dwarves reclaim their mountain home.",
+            "image" => Value::jpeg(include_bytes!("./../../../../assets/test/img/trafficjam.jpg").as_slice()),
         ),
         doc!(
             "_id" => "harry",
@@ -102,6 +107,7 @@ pub fn docs() -> Vec<Document> {
             "title" => "The Alchemist",
             "published_year" => 1988 as u32,
             "summary" => "A shepherd boy journeys to fulfill his destiny and discover the meaning of life.",
+            "image" => Value::jpeg(include_bytes!("./../../../../assets/test/img/skier.jpg").as_slice()),
         ),
     ]
 }

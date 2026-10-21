@@ -129,3 +129,25 @@ async fn test_semantic_index_query_multiple_fields(ctx: &mut ProjectTestContext)
 
     assert_eq!(result.len(), 5);
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_semantic_index_query_image_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::semantic::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("image_sim", fns::semantic_similarity("image", "doggo"))])
+                .sort((field("image_sim"), SortOrder::Desc))
+                .limit(2),
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(result.len(), 2);
+}

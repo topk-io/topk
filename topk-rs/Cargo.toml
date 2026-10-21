@@ -1,6 +1,6 @@
 [package]
 name = "topk-rs"
-version = "0.15.0"
+version = "0.16.0"
 edition = "2021"
 description = "TopK Rust SDK"
 license = "MIT"
@@ -39,6 +39,7 @@ futures = { version = "0.3" }
 infer = "0.16"
 mime_guess = "2.0.5"
 chrono = { version = "0.4.35" }
+base64 = { version = "0.23.1" }
 
 [dev-dependencies]
 test-context = { version = "0.3.0" }

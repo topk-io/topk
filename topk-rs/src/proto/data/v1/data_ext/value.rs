@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
 use chrono::{DateTime, TimeZone, Utc};
@@ -6,7 +7,8 @@ use std::collections::HashMap;
 
 use crate::proto::data::v1::{
     data_ext::{IntoListValues, IntoMatrixValues, IntoSparseValues, IntoTimestamp},
-    list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
+    image, list, matrix, sparse_vector, value, vector, Image, List, Matrix, Null, SparseVector,
+    Struct, Value,
 };
 
 impl Value {
@@ -327,6 +329,24 @@ impl Value {
             _ => None,
         }
     }
+
+    // Image
+
+    pub fn png(data: impl Into<Bytes>) -> Self {
+        Value {
+            value: Some(value::Value::Image(Image {
+                data: Some(image::Data::Png(data.into())),
+            })),
+        }
+    }
+
+    pub fn jpeg(data: impl Into<Bytes>) -> Self {
+        Value {
+            value: Some(value::Value::Image(Image {
+                data: Some(image::Data::Jpeg(data.into())),
+            })),
+        }
+    }
 }
 
 impl value::Value {
@@ -386,6 +406,11 @@ impl value::Value {
                 None => "null_matrix".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
+            value::Value::Image(v) => match &v.data {
+                Some(image::Data::Jpeg(_)) => "image<jpeg>".to_string(),
+                Some(image::Data::Png(_)) => "image<png>".to_string(),
+                None => "null_image".to_string(),
+            },
         }
     }
 }
@@ -823,10 +848,67 @@ impl sparse_vector::U8Values {
     }
 }
 
+impl image::Data {
+    /// Encode the image data as a base64 URI.
+    pub fn as_base64_uri(&self) -> String {
+        let mut output = String::new();
+        match self {
+            Self::Jpeg(data) => {
+                output.push_str("data:image/jpeg;base64,");
+                BASE64_STANDARD.encode_string(data, &mut output);
+            }
+            Self::Png(data) => {
+                output.push_str("data:image/png;base64,");
+                BASE64_STANDARD.encode_string(data, &mut output);
+            }
+        }
+        output
+    }
+}
+
+impl Into<String> for image::Data {
+    fn into(self) -> String {
+        self.as_base64_uri()
+    }
+}
+
+impl TryFrom<String> for image::Data {
+    type Error = crate::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        // Try JPEG
+        if let Some(jpeg) = value.strip_prefix("data:image/jpeg;base64,") {
+            let data = BASE64_STANDARD.decode(jpeg).map_err(|_| {
+                crate::Error::InvalidArgument(
+                    "Cannot parse provided string as JPEG image data".into(),
+                )
+            })?;
+
+            return Ok(Self::Jpeg(data.into()));
+        }
+
+        // Try PNG
+        if let Some(png) = value.strip_prefix("data:image/png;base64,") {
+            let data = BASE64_STANDARD.decode(png).map_err(|_| {
+                crate::Error::InvalidArgument(
+                    "Cannot parse provided string as PNG image data".into(),
+                )
+            })?;
+
+            return Ok(Self::Png(data.into()));
+        }
+
+        // Unsupported format
+        Err(crate::Error::InvalidArgument(
+            "Cannot parse provided string as image data".into(),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use prost::Message;
-    use rand::Rng;
+    use rand::{Rng, RngCore};
 
     use super::*;
 
@@ -854,6 +936,26 @@ mod tests {
                 }
                 _ => panic!("Expected F16 values"),
             }
+        }
+    }
+
+    #[test]
+    fn fuzz_image_base64_roundtrip() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let size = rng.gen_range(128..512);
+            let mut data = vec![0u8; size];
+            rng.fill_bytes(&mut data);
+
+            let data = match rng.gen_range(0..=1) {
+                0 => image::Data::Jpeg(data.into()),
+                1 => image::Data::Png(data.into()),
+                _ => unreachable!(),
+            };
+
+            let b64 = data.as_base64_uri();
+            let decoded = image::Data::try_from(b64).unwrap();
+            assert_eq!(data, decoded);
         }
     }
 }

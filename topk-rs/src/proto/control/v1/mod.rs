@@ -46,6 +46,8 @@ impl field_type::DataType {
             },
             // Struct
             field_type::DataType::Struct(..) => "struct".to_string(),
+            // Image
+            field_type::DataType::Image(..) => "image".to_string(),
         }
     }
 }

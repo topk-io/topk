@@ -41,6 +41,12 @@ impl FieldType {
         }
     }
 
+    pub fn image() -> Self {
+        FieldType {
+            data_type: Some(field_type::DataType::Image(FieldTypeImage {})),
+        }
+    }
+
     pub fn list(value_type: ListValueType) -> Self {
         FieldType {
             data_type: Some(field_type::DataType::List(FieldTypeList {

@@ -1,6 +1,6 @@
 {
   "name": "topk-js",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "packageManager": "yarn@1.22.22",
   "napi": {
     "binaryName": "topk-js",
