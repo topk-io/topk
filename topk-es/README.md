@@ -1,0 +1,360 @@
+# topk-es
+
+TopK exposes an Elasticsearch-compatible HTTP endpoint. Official Elasticsearch clients
+connect to it unchanged — same URLs, same request bodies, same response shapes — so you can
+move an existing application to TopK without rewriting your query layer.
+
+## Documentation
+
+The full documentation can be found at [docs.topk.io](https://docs.topk.io).
+
+## Prerequisites
+
+- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
+- **Region** — see [docs.topk.io/regions](https://docs.topk.io/regions) for available regions.
+
+## Setup
+
+The endpoint is `https://<region>.es.<host>`, where `<host>` is `topk.io`:
+
+```
+https://<region>.es.topk.io
+```
+
+Authenticate with your TopK API key as an Elasticsearch API key. Replace `<region>` with
+your region name and `<api-key>` with your API key — for example
+`https://aws-us-east-1-elastica.es.topk.io`.
+
+```bash
+curl https://<region>.es.topk.io/books/_search \
+  -H "Authorization: ApiKey <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{ "query": { "match": { "title": "mockingbird" } } }'
+```
+
+> [!TIP]
+> See [available regions](https://docs.topk.io/regions) and get your [API key](https://console.topk.io/api-key).
+
+Any official Elasticsearch client works. For example, in Python:
+
+```python
+from elasticsearch import Elasticsearch
+
+es = Elasticsearch(
+    "https://<region>.es.topk.io",
+    api_key="<api-key>",
+)
+
+es.search(index="books", body={"query": {"match": {"title": "mockingbird"}}})
+```
+
+## Quick Start
+
+Create an index:
+
+```json
+PUT /books
+{
+  "mappings": {
+    "properties": {
+      "title":          { "type": "text" },
+      "author":         { "type": "keyword" },
+      "published_year": { "type": "integer" },
+      "rating":         { "type": "float" },
+      "in_print":       { "type": "boolean" },
+      "embedding":      { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+    }
+  }
+}
+```
+
+Index documents:
+
+```json
+POST /books/_bulk
+{ "index": { "_id": "mockingbird" } }
+{ "title": "To Kill a Mockingbird", "author": "Lee", "published_year": 1960, "rating": 4.3, "in_print": true, "embedding": [1.0, 0.0, 0.0, 0.0] }
+{ "index": { "_id": "gatsby" } }
+{ "title": "The Great Gatsby", "author": "Fitzgerald", "published_year": 1925, "rating": 3.9, "in_print": true, "embedding": [0.9, 0.1, 0.0, 0.0] }
+```
+
+Search:
+
+```json
+POST /books/_search
+{
+  "query": {
+    "bool": {
+      "must":   [{ "match": { "title": "mockingbird" } }],
+      "filter": [{ "range": { "published_year": { "gte": 1950 } } }]
+    }
+  },
+  "size": 10
+}
+```
+
+## Endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /` | Cluster info. Returns the `x-elastic-product` header official clients expect. |
+| `PUT /<index>` | Create an index with mappings. |
+| `GET /<index>` | Read an index's mappings and settings. |
+| `HEAD /<index>` | Check whether an index exists. |
+| `DELETE /<index>` | Delete an index. |
+| `GET /<index>/_mapping` | Read the mapping for an index. |
+| `POST /<index>/_search` | Search documents. |
+| `POST /_msearch`, `POST /<index>/_msearch` | Run multiple searches in one request. |
+| `POST /<index>/_count` | Count documents matching a query. |
+| `PUT /<index>/_doc/<id>` | Index a single document. Returns `201`. |
+| `GET /<index>/_doc/<id>` | Get a document by id. |
+| `GET /<index>/_source/<id>` | Get just the `_source` of a document. |
+| `DELETE /<index>/_doc/<id>` | Delete a document by id. |
+| `POST /_mget`, `POST /<index>/_mget` | Get multiple documents by id. |
+| `POST /<index>/_bulk` | Bulk `index`, `create`, `update`, and `delete`. |
+| `GET /<index>/_field_caps` | Field capabilities for an index. |
+| `GET /_resolve/index/<expr>` | Resolve index names. |
+| `POST /<index>/_refresh` | Make pending writes searchable. |
+
+Index names must start with a letter or digit and contain only letters, digits, underscores,
+dashes, and dots, up to 255 characters. Document ids must be non-empty and at most 512 bytes.
+
+### Making writes visible
+
+Writes become searchable asynchronously. Either call `POST /<index>/_refresh`, or pass the
+`refresh` query parameter on an index, delete, or bulk request to control when the call
+returns:
+
+| Value | Behaviour |
+| --- | --- |
+| `false` (default) | Return immediately. |
+| `true` | Wait for the write to become searchable. |
+| `wait_for` | Wait for the write to become searchable. |
+
+```bash
+curl -X POST "https://<region>.es.topk.io/books/_bulk?refresh=wait_for" ...
+```
+
+## Query DSL
+
+The following query clauses are supported inside `query`:
+
+| Clause | Notes |
+| --- | --- |
+| `match_all` | Matches every document. Accepts `boost`. |
+| `match` | Full-text match. Accepts `query`, `operator` (`or` / `and`), `boost`. |
+| `multi_match` | Match across several fields. |
+| `term` | Exact term match. |
+| `terms` | Match any of a list of terms. |
+| `ids` | Match documents by `_id`. |
+| `prefix` | Prefix match on a string field. |
+| `regexp` | Regular expression match. |
+| `range` | `gt`, `gte`, `lt`, `lte` bounds. |
+| `exists` | Field is present and non-null. |
+| `bool` | Combine clauses with `must`, `should`, `must_not`, `filter`. Accepts `boost`. |
+| `semantic` | **TopK extension.** Managed semantic search — see below. |
+
+## Search body
+
+| Field | Description |
+| --- | --- |
+| `query` | Query DSL clause. |
+| `size` | Number of hits to return. Defaults to `10`. |
+| `from` | Offset. `from + size` must be 10,000 or less. |
+| `sort` | Sort by field, or by the `_score` pseudo-field. At most 8 sort fields. |
+| `knn` | Vector search. One clause or an array of clauses. |
+| `rank` | Reciprocal rank fusion across result sets. |
+| `track_scores` | Return scores even when sorting by a field. |
+| `aggs` | Aggregations (alias: `aggregations`). |
+| `_source` | Field filtering. Also accepted as a query parameter, which takes precedence. |
+
+### Vector search
+
+`knn` takes `field`, `query_vector`, and `k`, plus optional `filter`, `num_candidates`,
+`boost`, and `similarity`.
+
+```json
+POST /books/_search
+{
+  "knn": {
+    "field": "embedding",
+    "query_vector": [1.0, 0.0, 0.0, 0.0],
+    "k": 10,
+    "filter": [{ "term": { "in_print": true } }]
+  }
+}
+```
+
+### Hybrid search
+
+Pass `knn` and `query` together with a `rank` clause to fuse the two result sets with
+reciprocal rank fusion. `rank_constant` defaults to `60`.
+
+```json
+POST /books/_search
+{
+  "query": { "match": { "title": "mockingbird" } },
+  "knn": {
+    "field": "embedding",
+    "query_vector": [1.0, 0.0, 0.0, 0.0],
+    "k": 10
+  },
+  "rank": { "rrf": { "rank_constant": 60, "rank_window_size": 100 } }
+}
+```
+
+Without a `rank` clause, scores from `query` and `knn` are summed.
+
+### Semantic search
+
+`semantic` is a TopK extension to the Elasticsearch DSL. Point it at a `semantic_text`
+field and TopK runs embedding and retrieval for you — there is no inference pipeline to
+configure.
+
+```json
+POST /articles/_search
+{
+  "query": { "semantic": { "field": "content", "query": "cats" } },
+  "size": 10
+}
+```
+
+## Aggregations
+
+| Aggregation | Type |
+| --- | --- |
+| `terms` | Bucket. Accepts `field` and `size`, and supports sub-aggregations. |
+| `sum` | Metric. |
+| `avg` | Metric. |
+| `min` | Metric. |
+| `max` | Metric. |
+| `value_count` | Metric. |
+
+```json
+POST /books/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_author": {
+      "terms": { "field": "author", "size": 10 },
+      "aggs": { "avg_rating": { "avg": { "field": "rating" } } }
+    }
+  }
+}
+```
+
+## Mapping types
+
+| Type | Aliases | Options |
+| --- | --- | --- |
+| `text` | | `index`, `fields` |
+| `keyword` | | `index`, `fields`, `ignore_above` |
+| `integer` | `long`, `short`, `byte` | `index` |
+| `float` | `double`, `half_float` | `index` |
+| `boolean` | | `index` |
+| `object` | `nested` | `properties` |
+| `dense_vector` | | `dims`, `similarity`, `element_type`, `index` |
+| `rank_vectors` | `matrix` | `dims`, `element_type`, `quantization`, `top_k`, `width` |
+| `semantic_text` | | — |
+
+`dense_vector` accepts `similarity` of `cosine`, `dot_product`, or `l2_norm`, and
+`element_type` of `float` (default), `byte`, or `bit`. For `element_type: "bit"`, `dims`
+must be a multiple of 8 and `similarity` must be `l2_norm` or omitted.
+
+`rank_vectors` maps to TopK multi-vector retrieval. It accepts `element_type` of `float`
+(default) or `byte`, and `quantization` of `scalar`, `binary_1bit`, or `binary_2bit`.
+
+## Differences from Elasticsearch
+
+Read this section before migrating an existing index.
+
+> [!WARNING]
+> **`nested` is treated as `object`.** A `nested` mapping is accepted rather than rejected,
+> but the field is indexed as a plain object. Queries that rely on nested document
+> semantics will return different results instead of an error.
+
+**`hits.total` is a lower bound on hybrid searches.** A search served by a single
+retriever — keyword-only or vector-only — reports `"relation": "eq"` with an exact count. A
+search combining retrievers (for example `query` plus `knn`) reports `"relation": "gte"`,
+and the value is a floor rather than a total. Check `relation` before displaying a count.
+Elasticsearch has the same field with the same meaning but flips to `gte` under different
+conditions, so code that assumed `eq` can start under-reporting after a migration.
+
+**Deleting a missing document succeeds.** `DELETE /<index>/_doc/<id>` returns `200` with
+`"result": "deleted"` whether or not the document existed. Elasticsearch returns `404` with
+`"result": "not_found"`, so code that branches on that will not see the missing case.
+
+**There is no `date` mapping type.** TopK supports timestamps through its other APIs, but
+the Elasticsearch layer has no date mapping. Map date fields as `keyword` (for exact
+matching and terms aggregations) or `integer` (for range queries on epoch values).
+
+**Scores are `null` when sorting by a field.** Matching Elasticsearch behaviour, set
+`track_scores: true` to compute scores anyway. Sorting on the `_score` pseudo-field also
+keeps them.
+
+## Errors
+
+Handled errors use the Elasticsearch envelope, so client libraries surface them as they
+normally would — `error.type`, `error.reason`, `error.root_cause`, and a top-level `status`.
+
+```json
+{
+  "error": {
+    "root_cause": [{ "type": "index_not_found_exception", "reason": "..." }],
+    "type": "index_not_found_exception",
+    "reason": "..."
+  },
+  "status": 404
+}
+```
+
+| Status | `error.type` | Cause |
+| --- | --- | --- |
+| `400` | `parsing_exception` | The query body could not be parsed. |
+| `400` | `illegal_argument_exception` | A supported field was given an unsupported value. |
+| `400` | `action_request_validation_exception` | The request was structurally invalid — for example an unknown mapping type. |
+| `400` | `invalid_index_name_exception` | Index name violates the naming rules. |
+| `400` | `invalid_document_id_exception` | Document id is empty or over 512 bytes. |
+| `400` | `resource_already_exists_exception` | The index already exists. |
+| `400` | `json_parse_exception` | The body was not valid JSON, or contained an unknown field. |
+| `400` | `no_handler_found_exception` | No handler matches that route. |
+| `404` | `index_not_found_exception` | The index does not exist. |
+| `404` | `not_found` | The document does not exist. |
+| `404` | `resource_not_found_exception` | The document was not found when reading `_source`. |
+| `406` | `media_type_header_exception` | Unsupported `Content-Type` or `Accept`. |
+| `410` | `api_not_available_exception` | A real Elasticsearch API that is not available in serverless mode, such as `/_cluster/health`. |
+| `500` | `internal_server_error` | Unexpected server error. |
+
+Two responses do **not** use this envelope:
+
+- A **request to an unrouted path** returns `400` with a bare
+  `{"error": "no handler found for uri [...] and method [...]"}` — no `type`, `root_cause`,
+  or `status` field.
+- A **`GET` for a missing document** returns `404` with the normal document shape,
+  `{"_index": ..., "_id": ..., "found": false}`, rather than an error.
+
+Pass `ignore_unavailable=true` to turn a missing index into an empty result instead of a
+`404`.
+
+### Not supported
+
+Nothing here is silently ignored. Unsupported fields in a search body are rejected with
+`400 json_parse_exception`, which lists the fields that are accepted; unrouted endpoints
+return `400` with the bare `no handler found for uri` body:
+
+- Scroll and point-in-time search
+- `_update_by_query` and `_delete_by_query`
+- Highlighting and suggesters
+- `collapse` and `script_fields`
+- `date_histogram` and other bucket aggregations beyond `terms`
+
+## Limits
+
+| Limit | Value |
+| --- | --- |
+| `from + size` | 10,000 |
+| Sort fields per search | 8 |
+| Index name length | 255 characters |
+| Document id length | 512 bytes |
+
+For collection-level limits, see [docs.topk.io/limits](https://docs.topk.io/limits).

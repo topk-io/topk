@@ -17,6 +17,20 @@ Currently available public regions:
 | AWS | eu-central-1 | 🇪🇺 Frankfurt | `aws-eu-central-1-monstera` |
 | GCP | us-east4 | 🇺🇸 N. Virginia | `gcp-us-east4-aloe` |
 
+## Endpoints
+
+Each API is reached at a hostname built from your region name:
+
+| API | Hostname | Example |
+|-----|----------|---------|
+| Collection and Management API | `<region>.api.topk.io` | `aws-us-east-1-elastica.api.topk.io` |
+| [SQL](/sdk/topk-sql/overview) | `<region>.sql.topk.io` | `aws-us-east-1-elastica.sql.topk.io` |
+| [Elasticsearch](/sdk/topk-es/overview) | `<region>.es.topk.io` | `aws-us-east-1-elastica.es.topk.io` |
+
+The SDKs and the CLI build the Collection API hostname for you — pass the region name and
+they handle the rest. The SQL and Elasticsearch endpoints are addressed directly by their
+hostname.
+
 <Info>
   To deploy TopK in your own VPC, please [contact us](https://topk.io/contact).
 </Info>

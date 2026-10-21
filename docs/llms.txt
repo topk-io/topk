@@ -36,16 +36,18 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 
 - [CLI](https://docs.topk.io/cli): The command-line interface for TopK.
 
-## Python SDK Reference
+## Python SDK
 
+- [Python SDK](https://docs.topk.io/sdk/topk-py/overview): Get started with TopK using Python SDK.
 - [topk_sdk](https://docs.topk.io/sdk/topk-py)
 - [topk_sdk.data](https://docs.topk.io/sdk/topk-py/data)
 - [topk_sdk.error](https://docs.topk.io/sdk/topk-py/error)
 - [topk_sdk.query](https://docs.topk.io/sdk/topk-py/query)
 - [topk_sdk.schema](https://docs.topk.io/sdk/topk-py/schema)
 
-## JavaScript SDK Reference
+## JavaScript SDK
 
+- [JavaScript SDK](https://docs.topk.io/sdk/topk-js/overview): Get started with TopK using JavaScript SDK.
 - [topk-js](https://docs.topk.io/sdk/topk-js)
 - [topk-js/data](https://docs.topk.io/sdk/topk-js/Namespace.data)
 - [topk-js/query_fn](https://docs.topk.io/sdk/topk-js/Namespace.query_fn)
@@ -56,3 +58,11 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 ## SQL
 
 - [Overview](https://docs.topk.io/sdk/topk-sql/overview): Connect any PostgreSQL client to TopK and use SQL to create collections, insert data, and run search.
+
+## Elasticsearch
+
+- [Elasticsearch API](https://docs.topk.io/sdk/topk-es/overview): Point any Elasticsearch client at TopK and keep your existing queries, mappings, and tooling.
+
+## Rust SDK
+
+- [Rust SDK](https://github.com/topk-io/topk/tree/main/topk-rs): Get started with TopK using Rust SDK.
