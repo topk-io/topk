@@ -1,6 +1,8 @@
 # TopK Documentation
 
-> Hybrid search, multi-vector search, document parsing, question answering, and more in one API.
+> Hybrid retrieval engine: semantic, keyword (BM25), dense, sparse, and multi-vector search with filtering, custom ranking, and managed inference in one API.
+
+Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill for correct API usage and the common mistakes to avoid: `npx skills add topk-io/topk --skill topk`.
 
 ## Overview
 

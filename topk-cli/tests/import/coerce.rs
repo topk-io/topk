@@ -1,5 +1,5 @@
 use rstest::rstest;
-use topk::import::{build_document, Error, Spec, Target};
+use topk::import::{build_row, Error, Spec, Target};
 use topk_rs::proto::v1::data::Value;
 
 use crate::common::{json, refused, spec_toml};
@@ -15,10 +15,8 @@ fn coerce(field: &str, value: Value) -> Result<Value, Error> {
         ("_id".to_string(), Value::string("1")),
         ("v".to_string(), value),
     ];
-    Ok(build_document(&target, record)?
-        .fields
-        .remove("v")
-        .expect("field v"))
+    let (_, mut doc) = build_row(&target, record)?;
+    Ok(doc.fields.remove("v").expect("field v"))
 }
 
 #[track_caller]
@@ -34,7 +32,7 @@ fn fields_share_columns_and_the_id() {
          a = { from = \"v\", type = \"int\" }\n\
          b = { from = \"v\", type = \"float\" }",
     );
-    let doc = build_document(
+    let (_, doc) = build_row(
         &target,
         vec![
             ("_id".to_string(), Value::string("1")),
@@ -170,7 +168,7 @@ fn imprecise_double_id_is_refused() {
         ),
         ("v".to_string(), Value::i64(1)),
     ];
-    let message = refused(build_document(&target, record));
+    let message = refused(build_row(&target, record));
     assert!(message.contains("lost integer precision"), "got: {message}");
 }
 
@@ -337,7 +335,7 @@ fn documents(
         .into_iter()
         .map(|(key, value)| (key.to_string(), value))
         .collect();
-    let doc = build_document(&target(fields), record).expect("document");
+    let (_, doc) = build_row(&target(fields), record).expect("document");
     assert_eq!(serde_json::Value::Object(json(&doc)), expected);
 }
 
@@ -348,7 +346,7 @@ fn custom_id_column() {
         ..Default::default()
     };
     let record = vec![("sku".to_string(), Value::string("A-1"))];
-    let doc = build_document(&target, record).expect("document");
+    let (_, doc) = build_row(&target, record).expect("document");
     assert_eq!(doc.fields["_id"], Value::string("A-1"));
     assert!(!doc.fields.contains_key("sku"));
 }
@@ -357,7 +355,7 @@ fn custom_id_column() {
 fn required_field_missing() {
     let target = target(r#"title = { type = "text", required = true }"#);
     let record = vec![("_id".to_string(), Value::string("1"))];
-    let message = refused(build_document(&target, record));
+    let message = refused(build_row(&target, record));
     assert!(
         message.contains("required field is missing"),
         "got: {message}"
@@ -371,7 +369,7 @@ fn oversized_document() {
         ("_id".to_string(), Value::string("1")),
         ("body".to_string(), Value::string("x".repeat(200 * 1024))),
     ];
-    let message = refused(build_document(&oversized, record));
+    let message = refused(build_row(&oversized, record));
     assert!(
         message.contains("exceeds the 200.0 KB document limit"),
         "got: {message}"
@@ -383,7 +381,7 @@ fn oversized_document() {
         ("_id".to_string(), Value::string("1")),
         ("body".to_string(), Value::string("x".repeat(200 * 1024))),
     ];
-    let doc = build_document(&truncated, record).expect("truncated document fits");
+    let (_, doc) = build_row(&truncated, record).expect("truncated document fits");
     assert_eq!(doc.fields["body"], Value::string("x".repeat(100)));
 }
 
@@ -393,6 +391,6 @@ fn oversized_document() {
 #[case::absent(vec![("title".to_string(), Value::string("Dune")), ("author".to_string(), Value::string("Herbert"))], "which has: title, author")]
 fn unusable_ids(#[case] record: Vec<(String, Value)>, #[case] fragment: &str) {
     let target = target(r#"title = { type = "text" }"#);
-    let message = refused(build_document(&target, record));
+    let message = refused(build_row(&target, record));
     assert!(message.contains(fragment), "got: {message}");
 }

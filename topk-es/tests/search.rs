@@ -114,6 +114,147 @@ async fn setup_bool_scoring_docs(scope: &TestScope) {
     }),
     vec!["moby", "pride"]
 )]
+#[case::bool_msm_two_of_three(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "match": { "title": "hobbit" } }
+            ],
+            "minimum_should_match": 2
+        }
+    }),
+    vec!["harry", "hobbit", "lotr"]
+)]
+#[case::bool_msm_string_count(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "match": { "title": "hobbit" } }
+            ],
+            "minimum_should_match": " 2 "
+        }
+    }),
+    vec!["harry", "hobbit", "lotr"]
+)]
+#[case::bool_msm_percent_truncates(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "match": { "title": "hobbit" } }
+            ],
+            "minimum_should_match": "66%"
+        }
+    }),
+    vec!["alchemist", "catcher", "harry", "hobbit", "lotr", "mockingbird"]
+)]
+#[case::bool_msm_percent(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "match": { "title": "hobbit" } }
+            ],
+            "minimum_should_match": "67%"
+        }
+    }),
+    vec!["harry", "hobbit", "lotr"]
+)]
+#[case::bool_msm_negative_percent(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "match": { "title": "hobbit" } }
+            ],
+            "minimum_should_match": "-34%"
+        }
+    }),
+    vec!["harry", "hobbit", "lotr"]
+)]
+#[case::bool_msm_negative_percent_truncates_to_zero(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "range": { "published_year": { "gte": 1990 } } }
+            ],
+            "minimum_should_match": "-25%"
+        }
+    }),
+    vec!["harry"]
+)]
+#[case::bool_msm_with_required(
+    json!({
+        "bool": {
+            "must": [{ "range": { "published_year": { "gte": 1900 } } }],
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } }
+            ],
+            "minimum_should_match": 1
+        }
+    }),
+    vec!["alchemist", "catcher", "harry", "hobbit", "lotr", "mockingbird"]
+)]
+#[case::bool_msm_over_clause_count(
+    json!({
+        "bool": {
+            "should": [{ "term": { "genre": "fantasy" } }],
+            "minimum_should_match": 2
+        }
+    }),
+    vec![]
+)]
+#[case::bool_msm_zero_without_required(
+    json!({
+        "bool": {
+            "should": [{ "term": { "genre": "fantasy" } }],
+            "minimum_should_match": 0
+        }
+    }),
+    vec!["harry", "hobbit", "lotr"]
+)]
+#[case::bool_msm_zero_with_filter(
+    json!({
+        "bool": {
+            "filter": [{ "range": { "published_year": { "gte": 1950 } } }],
+            "should": [{ "term": { "genre": "fantasy" } }],
+            "minimum_should_match": 0
+        }
+    }),
+    vec!["alchemist", "catcher", "harry", "lotr", "mockingbird"]
+)]
+#[case::bool_msm_negative_below_zero(
+    json!({
+        "bool": {
+            "should": [{ "term": { "genre": "fantasy" } }],
+            "minimum_should_match": -5
+        }
+    }),
+    vec!["harry", "hobbit", "lotr"]
+)]
+#[case::bool_msm_negative(
+    json!({
+        "bool": {
+            "should": [
+                { "term": { "genre": "fantasy" } },
+                { "range": { "published_year": { "gte": 1950 } } },
+                { "range": { "published_year": { "gte": 1990 } } }
+            ],
+            "minimum_should_match": -1
+        }
+    }),
+    vec!["harry", "lotr"]
+)]
 async fn test_query_dsl(books: &BooksContext, #[case] query: Value, #[case] expected: Vec<&str>) {
     assert_eq!(books.search_ids(query).await, expected);
 }
@@ -125,11 +266,11 @@ async fn test_query_dsl(books: &BooksContext, #[case] query: Value, #[case] expe
 #[case::regexp_flags(
     json!({ "query": { "regexp": { "title": { "value": "hob.*", "flags": "ALL" } } } })
 )]
-#[case::bool_minimum_should_match(json!({
+#[case::bool_minimum_should_match_combination(json!({
     "query": {
         "bool": {
             "should": [{ "term": { "genre": "fantasy" } }],
-            "minimum_should_match": 1
+            "minimum_should_match": "2<75%"
         }
     }
 }))]
@@ -148,6 +289,30 @@ async fn dev_query_dsl_rejected(scope: &TestScope, #[case] body: Value) {
 
     let err = scope.search(body).await.unwrap_err();
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[rstest_ctx(TestScope)]
+#[case::dev_sort_limit(
+    json!({
+        "query": { "match_all": {} },
+        "sort": [
+            { "a": "asc" }, { "b": "asc" }, { "c": "asc" }, { "d": "asc" },
+            { "e": "asc" }, { "f": "asc" }, { "g": "asc" }, { "h": "asc" },
+            { "i": "asc" }
+        ]
+    }),
+    "illegal_argument_exception"
+)]
+#[case::dev_unknown_search_field(
+    json!({ "query": { "match_all": {} }, "highlight": {} }),
+    "json_parse_exception"
+)]
+async fn dev_rejection_error_type(scope: &TestScope, #[case] body: Value, #[case] expected: &str) {
+    scope.create().await;
+
+    let err = scope.search(body).await.unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+    assert_eq!(err.error_type(), expected);
 }
 
 // ES coerces numeric ids to their string form, so `ids` accepts them too.

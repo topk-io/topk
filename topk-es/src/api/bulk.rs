@@ -4,7 +4,7 @@ use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 
 use super::ndjson::{NdjsonBody, NdjsonHeader, NdjsonLines};
-use super::{DocBody, DocId, IndexName, WriteBody, WriteDoc, WriteRequest, WriteResult};
+use super::{parse_lsn, DocBody, DocId, IndexName, WriteBody, WriteDoc, WriteRequest, WriteResult};
 use crate::{Error, ErrorBody};
 
 #[derive(Clone, Copy)]
@@ -22,6 +22,14 @@ impl WriteKind {
             WriteKind::Create => "create",
             WriteKind::Update => "update",
             WriteKind::Delete => "delete",
+        }
+    }
+
+    fn result(self) -> WriteResult {
+        match self {
+            WriteKind::Index | WriteKind::Create => WriteResult::Created,
+            WriteKind::Update => WriteResult::Updated,
+            WriteKind::Delete => WriteResult::Deleted,
         }
     }
 }
@@ -189,18 +197,22 @@ pub enum BulkItemResult {
     },
 }
 
-impl From<(IndexName, DocId, Result<WriteResult, Error>)> for BulkItemResult {
-    fn from((index, id, result): (IndexName, DocId, Result<WriteResult, Error>)) -> Self {
-        match result {
-            Ok(result) => BulkItemResult::Success {
-                status: result.status_code().as_u16(),
-                body: WriteBody::new(index, id, result),
-            },
+impl From<(BulkRef, Result<String, Error>)> for BulkItemResult {
+    fn from((line, result): (BulkRef, Result<String, Error>)) -> Self {
+        match result.and_then(|lsn| parse_lsn(&lsn)) {
+            Ok(seq_no) => {
+                let result = line.kind.result();
+
+                BulkItemResult::Success {
+                    status: result.status_code().as_u16(),
+                    body: WriteBody::new(line.index, line.id, result, seq_no),
+                }
+            }
             Err(error) => {
                 let (status, error) = error.parts();
                 BulkItemResult::Error {
-                    index,
-                    id,
+                    index: line.index,
+                    id: line.id,
                     status,
                     error,
                 }
@@ -220,16 +232,9 @@ impl BulkResponse {
     pub fn new(results: Vec<(BulkRef, Result<String, Error>)>) -> Self {
         let items: Vec<BulkItem> = results
             .into_iter()
-            .map(|(line, result)| {
-                let result = result.map(|_| match line.kind {
-                    WriteKind::Index | WriteKind::Create => WriteResult::Created,
-                    WriteKind::Update => WriteResult::Updated,
-                    WriteKind::Delete => WriteResult::Deleted,
-                });
-                BulkItem {
-                    kind: line.kind,
-                    result: (line.index, line.id, result).into(),
-                }
+            .map(|(line, result)| BulkItem {
+                kind: line.kind,
+                result: (line, result).into(),
             })
             .collect();
 

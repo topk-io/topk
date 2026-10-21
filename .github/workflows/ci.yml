@@ -89,12 +89,15 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
       - name: CLI tests
         run: >-
-          earthly --verbose --allow-privileged --secret TOPK_API_KEY +test-cli
+          earthly --verbose --allow-privileged --secret TOPK_API_KEY
+          --secret TOPK_TEST_USER --secret TOPK_TEST_PASSWORD +test-cli
           --region sunflower --host=topk.dev
           --ACTIONS_RESULTS_URL="$ACTIONS_RESULTS_URL"
           --ACTIONS_RUNTIME_TOKEN="$ACTIONS_RUNTIME_TOKEN"
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+          TOPK_TEST_USER: ${{ secrets.TOPK_TEST_USER }}
+          TOPK_TEST_PASSWORD: ${{ secrets.TOPK_TEST_PASSWORD }}
 
   sql:
     name: Test SQL
@@ -135,6 +138,23 @@ jobs:
         run: earthly --verbose --secret TOPK_API_KEY +test-es --region sunflower --host=topk.dev
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
+  fmt:
+    name: Formatting
+    runs-on: public-amd64
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install earthly
+        run: |
+          sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+
+      - name: Check formatting
+        run: earthly --verbose +fmt
 
   versions:
     name: SDK versions
@@ -179,6 +199,23 @@ jobs:
         run: |
           bun run utils/verify-sdk-docs-sync.ts check
 
+  skills:
+    name: Agent skills
+    runs-on: public-amd64
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+
+      - name: Validate skills against the Agent Skills spec
+        run: |
+          pip install skills-ref==0.1.1
+          for skill in skills/*/; do
+            if [ -f "$skill/SKILL.md" ]; then
+              agentskills validate "$skill"
+            fi
+          done
+
   pre_commit:
     name: pre-commit
     runs-on: public-amd64
@@ -206,7 +243,7 @@ jobs:
 
   verified:
     name: Verified
-    needs: [versions, docs_sync, pre_commit, pinact]
+    needs: [fmt, versions, docs_sync, skills, pre_commit, pinact]
     runs-on: ubuntu-latest
     steps:
       - run: echo verified

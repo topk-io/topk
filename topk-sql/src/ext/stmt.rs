@@ -1,12 +1,12 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    AssignmentTarget, Expr as SqlExpr, FromTable, ObjectName, SelectItem, SetExpr,
-    Statement as SqlStatement, TableObject, Value as SqlValue, visit_expressions, visit_relations,
+    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
+    Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
 use super::{SqlExprExt, TableFactorExt};
-use crate::{Error, Table};
+use crate::{sql_unsupported, Error, Table};
 
 pub trait SqlStatementExt {
     fn projection(&self) -> Option<&[SelectItem]>;
@@ -20,9 +20,6 @@ pub trait SqlStatementExt {
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
     fn assignment_placeholders(&self) -> Vec<(usize, &str)>;
-
-    /// True if any relation in the statement satisfies `pred`.
-    fn any_relation(&self, pred: impl FnMut(&ObjectName) -> bool) -> bool;
 }
 
 impl SqlStatementExt for SqlStatement {
@@ -32,6 +29,9 @@ impl SqlStatementExt for SqlStatement {
                 SetExpr::Select(s) => Some(&s.projection),
                 _ => None,
             },
+            SqlStatement::Insert(i) => i.returning.as_deref(),
+            SqlStatement::Update(u) => u.returning.as_deref(),
+            SqlStatement::Delete(d) => d.returning.as_deref(),
             _ => None,
         }
     }
@@ -49,15 +49,20 @@ impl SqlStatementExt for SqlStatement {
 
     fn table(&self) -> Result<Option<Table>, Error> {
         let name = match self {
-            SqlStatement::Query(q) => match q.body.as_ref() {
-                SetExpr::Select(s) => {
-                    match s.from.first().and_then(|from| from.relation.table_name()) {
-                        Some(name) => name,
-                        None => return Ok(None),
+            SqlStatement::Query(q) => {
+                // a CTE name is not a collection, and reporting it as one resolves it against cps
+                sql_unsupported!(q.with.is_some(), "WITH (common table expressions)");
+
+                match q.body.as_ref() {
+                    SetExpr::Select(s) => {
+                        match s.from.first().and_then(|from| from.relation.table_name()) {
+                            Some(name) => name,
+                            None => return Ok(None),
+                        }
                     }
+                    _ => return Ok(None),
                 }
-                _ => return Ok(None),
-            },
+            }
             SqlStatement::Update(u) => match u.table.relation.table_name() {
                 Some(name) => name,
                 None => return Ok(None),
@@ -101,17 +106,6 @@ impl SqlStatementExt for SqlStatement {
             _ => vec![],
         }
     }
-
-    fn any_relation(&self, mut pred: impl FnMut(&ObjectName) -> bool) -> bool {
-        visit_relations(self, |name| {
-            if pred(name) {
-                ControlFlow::Break(())
-            } else {
-                ControlFlow::Continue(())
-            }
-        })
-        .is_break()
-    }
 }
 
 #[cfg(test)]
@@ -119,7 +113,7 @@ mod tests {
     use rstest::rstest;
 
     use super::SqlStatementExt;
-    use crate::{Error, ObjectNameExt, Table, parse_sql};
+    use crate::{parse_sql, Error, Table};
     use sqlparser::ast::Statement as SqlStatement;
 
     fn parse_one(sql: &str) -> SqlStatement {
@@ -167,23 +161,5 @@ mod tests {
     #[case("SELECT * FROM books", vec![])]
     fn assignment_placeholders(#[case] sql: &str, #[case] expected: Vec<(usize, &str)>) {
         assert_eq!(parse_one(sql).assignment_placeholders(), expected);
-    }
-
-    #[rstest]
-    #[case("SELECT * FROM pg_catalog.pg_class", true)]
-    #[case("SELECT * FROM books", false)]
-    #[case("SELECT * FROM books JOIN information_schema.tables ON true", true)]
-    fn any_relation(#[case] sql: &str, #[case] expected: bool) {
-        assert_eq!(
-            parse_one(sql).any_relation(|name| {
-                name.schema().is_some_and(|s| {
-                    matches!(
-                        s.to_ascii_lowercase().as_str(),
-                        "pg_catalog" | "information_schema"
-                    )
-                })
-            }),
-            expected
-        );
     }
 }

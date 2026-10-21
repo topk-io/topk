@@ -1,15 +1,18 @@
 pub mod es;
-pub mod minio;
 pub mod mongo;
 pub mod mysql;
 pub mod parquet;
 pub mod pg;
+pub mod rustfs;
 pub mod sql;
 pub mod sqlite;
 
 use async_trait::async_trait;
+
 use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
+
+use super::{config, endpoint};
 
 #[async_trait(?Send)]
 pub trait Seed {
@@ -28,7 +31,7 @@ pub async fn discovered(target: Target, url: Option<String>) -> anyhow::Result<T
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let catalog = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+    let catalog = topk::import::Source::connect(&uri, &config(), &endpoint())
         .await?
         .catalog()
         .await?;

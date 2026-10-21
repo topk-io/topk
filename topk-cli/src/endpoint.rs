@@ -1,87 +1,82 @@
-use std::time::Duration;
+use std::fmt;
 
-use anyhow::{Context, Result};
-use topk_rs::client::retry::{BackoffConfig, RetryConfig};
-use topk_rs::{Client, ClientConfig};
+use anyhow::{bail, Context, Result};
+use clap::builder::NonEmptyStringValueParser;
 
-#[derive(clap::Args, Clone, Default)]
-pub struct Endpoint {
-    /// TopK API key (or run `topk login`)
+use crate::config::Config;
+use crate::ProjectId;
+
+#[derive(clap::Args, Clone)]
+pub struct DataEndpoint {
+    /// TopK API key
     #[arg(
         long,
         env = "TOPK_API_KEY",
+        value_parser = NonEmptyStringValueParser::new(),
         global = true,
         hide_env_values = true,
-        help_heading = "Global options"
+        help_heading = "Connection options"
     )]
     pub api_key: Option<String>,
+
+    /// Project to access with your login instead of an API key; defaults to the currently
+    /// selected project
+    #[arg(
+        long,
+        env = "TOPK_PROJECT_ID",
+        conflicts_with = "api_key",
+        global = true,
+        help_heading = "Connection options"
+    )]
+    pub project_id: Option<ProjectId>,
 
     /// Region to read and write; list available regions at https://docs.topk.io/regions
     #[arg(
         long,
         env = "TOPK_REGION",
+        value_parser = NonEmptyStringValueParser::new(),
         global = true,
-        help_heading = "Global options"
+        help_heading = "Connection options"
     )]
     pub region: Option<String>,
-
-    /// API domain; the endpoint is <REGION>.api.<HOST>
-    #[arg(
-        long,
-        env = "TOPK_HOST",
-        default_value = "topk.io",
-        global = true,
-        help_heading = "Global options"
-    )]
-    pub host: String,
-
-    /// Connect over HTTPS (default: true; --https false for a plaintext endpoint)
-    #[arg(
-        long,
-        env = "TOPK_HTTPS",
-        default_value = "true",
-        num_args = 0..=1,
-        default_missing_value = "true",
-        global = true,
-        help_heading = "Global options"
-    )]
-    pub https: bool,
 }
 
-impl Endpoint {
-    /// `--api-key`/`TOPK_API_KEY`, else the saved login. A set-but-empty env
-    /// var (`TOPK_API_KEY=`) reads as unset.
-    pub fn api_key(&self) -> Result<Option<String>> {
-        if let Some(key) = self.api_key.clone().filter(|v| !v.is_empty()) {
-            return Ok(Some(key));
-        }
-        // TODO: remove stub — once `topk login` is SSO, the key comes back
-        // from Auth0, not out of config.toml.
-        Ok(crate::config::load()?.api_key)
+pub enum Credentials {
+    ApiKey(String),
+    Project(ProjectId),
+}
+
+impl DataEndpoint {
+    pub fn region(&self) -> Result<&str> {
+        self.region.as_deref().context(
+            "--region is required (or set TOPK_REGION). \
+             List available regions with `topk region list` at https://docs.topk.io/regions",
+        )
     }
 
-    pub fn client(&self) -> Result<Client> {
-        let api_key = self
-            .api_key()?
-            .context("API key not set. Run `topk login` or set TOPK_API_KEY.")?;
-        let region = self.region.as_deref().filter(|v| !v.is_empty()).context(
-            "--region is required (or set TOPK_REGION). \
-             List available regions at https://docs.topk.io/regions",
-        )?;
-        // A batch tool rides out `SlowDown`: retries never run out, an hour of
-        // continuous throttling fails the request, and `--resume` picks up.
-        Ok(Client::new(
-            ClientConfig::new(&api_key, region)
-                .with_host(&self.host)
-                .with_https(self.https)
-                .with_retry_config(RetryConfig {
-                    max_retries: usize::MAX,
-                    timeout: Duration::from_secs(60 * 60),
-                    backoff: BackoffConfig {
-                        init_backoff: Duration::from_millis(250),
-                        ..BackoffConfig::default()
-                    },
-                }),
-        ))
+    pub fn credentials(&self, config: &Config) -> Result<Credentials> {
+        match (&self.api_key, &self.project_id) {
+            // Clap rejects the combinations; this guards direct construction.
+            (Some(_), Some(_)) => bail!("--project-id cannot be combined with an API key"),
+            (Some(api_key), None) => Ok(Credentials::ApiKey(api_key.clone())),
+            (None, Some(project_id)) => Ok(Credentials::Project(project_id.clone())),
+            (None, None) => match config.defaults()?.project_id {
+                Some(project_id) => Ok(Credentials::Project(project_id)),
+                None => bail!(
+                    "--project-id (or TOPK_PROJECT_ID) or --api-key (or TOPK_API_KEY) is required, \
+                     or select a default project with `topk project select`"
+                ),
+            },
+        }
+    }
+}
+
+impl fmt::Debug for DataEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DataEndpoint")
+            .field("api_key", &self.api_key.as_ref().map(|_| "***"))
+            .field("project_id", &self.project_id)
+            .field("region", &self.region)
+            .finish()
     }
 }

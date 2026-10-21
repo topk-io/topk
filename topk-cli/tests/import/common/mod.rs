@@ -1,20 +1,50 @@
 pub mod seed;
 
+#[path = "../../common/command.rs"]
+mod command;
+
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write as _;
 use std::path::Path;
-use std::process::Output;
 
+use clap::{Args, Command, FromArgMatches};
 use futures::StreamExt;
 use indexmap::IndexMap;
 use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
+use uuid::Uuid;
+
+pub use command::TestCommand;
+use topk::auth::OAuthConfig;
+use topk::config::Config;
+use topk::endpoint::DataEndpoint;
+use topk::host::Host;
 use topk::import::{Field, Spec, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, Value};
 use topk_rs::{Client, ClientConfig};
-use uuid::Uuid;
+
+/// A flag group's defaults, ignoring the environment.
+fn defaults<T: Args + FromArgMatches>() -> T {
+    let matches = T::augment_args(Command::new("test"))
+        .mut_args(|arg| arg.env(None::<&str>))
+        .get_matches_from(["test"]);
+    T::from_arg_matches(&matches).expect("default arguments")
+}
+
+/// The production API and issuer; file sources never reach either.
+pub fn config() -> Config {
+    Config::new(
+        defaults::<Host>(),
+        defaults::<OAuthConfig>(),
+        std::env::temp_dir(),
+    )
+}
+
+pub fn endpoint() -> DataEndpoint {
+    defaults()
+}
 
 pub fn books() -> Vec<Document> {
     vec![
@@ -83,41 +113,14 @@ pub fn state_dir() -> &'static Path {
     DIR.get_or_init(|| tempfile::tempdir().unwrap()).path()
 }
 
-pub fn run(args: &[&str], env: &[(&str, &str)]) -> Output {
-    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_topk"));
-    cmd.args(args);
-    cmd.env("TOPK_IMPORT_STATE_DIR", state_dir());
-    for (k, v) in env {
-        cmd.env(k, v);
-    }
-    cmd.output().expect("run topk")
-}
-
-pub fn ok(args: &[&str], env: &[(&str, &str)]) -> String {
-    let out = run(args, env);
-    assert!(
-        out.status.success(),
-        "`topk {}` failed:\n{}",
-        args.join(" "),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    String::from_utf8(out.stdout).unwrap()
-}
-
-pub fn fails(args: &[&str], env: &[(&str, &str)]) -> String {
-    let out = run(args, env);
-    assert!(
-        !out.status.success(),
-        "`topk {}` should have failed",
-        args.join(" ")
-    );
-    String::from_utf8_lossy(&out.stderr).into_owned()
+pub fn topk() -> TestCommand {
+    TestCommand::new().envs([("TOPK_IMPORT_STATE_DIR", state_dir())])
 }
 
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     let uri = locator.parse().expect("source uri parses");
     let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    let catalog = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+    let catalog = topk::import::Source::connect(&uri, &config(), &endpoint())
         .await
         .expect("connect")
         .catalog()
@@ -140,12 +143,12 @@ pub async fn stream_docs_from(
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let source = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default()).await?;
-    let mut rows =
-        Box::pin(topk::import::document_stream(source.scan("rows", target, None)?).await?);
+    let source = topk::import::Source::connect(&uri, &config(), &endpoint()).await?;
+    let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = BTreeMap::new();
-    while let Some(doc) = rows.next().await {
-        let map = json(&doc?);
+    while let Some(row) = rows.next().await {
+        let (_, doc) = row?;
+        let map = json(&doc);
         let id = map["_id"].as_str().expect("string id").to_string();
         out.insert(id, serde_json::Value::Object(map));
     }
@@ -200,7 +203,7 @@ pub fn discover(source: &str, stream: Option<&str>) -> String {
     if let Some(s) = stream {
         args.push(s);
     }
-    ok(&args, &[])
+    topk().args(&args).ok()
 }
 
 /// `topk import [<source>] -f <spec> …`; the source is required for anything
@@ -226,7 +229,7 @@ pub fn dry_run_from(
     let mut extra = extra.to_vec();
     extra.push("--dry-run");
     let args = import_args(url, spec, &extra);
-    let out = run(&args, &[]);
+    let out = topk().args(&args).output();
     assert!(out.status.success(), "`topk {}` failed", args.join(" "));
     String::from_utf8_lossy(&out.stderr)
         .lines()
@@ -323,6 +326,25 @@ impl Ctx {
     ) -> HashMap<String, HashMap<String, Value>> {
         self.client
             .collection(collection)
+            .get(
+                ids.iter().copied(),
+                None,
+                None,
+                Some(ConsistencyLevel::Strong),
+            )
+            .await
+            .expect("get documents")
+    }
+
+    pub async fn get_in(
+        &self,
+        partition: &str,
+        collection: &str,
+        ids: &[&str],
+    ) -> HashMap<String, HashMap<String, Value>> {
+        self.client
+            .collection(collection)
+            .partition(partition)
             .get(
                 ids.iter().copied(),
                 None,

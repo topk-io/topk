@@ -5,7 +5,7 @@ use topk_rs::doc;
 use topk_rs::proto::v1::data::{Document, Value};
 
 mod common;
-use common::{BooksContext, Scope, ids};
+use common::{ids, BooksContext, Scope};
 
 #[rstest]
 #[case::text("SELECT _id FROM {{table}} WHERE author = $1", vec![Value::string("Tolkien")], ids!["hobbit", "lotr"])]

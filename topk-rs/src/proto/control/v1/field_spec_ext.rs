@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::proto::control::v1::{
     field_type_list::ListValueType, field_type_matrix::MatrixValueType,
 };
@@ -135,6 +137,13 @@ impl FieldSpec {
             data_type: Some(FieldType::r#struct(fields)),
             required,
             index: None,
+        }
+    }
+
+    pub fn as_struct(&self) -> Option<&HashMap<String, FieldSpec>> {
+        match self.data_type.as_ref()?.data_type.as_ref()? {
+            field_type::DataType::Struct(s) => Some(&s.fields),
+            _ => None,
         }
     }
 }

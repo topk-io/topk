@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value;
+use topk_rs::proto::v1::data::{sparse_vector, value, SparseVector};
 
 use super::DocId;
+use crate::date::Zone;
 use crate::value::ValueExt;
 use crate::Error;
 
@@ -23,6 +25,7 @@ pub enum Query {
     Exists(ExistsQuery),
     Bool(BoolQuery),
     Semantic(SemanticQuery),
+    SparseVector(SparseVectorQuery),
 }
 
 #[derive(Deserialize, Default)]
@@ -53,7 +56,52 @@ pub struct BoolQuery {
     pub should: Vec<Query>,
 
     #[serde(default)]
+    pub minimum_should_match: Option<MinimumShouldMatch>,
+
+    #[serde(default)]
     pub boost: Option<f32>,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+#[serde(try_from = "MinimumShouldMatchWire")]
+pub enum MinimumShouldMatch {
+    Count(i64),
+    Percent(i64),
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum MinimumShouldMatchWire {
+    Int(i64),
+    Str(String),
+}
+
+impl TryFrom<MinimumShouldMatchWire> for MinimumShouldMatch {
+    type Error = Error;
+
+    fn try_from(wire: MinimumShouldMatchWire) -> Result<Self, Self::Error> {
+        let s = match wire {
+            MinimumShouldMatchWire::Int(n) => return Ok(MinimumShouldMatch::Count(n)),
+            MinimumShouldMatchWire::Str(s) => s,
+        };
+        let parsed = match s.trim().strip_suffix('%') {
+            Some(p) => p.trim().parse().map(MinimumShouldMatch::Percent),
+            None => s.trim().parse().map(MinimumShouldMatch::Count),
+        };
+        parsed.map_err(|_| Error::Unsupported(format!("Invalid minimum_should_match \"{s}\"")))
+    }
+}
+
+impl MinimumShouldMatch {
+    pub fn resolve(self, clauses: usize) -> i64 {
+        let n = clauses as i64;
+        match self {
+            MinimumShouldMatch::Count(c) if c < 0 => n + c,
+            MinimumShouldMatch::Count(c) => c,
+            MinimumShouldMatch::Percent(p) if p < 0 => n + n * p / 100,
+            MinimumShouldMatch::Percent(p) => n * p / 100,
+        }
+    }
 }
 
 impl BoolQuery {
@@ -98,6 +146,89 @@ pub struct SemanticQuery {
 
     #[serde(default)]
     pub boost: Option<f32>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SparseVectorQuery {
+    pub field: FieldName,
+    pub query_vector: SparseQueryVector,
+
+    #[serde(default)]
+    pub boost: Option<f32>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub prune: Option<bool>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub pruning_config: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(try_from = "Value")]
+#[derive(Clone)]
+pub struct SparseQueryVector {
+    indexed: Option<topk_rs::proto::v1::data::Value>,
+}
+
+impl SparseQueryVector {
+    pub fn indexed(&self) -> Option<&topk_rs::proto::v1::data::Value> {
+        self.indexed.as_ref()
+    }
+}
+
+impl TryFrom<Value> for SparseQueryVector {
+    type Error = Error;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let value = value.into_inner();
+        match value.value {
+            Some(value::Value::SparseVector(ref sv)) => {
+                ensure_positive_sparse_weights(sv)?;
+                Ok(Self {
+                    indexed: Some(value),
+                })
+            }
+            Some(value::Value::Struct(map)) => {
+                if map.fields.is_empty() {
+                    return Err(Error::InvalidQuery(
+                        "\"query_vector\" must not be empty".into(),
+                    ));
+                }
+                if map.fields.values().all(|v| v.as_f64().is_some()) {
+                    Ok(Self { indexed: None })
+                } else {
+                    Err(Error::InvalidQuery(
+                        "\"query_vector\" values must be numbers".into(),
+                    ))
+                }
+            }
+            _ => Err(Error::InvalidQuery(
+                "\"query_vector\" must be an object mapping dimension indices to weights, e.g. {\"0\": 1.0}".into(),
+            )),
+        }
+    }
+}
+
+fn ensure_positive_sparse_weights(sv: &SparseVector) -> Result<(), Error> {
+    let values = sv.values.as_ref().ok_or_else(|| {
+        Error::InvalidQuery("sparse_vector query_vector must not be empty".into())
+    })?;
+    let non_positive = match values {
+        sparse_vector::Values::F32(v) => v.values.iter().any(|w| *w <= 0.0),
+        sparse_vector::Values::F16(v) => v.as_ref().iter().any(|w| f32::from(*w) <= 0.0),
+        sparse_vector::Values::F8(v) => v.as_ref().iter().any(|w| f32::from(*w) <= 0.0),
+        sparse_vector::Values::U8(v) => v.values.iter().any(|w| *w == 0),
+        sparse_vector::Values::I8(v) => v.as_ref().iter().any(|w| *w <= 0),
+    };
+    if non_positive {
+        return Err(Error::InvalidQuery(
+            "sparse_vector weights must be strictly positive".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -289,6 +420,9 @@ pub struct RangeBounds {
 
     #[serde(default)]
     pub format: Option<String>,
+
+    #[serde(default)]
+    pub time_zone: Zone,
 }
 
 impl<'de> Deserialize<'de> for RangeBounds {

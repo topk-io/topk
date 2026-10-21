@@ -106,6 +106,15 @@ pub enum FieldMapping {
         index: Option<bool>,
     },
 
+    #[serde(rename = "date", alias = "date_nanos")]
+    Date {
+        #[serde(default)]
+        index: Option<bool>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        format: Option<String>,
+    },
+
     #[serde(rename = "float", alias = "double", alias = "half_float")]
     Float {
         #[serde(default)]
@@ -178,6 +187,24 @@ pub enum FieldMapping {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         chunking_settings: Option<serde_json::Value>,
     },
+
+    #[serde(rename = "sparse_vector")]
+    SparseVector {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        index_options: Option<SparseVectorIndexOptions>,
+    },
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
+pub struct SparseVectorIndexOptions {
+    #[serde(default)]
+    #[allow(dead_code)]
+    prune: Option<bool>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    pruning_config: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -314,6 +341,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 Ok(field)
             }
             FieldMapping::Integer { index: _ } => Ok(FieldSpec::integer(false)),
+            FieldMapping::Date { .. } => Ok(FieldSpec::timestamp(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
             FieldMapping::Object { properties } => Ok(FieldSpec::r#struct(
@@ -389,6 +417,8 @@ impl TryFrom<FieldMapping> for FieldSpec {
             FieldMapping::SemanticText { .. } => {
                 Ok(FieldSpec::text(false).with_index(FieldIndex::semantic()))
             }
+            FieldMapping::SparseVector { .. } => Ok(FieldSpec::f32_sparse_vector(false)
+                .with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct))),
         }
     }
 }
@@ -425,6 +455,10 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                 _ => return Err(Error::Unsupported("Invalid text index".into())),
             },
             Some(field_type::DataType::Integer(_)) => FieldMapping::Integer { index: Some(false) },
+            Some(field_type::DataType::Timestamp(_)) => FieldMapping::Date {
+                index: Some(false),
+                format: None,
+            },
             Some(field_type::DataType::Float(_)) => FieldMapping::Float { index: Some(false) },
             Some(field_type::DataType::Boolean(_)) => FieldMapping::Boolean { index: Some(false) },
             Some(field_type::DataType::Struct(s)) => FieldMapping::Object {
@@ -466,6 +500,20 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                     },
                 }
             }
+            Some(
+                field_type::DataType::F32SparseVector(_)
+                | field_type::DataType::F16SparseVector(_)
+                | field_type::DataType::F8SparseVector(_)
+                | field_type::DataType::U8SparseVector(_)
+                | field_type::DataType::I8SparseVector(_),
+            ) => match index {
+                Some(field_index::Index::VectorIndex(_)) => FieldMapping::SparseVector {
+                    index_options: None,
+                },
+                _ => FieldMapping::Object {
+                    properties: MappingProperties::default(),
+                },
+            },
             Some(field_type::DataType::Matrix(m)) => {
                 let Ok(element_type) = m.value_type().try_into() else {
                     return Ok(FieldMapping::Object {

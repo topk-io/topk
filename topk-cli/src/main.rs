@@ -1,12 +1,13 @@
 use std::process::ExitCode;
 
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 
-use topk::commands::login;
-use topk::config;
-use topk::endpoint::Endpoint;
+use topk::auth::OAuthConfig;
+use topk::config::Config;
+use topk::host::Host;
+use topk::output::Output;
 
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
@@ -23,9 +24,6 @@ struct Cli {
     #[arg(long, global = true, help_heading = "Global options")]
     agent: bool,
 
-    #[command(flatten)]
-    endpoint: Endpoint,
-
     /// Output format
     #[arg(
         short = 'o',
@@ -35,26 +33,31 @@ struct Cli {
         help_heading = "Global options"
     )]
     output: Output,
-}
 
-/// `json` puts results on stdout as JSON; stderr chatter is the same either way.
-#[derive(Clone, Copy, PartialEq, ValueEnum)]
-enum Output {
-    Text,
-    Json,
+    #[command(flatten)]
+    host: Host,
+
+    #[command(flatten)]
+    oauth: OAuthConfig,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Log in by entering your API key
-    Login,
+    /// Manage projects
+    Project(topk::commands::project::Args),
+    /// List available regions
+    Region(topk::commands::region::Args),
+    /// Log in with your TopK account in the browser
+    Login(topk::commands::login::LoginArgs),
+    /// Remove saved credentials
+    Logout(topk::commands::logout::LogoutArgs),
+
+    /// Run SQL against your collections
+    Sql(topk::commands::sql::SqlArgs),
 
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
     Import(topk::commands::import::ImportArgs),
-
-    /// Remove auth credentials
-    Logout,
 
     /// Generate shell completion script
     #[command(hide = true)]
@@ -71,7 +74,10 @@ fn agent_mode() -> bool {
 
 fn main() -> ExitCode {
     // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
-    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL)
+    };
     // AWS SSO for duckdb: sets AWS_CONFIG_FILE, UB once runtime threads getenv.
     #[cfg(feature = "import")]
     if std::env::args().any(|a| a == "import") {
@@ -87,43 +93,31 @@ async fn async_main() -> ExitCode {
     match run(&cli).await {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("{} {e}", "error:".red().bold());
+            eprintln!("{} {e:#}", "error:".red().bold());
             ExitCode::FAILURE
         }
     }
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
+    let config = Config::new(cli.host.clone(), cli.oauth.clone(), Config::dir()?);
     match &cli.command {
-        Some(Commands::Login) => {
-            let api_key = match cli.endpoint.api_key()? {
-                Some(key) => Some(key),
-                None => login::run(&cli.endpoint)?,
-            };
-
-            match api_key {
-                Some(api_key) => {
-                    config::set_api_key(api_key)?;
-                    eprintln!("{} API key saved.", "✓".green());
-                }
-                None => {
-                    println!("Skipping authentication.");
-                }
-            }
-
-            Ok(ExitCode::SUCCESS)
+        Some(Commands::Project(args)) => {
+            topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
         }
+        Some(Commands::Region(args)) => {
+            topk::commands::region::run(config, args, cli.output, &mut std::io::stdout()).await
+        }
+
+        Some(Commands::Sql(args)) => {
+            topk::commands::sql::run(config, args, cli.output, &mut std::io::stdout()).await
+        }
+
+        Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
+        Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,
 
         #[cfg(feature = "import")]
-        Some(Commands::Import(args)) => {
-            topk::commands::import::run(&cli.endpoint, args, cli.output == Output::Json).await
-        }
-
-        Some(Commands::Logout) => {
-            config::clear()?;
-            eprintln!("{} Logged out.", "✓".green());
-            Ok(ExitCode::SUCCESS)
-        }
+        Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,
 
         Some(Commands::Completions { shell }) => {
             generate(*shell, &mut Cli::command(), "topk", &mut std::io::stdout());

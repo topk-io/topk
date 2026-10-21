@@ -5,3 +5,5 @@ target/
 .vscode/
 .venv/
 __pycache__/
+Cargo.lock
+!topk-cli/Cargo.lock

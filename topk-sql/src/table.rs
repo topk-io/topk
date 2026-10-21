@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use sqlparser::ast::ObjectName;
 use topk_rs::{Client, CollectionClient};
 
-use crate::{Error, ObjectNameExt, sql_invalid};
+use crate::{sql_invalid, Error, ObjectNameExt};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Table {
@@ -79,7 +79,7 @@ mod tests {
     use sqlparser::ast::{Statement as SqlStatement, TableObject};
 
     use super::*;
-    use crate::{ObjectNameExt, parse_sql};
+    use crate::{parse_sql, ObjectNameExt};
 
     fn name(table: &str) -> ObjectName {
         let sql = format!("INSERT INTO {table} (_id) VALUES ('1')");

@@ -186,6 +186,49 @@ describe("GroupBy Queries", () => {
     expect(avgs.false).toBeCloseTo(1966.5, 9);
   });
 
+  test("group by quantile", async () => {
+    const ctx = getContext();
+    const collection = await setupBooks(ctx);
+
+    const result = await ctx.client.collection(collection.name).query(
+      groupBy(
+        { is_old: field("published_year").lt(1940) },
+        { median_year: agg.quantile("published_year", 0.5) }
+      )
+    );
+
+    const medians: Record<string, number> = {};
+    for (const row of result) {
+      medians[String(row.is_old)] = row.median_year;
+    }
+
+    // approximate: old median lies between 1851 and 1925, new between 1954 and 1960
+    expect(medians.true).toBeGreaterThanOrEqual(1851);
+    expect(medians.true).toBeLessThanOrEqual(1925);
+    expect(medians.false).toBeGreaterThanOrEqual(1954);
+    expect(medians.false).toBeLessThanOrEqual(1960);
+  });
+
+  test("group by count distinct", async () => {
+    const ctx = getContext();
+    const collection = await setupBooks(ctx);
+
+    const result = await ctx.client.collection(collection.name).query(
+      groupBy(
+        { is_old: field("published_year").lt(1940) },
+        { years: agg.countDistinct("published_year") }
+      )
+    );
+
+    const years: Record<string, number> = {};
+    for (const row of result) {
+      years[String(row.is_old)] = row.years;
+    }
+
+    // every book has a distinct published_year
+    expect(years).toEqual({ true: 4, false: 6 });
+  });
+
   test("group by multiple aggregations", async () => {
     const ctx = getContext();
     const collection = await setupBooks(ctx);

@@ -70,6 +70,20 @@ export declare class CollectionClient {
 }
 
 /**
+ * Iterator for collection list responses.
+ *
+ * This type implements JavaScript's async iterable protocol.
+ * It can be used with `for await...of` loops.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+ */
+export declare class CollectionListStream {
+  [Symbol.asyncIterator](): AsyncGenerator<Collection, void, undefined>
+  /** Returns the next collection in the stream. */
+  next(): Promise<Collection | null>
+}
+
+/**
  * Client for managing collections.
  *
  * This client provides methods to create, list, get, and delete collections.
@@ -77,8 +91,8 @@ export declare class CollectionClient {
  * @hideconstructor
  */
 export declare class CollectionsClient {
-  /** Lists all collections in the current project. */
-  list(): Promise<Array<Collection>>
+  /** Lists collections in the current project, ordered by name, as an async iterator. */
+  list(options?: ListCollectionsOptions | undefined | null): CollectionListStream
   /** Creates a new collection with the specified schema. */
   create(name: string, schema: Record<string, SchemaFieldSpec>): Promise<Collection>
   /** Retrieves information about a specific collection. */
@@ -188,6 +202,12 @@ export type ConsistencyLevel = /** Indexed consistency - faster| eventual consis
 'indexed'|
 /** Strong consistency - slower| waits for all replicas */
 'strong';
+
+/** Options for listing collections. */
+export interface ListCollectionsOptions {
+  /** Only list collections whose name starts with this prefix */
+  prefix?: string
+}
 
 /** A partition within a collection. */
 export interface Partition {
@@ -850,10 +870,14 @@ export declare namespace query_agg {
    * If not provided, count the number of rows in the input.
    */
   export function count(field?: string | undefined | null): query.AggregateExpression
+  /** Count the approximate number of distinct non-null values of the given field. */
+  export function countDistinct(field: string): query.AggregateExpression
   /** Find the maximum value of the given field. */
   export function max(field: string): query.AggregateExpression
   /** Find the minimum value of the given field. */
   export function min(field: string): query.AggregateExpression
+  /** Calculate the approximate `q`-quantile of the given field, where `q` is in `[0, 1]`. */
+  export function quantile(field: string, q: number): query.AggregateExpression
   /** Sum the values of the given field. */
   export function sum(field: string): query.AggregateExpression
 }
@@ -1252,6 +1276,8 @@ export declare namespace schema {
   export function ngramIndex(): schema.FieldIndex
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
+   *
+   * `semanticIndex()` also supports BM25 keyword search.
    *
    * Example:
    *

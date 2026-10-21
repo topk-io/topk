@@ -1,12 +1,15 @@
 use std::fmt;
+use std::str::FromStr;
 
+use futures::{future, TryStreamExt};
 use wildmatch::WildMatch;
 
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
-use topk_rs::Client;
 
-use crate::endpoint::Endpoint;
+use crate::client::DataClient;
+use crate::config::Config;
+use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::source::Record;
 use crate::import::spec::{Field, Target};
@@ -14,7 +17,7 @@ use crate::import::ID;
 
 use super::{Chunk, ChunkStream, Table};
 
-/// `topk://[<key>@]<region>/<collection>`; the key defaults to the run's own.
+/// `topk://[<key>@]<region>/<collection>`; credentials default to the run's own.
 #[derive(Clone)]
 pub struct Uri {
     pub region: String,
@@ -37,24 +40,52 @@ impl fmt::Debug for Uri {
     }
 }
 
+/// A topk source has no filter language; the type has no values.
+pub enum Filter {}
+
+impl FromStr for Filter {
+    type Err = Error;
+
+    fn from_str(_: &str) -> Result<Filter, Error> {
+        Err(Error::InvalidArgument(
+            "--filter is not supported for topk:// sources".to_string(),
+        ))
+    }
+}
+
+/// The last `_id` read; the default is before every id.
+#[derive(Default)]
+pub struct Cursor(String);
+
+impl TryFrom<super::Cursor> for Cursor {
+    type Error = Error;
+
+    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
+        cursor.key().map(Cursor)
+    }
+}
+
 #[derive(Clone)]
 pub struct Topk {
-    client: Client,
+    client: DataClient,
     collection: String,
 }
 
 impl Topk {
     /// The uri names the region and may carry its own key; the host is the run's.
-    pub fn connect(uri: &Uri, endpoint: &Endpoint) -> Result<Topk, Error> {
-        let client = Endpoint {
+    pub fn connect(uri: &Uri, config: &Config, endpoint: &DataEndpoint) -> Result<Topk, Error> {
+        let endpoint = DataEndpoint {
+            // A key in the uri replaces the run's credentials, including `--project-id`.
+            project_id: match uri.api_key {
+                Some(_) => None,
+                None => endpoint.project_id.clone(),
+            },
             api_key: uri.api_key.clone().or_else(|| endpoint.api_key.clone()),
             region: Some(uri.region.clone()),
-            ..endpoint.clone()
-        }
-        .client()
-        .map_err(|e| Error::InvalidArgument(e.to_string()))?;
+        };
         Ok(Topk {
-            client,
+            client: DataClient::new(config, endpoint)
+                .map_err(|e| Error::InvalidArgument(e.to_string()))?,
             collection: uri.collection.clone(),
         })
     }
@@ -67,10 +98,13 @@ impl Topk {
             true => {
                 let pattern =
                     WildMatch::new(collection.is_empty().then_some("*").unwrap_or(collection));
-                let all = self.client.collections().list().await?;
-                all.into_iter()
-                    .filter(|c| pattern.matches(&c.name))
-                    .collect()
+                self.client
+                    .collections()
+                    .list(None)
+                    .await?
+                    .try_filter(|c| future::ready(pattern.matches(&c.name)))
+                    .try_collect()
+                    .await?
             }
             false => vec![self.client.collections().get(collection).await?],
         };
@@ -95,9 +129,9 @@ impl Topk {
     /// Keyset pages ordered by `_id`, so a page boundary is a resume point.
     /// `fetch` and not `select`: a select of an indexed vector is refused by the
     /// server, and returns the index's quantized copy where it is not.
-    pub async fn stream(&self, target: &Target, after: Option<&str>) -> Result<ChunkStream, Error> {
+    pub fn chunks(&self, target: &Target, _: Option<Filter>, after: Option<Cursor>) -> ChunkStream {
         let collection = self.client.collection(&target.from);
-        let mut cursor = after.unwrap_or_default().to_string();
+        let Cursor(mut cursor) = after.unwrap_or_default();
         let mut remaining = target.limit;
 
         let stream = async_stream::stream! {
@@ -139,13 +173,13 @@ impl Topk {
                         .into_iter()
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
-                    cursor: Some(cursor.clone()),
+                    cursor: Some(super::Cursor::Key(cursor.clone())),
                 });
                 if !full {
                     break;
                 }
             }
         };
-        Ok(Box::pin(stream))
+        Box::pin(stream)
     }
 }

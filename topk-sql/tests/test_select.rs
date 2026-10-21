@@ -4,11 +4,11 @@ use rstest::rstest;
 
 use topk_rs::{
     doc,
-    proto::v1::data::{Document, Value, stage},
+    proto::v1::data::{stage, Document, Value},
 };
 
 mod common;
-use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
+use common::{assert_rows_eq_unordered, ids, BooksContext, Scope};
 
 #[rstest]
 #[case::single_field(
@@ -421,6 +421,15 @@ async fn count(#[case] query: &str, #[case] expected: Vec<Document>) {
         ),
     ],
 )]
+#[case::approx_count_distinct(
+    // old: romance, fiction, fantasy, adventure; new: fiction, dystopian, fantasy
+    "SELECT (published_year < 1940) AS is_old, APPROX_COUNT_DISTINCT(genre) AS genres \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "genres" => 4_i64),
+        doc!("is_old" => false, "genres" => 3_i64),
+    ],
+)]
 #[case::multiple_keys(
     // is_old  = published_year < 1940
     // is_19th = published_year < 1900
@@ -461,6 +470,63 @@ async fn group_by(#[case] query: &str, #[case] expected: Vec<Document>) {
         .unwrap();
 
     assert_rows_eq_unordered(rows, expected);
+}
+
+#[tokio::test]
+async fn group_by_approx_percentile() {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql(
+            "SELECT (published_year < 1940) AS is_old, \
+             APPROX_PERCENTILE(published_year, 0.5) AS median_year \
+             FROM {{table}} GROUP BY is_old",
+        )
+        .await
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(rows.len(), 2);
+    for row in rows {
+        let median = row.fields["median_year"].as_f64().unwrap();
+        // old: 1813, 1851, 1925, 1937; new: 1949, 1951, 1954, 1960, 1988, 1997
+        let range = match row.fields["is_old"].as_bool().unwrap() {
+            true => 1851.0..=1925.0,
+            false => 1954.0..=1960.0,
+        };
+        assert!(range.contains(&median), "median {median} not in {range:?}");
+    }
+}
+
+#[rstest]
+#[case::missing_q(
+    "APPROX_PERCENTILE(rating)",
+    "Invalid: APPROX_PERCENTILE: expected 2 arguments, got 1"
+)]
+#[case::q_not_a_number(
+    "APPROX_PERCENTILE(rating, 'x')",
+    "Invalid: APPROX_PERCENTILE: second argument must be a number in [0, 1]"
+)]
+#[case::q_out_of_range(
+    "APPROX_PERCENTILE(rating, 1.5)",
+    "Invalid: APPROX_PERCENTILE: second argument must be a number in [0, 1]"
+)]
+#[case::q_negative(
+    "APPROX_PERCENTILE(rating, -0.5)",
+    "Invalid: APPROX_PERCENTILE: second argument must be a number in [0, 1]"
+)]
+#[case::field_not_a_column(
+    "APPROX_PERCENTILE('rating', 0.5)",
+    "Invalid: APPROX_PERCENTILE: first argument must be a column name"
+)]
+#[case::count_distinct_two_args(
+    "APPROX_COUNT_DISTINCT(author, genre)",
+    "Invalid: APPROX_COUNT_DISTINCT: expected 1 argument, got 2"
+)]
+fn group_by_approx_aggregations_rejected(#[case] agg: &str, #[case] expected: &str) {
+    let sql = format!("SELECT genre, {agg} AS a FROM books GROUP BY genre");
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(&sql).unwrap()).unwrap_err();
+
+    assert_eq!(err.to_string(), expected);
 }
 
 #[test]
@@ -533,7 +599,7 @@ fn group_by_alias_shadowing_rejected_before_execution() {
 
     assert_eq!(
         err.to_string(),
-        "Unsupported: `genre` in a GROUP BY query must be a group key or an aggregate function call (COUNT/SUM/MIN/MAX/AVG)"
+        "Unsupported: `genre` in a GROUP BY query must be a group key or an aggregate function call (COUNT/SUM/MIN/MAX/AVG/APPROX_PERCENTILE/APPROX_COUNT_DISTINCT)"
     );
 }
 
@@ -1007,12 +1073,14 @@ async fn semantic_similarity_search() {
 }
 
 #[rstest]
-#[case::select_star("SELECT * FROM {{table}}", "Unsupported: SELECT *")]
+#[case::qualified_star(
+    "SELECT b.* FROM {{table}} b",
+    "Unsupported: SELECT b.*: use `SELECT *`"
+)]
 #[case::missing_alias(
     "SELECT published_year + 1 FROM {{table}}",
     "Invalid: expression in SELECT list requires an AS alias"
 )]
-#[case::missing_from("SELECT _id LIMIT 1", "Invalid: SELECT requires a FROM clause")]
 #[case::missing_table("SELECT _id FROM never_made_this LIMIT 1", "Table does not exist")]
 #[case::order_limit(
     "SELECT _id FROM {{table}} ORDER BY published_year",
@@ -1052,7 +1120,7 @@ async fn semantic_similarity_search() {
 )]
 #[case::group_by_non_key_column(
     "SELECT _id FROM {{table}} GROUP BY genre LIMIT 5",
-    "Unsupported: `_id` in a GROUP BY query must be a group key or an aggregate function call (COUNT/SUM/MIN/MAX/AVG)"
+    "Unsupported: `_id` in a GROUP BY query must be a group key or an aggregate function call (COUNT/SUM/MIN/MAX/AVG/APPROX_PERCENTILE/APPROX_COUNT_DISTINCT)"
 )]
 #[case::group_by_all(
     "SELECT genre, COUNT(*) AS c FROM {{table}} GROUP BY ALL",
@@ -1213,4 +1281,64 @@ async fn rejected(#[case] query: &str, #[case] expected: &str) {
         .unwrap_err();
 
     assert_eq!(err.to_string(), expected);
+}
+
+#[tokio::test]
+async fn select_star_expands_to_projectable_columns() {
+    let columns = BooksContext::with_scope(async |ctx| {
+        ctx.column_types("SELECT * FROM {{table}} WHERE _id = 'hobbit'")
+            .await
+    })
+    .await
+    .unwrap();
+
+    // `_id` leads, the rest are sorted; `embedding` and `sparse_emb` are left out because the
+    // engine refuses to project a vector field it indexes
+    assert_eq!(
+        columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "_id",
+            "author",
+            "bio",
+            "checksum",
+            "genre",
+            "in_print",
+            "metadata",
+            "multi_emb",
+            "nullable_importance",
+            "published_ts",
+            "published_year",
+            "rating",
+            "tags",
+            "title",
+        ]
+    );
+}
+
+#[rstest]
+#[case::star_with_an_expression(
+    "SELECT *, rating * 2 AS double_rating FROM {{table}} WHERE _id = 'lotr'",
+    vec!["_id", "title", "double_rating"],
+)]
+#[case::star_with_a_filter_and_limit(
+    "SELECT * FROM {{table}} WHERE genre = 'fantasy' ORDER BY published_year ASC LIMIT 1",
+    vec!["_id", "title", "genre"],
+)]
+#[tokio::test]
+async fn select_star_answers(#[case] query: &str, #[case] expected: Vec<&str>) {
+    let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
+        .await
+        .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    for field in expected {
+        assert!(
+            rows[0].fields.contains_key(field),
+            "`{field}` missing from {:?}",
+            rows[0].fields.keys().collect::<Vec<_>>()
+        );
+    }
 }

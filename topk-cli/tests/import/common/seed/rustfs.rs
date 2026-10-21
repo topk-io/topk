@@ -12,8 +12,8 @@ impl S3 {
 
     pub const ENV: &[(&str, &str)] = &[
         ("AWS_ENDPOINT_URL", Self::ENDPOINT),
-        ("AWS_ACCESS_KEY_ID", "minioadmin"),
-        ("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+        ("AWS_ACCESS_KEY_ID", "rustfsadmin"),
+        ("AWS_SECRET_ACCESS_KEY", "rustfsadmin"),
         ("AWS_REGION", "us-east-1"),
     ];
 
@@ -21,7 +21,7 @@ impl S3 {
         let conn = duckdb::Connection::open_in_memory()?;
         conn.execute_batch(
             "INSTALL httpfs; LOAD httpfs; \
-             CREATE SECRET (TYPE s3, KEY_ID 'minioadmin', SECRET 'minioadmin', \
+             CREATE SECRET (TYPE s3, KEY_ID 'rustfsadmin', SECRET 'rustfsadmin', \
              ENDPOINT 'localhost:9100', URL_STYLE 'path', USE_SSL false);",
         )?;
         Ok(S3 { conn })
@@ -40,7 +40,7 @@ impl super::Seed for S3 {
                 "--aws-sigv4",
                 "aws:amz:us-east-1:s3",
                 "--user",
-                "minioadmin:minioadmin",
+                "rustfsadmin:rustfsadmin",
             ])
             .output()?;
 

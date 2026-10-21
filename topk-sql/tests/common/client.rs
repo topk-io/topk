@@ -4,11 +4,11 @@ use std::str::FromStr;
 
 use serde_json::Value as JsonValue;
 use sqlx::{
-    Arguments, Column as SqlxColumn, Executor, Row as SqlxRow, TypeInfo,
     postgres::{PgArguments, PgConnectOptions, PgPool, PgPoolOptions, PgRow, PgSslMode},
+    Arguments, Column as SqlxColumn, Executor, Row as SqlxRow, TypeInfo,
 };
 
-use topk_rs::proto::v1::data::{Document, Value, value};
+use topk_rs::proto::v1::data::{value, Document, Value};
 
 pub(crate) struct SqlClient {
     pool: PgPool,

@@ -28,6 +28,7 @@ impl From<&FieldMapping> for FieldCap {
             FieldMapping::Text { index, .. } => ("text", indexed(index), false),
             FieldMapping::Keyword { index, .. } => ("keyword", indexed(index), true),
             FieldMapping::Integer { .. } => ("integer", true, true),
+            FieldMapping::Date { .. } => ("date", true, true),
             FieldMapping::Float { .. } => ("float", true, true),
             FieldMapping::Boolean { .. } => ("boolean", true, true),
             FieldMapping::Object { .. } => ("object", false, false),
@@ -36,6 +37,7 @@ impl From<&FieldMapping> for FieldCap {
             // carry a multi_vector index and are queryable.
             FieldMapping::RankVectors { index, .. } => ("rank_vectors", indexed(index), false),
             FieldMapping::SemanticText { .. } => ("semantic_text", true, false),
+            FieldMapping::SparseVector { .. } => ("sparse_vector", true, false),
         };
 
         Self {

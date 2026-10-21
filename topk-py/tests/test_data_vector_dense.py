@@ -3,7 +3,8 @@ from topk_sdk.data import binary_vector, f8_vector, f16_vector, f32_vector, u8_v
 
 TYPE_ERROR = "Invalid vector value"
 TYPE_ERROR_INT_TO_VECTOR = "argument 'vector': 'int' object cannot be cast as 'Sequence'"
-TYPE_ERROR_OUT_OF_RANGE = "out of range integral type conversion attempted"
+TYPE_ERROR_TOO_LARGE = "number too large to fit in target type"
+TYPE_ERROR_TOO_SMALL = "number too small to fit in target type"
 TYPE_ERROR_NONE_TO_VECTOR = "argument 'vector': 'NoneType' object cannot be cast as 'Sequence'"
 TYPE_ERROR_BOOL_TO_VECTOR = "argument 'vector': 'bool' object cannot be cast as 'Sequence'"
 TYPE_ERROR_FLOAT_TO_VECTOR = "argument 'vector': 'float' object cannot be cast as 'Sequence'"
@@ -112,9 +113,9 @@ class TestU8Vector:
         assert str(u8_vector([1, 2, 3])) == "List(U8([1, 2, 3]))"
 
     def test_invalid_number_range(self):
-        with pytest.raises(OverflowError, match=TYPE_ERROR_OUT_OF_RANGE):
+        with pytest.raises(OverflowError, match=TYPE_ERROR_TOO_LARGE):
             u8_vector([256])  # type: ignore
-        with pytest.raises(OverflowError, match=TYPE_ERROR_OUT_OF_RANGE):
+        with pytest.raises(OverflowError, match=TYPE_ERROR_TOO_SMALL):
             u8_vector([-1])  # type: ignore
 
     def test_invalid_arguments(self):
@@ -145,9 +146,9 @@ class TestI8Vector:
         assert str(i8_vector([-128, 0, 127])) == "List(I8([-128, 0, 127]))"
 
     def test_invalid_number_range(self):
-        with pytest.raises(OverflowError, match=TYPE_ERROR_OUT_OF_RANGE):
+        with pytest.raises(OverflowError, match=TYPE_ERROR_TOO_SMALL):
             i8_vector([-129])  # type: ignore
-        with pytest.raises(OverflowError, match=TYPE_ERROR_OUT_OF_RANGE):
+        with pytest.raises(OverflowError, match=TYPE_ERROR_TOO_LARGE):
             i8_vector([128])  # type: ignore
 
     def test_invalid_arguments(self):
@@ -178,9 +179,9 @@ class TestBinaryVector:
         assert str(binary_vector([1, 2, 3])) == "List(U8([1, 2, 3]))"
 
     def test_invalid_number_range(self):
-        with pytest.raises(OverflowError, match=TYPE_ERROR_OUT_OF_RANGE):
+        with pytest.raises(OverflowError, match=TYPE_ERROR_TOO_LARGE):
             binary_vector([256])  # type: ignore
-        with pytest.raises(OverflowError, match=TYPE_ERROR_OUT_OF_RANGE):
+        with pytest.raises(OverflowError, match=TYPE_ERROR_TOO_SMALL):
             binary_vector([-1])  # type: ignore
 
     def test_invalid_arguments(self):

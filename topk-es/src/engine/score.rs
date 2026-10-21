@@ -73,6 +73,8 @@ pub enum AnnQuery {
         vector: QueryVector,
         num_candidates: Option<u64>,
     },
+
+    Sparse(Value),
 }
 
 // Folds a raw vector score into ES's [0, 1] `_score` space. `expr` and
@@ -161,26 +163,37 @@ pub fn ann_score(
                     }
                     _ => spec,
                 };
-                (spec, fns::semantic_similarity(&ann.field, text))
+                (
+                    spec,
+                    LogicalExpr::function(fns::semantic_similarity(&ann.field, text)),
+                )
             }
             AnnQuery::Vector {
                 vector,
                 num_candidates,
             } => (
                 spec,
-                knn_distance(&ann.field, vector, *num_candidates, spec)?,
+                LogicalExpr::function(knn_distance(&ann.field, vector, *num_candidates, spec)?),
+            ),
+            AnnQuery::Sparse(value) => (
+                spec,
+                LogicalExpr::function(fns::vector_distance(&ann.field, value.clone())),
             ),
         };
 
-        let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| match &ann.query {
-            AnnQuery::Semantic(_) => Error::InvalidQuery(format!(
-                "Field [{}] does not support semantic queries",
-                ann.field
-            )),
-            AnnQuery::Vector { .. } => not_knn_searchable(&ann.field),
-        })?;
+        let fold = match &ann.query {
+            AnnQuery::Sparse(_) => Fold::Passthrough,
+            _ => Fold::of(IndexKind::from(spec)).ok_or_else(|| match &ann.query {
+                AnnQuery::Semantic(_) => Error::InvalidQuery(format!(
+                    "Field [{}] does not support semantic queries",
+                    ann.field
+                )),
+                AnnQuery::Vector { .. } => not_knn_searchable(&ann.field),
+                AnnQuery::Sparse(_) => unreachable!(),
+            })?,
+        };
 
-        let folded = fold.expr(LogicalExpr::function(scorer));
+        let folded = fold.expr(scorer);
 
         // ES applies the `similarity` cutoff before `boost`, so compare the
         // unweighted fold.

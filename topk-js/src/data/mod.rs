@@ -1,5 +1,7 @@
 mod collection;
 pub use collection::Collection;
+pub use collection::CollectionListStream;
+pub(crate) use collection::CollectionListStreamMessage;
 
 mod list;
 pub use list::List;

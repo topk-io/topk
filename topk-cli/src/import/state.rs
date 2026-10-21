@@ -6,15 +6,26 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::config::Config;
 use crate::import::error::Error;
+use crate::import::source::Cursor;
 use crate::import::spec::Spec;
+use crate::ProjectId;
 
-/// Where a collection's import stands; the mark is the source's own cursor.
+/// Where a collection's import stands.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Cursor {
+pub enum Mark {
     Done,
-    After(String),
+    After(Checkpoint),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Checkpoint {
+    #[serde(flatten)]
+    pub cursor: Cursor,
+    #[serde(default)]
+    pub consumed: u64,
 }
 
 /// Created at confirmation, rewritten at every checkpoint, deleted on success:
@@ -28,80 +39,107 @@ pub struct State {
     pub started: DateTime<Utc>,
     /// The whole plan as TOML, done collections included.
     pub spec: String,
+    /// The `--project-id` the run started with; `None` when it used an API key.
     #[serde(default)]
-    pub cursors: BTreeMap<String, Cursor>,
+    pub project_id: Option<ProjectId>,
+    #[serde(default)]
+    pub cursors: BTreeMap<String, Mark>,
 }
 
 impl State {
-    pub fn new(id: String, source: String, spec: String) -> State {
-        State {
-            id,
-            source,
-            started: Utc::now(),
-            spec,
-            cursors: BTreeMap::new(),
-        }
-    }
-
-    pub fn reconcile(
-        &mut self,
+    pub fn prepare(
+        resumed: Option<State>,
         source: &str,
+        project_id: Option<&ProjectId>,
         spec: &mut Spec,
-        plan: String,
-    ) -> Result<(usize, BTreeMap<String, String>), Error> {
-        if self.source != source {
+    ) -> Result<(State, usize, BTreeMap<String, Checkpoint>), Error> {
+        let plan = toml::to_string_pretty(&spec)
+            .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
+        let mut state = match resumed {
+            Some(state) => state,
+            None => {
+                let nanos = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_nanos() as u64)
+                    .unwrap_or_default();
+                return Ok((
+                    State {
+                        id: format!("{:08x}", nanos as u32 ^ std::process::id()),
+                        source: source.to_string(),
+                        started: Utc::now(),
+                        spec: plan,
+                        project_id: project_id.cloned(),
+                        cursors: BTreeMap::new(),
+                    },
+                    0,
+                    BTreeMap::new(),
+                ));
+            }
+        };
+        if state.source != source {
             return Err(Error::InvalidArgument(format!(
                 "run {} reads {}, not {source:?}",
-                self.id,
-                match self.source.is_empty() {
+                state.id,
+                match state.source.is_empty() {
                     true => "files".to_string(),
-                    false => format!("{:?}", self.source),
+                    false => format!("{:?}", state.source),
                 }
             )));
         }
-        let mut after: BTreeMap<String, String> = BTreeMap::new();
+        if project_id != state.project_id.as_ref() {
+            return Err(Error::InvalidArgument(format!(
+                "run {} was started with different credentials; resume it {}",
+                state.id,
+                match &state.project_id {
+                    Some(started) => format!("with --project-id {started}"),
+                    None => "with --api-key (or set TOPK_API_KEY)".to_string(),
+                }
+            )));
+        }
+        let mut after: BTreeMap<String, Checkpoint> = BTreeMap::new();
         // A cursor only holds for an unchanged target.
-        let stored: Spec = toml::from_str(&self.spec)?;
-        self.cursors.retain(|name, cursor| {
-            let (Some(target), Some(was)) =
-                (spec.collections.get(name), stored.collections.get(name))
-            else {
-                return false;
+        let stored: Spec = toml::from_str(&state.spec)?;
+        state.cursors.retain(|name, cursor| {
+            let (target, was) = match (spec.collections.get(name), stored.collections.get(name)) {
+                (Some(target), Some(was)) => (target, was),
+                _ => return false,
             };
             if target != was {
                 crate::import::note(format!("# {name}: spec changed, starting over"));
                 return false;
             }
-            if let Cursor::After(mark) = cursor {
-                after.insert(name.clone(), mark.clone());
+            if let Mark::After(cursor) = cursor {
+                after.insert(name.clone(), cursor.clone());
             }
             true
         });
-        let done = self
+        for (name, checkpoint) in &after {
+            if let Some(limit) = spec.collections[name].limit {
+                if checkpoint.consumed > limit {
+                    return Err(Error::InvalidArgument(format!(
+                        "{name}: checkpoint consumed {} rows, exceeding limit {limit}",
+                        checkpoint.consumed
+                    )));
+                }
+            }
+        }
+        let done = state
             .cursors
             .values()
-            .filter(|c| matches!(c, Cursor::Done))
+            .filter(|c| matches!(c, Mark::Done))
             .count();
         spec.collections
-            .retain(|name, _| !matches!(self.cursors.get(name), Some(Cursor::Done)));
-        self.spec = plan;
-        Ok((done, after))
-    }
-
-    pub fn id() -> String {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or_default();
-        format!("{:08x}", nanos as u32 ^ std::process::id())
+            .retain(|name, _| !matches!(state.cursors.get(name), Some(Mark::Done)));
+        state.spec = plan;
+        Ok((state, done, after))
     }
 
     fn path(id: &str) -> Result<PathBuf, Error> {
         // Tests that fail on purpose must not litter the real one.
         let dir = match std::env::var_os("TOPK_IMPORT_STATE_DIR") {
             Some(dir) => PathBuf::from(dir),
-            None => crate::config::dir()
-                .ok_or_else(|| Error::InvalidArgument("no config directory".to_string()))?
+            None => Config::dir()
+                .map_err(|e| Error::InvalidArgument(e.to_string()))?
                 .join("import"),
         };
         Ok(dir.join(format!("{id}.toml")))

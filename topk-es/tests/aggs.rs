@@ -1,9 +1,124 @@
 mod common;
 
 use common::{BooksContext, TestScope};
+use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
 use test_macros::rstest_ctx;
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_counts_distinct_values(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": { "genres": { "cardinality": { "field": "genre" } } }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(resp.agg_value("genres"), 5.0, "{}", resp.agg("genres"));
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_accepts_precision_threshold(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "genres": { "cardinality": { "field": "genre", "precision_threshold": 100 } }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(resp.agg_value("genres"), 5.0, "{}", resp.agg("genres"));
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_as_terms_sub_agg(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_genre": {
+                    "terms": { "field": "genre" },
+                    "aggs": { "authors": { "cardinality": { "field": "author" } } }
+                }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    let bucket = |genre: &str| {
+        resp.buckets("by_genre")
+            .iter()
+            .find(|b| b["key"] == genre)
+            .unwrap_or_else(|| panic!("{genre} bucket"))
+            .clone()
+    };
+
+    let fiction = bucket("fiction");
+    assert_eq!(fiction["doc_count"], 4, "{fiction}");
+    assert_eq!(fiction["authors"]["value"], 4.0, "{fiction}");
+
+    // Tolkien wrote two of the three: distinct authors, not doc count.
+    let fantasy = bucket("fantasy");
+    assert_eq!(fantasy["doc_count"], 3, "{fantasy}");
+    assert_eq!(fantasy["authors"]["value"], 2.0, "{fantasy}");
+}
+
+// Analyzed text is not aggregatable, and validation recurses into sub-aggs.
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_sub_agg_on_analyzed_text_rejected(books: &BooksContext) {
+    books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_genre": {
+                    "terms": { "field": "genre" },
+                    "aggs": { "titles": { "cardinality": { "field": "title" } } }
+                }
+            }
+        }))
+        .await
+        .expect_err("analyzed text is not aggregatable");
+}
+
+// ES answers 0, not null, for a cardinality over nothing.
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_over_empty_match_set_is_zero(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "query": { "term": { "genre": "nonexistent" } },
+            "aggs": { "genres": { "cardinality": { "field": "genre" } } }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(resp.agg_value("genres"), 0.0, "{}", resp.agg("genres"));
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_cardinality_on_analyzed_text_rejected(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "body": { "type": "text" } }))
+        .await;
+
+    scope
+        .search(json!({
+            "size": 0,
+            "aggs": { "n": { "cardinality": { "field": "body" } } }
+        }))
+        .await
+        .expect_err("analyzed text is not aggregatable");
+}
 
 #[test_context(BooksContext)]
 #[tokio::test]
@@ -224,4 +339,129 @@ async fn bug_terms_agg_tie_break_applied_after_size_limit(scope: &TestScope) {
         .map(|b| b["key"].as_str().unwrap())
         .collect();
     assert_eq!(keys, vec!["k1", "k3"], "{body}");
+}
+
+// ratings: 3.5, 3.8, 3.9, 3.9, 4.2, 4.3, 4.3, 4.3, 4.5, 4.5
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_percentiles_default_percents(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": { "ratings": { "percentiles": { "field": "rating" } } }
+        }))
+        .await
+        .expect("search should succeed");
+
+    let values = resp.agg("ratings")["values"]
+        .as_object()
+        .expect("keyed values");
+    let mut keys: Vec<f64> = values.keys().map(|k| k.parse().unwrap()).collect();
+    keys.sort_by(f64::total_cmp);
+    assert_eq!(
+        keys,
+        vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0],
+        "{}",
+        resp.agg("ratings")
+    );
+    let median = values["50.0"].as_f64().expect("median");
+    assert!((4.2..=4.3).contains(&median), "{}", resp.agg("ratings"));
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_percentiles_unkeyed_custom_percents(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "ratings": {
+                    "percentiles": { "field": "rating", "percents": [50, 99.9], "keyed": false }
+                }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    let values = resp.agg("ratings")["values"]
+        .as_array()
+        .expect("list values");
+    let keys: Vec<f64> = values.iter().map(|v| v["key"].as_f64().unwrap()).collect();
+    assert_eq!(keys, vec![50.0, 99.9], "{}", resp.agg("ratings"));
+    assert!(
+        values.iter().all(|v| v["value"].is_f64()),
+        "{}",
+        resp.agg("ratings")
+    );
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_percentiles_as_terms_sub_agg(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_genre": {
+                    "terms": { "field": "genre" },
+                    "aggs": {
+                        "ratings": {
+                            "percentiles": {
+                                "field": "rating",
+                                "percents": [50],
+                                "tdigest": { "compression": 200 }
+                            }
+                        }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    // fantasy ratings: 4.3, 4.5, 4.5
+    let fantasy = resp
+        .buckets("by_genre")
+        .iter()
+        .find(|b| b["key"] == "fantasy")
+        .expect("fantasy bucket")
+        .clone();
+    let median = fantasy["ratings"]["values"]["50.0"]
+        .as_f64()
+        .expect("median");
+    assert!((4.3..=4.5).contains(&median), "{fantasy}");
+}
+
+// ES answers null for every percent over nothing.
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_percentiles_over_empty_match_set_is_null(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "query": { "term": { "genre": "nonexistent" } },
+            "aggs": { "ratings": { "percentiles": { "field": "rating", "percents": [50, 99] } } }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(
+        resp.agg("ratings")["values"],
+        json!({ "50.0": null, "99.0": null }),
+        "{}",
+        resp.agg("ratings")
+    );
+}
+
+#[rstest_ctx(BooksContext)]
+#[case::empty_percents(json!({ "field": "rating", "percents": [] }))]
+#[case::percent_out_of_range(json!({ "field": "rating", "percents": [101] }))]
+#[case::analyzed_text(json!({ "field": "title" }))]
+async fn test_percentiles_rejected(books: &BooksContext, #[case] percentiles: Value) {
+    let err = books
+        .search(json!({ "size": 0, "aggs": { "p": { "percentiles": percentiles } } }))
+        .await
+        .expect_err("percentiles request should be rejected");
+
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }

@@ -8,113 +8,44 @@ use tokio::sync::mpsc;
 use crate::import::decode::id_string;
 use crate::import::error::Error;
 use crate::import::source::codec::arrow;
-use crate::import::source::{Chunk, Record};
+use crate::import::source::{Chunk, Cursor, Record};
 use crate::import::spec::Target;
-use crate::import::ID;
 
 use super::file::{local_path, reader, File};
-use super::{lit, quoted, read_error, Duckdb};
+use super::select::Select;
+use super::{lit, read_error, Duckdb};
 
-pub(super) type Sender = mpsc::Sender<Result<Chunk, Error>>;
-type Receiver = mpsc::Receiver<Result<Chunk, Error>>;
+pub(super) type Sender = mpsc::Sender<Chunk>;
+type Receiver = mpsc::Receiver<Chunk>;
 
-/// An attached table ordered by the id column, so a batch's last id is a
-/// resume point. Postgres sorts on its own key via `postgres_query`;
-/// `mysql_query` breaks under a prepared statement ("Lost connection to
-/// server during query"), so mysql sorts in duckdb like sqlite.
-pub(super) fn table(
-    source: &Duckdb,
-    conn: &Connection,
-    target: &Target,
-    after: Option<&str>,
-    tx: &Sender,
-) -> Result<(), Error> {
-    read(conn, Select::table(source, target, after), tx).map(|_| ())
-}
-
-/// A planned DuckDB query. Construction owns SQL generation and resume
-/// semantics; execution only needs a connection and somewhere to send chunks.
-struct Select {
+/// A rendered query and what the reader needs alongside it: the source to name
+/// in an error, its filter for context, and how the cursor advances.
+pub(super) struct Plan {
     sql: String,
     from: String,
     filter: Option<String>,
     position: Position,
 }
 
-impl Select {
-    fn table(source: &Duckdb, target: &Target, after: Option<&str>) -> Select {
-        let id = target.id.as_deref().unwrap_or(ID);
-        let order = quoted(id, '"');
-        let relation = match source {
-            Duckdb::Postgres(_) => quoted(&target.from, '"'),
-            _ => format!("src.{}", quoted(&target.from, '"')),
-        };
-        let predicates: Vec<String> = [
-            target.filter.as_ref().map(|filter| format!("({filter})")),
-            after.map(|after| format!("{order} > '{}'", lit(after))),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        let mut sql = format!("SELECT * FROM {relation}");
-        if !predicates.is_empty() {
-            sql.push_str(&format!(" WHERE {}", predicates.join(" AND ")));
-        }
-        sql.push_str(&format!(" ORDER BY {order}"));
-        if let Some(limit) = target.limit {
-            sql.push_str(&format!(" LIMIT {limit}"));
-        }
-        let sql = match source {
-            Duckdb::Postgres(_) => {
-                format!("SELECT * FROM postgres_query('src', '{}')", lit(&sql))
-            }
-            _ => sql,
-        };
-        Select {
-            sql,
-            from: target.from.clone(),
-            filter: target.filter.clone(),
-            position: Position::Id(id.to_string()),
-        }
-    }
-
-    fn file(file: &File, target: &Target, offset: u64, limit: Option<u64>) -> Select {
-        let mut sql = format!("SELECT * FROM {}", reader(file));
-        if let Some(filter) = &target.filter {
-            sql.push_str(&format!(" WHERE ({filter})"));
-        }
-        if let Some(limit) = limit {
-            sql.push_str(&format!(" LIMIT {limit}"));
-        }
-        if offset > 0 {
-            sql.push_str(&format!(" OFFSET {offset}"));
-        }
-        Select {
-            sql,
-            from: file.path.clone(),
-            filter: target.filter.clone(),
-            position: Position::Offset(offset),
-        }
-    }
-}
-
+/// How this part's cursor moves: by the last value of a column, or by rows read
+/// within the part.
 enum Position {
-    Id(String),
+    Key(String),
     Offset(u64),
 }
 
 impl Position {
-    fn advance(&mut self, from: &str, rows: &[Result<Record, Error>]) -> Option<String> {
+    fn advance(&self, from: &str, read: u64, rows: &[Result<Record, Error>]) -> Option<Cursor> {
         match self {
-            Position::Id(id) => {
+            Position::Key(column) => {
                 let record = rows.last()?.as_ref().ok()?;
-                let (_, value) = record.iter().find(|(key, _)| key == id)?;
-                id_string(id, value.clone()).ok()
+                let (_, value) = record.iter().find(|(key, _)| key == column)?;
+                Some(Cursor::Key(id_string(column, value.clone()).ok()?))
             }
-            Position::Offset(offset) => {
-                *offset += rows.len() as u64;
-                Some(format!("{from}:{offset}"))
-            }
+            Position::Offset(start) => Some(Cursor::Offset {
+                part: from.to_string(),
+                rows: start + read,
+            }),
         }
     }
 }
@@ -130,16 +61,17 @@ pub(super) const READ_AHEAD: usize = 1;
 /// `OFFSET`s into the one it names.
 pub(super) fn files(
     source: &Duckdb,
-    conn: &Connection,
     file: &File,
     target: &Target,
-    after: Option<&str>,
+    filter: Option<&str>,
+    resume: Option<(String, u64)>,
     tx: &Sender,
 ) -> Result<(), Error> {
     let path = &file.path;
     let files: Vec<String> = match local_path(path).is_some() {
         true => vec![path.clone()],
         false => {
+            let conn = source.connect(Some(file))?;
             let mut stmt = conn
                 .prepare(&format!(
                     "SELECT file FROM glob('{}') ORDER BY 1",
@@ -151,16 +83,12 @@ pub(super) fn files(
                 .map_err(|e| read_error(path, None, e))?
         }
     };
-    let after = after.and_then(|after| {
-        let (file, offset) = after.rsplit_once(':')?;
-        Some((file.to_string(), offset.parse::<u64>().ok()?))
-    });
     // Globs list in byte order, which is how the cursor compares.
     let planned: Vec<(String, u64)> = files
         .into_iter()
-        .filter_map(|file| match &after {
+        .filter_map(|file| match &resume {
             Some((done, _)) if file < *done => None,
-            Some((done, offset)) if file == *done => Some((file, *offset)),
+            Some((done, rows)) if file == *done => Some((file, *rows)),
             _ => Some((file, 0)),
         })
         .collect();
@@ -179,15 +107,17 @@ pub(super) fn files(
             };
             let (file_tx, file_rx) = mpsc::channel(2);
             let source = source.clone();
-            let target = target.clone();
             let file = File {
                 path,
                 ..file.clone()
             };
-            let limit = remaining;
+            let plan = Plan::file(&file, target, filter, offset, remaining);
             readers.push_back((
                 file_rx,
-                thread::spawn(move || read_file(&source, &file, &target, offset, limit, &file_tx)),
+                thread::spawn(move || {
+                    let conn = source.connect(Some(&file))?;
+                    plan.read(&conn, &file_tx)
+                }),
             ));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
@@ -208,57 +138,94 @@ pub(super) fn files(
     Ok(())
 }
 
-/// One file on its own connection, from `offset`, at most `limit` rows.
-fn read_file(
-    source: &Duckdb,
-    file: &File,
-    target: &Target,
-    offset: u64,
-    limit: Option<u64>,
-    tx: &Sender,
-) -> Result<u64, Error> {
-    let conn = source.connect(Some(file))?;
-    read(&conn, Select::file(file, target, offset, limit), tx)
-}
-
-/// Executes one planned query. Returns the rows read and stops without error
-/// if the receiver goes away.
-fn read(conn: &Connection, mut select: Select, tx: &Sender) -> Result<u64, Error> {
-    let mut stmt = conn
-        .prepare(&select.sql)
-        .map_err(|e| read_error(&select.from, select.filter.as_deref(), e))?;
-    // `query_arrow` materializes the whole result; `stream_arrow` streams.
-    // Stepped by hand: the iterator panics on a mid-stream failure, `step`
-    // returns it.
-    let _ = stmt
-        .stream_arrow([])
-        .map_err(|e| read_error(&select.from, select.filter.as_deref(), e))?;
-    let mut read = 0;
-    while let Some(array) = stmt
-        .step()
-        .map_err(|e| read_error(&select.from, select.filter.as_deref(), e))?
-    {
-        let batch = duckdb::arrow::record_batch::RecordBatch::from(&array);
-        let schema = batch.schema();
-        let columns: Vec<(&str, ArrayRef)> = schema
-            .fields()
-            .iter()
-            .zip(batch.columns())
-            .map(|(field, array)| (field.name().as_str(), array.clone()))
-            .collect();
-        let rows: Vec<Result<Record, Error>> = (0..batch.num_rows())
-            .map(|row| {
-                columns
-                    .iter()
-                    .map(|(name, array)| Ok((name.to_string(), arrow::value(array, row)?)))
-                    .collect::<Result<Record, Error>>()
-            })
-            .collect();
-        read += rows.len() as u64;
-        let mark = select.position.advance(&select.from, &rows);
-        if tx.blocking_send(Ok(Chunk { rows, cursor: mark })).is_err() {
-            return Ok(read);
+impl Plan {
+    /// An attached table ordered by the id column, so a batch's last id is a
+    /// resume point.
+    pub(super) fn table(
+        source: &Duckdb,
+        target: &Target,
+        filter: Option<&str>,
+        after: Option<&str>,
+    ) -> Plan {
+        let id = target.id_column();
+        // The spec is a whitelist, so a column no field reads is never fetched.
+        // A table has one validated schema, and for postgres the list has to be
+        // plain anyway: the query runs on the server.
+        let sql = source
+            .select(&target.from)
+            .columns(target.source_columns())
+            .filter(filter)
+            .after(id, after)
+            .order_by(id)
+            .limit(target.limit)
+            .into_sql();
+        Plan {
+            sql,
+            from: target.from.clone(),
+            filter: filter.map(str::to_string),
+            position: Position::Key(id.to_string()),
         }
     }
-    Ok(read)
+
+    /// One file of a glob, resumed at `offset`. A column only some files carry
+    /// must stay absent from the rest the way `union_by_name` leaves it, rather
+    /// than raise a binder error: `COLUMNS` keeps the names that exist.
+    fn file(
+        file: &File,
+        target: &Target,
+        filter: Option<&str>,
+        offset: u64,
+        limit: Option<u64>,
+    ) -> Plan {
+        Plan {
+            sql: Select::new(reader(file))
+                .existing_columns(target.source_columns())
+                .filter(filter)
+                .limit(limit)
+                .offset(offset)
+                .into_sql(),
+            from: file.path.clone(),
+            filter: filter.map(str::to_string),
+            position: Position::Offset(offset),
+        }
+    }
+
+    pub(super) fn read(&self, conn: &Connection, tx: &Sender) -> Result<u64, Error> {
+        self.execute(conn, tx)
+            .map_err(|e| read_error(&self.from, self.filter.as_deref(), e))
+    }
+
+    /// Returns the rows read; stops without error if the receiver goes away.
+    fn execute(&self, conn: &Connection, tx: &Sender) -> Result<u64, duckdb::Error> {
+        let mut stmt = conn.prepare(&self.sql)?;
+        // `query_arrow` materializes the whole result; `stream_arrow` streams.
+        // Stepped by hand: the iterator panics on a mid-stream failure, `step`
+        // returns it.
+        let _ = stmt.stream_arrow([])?;
+        let mut read = 0;
+        while let Some(array) = stmt.step()? {
+            let batch = duckdb::arrow::record_batch::RecordBatch::from(&array);
+            let schema = batch.schema();
+            let columns: Vec<(&str, ArrayRef)> = schema
+                .fields()
+                .iter()
+                .zip(batch.columns())
+                .map(|(field, array)| (field.name().as_str(), array.clone()))
+                .collect();
+            let rows: Vec<Result<Record, Error>> = (0..batch.num_rows())
+                .map(|row| {
+                    columns
+                        .iter()
+                        .map(|(name, array)| Ok((name.to_string(), arrow::value(array, row)?)))
+                        .collect::<Result<Record, Error>>()
+                })
+                .collect();
+            read += rows.len() as u64;
+            let mark = self.position.advance(&self.from, read, &rows);
+            if tx.blocking_send(Chunk { rows, cursor: mark }).is_err() {
+                return Ok(read);
+            }
+        }
+        Ok(read)
+    }
 }

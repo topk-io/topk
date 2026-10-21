@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TopK CLI</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,{{favicon}}">
+<style>
+  :root { color-scheme: light dark; --fg: #474747; --muted: #6b6b6b; --bg: #fafafa; --card: #fff; --line: #e6e6e6; --err: #b42318; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ededed; --muted: #9a9a9a; --bg: #0f0f0f; --card: #171717; --line: #2a2a2a; --err: #f0655a; } }
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; place-items: center; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { width: min(420px, calc(100% - 2rem)); padding: 3rem 2rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; text-align: center; }
+  .logo { display: block; height: 26px; width: auto; margin: 0 auto 2rem; color: var(--fg); }
+  h1 { margin: 0 0 .5rem; font-size: 1.25rem; font-weight: 600; color: var(--{{tone}}); }
+  p { margin: 0; color: var(--muted); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+</style>
+</head>
+<body>
+<main>
+  {{logo}}
+  <h1>{{title}}</h1>
+  <p>{{body}}</p>
+</main>
+</body>
+</html>

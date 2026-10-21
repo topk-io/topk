@@ -52,7 +52,6 @@ async fn test_mapped_fields_queryable(scope: &TestScope, #[case] query: Value) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::dev_unsupported_type(json!({ "mappings": { "properties": { "created": { "type": "date" } } } }))]
 #[case::dev_unknown_field_option(json!({ "mappings": { "properties": { "title": { "type": "text", "analyzer": "standard" } } } }))]
 #[case::dev_missing_dims(json!({ "mappings": { "properties": { "v": { "type": "dense_vector" } } } }))]
 #[case::dev_bad_mappings_option(json!({ "mappings": { "dynamic": false, "properties": {} } }))]
@@ -75,6 +74,19 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
         .await
         .expect("exists check");
     assert_eq!(res.status_code(), StatusCode::NOT_FOUND);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn dev_unsupported_mapping_type_error_type(scope: &TestScope) {
+    let err = scope
+        .create_with_body(Some(
+            json!({ "mappings": { "properties": { "location": { "type": "geo_point" } } } }),
+        ))
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+    assert_eq!(err.error_type(), "action_request_validation_exception");
 }
 
 #[rstest_ctx(TestScope)]
@@ -111,7 +123,19 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
 #[case::dense_vector_index_false(
     json!({ "v": { "type": "dense_vector", "dims": 4, "index": false } })
 )]
+#[case::sparse_vector(json!({ "v": { "type": "sparse_vector" } }))]
 #[case::object_without_properties(json!({ "meta": { "type": "object" } }))]
+#[case::keyword_ignore_above(json!({ "sku": { "type": "keyword", "ignore_above": 256 } }))]
+#[case::dense_vector_index_options(json!({
+    "v": {
+        "type": "dense_vector", "dims": 4, "index": true, "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
+    }
+}))]
+#[case::date(json!({ "created": { "type": "date" } }))]
+#[case::date_nanos_alias(json!({ "created": { "type": "date_nanos" } }))]
+#[case::date_with_format(json!({ "created": { "type": "date", "format": "strict_date_optional_time" } }))]
+#[case::sparse_vector_index_options(json!({ "v": { "type": "sparse_vector", "index_options": { "prune": true } } }))]
 async fn test_create_accepts_supported_mapping_variants(
     scope: &TestScope,
     #[case] properties: Value,
@@ -166,7 +190,8 @@ async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope
                 "top_k": 8,
                 "width": 4096
             },
-            "content": { "type": "semantic_text" }
+            "content": { "type": "semantic_text" },
+            "sparse": { "type": "sparse_vector" }
         }))
         .await;
 
@@ -248,6 +273,11 @@ async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope
     assert_eq!(
         properties["content"],
         json!({ "type": "semantic_text" }),
+        "{body}"
+    );
+    assert_eq!(
+        properties["sparse"],
+        json!({ "type": "sparse_vector" }),
         "{body}"
     );
     assert!(properties.get("_id").is_none());

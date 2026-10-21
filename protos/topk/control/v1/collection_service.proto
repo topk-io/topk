@@ -5,8 +5,13 @@ import "topk/control/v1/collection.proto";
 import "topk/control/v1/schema.proto";
 
 service CollectionService {
-  // List collections
-  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  // Deprecated in favor of `ListCollectionsStream`.
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse) {
+    option deprecated = true;
+  }
+
+  // Stream collections, ordered by name
+  rpc ListCollectionsStream(ListCollectionsStreamRequest) returns (stream Collection);
 
   // Get collection
   rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse);
@@ -21,6 +26,11 @@ service CollectionService {
 message ListCollectionsRequest {}
 message ListCollectionsResponse {
   repeated Collection collections = 1;
+}
+
+message ListCollectionsStreamRequest {
+  // Collection name prefix
+  optional string prefix = 1;
 }
 
 message GetCollectionRequest {

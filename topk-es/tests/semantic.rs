@@ -113,7 +113,7 @@ async fn test_semantic_query_standalone_ranks_by_similarity(scope: &TestScope) {
     scope.index_docs([
         (
             "1",
-            json!({ "content": "The cat sat lazily on the warm windowsill in the sun." }),
+            json!({ "content": "Two tiny kittens played with a ball of yarn." }),
         ),
         (
             "2",

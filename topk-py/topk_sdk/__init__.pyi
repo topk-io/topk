@@ -269,9 +269,14 @@ class CollectionsClient:
         Get information about a specific collection.
         """
         ...
-    def list(self) -> builtins.list[Collection]:
+    def list(
+        self,
+        prefix: typing.Optional[builtins.str] = None,
+    ) -> CollectionListIterator:
         """
-        List all collections.
+        List collections, ordered by name.
+
+        If `prefix` is provided, only collections with names starting with the prefix are listed.
         """
         ...
     def create(
@@ -299,9 +304,14 @@ class AsyncCollectionsClient:
         Get information about a specific collection asynchronously.
         """
         ...
-    def list(self) -> typing.Awaitable[builtins.list[Collection]]:
+    def list(
+        self,
+        prefix: typing.Optional[builtins.str] = None,
+    ) -> AsyncCollectionListIterator:
         """
-        List all collections asynchronously.
+        List collections, ordered by name, asynchronously.
+
+        If `prefix` is provided, only collections with names starting with the prefix are listed.
         """
         ...
     def create(
@@ -335,6 +345,22 @@ class AsyncPartitionListIterator:
     def __aiter__(self) -> AsyncPartitionListIterator: ...
     def __anext__(self) -> typing.Awaitable[Partition]: ...
 
+class CollectionListIterator:
+    """
+    Iterator for synchronous collection list responses.
+    """
+
+    def __iter__(self) -> CollectionListIterator: ...
+    def __next__(self) -> Collection: ...
+
+class AsyncCollectionListIterator:
+    """
+    Iterator for asynchronous collection list responses.
+    """
+
+    def __aiter__(self) -> AsyncCollectionListIterator: ...
+    def __anext__(self) -> typing.Awaitable[Collection]: ...
+
 class ConsistencyLevel:
     """
     Consistency level for read operations.
@@ -350,7 +376,7 @@ class RetryConfig:
     Configuration for retry behavior.
 
     By default, retries occur in two situations:
-    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](https://docs.topk.io/sdk/topk-py/error#slowdownerror).
+    1. On transient errors (server unavailable, network failures).
     2. When using the `query(..., lsn=N)` to wait for writes to be available.
     """
 

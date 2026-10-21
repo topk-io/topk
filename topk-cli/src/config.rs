@@ -1,106 +1,277 @@
-use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
-
-use anyhow::{anyhow, Context, Result};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Config {
-    pub api_key: Option<String>,
-}
-
-pub fn dir() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("topk"))
-}
-
-pub fn config_path() -> Option<PathBuf> {
-    dir().map(|d| d.join("config.toml"))
-}
-
-pub fn load() -> Result<Config> {
-    let path = match config_path() {
-        Some(path) => path,
-        None => return Ok(Config::default()),
-    };
-    match std::fs::read_to_string(&path) {
-        Ok(text) => {
-            toml::from_str(&text).map_err(|e| anyhow!("cannot parse {}: {e}", path.display()))
-        }
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(Config::default()),
-        Err(e) => Err(anyhow!("cannot read {}: {e}", path.display())),
-    }
-}
-
-pub fn set_api_key(api_key: String) -> Result<()> {
-    save(&Config {
-        api_key: Some(api_key),
-    })
-}
-
-pub fn clear() -> Result<()> {
-    save(&Config::default())
-}
-
-fn save(config: &Config) -> Result<()> {
-    let path = config_path().context("could not determine config directory")?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| anyhow!("cannot create {}: {e}", parent.display()))?;
-    }
-    let content = toml::to_string_pretty(config)?;
-    write_config_file(&path, &content).map_err(|e| anyhow!("cannot write {}: {e}", path.display()))
-}
+//! The CLI's configuration: which API to talk to, the login session, and the
+//! access tokens minted with it.
 
 #[cfg(unix)]
-fn write_config_file(path: &Path, content: &str) -> Result<()> {
-    use std::fs::{OpenOptions, Permissions};
-    use std::io::Write;
-    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::fs::Permissions;
+use std::fs::{create_dir_all, File, OpenOptions, TryLockError};
+use std::io::{ErrorKind, Write};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-    let mut file = OpenOptions::new()
+use anyhow::{ensure, Context, Result};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tempfile::{NamedTempFile, TempPath};
+use tokio::time::{sleep, timeout};
+use toml::Table;
+
+use crate::auth::{OAuthConfig, Session};
+use crate::client::AccessToken;
+use crate::host::Host;
+use crate::ProjectId;
+
+const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
+const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+#[derive(Clone)]
+pub struct Config {
+    dir: PathBuf,
+    host: Host,
+    oauth: OAuthConfig,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct Defaults {
+    pub project_id: Option<ProjectId>,
+}
+
+impl Config {
+    pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
+        Self { dir, host, oauth }
+    }
+
+    pub async fn session(&self) -> Result<LockedSession<'_>> {
+        Ok(LockedSession {
+            config: self,
+            _lock: lock(self.session_lock_file()).await?,
+        })
+    }
+
+    pub fn access_tokens(&self) -> AccessTokens {
+        AccessTokens {
+            dir: self.tenant_dir().join("projects"),
+        }
+    }
+
+    pub fn dir() -> Result<PathBuf> {
+        std::env::var_os("TOPK_CONFIG_DIR")
+            .map(PathBuf::from)
+            .or_else(|| dirs::config_dir().map(|d| d.join("topk")))
+            .context("no config directory")
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host.host
+    }
+
+    pub fn https(&self) -> bool {
+        self.host.https
+    }
+
+    pub fn oauth(&self) -> &OAuthConfig {
+        &self.oauth
+    }
+
+    pub fn defaults(&self) -> Result<Defaults> {
+        match read(&self.defaults_file())? {
+            Some(raw) => toml::from_str(&raw).context("invalid saved defaults"),
+            None => Ok(Defaults::default()),
+        }
+    }
+
+    pub fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
+        write_toml(&self.defaults_file(), &Defaults { project_id })
+    }
+
+    fn config_file(&self) -> PathBuf {
+        self.dir.join("config.toml")
+    }
+
+    fn defaults_file(&self) -> PathBuf {
+        let key = Sha256::digest(format!("{}:{}", self.host.https, self.host.host).as_bytes());
+        self.tenant_dir()
+            .join("defaults")
+            .join(format!("{key:x}.toml"))
+    }
+
+    /// Everything scoped to this issuer's session lives here.
+    fn tenant_dir(&self) -> PathBuf {
+        self.dir.join("tenants").join(self.oauth.issuer_key())
+    }
+
+    fn credentials_file(&self) -> PathBuf {
+        self.tenant_dir().join("credentials.toml")
+    }
+
+    fn session_lock_file(&self) -> PathBuf {
+        self.tenant_dir().join("session.lock")
+    }
+}
+
+pub struct LockedSession<'a> {
+    config: &'a Config,
+    _lock: File,
+}
+
+impl LockedSession<'_> {
+    pub fn load(&self) -> Result<Option<Session>> {
+        let Some(raw) = read(&self.config.credentials_file())? else {
+            return Ok(None);
+        };
+        let credentials: Credentials =
+            toml::from_str(&raw).context("stored credentials are corrupt")?;
+        Ok(Some(credentials.session(&self.config.oauth)?))
+    }
+
+    pub fn save(&self, session: Session) -> Result<()> {
+        let mut config: Table = match read(&self.config.config_file())? {
+            Some(raw) => toml::from_str(&raw).context("invalid config.toml")?,
+            None => Table::new(),
+        };
+        write_toml(
+            &self.config.credentials_file(),
+            &Credentials::new(&self.config.oauth, session),
+        )?;
+        if config.remove("api_key").is_some() {
+            write_toml(&self.config.config_file(), &config)?;
+        }
+        Ok(())
+    }
+
+    pub fn delete(&self) -> Result<()> {
+        remove(&self.config.credentials_file())?;
+        remove(&self.config.config_file())
+    }
+}
+
+/// The access tokens minted with this session, cached per project.
+pub struct AccessTokens {
+    dir: PathBuf,
+}
+
+impl AccessTokens {
+    /// The project's cached token; a missing or corrupt file reads as `None`.
+    pub fn load(&self, project_id: &str) -> Result<Option<AccessToken>> {
+        Ok(read(&self.token_file(project_id))?.and_then(|raw| toml::from_str(&raw).ok()))
+    }
+
+    /// Wait for the project's token lock.
+    pub async fn lock(&self, project_id: &str) -> Result<File> {
+        lock(self.lock_file(project_id)).await
+    }
+
+    pub fn save(&self, project_id: &str, token: &AccessToken) -> Result<()> {
+        write_toml(&self.token_file(project_id), token)
+    }
+
+    pub fn clear(&self) -> Result<()> {
+        match std::fs::remove_dir_all(self.tokens_dir()) {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                Err(error).context("clearing access token cache")
+            }
+            _ => Ok(()),
+        }
+    }
+
+    fn tokens_dir(&self) -> PathBuf {
+        self.dir.join("tokens")
+    }
+
+    fn token_file(&self, project_id: &str) -> PathBuf {
+        self.tokens_dir().join(format!("{project_id}.toml"))
+    }
+
+    fn lock_file(&self, project_id: &str) -> PathBuf {
+        self.dir.join("locks").join(format!("{project_id}.lock"))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct Credentials {
+    client_id: String,
+    audience: String,
+    #[serde(flatten)]
+    session: Session,
+}
+
+impl Credentials {
+    fn new(oauth: &OAuthConfig, session: Session) -> Self {
+        Self {
+            client_id: oauth.client_id.clone(),
+            audience: oauth.audience.clone(),
+            session,
+        }
+    }
+
+    fn session(self, oauth: &OAuthConfig) -> Result<Session> {
+        ensure!(
+            self.client_id == oauth.client_id && self.audience == oauth.audience,
+            "authentication configuration mismatch"
+        );
+        Ok(self.session)
+    }
+}
+
+/// Poll the OS lock so cancellation never leaves a blocking worker behind.
+pub async fn lock(path: PathBuf) -> Result<File> {
+    create_dir_all(path.parent().context("lock has no parent directory")?)?;
+    let file = OpenOptions::new()
         .create(true)
-        .truncate(true)
+        .truncate(false)
+        .read(true)
         .write(true)
-        .mode(0o600)
         .open(path)?;
-    file.write_all(content.as_bytes())?;
-    file.set_permissions(Permissions::from_mode(0o600))?;
-    Ok(())
+    timeout(LOCK_TIMEOUT, async {
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(file),
+                Err(TryLockError::WouldBlock) => sleep(LOCK_POLL_INTERVAL).await,
+                Err(TryLockError::Error(e)) => return Err(e.into()),
+            }
+        }
+    })
+    .await
+    .context("timed out waiting for the lock")?
 }
 
-#[cfg(not(unix))]
-fn write_config_file(path: &Path, content: &str) -> Result<()> {
-    std::fs::write(path, content)?;
-    Ok(())
+pub fn read(path: &Path) -> Result<Option<String>> {
+    match std::fs::read_to_string(path) {
+        Ok(raw) => Ok(Some(raw)),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e).with_context(|| format!("reading {}", path.display())),
+    }
 }
 
-#[cfg(test)]
-mod tests {
+fn remove(path: &Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e).with_context(|| format!("removing {}", path.display())),
+    }
+}
+
+fn write_toml<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    write_secret_file(path, &toml::to_string_pretty(value)?)
+}
+
+/// Replace a file atomically so readers cannot observe partial data.
+pub fn write_secret_file(path: &Path, content: &str) -> Result<()> {
+    let parent = path.parent().context("file has no parent")?;
+    create_dir_all(parent)?;
+    let mut file = NamedTempFile::new_in(parent)?;
     #[cfg(unix)]
-    #[test]
-    fn write_config_file_uses_restrictive_permissions() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let dir = tempfile::tempdir().expect("create tempdir");
-        let path = dir.path().join("config.toml");
-
-        super::write_config_file(&path, "api_key = 'secret'").expect("write config");
-
-        let mode = std::fs::metadata(&path)
-            .expect("stat config")
-            .permissions()
-            .mode()
-            & 0o777;
-        assert_eq!(mode, 0o600);
+    {
+        file.as_file()
+            .set_permissions(Permissions::from_mode(0o600))?;
     }
-
-    #[test]
-    fn config_with_none_api_key_serializes_and_roundtrips() {
-        let config = super::Config { api_key: None };
-
-        let toml = toml::to_string(&config).expect("serialize config");
-        let restored: super::Config = toml::from_str(&toml).expect("deserialize config");
-
-        assert!(restored.api_key.is_none());
-    }
+    file.write_all(content.as_bytes())?;
+    file.as_file().sync_all()?;
+    // Clear the Windows temporary attribute, then restore cleanup on failure.
+    let (_, temp_path) = file.keep()?;
+    let temp_path = TempPath::try_from_path(temp_path)?;
+    // Unlike tempfile::persist, std supports replacing open files on Windows.
+    std::fs::rename(&temp_path, path)?;
+    Ok(())
 }

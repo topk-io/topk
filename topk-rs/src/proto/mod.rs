@@ -1,4 +1,4 @@
-mod codec;
+pub mod codec;
 mod control;
 mod data;
 mod macros;

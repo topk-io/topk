@@ -1,11 +1,13 @@
+use test_context::test_context;
+
+use topk::import::{Error, Uri};
+
 use crate::common::seed::pg;
 use crate::common::*;
-use test_context::test_context;
-use topk::import::{Error, Uri};
 
 async fn catalog_of(locator: &str) -> Vec<topk::import::Table> {
     let uri: Uri = locator.parse().expect("source uri parses");
-    topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+    topk::import::Source::connect(&uri, &config(), &endpoint())
         .await
         .expect("connect")
         .catalog()
@@ -16,7 +18,7 @@ async fn catalog_of(locator: &str) -> Vec<topk::import::Table> {
 async fn discover_err(locator: &str, pattern: &str) -> String {
     let uri: Uri = locator.parse().expect("source uri parses");
     let result = async {
-        let catalog = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+        let catalog = topk::import::Source::connect(&uri, &config(), &endpoint())
             .await?
             .catalog()
             .await?;
@@ -227,12 +229,15 @@ async fn key_collision() {
 
 #[test_context(Scratch)]
 #[tokio::test]
-async fn read_errors_omit_the_generated_sql(ctx: &mut Scratch) {
+async fn read_errors_name_the_source(ctx: &mut Scratch) {
     let missing = format!("{}/missing.parquet", ctx.scratch().display());
 
     let message = discover_err(&missing, "*").await;
+    assert!(
+        message.contains("reading") && message.contains("missing.parquet"),
+        "got: {message}"
+    );
     assert!(message.contains("No files found"), "got: {message}");
-    assert!(!message.contains("SELECT"), "got: {message}");
 }
 
 #[tokio::test]

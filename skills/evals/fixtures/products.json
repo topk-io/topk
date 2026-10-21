@@ -1,0 +1,242 @@
+[
+ {
+  "id": "p001",
+  "name": "Wireless Noise-Cancelling Headphones",
+  "description": "Over-ear headphones that block airplane and office noise, 30 hour battery.",
+  "category": "audio",
+  "price": 135.29,
+  "in_stock": false
+ },
+ {
+  "id": "p002",
+  "name": "Bluetooth Speaker Mini",
+  "description": "Bluetooth Speaker Mini designed for everyday audio use. Durable, well reviewed, and easy to clean.",
+  "category": "audio",
+  "price": 262.86,
+  "in_stock": false
+ },
+ {
+  "id": "p003",
+  "name": "Studio Monitor Headphones",
+  "description": "Studio Monitor Headphones designed for everyday audio use. Durable, well reviewed, and easy to clean.",
+  "category": "audio",
+  "price": 217.99,
+  "in_stock": true
+ },
+ {
+  "id": "p004",
+  "name": "USB Podcast Microphone",
+  "description": "USB Podcast Microphone designed for everyday audio use. Durable, well reviewed, and easy to clean.",
+  "category": "audio",
+  "price": 31.62,
+  "in_stock": true
+ },
+ {
+  "id": "p005",
+  "name": "True Wireless Earbuds Pro",
+  "description": "In-ear buds with active noise cancellation for commuting and the gym.",
+  "category": "audio",
+  "price": 23.62,
+  "in_stock": true
+ },
+ {
+  "id": "p006",
+  "name": "Bookshelf Speakers Pair",
+  "description": "Bookshelf Speakers Pair designed for everyday audio use. Durable, well reviewed, and easy to clean.",
+  "category": "audio",
+  "price": 36.24,
+  "in_stock": false
+ },
+ {
+  "id": "p007",
+  "name": "Cast Iron Skillet 12in",
+  "description": "Cast Iron Skillet 12in designed for everyday kitchen use. Durable, well reviewed, and easy to clean.",
+  "category": "kitchen",
+  "price": 174.56,
+  "in_stock": true
+ },
+ {
+  "id": "p008",
+  "name": "Pour-Over Coffee Kettle",
+  "description": "Gooseneck kettle with precise pour for brewing coffee.",
+  "category": "kitchen",
+  "price": 57.28,
+  "in_stock": false
+ },
+ {
+  "id": "p009",
+  "name": "Chef Knife 8in Damascus",
+  "description": "Chef Knife 8in Damascus designed for everyday kitchen use. Durable, well reviewed, and easy to clean.",
+  "category": "kitchen",
+  "price": 253.7,
+  "in_stock": true
+ },
+ {
+  "id": "p010",
+  "name": "Silicone Baking Mat Set",
+  "description": "Silicone Baking Mat Set designed for everyday kitchen use. Durable, well reviewed, and easy to clean.",
+  "category": "kitchen",
+  "price": 234.07,
+  "in_stock": true
+ },
+ {
+  "id": "p011",
+  "name": "Espresso Machine Compact",
+  "description": "Small 15-bar machine for strong coffee at home.",
+  "category": "kitchen",
+  "price": 389.74,
+  "in_stock": false
+ },
+ {
+  "id": "p012",
+  "name": "Bamboo Cutting Board",
+  "description": "Bamboo Cutting Board designed for everyday kitchen use. Durable, well reviewed, and easy to clean.",
+  "category": "kitchen",
+  "price": 343.8,
+  "in_stock": true
+ },
+ {
+  "id": "p013",
+  "name": "Ultralight Backpacking Tent",
+  "description": "Ultralight Backpacking Tent designed for everyday outdoor use. Durable, well reviewed, and easy to clean.",
+  "category": "outdoor",
+  "price": 65.26,
+  "in_stock": false
+ },
+ {
+  "id": "p014",
+  "name": "Insulated Water Bottle 1L",
+  "description": "Insulated Water Bottle 1L designed for everyday outdoor use. Durable, well reviewed, and easy to clean.",
+  "category": "outdoor",
+  "price": 129.31,
+  "in_stock": true
+ },
+ {
+  "id": "p015",
+  "name": "Trail Running Shoes",
+  "description": "Grippy, lightweight shoes for muddy mountain trails.",
+  "category": "outdoor",
+  "price": 79.48,
+  "in_stock": true
+ },
+ {
+  "id": "p016",
+  "name": "Down Sleeping Bag 20F",
+  "description": "Down Sleeping Bag 20F designed for everyday outdoor use. Durable, well reviewed, and easy to clean.",
+  "category": "outdoor",
+  "price": 258.18,
+  "in_stock": true
+ },
+ {
+  "id": "p017",
+  "name": "Headlamp Rechargeable",
+  "description": "Headlamp Rechargeable designed for everyday outdoor use. Durable, well reviewed, and easy to clean.",
+  "category": "outdoor",
+  "price": 222.62,
+  "in_stock": false
+ },
+ {
+  "id": "p018",
+  "name": "Camping Stove Titanium",
+  "description": "Camping Stove Titanium designed for everyday outdoor use. Durable, well reviewed, and easy to clean.",
+  "category": "outdoor",
+  "price": 32.24,
+  "in_stock": false
+ },
+ {
+  "id": "p019",
+  "name": "Ergonomic Office Chair",
+  "description": "Ergonomic Office Chair designed for everyday office use. Durable, well reviewed, and easy to clean.",
+  "category": "office",
+  "price": 274.36,
+  "in_stock": true
+ },
+ {
+  "id": "p020",
+  "name": "Mechanical Keyboard Brown Switches",
+  "description": "Mechanical Keyboard Brown Switches designed for everyday office use. Durable, well reviewed, and easy to clean.",
+  "category": "office",
+  "price": 131.52,
+  "in_stock": true
+ },
+ {
+  "id": "p021",
+  "name": "Standing Desk Converter",
+  "description": "Standing Desk Converter designed for everyday office use. Durable, well reviewed, and easy to clean.",
+  "category": "office",
+  "price": 185.74,
+  "in_stock": true
+ },
+ {
+  "id": "p022",
+  "name": "Noise Machine for Focus",
+  "description": "White and brown noise generator to mask open-office chatter so you can concentrate.",
+  "category": "office",
+  "price": 318.81,
+  "in_stock": true
+ },
+ {
+  "id": "p023",
+  "name": "Monitor Light Bar",
+  "description": "Monitor Light Bar designed for everyday office use. Durable, well reviewed, and easy to clean.",
+  "category": "office",
+  "price": 104.2,
+  "in_stock": true
+ },
+ {
+  "id": "p024",
+  "name": "Wireless Ergonomic Mouse",
+  "description": "Wireless Ergonomic Mouse designed for everyday office use. Durable, well reviewed, and easy to clean.",
+  "category": "office",
+  "price": 213.83,
+  "in_stock": true
+ },
+ {
+  "id": "p025",
+  "name": "Adjustable Dumbbells 50lb",
+  "description": "Adjustable Dumbbells 50lb designed for everyday fitness use. Durable, well reviewed, and easy to clean.",
+  "category": "fitness",
+  "price": 293.48,
+  "in_stock": true
+ },
+ {
+  "id": "p026",
+  "name": "Yoga Mat Extra Thick",
+  "description": "Yoga Mat Extra Thick designed for everyday fitness use. Durable, well reviewed, and easy to clean.",
+  "category": "fitness",
+  "price": 391.27,
+  "in_stock": false
+ },
+ {
+  "id": "p027",
+  "name": "Resistance Bands Set",
+  "description": "Resistance Bands Set designed for everyday fitness use. Durable, well reviewed, and easy to clean.",
+  "category": "fitness",
+  "price": 172.07,
+  "in_stock": true
+ },
+ {
+  "id": "p028",
+  "name": "Foam Roller Deep Tissue",
+  "description": "Foam Roller Deep Tissue designed for everyday fitness use. Durable, well reviewed, and easy to clean.",
+  "category": "fitness",
+  "price": 68.27,
+  "in_stock": true
+ },
+ {
+  "id": "p029",
+  "name": "Jump Rope Weighted",
+  "description": "Jump Rope Weighted designed for everyday fitness use. Durable, well reviewed, and easy to clean.",
+  "category": "fitness",
+  "price": 24.29,
+  "in_stock": true
+ },
+ {
+  "id": "p030",
+  "name": "Pull-Up Bar Doorway",
+  "description": "Pull-Up Bar Doorway designed for everyday fitness use. Durable, well reviewed, and easy to clean.",
+  "category": "fitness",
+  "price": 307.18,
+  "in_stock": true
+ }
+]

@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, Map};
 use topk_rs::json::Value;
 
 use super::query::FieldName;
+use crate::date::Zone;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -12,7 +14,7 @@ pub struct AggClause {
     pub ty: AggType,
 
     #[serde(default, alias = "aggregations")]
-    pub aggs: Option<HashMap<String, AggClause>>,
+    pub aggs: HashMap<String, AggClause>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -24,6 +26,45 @@ pub enum AggType {
     Min(MetricAggBody),
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
+    Cardinality(CardinalityAggBody),
+    Percentiles(PercentilesAggBody),
+    DateHistogram(DateHistogramBody),
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CardinalityAggBody {
+    pub field: FieldName,
+
+    // Accepted, not honoured: `count_distinct` exposes no accuracy dial to feed it.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub precision_threshold: Option<u32>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PercentilesAggBody {
+    pub field: FieldName,
+
+    #[serde(default = "default_percents")]
+    pub percents: Vec<f64>,
+
+    #[serde(default = "default_keyed")]
+    pub keyed: bool,
+
+    // Accepted, not honoured: topk `quantile` has no compression setting.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub tdigest: Option<Value>,
+}
+
+fn default_percents() -> Vec<f64> {
+    vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0]
+}
+
+fn default_keyed() -> bool {
+    true
 }
 
 #[derive(Clone, Deserialize)]
@@ -37,6 +78,43 @@ pub struct TermsAggBody {
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct DateHistogramBody {
+    pub field: FieldName,
+
+    #[serde(default)]
+    pub fixed_interval: Option<String>,
+
+    #[serde(default)]
+    pub calendar_interval: Option<String>,
+
+    #[serde(default)]
+    pub min_doc_count: Option<u64>,
+
+    #[serde(default)]
+    pub time_zone: Zone,
+
+    #[serde(default)]
+    pub extended_bounds: Option<Bounds>,
+
+    #[serde(default)]
+    pub keyed: bool,
+
+    #[serde(default, rename = "format")]
+    _format: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Bounds {
+    #[serde(default)]
+    pub min: Option<Value>,
+
+    #[serde(default)]
+    pub max: Option<Value>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MetricAggBody {
     pub field: FieldName,
 }
@@ -46,16 +124,47 @@ pub struct MetricAggBody {
 pub enum AggResult {
     Metric {
         value: Option<f64>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value_as_string: Option<String>,
     },
     Terms {
         doc_count_error_upper_bound: u32,
         sum_other_doc_count: u64,
-        buckets: Vec<TermsBucket>,
+        buckets: Vec<Bucket>,
+    },
+    Histogram {
+        buckets: Buckets,
+    },
+    Percentiles {
+        values: Percentiles,
     },
 }
 
+#[serde_as]
 #[derive(Serialize)]
-pub struct TermsBucket {
+#[serde(untagged)]
+pub enum Percentiles {
+    List(Vec<Percentile>),
+    Keyed(#[serde_as(as = "Map<_, _>")] Vec<(String, Option<f64>)>),
+}
+
+#[derive(Serialize)]
+pub struct Percentile {
+    pub key: f64,
+    pub value: Option<f64>,
+}
+
+#[serde_as]
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum Buckets {
+    List(Vec<Bucket>),
+    Keyed(#[serde_as(as = "Map<_, _>")] Vec<(String, Bucket)>),
+}
+
+#[derive(Serialize)]
+pub struct Bucket {
     pub key: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_as_string: Option<String>,

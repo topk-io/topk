@@ -2,23 +2,77 @@ use std::collections::HashMap;
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    Expr as SqlExpr, Function as SqlFunction, FunctionArg, FunctionArgExpr, GroupByExpr,
-    LimitClause, OrderByKind, Query as SqlQuery, SelectItem, SetExpr, TableFactor,
-    Value as SqlValue, visit_expressions,
+    visit_expressions, BinaryOperator, Expr as SqlExpr, Function as SqlFunction, FunctionArg,
+    FunctionArgExpr, GroupByExpr, LimitClause, OrderByKind, Query as SqlQuery, SelectItem, SetExpr,
+    TableFactor, Value as SqlValue,
 };
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
-use topk_rs::proto::v1::data::{AggregateExpr, LogicalExpr, Query, Stage};
+use topk_rs::proto::v1::data::{AggregateExpr, ConsistencyLevel, LogicalExpr, Query, Stage};
 
 use crate::{
-    Error, FromSql, SelectItemExt, SqlExprExt, SqlFunctionExt, Table, sql_invalid, sql_unsupported,
-    stmt::Statement,
+    sql_invalid, sql_unsupported, stmt::Statement, Error, FromSql, SelectItemExt, SqlExprExt,
+    SqlFunctionExt, Table,
 };
+
+#[derive(Default)]
+pub struct ReadOptions {
+    pub required_lsn: Option<String>,
+    pub consistency: Option<ConsistencyLevel>,
+}
+
+// `FROM <table> WITH (option = value, …)` — the read options TopK accepts.
+fn read_options(hints: Vec<SqlExpr>) -> Result<ReadOptions, Error> {
+    let mut options = ReadOptions::default();
+
+    for hint in hints {
+        let (option, value) = match hint {
+            SqlExpr::BinaryOp {
+                left,
+                op: BinaryOperator::Eq,
+                right,
+            } => (left.to_string().to_ascii_lowercase(), *right),
+            other => sql_invalid!("WITH expects `option = value`, got {other}"),
+        };
+
+        match option.as_str() {
+            "required_lsn" => match value {
+                SqlExpr::Value(v) => match v.value {
+                    SqlValue::Number(n, _) | SqlValue::SingleQuotedString(n)
+                        if n.parse::<u64>().is_ok() =>
+                    {
+                        options.required_lsn = Some(n)
+                    }
+                    other => sql_invalid!("required_lsn must be an integer, got {other}"),
+                },
+                other => sql_invalid!("required_lsn must be a literal, got {other}"),
+            },
+            "consistency" => match value {
+                SqlExpr::Value(v) => match v.value {
+                    SqlValue::SingleQuotedString(level) => {
+                        options.consistency = Some(match level.to_ascii_lowercase().as_str() {
+                            "indexed" => ConsistencyLevel::Indexed,
+                            "strong" => ConsistencyLevel::Strong,
+                            other => sql_invalid!(
+                                "consistency must be 'indexed' or 'strong', got '{other}'"
+                            ),
+                        })
+                    }
+                    other => sql_invalid!("consistency must be a string, got {other}"),
+                },
+                other => sql_invalid!("consistency must be a literal, got {other}"),
+            },
+            other => sql_invalid!("unknown option: {other}"),
+        }
+    }
+
+    Ok(options)
+}
 
 fn is_aggregate_fn(func: &SqlFunction) -> bool {
     matches!(
         func.name().to_ascii_lowercase().as_str(),
-        "count" | "sum" | "min" | "max" | "avg"
+        "count" | "sum" | "min" | "max" | "avg" | "approx_percentile" | "approx_count_distinct"
     )
 }
 
@@ -79,7 +133,8 @@ fn lower_group_by(
                 sql_unsupported!(
                     !group_keys.iter().any(|(_, key)| key == &logical),
                     "`{out_name}` in a GROUP BY query must be a group key or an \
-                     aggregate function call (COUNT/SUM/MIN/MAX/AVG)"
+                     aggregate function call \
+                     (COUNT/SUM/MIN/MAX/AVG/APPROX_PERCENTILE/APPROX_COUNT_DISTINCT)"
                 );
                 if !keys.iter().any(|(name, _)| name == &out_name) {
                     keys.push((out_name.clone(), logical));
@@ -159,10 +214,15 @@ impl TryFrom<SqlQuery> for Statement {
         let first = select.from.swap_remove(0);
         sql_unsupported!(!first.joins.is_empty(), "JOIN");
 
-        let table = match first.relation {
-            TableFactor::Table { name, args, .. } => {
+        let (table, options) = match first.relation {
+            TableFactor::Table {
+                name,
+                args,
+                with_hints,
+                ..
+            } => {
                 sql_unsupported!(args.is_some(), "table-valued function in FROM");
-                Table::new(name)?
+                (Table::new(name)?, read_options(with_hints)?)
             }
             other => sql_unsupported!("FROM clause: {other:?}"),
         };
@@ -201,13 +261,19 @@ impl TryFrom<SqlQuery> for Statement {
                 return Ok(Statement::Count {
                     table,
                     query: Query { stages },
+                    required_lsn: options.required_lsn,
+                    consistency: options.consistency,
                 });
             }
 
             let mut projection = Vec::with_capacity(select.projection.len());
             for item in select.projection {
-                if item.is_wildcard() {
-                    sql_unsupported!("SELECT *");
+                match &item {
+                    SelectItem::QualifiedWildcard(kind, _) => {
+                        sql_unsupported!("SELECT {kind}: use `SELECT *`")
+                    }
+                    SelectItem::Wildcard(_) => sql_unsupported!("SELECT *"),
+                    _ => {}
                 }
                 let expr = item
                     .expr()
@@ -301,6 +367,8 @@ impl TryFrom<SqlQuery> for Statement {
         Ok(Statement::Select {
             table,
             query: Query { stages },
+            required_lsn: options.required_lsn,
+            consistency: options.consistency,
         })
     }
 }

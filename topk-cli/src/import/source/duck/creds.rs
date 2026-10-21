@@ -5,7 +5,7 @@ use duckdb::Connection;
 use crate::import::error::Error;
 
 use super::file::ObjectStore;
-use super::{extension_error, lit, strip_sql};
+use super::{extension_error, lit};
 
 /// A synthetic AWS profile whose `credential_process` is `aws configure
 /// export-credentials`: the aws CLI resolves SSO → assume-role, which duckdb's
@@ -75,8 +75,7 @@ pub(super) fn secret(conn: &Connection, store: &ObjectStore) -> Result<(), Error
                     ))
                     .map_err(|e| {
                         Error::InvalidArgument(format!(
-                            "{} — if your AWS profile uses SSO, run `aws sso login`",
-                            strip_sql(&e)
+                            "{e} — if your AWS profile uses SSO, run `aws sso login`"
                         ))
                     })?,
                 None => conn.execute_batch(

@@ -46,7 +46,9 @@ async fn roundtrip(ctx: &mut Ctx, #[case] backend: Box<dyn Seed>) {
             ..object
         },
     );
-    ok(&import_args(url.as_deref(), &spec, &["--yes"]), &[]);
+    topk()
+        .args(import_args(url.as_deref(), &spec, &["--yes"]))
+        .ok();
     let got = ctx.get(&collection, &["mockingbird", "pride"]).await;
     assert_eq!(
         field(&got["mockingbird"], "title"),
@@ -66,7 +68,10 @@ async fn a_bare_scheme_connects_from_the_environment(
     #[case] env: Vec<(&str, &str)>,
 ) {
     let (object, _) = seeded_books(&*backend).await;
-    let out = ok(&["import", scheme, &object.from, "--dry-run"], &env);
+    let out = topk()
+        .args(["import", scheme, &object.from, "--dry-run"])
+        .envs(&env)
+        .ok();
     assert!(
         out.contains(&object.from),
         "bare {scheme} didn't discover {}:\n{out}",
@@ -113,6 +118,25 @@ async fn a_limit_caps_rows(#[case] backend: Box<dyn Seed>) {
     };
     let docs = stream_docs_from(url.as_deref(), &target).await.unwrap();
     assert_eq!(docs.len(), 2);
+}
+
+#[rstest]
+#[case::array_filter("[]")]
+#[case::null_filter("null")]
+#[case::scalar_filter("42")]
+#[case::malformed_filter("{")]
+#[tokio::test]
+async fn es_filter_requires_object(#[case] filter: &str) {
+    let uri = "es+http://127.0.0.1:1".parse().unwrap();
+    let source = topk::import::Source::connect(&uri, &config(), &endpoint())
+        .await
+        .unwrap();
+    let target = Target {
+        filter: Some(filter.to_string()),
+        ..target("books", "_id", "title = { type = 'text' }")
+    };
+    let error = refused(source.scan(&target, None));
+    assert!(error.contains("is not a JSON object"), "{error}");
 }
 
 /// A query elasticsearch rejects comes back with elasticsearch's reason, not

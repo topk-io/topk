@@ -13,8 +13,8 @@ brew install topk
 
 ```bash
 topk login
-topk import ./books.parquet --region aws-us-east-1-elastica
-topk import postgres://user:pw@host/db 'public.*' --region aws-us-east-1-elastica
+topk import ./books.parquet [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
+topk import postgres://user:pw@host/db 'public.*' [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
 ```
 
 > [!NOTE]
@@ -28,39 +28,218 @@ To authenticate, run:
 topk login
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
-
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
-
 ## Commands
 
 ### login
 
-To authenticate, run:
+Log in with TopK CLI:
 
 ```bash
 topk login
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
-
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
+> [!NOTE]
+> If the CLI cannot open your browser automatically, or you prefer to open it manually, use `topk login --no-browser` to print the login URL.
 
 ### logout
 
-Remove saved credentials:
+Remove the saved session:
 
 ```bash
 topk logout
 ```
 
+### project
+
+#### list
+
+List projects in the current organization.
+
+```bash
+topk project list
+```
+
+> [!NOTE]
+> `topk project list` marks the currently selected project with `*`.
+
+#### select
+
+Select a default project.
+
+```bash
+topk project select  # interactive picker
+topk project select <PROJECT_ID>
+```
+
+#### clear
+
+Clear the selected project:
+
+```bash
+topk project clear
+```
+
+#### current
+
+Show the currently selected project.
+
+```bash
+topk project current
+```
+
+#### get
+
+Get a project by ID.
+
+```bash
+topk project get <PROJECT_ID>
+```
+
+| argument | description |
+| --- | --- |
+| `<PROJECT_ID>` | ID of the project |
+
+#### create
+
+Create a project.
+
+```bash
+topk project create <NAME>
+```
+
+| argument | description |
+| --- | --- |
+| `<NAME>` | Display name of the new project |
+
+#### delete
+
+Delete a project by ID.
+
+```bash
+topk project delete <PROJECT_ID> [-y]
+```
+
+| argument | description |
+| --- | --- |
+| `<PROJECT_ID>` | ID of the project |
+| `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
+
+### region
+
+#### list
+
+List available regions.
+
+```bash
+topk region list
+```
+
+### sql
+
+Create and manage collections, read and write documents, and run keyword, vector, and semantic searches with [TopK SQL](https://docs.topk.io/sdk/topk-sql/overview).
+
+```bash
+topk sql <QUERY|--file <FILE>> [OPTIONS]
+```
+
+| argument | description |
+| --- | --- |
+| `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
+| `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
+| `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
+| `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
+| `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
+
+#### Run a query
+
+Log in and find your project ID, then run SQL against a collection. This example searches a `title` field with a semantic index:
+
+```bash
+topk login
+topk project list
+topk sql "SELECT _id, title, semantic_similarity(title, 'classic American novel') AS score
+          FROM books ORDER BY score DESC LIMIT 10" \
+  --project-id <project-id> --region aws-us-east-1-elastica
+```
+
+> [!TIP]
+> Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of using your login and `--project-id`.
+
+See the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) for complete documentation.
+
+#### Run SQL from a file or stdin
+
+```bash
+topk sql -f queries.sql --project-id <project-id> --region aws-us-east-1-elastica
+echo "SELECT COUNT(*) FROM books" | topk sql - --project-id <project-id> --region aws-us-east-1-elastica
+```
+
+
+#### Inspect tables
+
+psql-style commands list and describe tables:
+
+```bash
+topk sql '\dt' --project-id <project-id> --region aws-us-east-1-elastica          # all tables
+topk sql '\dt books*' --project-id <project-id> --region aws-us-east-1-elastica   # matching a pattern
+topk sql '\d books' --project-id <project-id> --region aws-us-east-1-elastica     # columns and indexes
+topk sql '\di' --project-id <project-id> --region aws-us-east-1-elastica          # all indexes
+topk sql '\dA' --project-id <project-id> --region aws-us-east-1-elastica          # index kinds
+topk sql '\dT' --project-id <project-id> --region aws-us-east-1-elastica          # column types
+topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica           # supported commands
+```
+
+#### Output
+
+Results print as one table per statement by default, with row counts on stderr. Use `-o json` to stream one JSON object per row as it arrives, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
+
 ### import
 
 Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
+
+```bash
+topk import [SOURCE] [OBJECTS]... [OPTIONS]
+```
+
+| argument | description |
+| --- | --- |
+| `[SOURCE]` | Source URL, file path, or glob; also required with `--spec` or `--resume`, except for files |
+| `[OBJECTS]...` | Source objects to import; exact names, globs, or `<object>=<collection>` |
+| `--region <REGION>` | Region to import into (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
+| `--to <COLLECTION>` | Name the target collection; required when it cannot be derived |
+| `--id <COLUMN>` | Column to use as the document id (`_id`); use when it can't be auto-detected |
+| `--dry-run` | Print the spec and a sample of documents, without importing |
+| `-f`, `--spec <SPEC>` | Read a TOML import spec |
+| `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
+| `--resume <RUN>` | Continue a run that stopped, by the id in its header; `-f` swaps in an edited spec |
+| `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
+| `--limit <LIMIT>` | Read at most this many rows per object |
+| `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
+| `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
+| `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
+| `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
+| `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
+
+#### Authenticate
+
+Log in, then provide `--project-id` and `--region` when importing:
+
+```bash
+topk login
+topk project list
+topk import ./books.parquet --project-id <project-id> --region aws-us-east-1-elastica
+```
+
+Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explicit flags override environment variables.
+
+> [!TIP]
+> Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
+> Run `topk project select` once to omit `--project-id` from later commands. An API key (`--api-key` or `TOPK_API_KEY`) takes precedence over the selected project.
+> Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
+
+> [!WARNING]
+> `--project-id` or `TOPK_PROJECT_ID` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
 
 #### Import a database
 
@@ -93,6 +272,17 @@ topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monste
 
 Schema and indexes copy as-is; the copy is additive.
 
+#### Split rows across partitions
+
+```bash
+topk import ./events.parquet --partition tenant               # one partition per `tenant` value
+```
+
+Each row goes to the partition named by that column, so one source stream writes into as many partitions as the column has values.
+
+> [!TIP]
+> The column only has to exist in the source. It does not have to be an imported field.
+
 #### Preview and edit the plan
 
 ```bash
@@ -112,7 +302,7 @@ Stop a run — `^C`, a lost connection — and pick it up where it left off:
 topk import postgres://host/db --resume 01J9...               # run id printed at start
 ```
 
-Resume skips finished collections and continues the in-flight one from a checkpoint. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
 #### Sources
 
@@ -124,11 +314,11 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 | files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
-| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
+| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's API key or access token |
 
 #### Spec
 
-One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import):
+One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags (`partition` names a column), and a `fields` whitelist (only declared fields import):
 
 ```toml
 [books]
@@ -170,15 +360,6 @@ Options:
 * `text` (default)
 * `json`
 
-Output results as NDJSON — one JSON object per line, compatible with `jq`.
-
-### `--api-key`
-
-API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
-
-### `--region`
-
-Region to connect to (env `TOPK_REGION`); required by `import`. See https://docs.topk.io/regions.
 
 ## Updating the CLI
 

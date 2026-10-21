@@ -265,6 +265,19 @@ async def test_async_update_batch(async_ctx: AsyncProjectContext):
 
 
 @pytest.mark.asyncio
+async def test_async_update_without_fail_on_missing(async_ctx: AsyncProjectContext):
+    collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
+    async_collection = async_ctx.client.collection(collection.name)
+    await async_collection.upsert([{"_id": "1", "foo": "bar"}])
+
+    # `fail_on_missing` is optional and defaults to False
+    lsn = await async_collection.update([{"_id": "1", "foo": "baz"}, {"_id": "missing", "foo": "x"}])
+
+    docs = await async_collection.get(["1", "missing"], lsn=lsn)
+    assert docs == {"1": {"_id": "1", "foo": "baz"}}
+
+
+@pytest.mark.asyncio
 async def test_async_update_missing_id_with_fail_on_missing(async_ctx: AsyncProjectContext):
     collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
     async_collection = async_ctx.client.collection(collection.name)

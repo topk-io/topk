@@ -1,14 +1,14 @@
 use sqlparser::ast::{Expr as SqlExpr, Function as SqlFunction};
 
 use topk_rs::proto::v1::data::{
-    FunctionExpr, LogicalExpr, TextExpr, Value, list, text_expr::Term, value,
+    list, text_expr::Term, value, FunctionExpr, LogicalExpr, TextExpr, Value,
 };
 
-use super::typed::{ElemType, TypedValues, coerce_i64s};
-use crate::expr::Expr;
+use super::typed::{coerce_i64s, ElemType, TypedValues};
 use crate::expr::regexp;
+use crate::expr::Expr;
 use crate::ext::{SqlExprExt, SqlFunctionExt};
-use crate::{Error, FromSql, sql_invalid, sql_unsupported};
+use crate::{sql_invalid, sql_unsupported, Error, FromSql};
 
 impl TryFrom<SqlFunction> for Expr {
     type Error = Error;

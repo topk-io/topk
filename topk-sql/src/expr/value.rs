@@ -1,10 +1,10 @@
 use sqlparser::ast::{DataType, Expr as SqlExpr, TimezoneInfo, UnaryOperator, Value as SqlValue};
 
-use topk_rs::proto::v1::data::Value;
 use topk_rs::proto::v1::data::value::Value::{self as V};
+use topk_rs::proto::v1::data::Value;
 
 use super::typed::ElemType;
-use crate::{Error, FromSql, sql_unsupported};
+use crate::{sql_unsupported, Error, FromSql};
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
 

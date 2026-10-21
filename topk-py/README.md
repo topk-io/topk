@@ -20,6 +20,14 @@ pip install topk-sdk
 uv add topk-sdk
 ```
 
+## Building with a coding agent
+
+Using Claude Code, Cursor, Codex, or another coding agent? Install the [TopK skill](https://github.com/topk-io/topk/tree/main/skills/topk) so the agent writes correct TopK code. It covers schema design, chunking, hybrid queries, multi-tenancy, and the common mistakes.
+
+```sh
+npx skills add topk-io/topk --skill topk
+```
+
 ## Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
@@ -195,7 +203,7 @@ except PermissionDeniedError:
 except QuotaExceededError:
     print("Usage quota exceeded")
 except SlowDownError:
-    print("Rate limited — the client will retry automatically")
+    print("Rate limited — back off and retry")
 ```
 
 | Error | Description |
@@ -209,13 +217,14 @@ except SlowDownError:
 | `PermissionDeniedError` | Invalid or missing API key |
 | `QuotaExceededError` | Usage quota exceeded |
 | `RequestTooLargeError` | Request payload too large |
-| `SlowDownError` | Rate limited by the server (retried automatically) |
+| `SlowDownError` | Rate limited by the server |
 | `QueryLsnTimeoutError` | Timed out waiting for write consistency |
 
 ### Retries
 
-The client automatically retries on `SlowDownError` and on LSN consistency
-timeouts. Retry behaviour can be configured via `RetryConfig`:
+The client automatically retries transient errors (server unavailable,
+network failures) and LSN consistency timeouts.
+Retry behaviour can be configured via `RetryConfig`:
 
 ```python
 from topk_sdk import Client, RetryConfig, BackoffConfig

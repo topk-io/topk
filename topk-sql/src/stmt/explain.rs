@@ -1,6 +1,6 @@
 use sqlparser::ast::Statement as SqlStatement;
 
-use crate::{Error, Statement, sql_unsupported};
+use crate::{sql_unsupported, Error, Statement};
 
 pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
     match stmt {

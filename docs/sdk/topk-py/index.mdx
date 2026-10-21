@@ -609,14 +609,22 @@ Get information about a specific collection.
 #### list()
 
 ```python
-list(self) -> list[Collection]
+list(self, prefix: Optional[str] = None) -> CollectionListIterator
 ```
 
-List all collections.
+List collections, ordered by name.
+
+If `prefix` is provided, only collections with names starting with the prefix are listed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
 
 **Returns**
 
-list[[`Collection`](#collection)]
+[`CollectionListIterator`](#collectionlistiterator)
 
 ***
 
@@ -690,14 +698,22 @@ Awaitable[[`Collection`](#collection)]
 #### list()
 
 ```python
-list(self) -> Awaitable[list[Collection]]
+list(self, prefix: Optional[str] = None) -> AsyncCollectionListIterator
 ```
 
-List all collections asynchronously.
+List collections, ordered by name, asynchronously.
+
+If `prefix` is provided, only collections with names starting with the prefix are listed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
 
 **Returns**
 
-Awaitable[list[[`Collection`](#collection)]]
+[`AsyncCollectionListIterator`](#asynccollectionlistiterator)
 
 ***
 
@@ -754,6 +770,14 @@ Iterator for synchronous partition list responses.
 
 Iterator for asynchronous partition list responses.
 
+### CollectionListIterator
+
+Iterator for synchronous collection list responses.
+
+### AsyncCollectionListIterator
+
+Iterator for asynchronous collection list responses.
+
 ### ConsistencyLevel
 
 Consistency level for read operations.
@@ -770,7 +794,7 @@ Consistency level for read operations.
 Configuration for retry behavior.
 
 By default, retries occur in two situations:
-1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](/sdk/topk-py/error#slowdownerror).
+1. On transient errors (server unavailable, network failures).
 2. When using the `query(..., lsn=N)` to wait for writes to be available.
 
 **Properties**

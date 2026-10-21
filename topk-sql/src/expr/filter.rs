@@ -1,11 +1,11 @@
 use std::ops::ControlFlow;
 
-use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, visit_expressions};
+use sqlparser::ast::{visit_expressions, BinaryOperator, Expr as SqlExpr};
 
-use topk_rs::proto::v1::data::{LogicalExpr, TextExpr, stage::filter_stage::FilterExpr};
+use topk_rs::proto::v1::data::{stage::filter_stage::FilterExpr, LogicalExpr, TextExpr};
 
 use super::Expr;
-use crate::{Error, FromSql, SqlFunctionExt, sql_invalid, sql_unsupported};
+use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlFunctionExt};
 
 impl FromSql<SqlExpr> for Vec<FilterExpr> {
     fn from_sql(expr: SqlExpr) -> Result<Vec<FilterExpr>, Error> {

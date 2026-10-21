@@ -1,27 +1,61 @@
 mod creds;
 mod file;
 mod read;
+mod select;
 
 use std::collections::HashMap;
 use std::fmt;
+use std::str::FromStr;
 
 use duckdb::Connection;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
-use tokio_stream::wrappers::ReceiverStream;
 use url::Url;
 
 use crate::import::error::Error;
 use crate::import::source::codec::arrow;
 use crate::import::spec::{Field, Target};
 
-use super::{redact, Chunk, ChunkStream, Table};
+use super::{redact, ChunkStream, Table};
+
+/// A SQL `WHERE` clause, passed to duckdb as written.
+pub struct Filter(String);
+
+impl FromStr for Filter {
+    type Err = Error;
+
+    fn from_str(filter: &str) -> Result<Filter, Error> {
+        Ok(Filter(filter.to_string()))
+    }
+}
+
+/// The last id read from a table, or a row count into one file of a glob.
+#[derive(Debug)]
+pub enum Cursor {
+    Key(String),
+    Offset { part: String, rows: u64 },
+}
+
+impl TryFrom<super::Cursor> for Cursor {
+    type Error = Error;
+
+    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
+        match cursor {
+            super::Cursor::Key(key) => Ok(Cursor::Key(key)),
+            super::Cursor::Offset { part, rows } => Ok(Cursor::Offset { part, rows }),
+            other => Err(Error::InvalidArgument(format!(
+                "resume cursor {other} is not a key or an offset"
+            ))),
+        }
+    }
+}
 
 pub use creds::aws_process_profile;
 use creds::secret;
 pub use file::File;
 use file::{local_path, reader, stem, Format};
-use read::{files, table, READ_AHEAD};
+use read::{Plan, Sender, READ_AHEAD};
+use select::Select;
 
 #[derive(Clone)]
 pub enum Duckdb {
@@ -63,31 +97,54 @@ pub(super) fn lit(value: &str) -> String {
 /// Per-reader duckdb budget. duckdb's default is 80% of RAM *per connection*,
 /// which concurrent readers multiply into an OOM-kill; a 1.3 GiB single-row-group
 /// parquet needs the whole column chunk resident.
-const READER_MEMORY: &str = "4GiB";
+const READER_MEMORY: u64 = 4 << 30;
 
-/// How many `READER_MEMORY` readers fit in RAM. duckdb's default `memory_limit`
-/// is 80% of RAM (cgroup-aware), which is how RAM is read without a dependency.
-fn max_readers() -> Option<usize> {
+/// Bytes all readers may hold together. duckdb's default `memory_limit` is 80% of
+/// RAM (cgroup-aware), which is how RAM is read without a dependency.
+fn reader_budget() -> Option<u64> {
     let conn = Connection::open_in_memory().ok()?;
     let mut stmt = conn
         .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
         .ok()?;
     let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
     let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
     // Two thirds of RAM: batches, arrow copies and proto encoding live outside
     // duckdb's accounting. 10/8 × 2/3 = 5/6.
-    Some((reported * 5 / 6 / each).max(1) as usize)
+    Some(reported * 5 / 6)
+}
+
+/// A reader holds about one decoded row group: at most 8× a local file's size,
+/// `READER_MEMORY` for anything that can't be stat'ed.
+fn reader_memory(from: &str) -> u64 {
+    local_path(from)
+        .and_then(|path| std::fs::metadata(path).ok())
+        .map_or(READER_MEMORY, |meta| (meta.len() * 8).min(READER_MEMORY))
 }
 
 impl Duckdb {
     /// Each duckdb scan holds a row group; too many OOM-kill the process
     /// regardless of the per-connection `memory_limit`.
-    pub fn concurrency_limit(&self) -> usize {
-        max_readers().map_or(usize::MAX, |readers| match self {
-            Duckdb::Files(_) => (readers / (1 + READ_AHEAD)).max(1),
-            _ => readers,
-        })
+    pub fn concurrency_limit<'a>(&self, targets: impl IntoIterator<Item = &'a Target>) -> usize {
+        let budget = match reader_budget() {
+            Some(budget) => budget,
+            None => return usize::MAX,
+        };
+        let mut need: Vec<u64> = targets
+            .into_iter()
+            .map(|target| match self {
+                Duckdb::Files(_) => reader_memory(&target.from) * (1 + READ_AHEAD as u64),
+                _ => READER_MEMORY,
+            })
+            .collect();
+        need.sort_unstable_by(|a, b| b.cmp(a));
+        need.iter()
+            .scan(0, |held, n| {
+                *held += n;
+                Some(*held)
+            })
+            .take_while(|held| *held <= budget)
+            .count()
+            .max(1)
     }
 
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
@@ -96,8 +153,9 @@ impl Duckdb {
         // One thread, in order: rows arrive as stored, which makes a row offset
         // a resume point; more threads measured the same.
         conn.execute_batch(&format!(
-            "SET preserve_insertion_order = true; SET memory_limit = '{READER_MEMORY}'; \
+            "SET preserve_insertion_order = true; SET memory_limit = '{}MiB'; \
              SET threads = 1; SET temp_directory = '{}';",
+            READER_MEMORY >> 20,
             lit(&std::env::temp_dir()
                 .join("topk-import")
                 .display()
@@ -145,7 +203,7 @@ impl Duckdb {
         };
         install(ext)?;
         conn.execute_batch(&format!(
-            "ATTACH '{}' AS src (TYPE {ext}, READ_ONLY);",
+            "ATTACH '{}' AS src (TYPE {ext}, READ_ONLY); USE src;",
             lit(dsn),
         ))
         // Duckdb echoes the DSN verbatim, password included.
@@ -154,9 +212,19 @@ impl Duckdb {
                 Duckdb::Postgres(url) | Duckdb::Mysql(url) => redact(url),
                 _ => dsn.to_string(),
             };
-            Error::InvalidArgument(strip_sql(&e).replace(dsn, &redacted))
+            Error::InvalidArgument(e.to_string().replace(dsn, &redacted))
         })?;
         Ok(conn)
+    }
+
+    /// Postgres runs the query itself via `postgres_query`; `mysql_query` breaks
+    /// under a prepared statement ("Lost connection to server during query"),
+    /// so mysql reads through duckdb like sqlite.
+    fn select(&self, from: &str) -> Select {
+        match self {
+            Duckdb::Postgres(_) => Select::table(from).pushdown("src"),
+            _ => Select::table(from),
+        }
     }
 
     fn list(&self, conn: &Connection) -> Result<Vec<(String, Option<String>)>, Error> {
@@ -218,7 +286,7 @@ impl Duckdb {
             };
             let conn = source.connect(file.as_ref())?;
             // (object, collection hint, what to SELECT from)
-            let objects: Vec<(String, Option<String>, String)> = match &file {
+            let objects: Vec<(String, Option<String>, Select)> = match &file {
                 // A file source's one object is the uri it was given.
                 Some(file) => {
                     // An empty file reads as a synthetic `column0`.
@@ -231,22 +299,26 @@ impl Duckdb {
                             file.path
                         )));
                     }
-                    vec![(file.path.clone(), stem(&file.path), reader(file))]
+                    vec![(
+                        file.path.clone(),
+                        stem(&file.path),
+                        Select::new(reader(file)),
+                    )]
                 }
                 None => source
                     .list(&conn)?
                     .into_iter()
                     .map(|(from, hint)| {
-                        let table_ref = format!("src.{}", quoted(&from, '"'));
-                        (from, hint, table_ref)
+                        let select = Select::table(&from);
+                        (from, hint, select)
                     })
                     .collect(),
             };
             let mut keys = source.primary_keys(&conn)?;
             let mut tables = Vec::with_capacity(objects.len());
-            for (from, collection_hint, table_ref) in objects {
+            for (from, collection_hint, select) in objects {
                 let mut stmt = conn
-                    .prepare(&format!("SELECT * FROM {table_ref} LIMIT 0"))
+                    .prepare(&select.limit(Some(0)).into_sql())
                     .map_err(|e| read_error(&from, None, e))?;
                 let schema = stmt
                     .query_arrow([])
@@ -268,7 +340,7 @@ impl Duckdb {
 
                 if columns.is_empty() {
                     return Err(Error::InvalidArgument(format!(
-                        "no columns discovered for {table_ref}"
+                        "no columns discovered for {from}"
                     )));
                 }
                 let primary_key = keys.remove(&from);
@@ -284,69 +356,78 @@ impl Duckdb {
         .await?
     }
 
-    pub async fn stream(
+    pub fn chunks(
         &self,
-        file: Option<&File>,
         target: &Target,
-        after: Option<&str>,
+        filter: Option<Filter>,
+        after: Option<Cursor>,
     ) -> Result<ChunkStream, Error> {
-        let source = self.clone();
-        let file = file.cloned();
         let target = target.clone();
-        let after = after.map(str::to_string);
-        // One message per arrow batch; per-row sends make the channel the bottleneck.
-        let (tx, rx) = mpsc::channel::<Result<Chunk, Error>>(2);
-        spawn_blocking(move || {
-            let produce = || -> Result<(), Error> {
-                match &file {
-                    Some(file) => {
-                        let conn = source.connect(Some(file))?;
-                        files(&source, &conn, file, &target, after.as_deref(), &tx)
-                    }
-                    None => {
-                        let conn = source.connect(None)?;
-                        table(&source, &conn, &target, after.as_deref(), &tx)
-                    }
-                }
-            };
-            if let Err(e) = produce() {
-                let _ = tx.blocking_send(Err(e));
+        let filter = filter.map(|filter| filter.0);
+        match (self, after) {
+            (Duckdb::Files(_), None) => self.files(target, filter, None),
+            (Duckdb::Files(_), Some(Cursor::Offset { part, rows })) => {
+                self.files(target, filter, Some((part, rows)))
             }
-        });
-        Ok(Box::pin(ReceiverStream::new(rx)))
+            (Duckdb::Postgres(_) | Duckdb::Mysql(_) | Duckdb::Sqlite(_), None) => {
+                Ok(self.table(target, filter, None))
+            }
+            (
+                Duckdb::Postgres(_) | Duckdb::Mysql(_) | Duckdb::Sqlite(_),
+                Some(Cursor::Key(key)),
+            ) => Ok(self.table(target, filter, Some(key))),
+            (_, Some(cursor)) => Err(Error::InvalidArgument(format!(
+                "resume cursor {cursor:?} does not fit {}",
+                target.from
+            ))),
+        }
     }
-}
 
-/// `schema.table` as a quoted path, `"` for postgres/duckdb, `` ` `` for mysql.
-pub(super) fn quoted(name: &str, quote: char) -> String {
-    let escaped = format!("{quote}{quote}");
-    name.split('.')
-        .map(|part| format!("{quote}{}{quote}", part.replace(quote, &escaped)))
-        .collect::<Vec<_>>()
-        .join(".")
-}
+    fn table(&self, target: Target, filter: Option<String>, after: Option<String>) -> ChunkStream {
+        self.stream(move |source, tx| {
+            let conn = source.connect(None)?;
+            Plan::table(source, &target, filter.as_deref(), after.as_deref()).read(&conn, tx)
+        })
+    }
 
-/// Drops the `LINE n: …` block: the SQL is ours, not the user's.
-pub(super) fn strip_sql(e: &duckdb::Error) -> String {
-    let msg = e.to_string();
-    msg.split("\nLINE ")
-        .next()
-        .unwrap_or(&msg)
-        .trim()
-        .to_string()
+    fn files(
+        &self,
+        target: Target,
+        filter: Option<String>,
+        resume: Option<(String, u64)>,
+    ) -> Result<ChunkStream, Error> {
+        let file: File = target.from.parse()?;
+        Ok(self.stream(move |source, tx| {
+            read::files(source, &file, &target, filter.as_deref(), resume, tx)
+        }))
+    }
+
+    fn stream<T: Send + 'static>(
+        &self,
+        produce: impl FnOnce(&Duckdb, &Sender) -> Result<T, Error> + Send + 'static,
+    ) -> ChunkStream {
+        let source = self.clone();
+        // One message per arrow batch; per-row sends make the channel the bottleneck.
+        let (tx, mut rx) = mpsc::channel(2);
+        Box::pin(async_stream::try_stream! {
+            let reader = spawn_blocking(move || produce(&source, &tx));
+            while let Some(chunk) = rx.recv().await {
+                yield chunk;
+            }
+            reader.await??;
+        })
+    }
 }
 
 pub(super) fn extension_error(ext: &str, e: duckdb::Error) -> Error {
     Error::InvalidArgument(format!(
-        "cannot load the duckdb {ext} extension (downloaded on first use — are you offline?): {}",
-        strip_sql(&e)
+        "cannot load the duckdb {ext} extension (downloaded on first use — are you offline?): {e}"
     ))
 }
 
 pub(super) fn read_error(from: &str, filter: Option<&str>, e: duckdb::Error) -> Error {
-    let msg = strip_sql(&e);
     Error::InvalidArgument(match filter {
-        Some(filter) => format!("reading {from}: {msg} (filter: {filter:?})"),
-        None => format!("reading {from}: {msg}"),
+        Some(filter) => format!("reading {from}: {e} (filter: {filter:?})"),
+        None => format!("reading {from}: {e}"),
     })
 }

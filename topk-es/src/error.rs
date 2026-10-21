@@ -32,6 +32,9 @@ pub enum Error {
     #[error("resource_already_exists_exception: {0}")]
     IndexAlreadyExists(String),
 
+    #[error("unavailable_shards_exception: {0}")]
+    Unavailable(String),
+
     #[error("internal_server_error: {0}")]
     Internal(String),
 
@@ -55,8 +58,15 @@ pub enum Error {
 }
 
 impl From<serde_json::Error> for Error {
+    // Domain errors raised inside #[serde(try_from = ...)] arrive stringified as
+    // "<error_type>: <reason>"; recover the variant from our own Display prefix.
     fn from(e: serde_json::Error) -> Self {
-        Error::SerdeJson(e.to_string())
+        let msg = e.to_string();
+        match msg.split_once(": ") {
+            Some(("illegal_argument_exception", rest)) => Error::Unsupported(rest.into()),
+            Some(("action_request_validation_exception", rest)) => Error::BadRequest(rest.into()),
+            _ => Error::SerdeJson(msg),
+        }
     }
 }
 
@@ -69,6 +79,9 @@ impl From<TopkError> for Error {
             TopkError::InvalidArgument(msg) => Error::BadRequest(msg),
             TopkError::DocumentValidationError(_) | TopkError::SchemaValidationError(_) => {
                 Error::BadRequest(e.to_string())
+            }
+            TopkError::QueryLsnTimeout => {
+                Error::Unavailable("timed out waiting for writes to become searchable".into())
             }
             _ => Error::Internal(e.to_string()),
         }
@@ -96,6 +109,7 @@ impl Error {
                 (400, "resource_already_exists_exception", msg.clone())
             }
             Error::SerdeJson(msg) => (400, "json_parse_exception", msg.clone()),
+            Error::Unavailable(msg) => (503, "unavailable_shards_exception", msg.clone()),
             Error::Internal(_) => (500, "internal_server_error", "Internal error".into()),
             Error::InvalidQuery(msg) => (400, "parsing_exception", msg.clone()),
             Error::Unsupported(msg) => (400, "illegal_argument_exception", msg.clone()),
