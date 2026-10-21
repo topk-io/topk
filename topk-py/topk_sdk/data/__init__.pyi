@@ -46,7 +46,8 @@ class Struct:
 class Image:
     """
     Instances of the `Image` class are used to represent images in TopK.
-    Created using the [`image()`](#image) helper and returned for image fields in query results.
+    Created using the [`image()`](#image) helper and returned for image fields by `get()`.
+    Image fields can't be selected in queries, use `get()` with the `_id`s returned from a query instead.
 
     Images read from TopK can be written back as-is without re-encoding.
 

@@ -4778,6 +4778,7 @@ version = "0.16.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.23.1",
  "bytemuck",
  "bytes",
  "chrono",

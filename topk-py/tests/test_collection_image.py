@@ -77,12 +77,15 @@ def test_image_query(ctx: ProjectContext):
         ]
     )
 
+    # Images can't be selected, they are fetched by the ids returned from the query
     result = ctx.client.collection(collection.name).query(
-        select("image").sort(field("rank"), True).limit(10), lsn=lsn
+        select("rank").sort(field("rank"), True).limit(10), lsn=lsn
     )
+    ids = [doc["_id"] for doc in result]
+    assert ids == ["cat", "form"]
 
-    assert [doc["_id"] for doc in result] == ["cat", "form"]
-    assert [doc["image"].format for doc in result] == ["jpeg", "png"]
+    docs = ctx.client.collection(collection.name).get(ids, lsn=lsn)
+    assert [docs[id]["image"].format for id in ids] == ["jpeg", "png"]
 
 
 def test_image_get_update_upsert(ctx: ProjectContext):

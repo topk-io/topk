@@ -55,15 +55,20 @@ describe("Image", () => {
       { _id: "form", rank: 2, image: dataImage(readFileSync(join(IMAGES, "form.png"))) },
     ]);
 
+    // Images can't be selected, they are fetched by the ids returned from the query
     const result = await ctx.client
       .collection(collection.name)
       .query(
-        select({ image: field("image") }).sort(field("rank"), true).limit(10),
+        select({ rank: field("rank") }).sort(field("rank"), true).limit(10),
         { lsn }
       );
+    const ids = result.map((doc) => doc._id);
+    expect(ids).toEqual(["cat", "form"]);
 
-    expect(result.map((doc) => doc._id)).toEqual(["cat", "form"]);
-    expect(result.map((doc) => doc.image.format)).toEqual(["jpeg", "png"]);
+    const docs = await ctx.client
+      .collection(collection.name)
+      .get(ids, null, { lsn });
+    expect(ids.map((id) => docs[id].image.format)).toEqual(["jpeg", "png"]);
   });
 
   test("image re-upsert", async () => {

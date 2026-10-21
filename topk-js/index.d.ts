@@ -249,7 +249,8 @@ export declare namespace data {
   /**
    * @hideconstructor
    * Instances of the `Image` class are used to represent images in TopK.
-   * Created using the [`image()`](https://docs.topk.io/sdk/topk-js/data#image) helper and returned for image fields in query results.
+   * Created using the [`image()`](https://docs.topk.io/sdk/topk-js/data#image) helper and returned for image fields by `get()`.
+   * Image fields can't be selected in queries, use `get()` with the `_id`s returned from a query instead.
    *
    * Example:
    *
