@@ -489,6 +489,261 @@ URL: https://docs.topk.io/changelog
 - **Sparse Vectors**: Added support for [f32](https://docs.topk.io/sdk/topk-py/schema#f32-sparse-vector) and [u8](https://docs.topk.io/sdk/topk-py/schema#u8-sparse-vector) sparse vector fields.
 - **Benchmarks**: Published [billion-scale benchmarks](https://www.topk.io/benchmarks) for dense & sparse vector search with filtering.
 
+## Agents
+
+### TopK for coding agents
+
+URL: https://docs.topk.io/agents
+
+You are an AI coding agent, and this section of the docs is for you. Pages here are written as instructions you follow, not as explanations for people. Every page is also available as Markdown: add `.md` to its URL.
+
+#### What TopK is
+
+TopK is a hybrid retrieval engine built on object storage. One collection can combine semantic search, keyword search (BM25), dense and sparse vector search, and multi-vector search, with filtering and custom scoring in the same query.
+
+- A **collection** stores JSON-like documents. Every document has an `_id` field as its unique key.
+- A collection's **schema** declares which fields are indexed and how. A field with a `semantic_index()` is embedded by TopK, so you don't need an embedding pipeline.
+- **Partitions** isolate tenants within a collection. They're created on the first write.
+- Every request goes to a **region**. List regions with `topk region list`.
+
+#### How to access TopK
+
+| Interface | Use it when |
+| --- | --- |
+| [CLI](https://docs.topk.io/cli.md) (`topk`) | You have a terminal: sign up, create collections, import data, run SQL. |
+| [Python SDK](https://docs.topk.io/sdk/topk-py/overview.md) | You're adding search to a Python app. |
+| [JavaScript SDK](https://docs.topk.io/sdk/topk-js/overview.md) | You're adding search to a TypeScript or JavaScript app. |
+| [SQL](https://docs.topk.io/sdk/topk-sql/overview.md) | You want to use any PostgreSQL client. |
+
+Before writing application code against TopK, install the TopK skill. It covers correct API usage and the common mistakes to avoid:
+
+```bash
+npx skills add topk-io/topk --skill topk
+```
+
+#### Pages for agents
+
+| Page | Follow it when |
+| --- | --- |
+| [Agent quickstart](https://docs.topk.io/agents/quickstart.md) | The user wants to try TopK: sign up, create a collection, and run a search, all from the CLI. |
+
+#### Rules for every task
+
+- Run commands yourself when you have terminal access. Only stop for the user when they need to sign up or log in in a browser.
+- Don't make up URLs, IDs, or region names. Use only values from command output or these docs.
+- If a command fails, read the error, fix the cause, and run it again. If you can't fix it, show the user the exact command and error and point them to [support](https://docs.topk.io/support.md).
+
+### Agent quickstart
+
+URL: https://docs.topk.io/agents/quickstart
+
+You are an AI coding agent, and this page is for you. For an overview of TopK and the other agent pages, see [TopK for coding agents](https://docs.topk.io/agents.md).
+
+#### Instructions
+
+The user wants to try TopK. Follow the steps below in order. You run every command yourself; the user only signs up or logs in in the browser during step 2.
+
+Rules:
+
+- Use the `topk` CLI only. Don't write Python or JavaScript, and don't ask the user for an API key: `topk login` is enough.
+- Pass `--region <REGION>` to every `topk sql` command. Environment variables you `export` may not survive between your commands.
+- Use `-o json` when you need to read IDs from a command's output. It prints one JSON object per line, not an array.
+- If `TOPK_API_KEY` is set in the environment, run `topk` commands with it unset (`env -u TOPK_API_KEY topk …`): an API key silently overrides the login and the selected project.
+- If `TOPK_PROJECT_ID` is set in the environment, it overrides the project you select in step 3. Run `topk` commands with it unset (`env -u TOPK_PROJECT_ID topk …`), or pass `--project-id <PROJECT_ID>` explicitly.
+- Never run a `topk` command that waits for keyboard input: always pass the IDs and flags shown below.
+
+##### 1. Install the CLI
+
+Check whether the CLI is installed:
+
+```bash
+topk --version
+```
+
+If it isn't, install it with Homebrew:
+
+```bash
+brew tap topk-io/topk
+brew install topk
+```
+
+If Homebrew isn't available, stop and tell the user: the TopK CLI installs with Homebrew.
+
+##### 2. Log in
+
+Tell the user first: "A browser window will open. Sign up or log in to TopK there, then come back here."
+
+Then run:
+
+```bash
+topk login
+```
+
+The command waits until the user finishes in the browser, for up to 5 minutes, so run it with a timeout longer than 5 minutes or in the background. On success it prints a line starting with `✓ Logged in` to stderr. If the browser doesn't open, run `topk login --no-browser` and give the user the URL it prints. The browser must be on the same machine as the CLI.
+
+##### 3. Select a project
+
+```bash
+topk project list -o json
+```
+
+Each line is one project with `project_id`, `name`, and `selected` fields.
+
+- A project has `"selected": true`: it's already selected. Go to step 4.
+- No projects: create one, then select it with the `project_id` from the output:
+
+  ```bash
+  topk project create "My first project" -o json
+  topk project select <PROJECT_ID>
+  ```
+
+- One project: select it with `topk project select <PROJECT_ID>`.
+- Several projects: ask the user which one to use, then select it with its `project_id`.
+
+Always pass the ID: `topk project select` without one opens an interactive picker.
+
+##### 4. Pick a region
+
+```bash
+topk region list
+```
+
+Use `aws-us-east-1-elastica` if it's listed, otherwise the first region listed. Don't ask the user. Use the same region for every command below.
+
+##### 5. Create a collection
+
+Create a `movies` collection with a semantic index on the plot, so it can be searched by meaning:
+
+```bash
+topk sql --region <REGION> -f - <<'SQL'
+CREATE TABLE IF NOT EXISTS movies (
+    title TEXT NOT NULL INDEX keyword_index(),
+    plot  TEXT          INDEX semantic_index(),
+    year  INTEGER
+);
+SQL
+```
+
+##### 6. Add documents
+
+```bash
+topk sql --region <REGION> -f - <<'SQL'
+INSERT INTO movies (_id, title, plot, year) VALUES
+  ('1',  'Interstellar', 'Astronauts travel through a wormhole near Saturn to find a new home for humanity as Earth becomes uninhabitable.', 2014),
+  ('2',  'The Martian', 'An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him.', 2015),
+  ('3',  'Gravity', 'Two astronauts fight to survive after debris destroys their space shuttle in orbit.', 2013),
+  ('4',  'Apollo 13', 'A damaged spacecraft and its crew must improvise to make it back to Earth alive.', 1995),
+  ('5',  'Alien', 'The crew of a commercial spaceship is hunted by a deadly creature they brought on board.', 1979),
+  ('6',  'The Godfather', 'The aging patriarch of a crime family hands control of his empire to his reluctant son.', 1972),
+  ('7',  'Finding Nemo', 'A timid clownfish crosses the ocean to rescue his son, who was captured by a diver.', 2003),
+  ('8',  'The Shawshank Redemption', 'A banker sentenced to life in prison forms a deep friendship and plans a quiet escape.', 1994),
+  ('9',  'Jurassic Park', 'Cloned dinosaurs escape their enclosures at a theme park on a remote island.', 1993),
+  ('10', 'Inception', 'A thief who steals secrets through dreams is hired to plant an idea in a target''s mind.', 2010),
+  ('11', 'Titanic', 'A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner.', 1997),
+  ('12', 'Spirited Away', 'A girl trapped in a world of spirits works in a bathhouse to free herself and her parents.', 2001);
+SQL
+```
+
+`INSERT` is an upsert: running it again replaces documents with the same `_id`.
+
+##### 7. Search
+
+Run a semantic search. It matches by meaning, not by keywords:
+
+```bash
+topk sql --region <REGION> "SELECT _id, title, year, semantic_similarity(plot, 'space exploration and survival') AS score FROM movies ORDER BY score DESC LIMIT 5"
+```
+
+The space survival movies should rank first, even though none of their plots contains the words "space exploration".
+
+For comparison, a keyword search on the title with BM25 ranking:
+
+```bash
+topk sql --region <REGION> "SELECT _id, title, bm25_score() AS score FROM movies WHERE match('jurassic', title) ORDER BY score DESC LIMIT 5"
+```
+
+If a search returns no rows right after the insert, wait a few seconds and run it again once.
+
+##### 8. Wrap up
+
+Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
+
+- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes about 3 minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
+- Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
+- Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
+- Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
+
+#### Go bigger
+
+Follow this when the user wants a bigger demo. It loads 50,000 English Wikipedia articles from Hugging Face into a new collection, with no download step and no embedding pipeline, then answers questions over them. Steps 1–4 above must be done first.
+
+##### 1. Write the import spec
+
+The spec says where the data comes from and which fields to index. Create `wikipedia.toml` in the current directory:
+
+```bash
+cat > wikipedia.toml <<'TOML'
+[wikipedia]
+from = "hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet"
+id = "id"
+limit = 50000
+
+[wikipedia.fields]
+title = { type = "text", index = "keyword" }
+text = { type = "text", index = "semantic", truncate = 4000 }
+url = { type = "text" }
+TOML
+```
+
+`title` gets a keyword index for exact word matches; `text`, the first 4,000 characters of each article, gets a semantic index for search by meaning.
+
+##### 2. Import
+
+Tell the user it takes about 3 minutes, then run:
+
+```bash
+topk import -f wikipedia.toml --region <REGION> --yes
+```
+
+The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`, adding `--yes` so it doesn't wait for confirmation. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
+
+##### 3. Ask it questions
+
+Search by meaning: results match what the question is about, not just its exact words:
+
+```bash
+topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'why did the roman empire collapse') AS score FROM wikipedia ORDER BY score DESC LIMIT 5"
+```
+
+```bash
+topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'inventions that changed how people communicate') AS score FROM wikipedia ORDER BY score DESC LIMIT 5"
+```
+
+Then run a true hybrid search: one query whose ranking blends meaning (semantic similarity on the article text) with keyword relevance (BM25 on the title). Most search systems run two separate searches and merge the results afterwards; TopK scores both in a single query:
+
+```bash
+topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'agreements that ended a war and changed borders') AS meaning, bm25_score() AS keywords FROM wikipedia WHERE match('treaty', title) ORDER BY meaning + keywords * 0.1 DESC LIMIT 5"
+```
+
+The keyword match finds articles with "treaty" in the title; the meaning score ranks them by whether they ended a war and moved borders. Show both the `meaning` and `keywords` columns, and point out how each article's two scores combine into its rank. BM25 scores run several times larger than semantic scores, so the `0.1` weight puts them on a similar scale; changing the weights changes the ranking.
+
+Show the results as tables, then invite the user to ask their own questions and run them the same way.
+
+If the first query returns few or no results, the semantic index may still be catching up: wait 30 seconds and run it again.
+
+#### Troubleshooting
+
+| Error or symptom | Fix |
+| --- | --- |
+| `not logged in` or `session expired` | Run `topk login` again. |
+| `--region is required` | Add `--region <REGION>` to the command. |
+| `--project-id … is required, or select a default project` | Run `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>`. |
+| An error combining `--project-id` with an API key | Unset `TOPK_API_KEY`: `env -u TOPK_API_KEY topk …`. |
+| `SELECT *` fails | List the columns you want; `SELECT *` isn't supported. |
+| `brew: command not found` | Tell the user the TopK CLI installs with Homebrew. |
+
+Anything else: show the user the exact command and error message, and point them to [support](https://docs.topk.io/support).
+
 ## Collection API
 
 ### Write

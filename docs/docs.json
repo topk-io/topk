@@ -13,11 +13,11 @@
   },
   "redirects": [
     {
-      "source": "/installation",
-      "destination": "/introduction"
+      "source": "/start",
+      "destination": "/agents/quickstart"
     },
     {
-      "source": "/quickstart",
+      "source": "/installation",
       "destination": "/introduction"
     },
     {
@@ -90,6 +90,7 @@
           {
             "group": "Overview",
             "pages": [
+              "quickstart",
               "introduction",
               "architecture",
               "concepts",
@@ -111,6 +112,21 @@
             "pages": [
               "collections/manage",
               "usage"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agents",
+        "icon": "bot",
+        "hidden": true,
+        "searchable": true,
+        "pages": [
+          {
+            "group": "Agents",
+            "pages": [
+              "agents/index",
+              "agents/quickstart"
             ]
           }
         ]

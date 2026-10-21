@@ -1,0 +1,42 @@
+---
+title: "TopK for coding agents"
+description: "Start here if you are an AI coding agent: what TopK is, how to access it, and which agent pages to follow for each task."
+---
+
+You are an AI coding agent, and this section of the docs is for you. Pages here are written as instructions you follow, not as explanations for people. Every page is also available as Markdown: add `.md` to its URL.
+
+## What TopK is
+
+TopK is a hybrid retrieval engine built on object storage. One collection can combine semantic search, keyword search (BM25), dense and sparse vector search, and multi-vector search, with filtering and custom scoring in the same query.
+
+- A **collection** stores JSON-like documents. Every document has an `_id` field as its unique key.
+- A collection's **schema** declares which fields are indexed and how. A field with a `semantic_index()` is embedded by TopK, so you don't need an embedding pipeline.
+- **Partitions** isolate tenants within a collection. They're created on the first write.
+- Every request goes to a **region**. List regions with `topk region list`.
+
+## How to access TopK
+
+| Interface | Use it when |
+| --- | --- |
+| [CLI](https://docs.topk.io/cli.md) (`topk`) | You have a terminal: sign up, create collections, import data, run SQL. |
+| [Python SDK](https://docs.topk.io/sdk/topk-py/overview.md) | You're adding search to a Python app. |
+| [JavaScript SDK](https://docs.topk.io/sdk/topk-js/overview.md) | You're adding search to a TypeScript or JavaScript app. |
+| [SQL](https://docs.topk.io/sdk/topk-sql/overview.md) | You want to use any PostgreSQL client. |
+
+Before writing application code against TopK, install the TopK skill. It covers correct API usage and the common mistakes to avoid:
+
+```bash
+npx skills add topk-io/topk --skill topk
+```
+
+## Pages for agents
+
+| Page | Follow it when |
+| --- | --- |
+| [Agent quickstart](https://docs.topk.io/agents/quickstart.md) | The user wants to try TopK: sign up, create a collection, and run a search, all from the CLI. |
+
+## Rules for every task
+
+- Run commands yourself when you have terminal access. Only stop for the user when they need to sign up or log in in a browser.
+- Don't make up URLs, IDs, or region names. Use only values from command output or these docs.
+- If a command fails, read the error, fix the cause, and run it again. If you can't fix it, show the user the exact command and error and point them to [support](https://docs.topk.io/support.md).
