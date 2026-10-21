@@ -1,6 +1,11 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+import { image as dataImage } from "../lib/data";
 import { field, fn, match, select } from "../lib/query";
-import { int, semanticIndex, text } from "../lib/schema";
+import { image, int, semanticIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
+
+const IMAGES = join(__dirname, "../../assets/test/img");
 
 describe("Semantic Index", () => {
   const contexts: ProjectContext[] = [];
@@ -281,5 +286,34 @@ describe("Semantic Index", () => {
     );
 
     expect(result.length).toBe(5);
+  });
+
+  test("semantic index query image field", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("semantic", {
+      title: text()
+        .required()
+        .index(semanticIndex()),
+      image: image().index(semanticIndex()),
+    });
+
+    const img = (name: string) => dataImage(readFileSync(join(IMAGES, name)));
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "mockingbird", title: "To Kill a Mockingbird", image: img("cat.jpg") },
+      { _id: "1984", title: "1984", image: img("form.png") },
+      { _id: "pride", title: "Pride and Prejudice" },
+      { _id: "gatsby", title: "The Great Gatsby", image: img("skier.jpg") },
+      { _id: "hobbit", title: "The Hobbit", image: img("trafficjam.jpg") },
+      { _id: "alchemist", title: "The Alchemist", image: img("skier.jpg") },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({ image_sim: fn.semanticSimilarity("image", "doggo") })
+        .sort(field("image_sim"), false)
+        .limit(2)
+    );
+
+    expect(result.length).toBe(2);
   });
 });

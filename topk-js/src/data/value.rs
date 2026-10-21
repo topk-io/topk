@@ -1,5 +1,6 @@
 use super::vector::SparseVector;
 use crate::data::{
+    image::Image,
     list::{List, Values},
     matrix::{Matrix, MatrixValueType, MatrixValues},
     r#struct::Struct,
@@ -80,6 +81,7 @@ pub enum Value {
     List(List),
     Matrix(Matrix),
     Struct(HashMap<String, Value>),
+    Image(Image),
     Unknown,
 }
 
@@ -209,6 +211,14 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::Struct(fields) => topk_rs::proto::v1::data::Value::r#struct(
                 fields.into_iter().map(|(k, v)| (k, v.into())),
             ),
+            Value::Image(image) => match image.data {
+                topk_rs::proto::v1::data::image::Data::Jpeg(data) => {
+                    topk_rs::proto::v1::data::Value::jpeg(data)
+                }
+                topk_rs::proto::v1::data::image::Data::Png(data) => {
+                    topk_rs::proto::v1::data::Value::png(data)
+                }
+            },
             // unreachable: `FromNapiValue` rejects the sentinel on the way in
             Value::Unknown => unreachable!(),
         }
@@ -345,6 +355,10 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Struct(s)) => {
                 Value::Struct(s.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
             }
+            Some(topk_rs::proto::v1::data::value::Value::Image(image)) => match image.data {
+                Some(data) => Value::Image(Image { data }),
+                None => Value::Unknown,
+            },
             None => Value::Unknown,
         }
     }
@@ -369,6 +383,10 @@ impl FromNapiValue for Value {
 
         if let Ok(struct_value) = crate::try_cast_ref!(env, value, Struct) {
             return Ok(Value::Struct(struct_value.fields.clone()));
+        }
+
+        if let Ok(image) = crate::try_cast_ref!(env, value, Image) {
+            return Ok(Value::Image(image.clone()));
         }
 
         if crate::try_cast_ref!(env, value, UnknownValue).is_ok() {
@@ -594,6 +612,7 @@ impl ToNapiValue for Value {
 
                 Ok(object)
             }
+            Value::Image(image) => Image::to_napi_value(env, image),
             Value::Unknown => UnknownValue::to_napi_value(env, UnknownValue {}),
         }
     }

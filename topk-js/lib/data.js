@@ -20,4 +20,6 @@ exports.SparseVector = data.SparseVector;
 exports.matrix = data.matrix;
 exports.Matrix = data.Matrix;
 exports.Struct = data.Struct;
+exports.image = data.image;
+exports.Image = data.Image;
 exports.UnknownValue = data.UnknownValue;

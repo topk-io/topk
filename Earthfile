@@ -81,8 +81,8 @@ test-py:
     # install pyright
     RUN . /venv/bin/activate && pip install pyright[nodejs]
 
-    # install numpy
-    RUN . /venv/bin/activate && pip install numpy
+    # install numpy and pillow
+    RUN . /venv/bin/activate && pip install numpy pillow
 
     # source code
     WORKDIR /sdk

@@ -3,6 +3,10 @@ pub use collection::Collection;
 pub use collection::CollectionListStream;
 pub(crate) use collection::CollectionListStreamMessage;
 
+mod image;
+pub use image::Image;
+use image::ImageBytes;
+
 mod list;
 pub use list::List;
 pub use list::Values;
@@ -40,6 +44,25 @@ use napi_derive::napi;
 #[napi(namespace = "data", ts_return_type = "Buffer")]
 pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) -> Value {
     Value::Bytes(buffer.into())
+}
+
+/// Creates an [Image](https://docs.topk.io/sdk/topk-js/data#Image) type from encoded JPEG or PNG bytes.
+///
+/// Example:
+///
+/// ```javascript
+/// import { readFileSync } from "fs";
+/// import { image } from "topk-js/data";
+///
+/// image(readFileSync("cover.jpg"))
+/// ```
+#[napi(namespace = "data")]
+pub fn image(#[napi(ts_arg_type = "Buffer | Uint8Array")] data: ImageBytes) -> napi::Result<Image> {
+    topk_rs::proto::v1::data::image::Data::from_bytes(data.0)
+        .map(|data| Image { data })
+        .ok_or_else(|| {
+            napi::Error::from_reason("Unsupported image format, expected JPEG or PNG data")
+        })
 }
 
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit float vector.

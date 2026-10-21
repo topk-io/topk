@@ -252,6 +252,24 @@ pub fn timestamp() -> FieldSpec {
     FieldSpec::create(DataType::Timestamp)
 }
 
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `image` values.
+///
+/// Images are stored as JPEG or PNG. When upserting images, use [`image()`](https://docs.topk.io/sdk/topk-js/data#image).
+///
+/// Example:
+///
+/// ```javascript
+/// import { image, semanticIndex } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   cover: image().index(semanticIndex())
+/// });
+/// ```
+#[napi(namespace = "schema")]
+pub fn image() -> FieldSpec {
+    FieldSpec::create(DataType::Image)
+}
+
 /// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
 ///
 /// Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.

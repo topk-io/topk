@@ -14,7 +14,7 @@ class FieldSpec:
     """
     *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`timestamp`](#timestamp), [`image`](#image), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
     """
 
     def required(self) -> FieldSpec:
@@ -272,6 +272,28 @@ def timestamp() -> FieldSpec:
 
     client.collections().create("books", schema={
         "published_ts": timestamp()
+    })
+    ```
+    """
+    ...
+
+def image() -> FieldSpec:
+    """
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `image` values.
+
+    Images are stored as JPEG or PNG.
+
+    When upserting images, use:
+    - ``PIL.Image.Image`` — images decoded from JPEG are kept as JPEG, everything else is encoded as PNG
+    - [`image()`](https://docs.topk.io/sdk/topk-py/data#image) — encoded JPEG or PNG bytes
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import image, semantic_index
+
+    client.collections().create("books", schema={
+        "cover": image().index(semantic_index())
     })
     ```
     """

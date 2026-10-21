@@ -849,6 +849,19 @@ impl sparse_vector::U8Values {
 }
 
 impl image::Data {
+    /// Detect the image format from the magic bytes.
+    /// Returns `None` if the data is neither a JPEG nor a PNG image.
+    pub fn from_bytes(data: impl Into<Bytes>) -> Option<Self> {
+        let data = data.into();
+        if infer::image::is_jpeg(&data) {
+            Some(Self::Jpeg(data))
+        } else if infer::image::is_png(&data) {
+            Some(Self::Png(data))
+        } else {
+            None
+        }
+    }
+
     /// Encode the image data as a base64 URI.
     pub fn as_base64_uri(&self) -> String {
         let mut output = String::new();
@@ -957,5 +970,22 @@ mod tests {
             let decoded = image::Data::try_from(b64).unwrap();
             assert_eq!(data, decoded);
         }
+    }
+
+    #[test]
+    fn image_from_bytes_detects_format() {
+        let jpeg = include_bytes!("../../../../../../assets/test/img/cat.jpg").as_slice();
+        let png = include_bytes!("../../../../../../assets/test/img/form.png").as_slice();
+
+        assert_eq!(
+            image::Data::from_bytes(jpeg),
+            Some(image::Data::Jpeg(jpeg.into()))
+        );
+        assert_eq!(
+            image::Data::from_bytes(png),
+            Some(image::Data::Png(png.into()))
+        );
+        assert_eq!(image::Data::from_bytes(b"GIF89a".as_slice()), None);
+        assert_eq!(image::Data::from_bytes(Bytes::new()), None);
     }
 }

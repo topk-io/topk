@@ -65,3 +65,15 @@ def test_semantic_index_query_multiple_fields(ctx: ProjectContext):
     )
 
     assert len(result) == 5
+
+
+def test_semantic_index_query_image_field(ctx: ProjectContext):
+    collection = dataset.semantic.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(image_sim=fn.semantic_similarity("image", "doggo"))
+        .sort(field("image_sim"), False)
+        .limit(2)
+    )
+
+    assert len(result) == 2

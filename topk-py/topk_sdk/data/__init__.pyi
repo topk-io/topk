@@ -1,6 +1,7 @@
 import builtins
 import typing
 import numpy
+import PIL.Image
 
 class List:
     """
@@ -38,6 +39,16 @@ class Struct:
 
     Instances of the `Struct` class are used to represent nested object values in TopK.
     Usually created using the [`struct()`](#struct) helper.
+    """
+
+    ...
+
+class Image:
+    """
+    *Internal*
+
+    Instances of the `Image` class are used to represent images in TopK.
+    Usually created using the [`image()`](#image) helper.
     """
 
     ...
@@ -304,6 +315,30 @@ def matrix(
 
     # Numpy array infers type from dtype
     matrix(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float16))
+    ```
+    """
+    ...
+
+def image(data: typing.Union[builtins.bytes, PIL.Image.Image]) -> Image:
+    """
+    Create an [Image](https://docs.topk.io/sdk/topk-py/data#Image) type from encoded JPEG or PNG bytes, or from a [PIL image](https://pillow.readthedocs.io/en/stable/reference/Image.html).
+
+    PIL images can also be used as document values directly. Images decoded from JPEG are kept as JPEG,
+    everything else is encoded as PNG.
+
+    Image values are returned as PIL images, which requires [Pillow](https://pypi.org/project/pillow/) (`pip install pillow`).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import image
+    from PIL import Image
+
+    # Encoded JPEG or PNG bytes
+    image(open("cat.jpg", "rb").read())
+
+    # PIL image
+    image(Image.open("cat.jpg"))
     ```
     """
     ...

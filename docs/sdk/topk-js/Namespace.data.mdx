@@ -314,6 +314,35 @@ i8Vector([-128, 127, -1, 0, 1])
 
 ***
 
+### image()
+
+```ts
+function image(data: Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike>): Image;
+```
+
+Creates an [Image](https://docs.topk.io/sdk/topk-js/data#Image) type from encoded JPEG or PNG bytes.
+
+Example:
+
+```javascript
+import { readFileSync } from "fs";
+import { image } from "topk-js/data";
+
+image(readFileSync("cover.jpg"))
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `data` | `Uint8Array`\<`ArrayBufferLike`\> \| `Buffer`\<`ArrayBufferLike`\> |
+
+**Returns**
+
+[`Image`](/sdk/topk-js/Namespace.data#image)
+
+***
+
 ### matrix()
 
 ```ts
@@ -489,6 +518,55 @@ u8Vector([0, 255, 1, 2, 3])
 
 ## Classes
 
+### Image
+
+Instances of the `Image` class are used to represent images in TopK.
+Created using the [`image()`](https://docs.topk.io/sdk/topk-js/data#image) helper and returned for image fields in query results.
+
+Example:
+
+```javascript
+import sharp from "sharp";
+
+const docs = await client.collection("books").get(["gatsby"]);
+const cover = docs["gatsby"].cover;
+
+cover.format // "jpeg"
+await sharp(cover.data).resize(64).toFile("thumbnail.png");
+```
+
+#### Accessors
+
+##### data
+
+###### Get Signature
+
+```ts
+get data(): Buffer;
+```
+
+Encoded image bytes.
+
+**Returns**
+
+`Buffer`
+
+##### format
+
+###### Get Signature
+
+```ts
+get format(): ImageFormat;
+```
+
+Encoding format of the image.
+
+**Returns**
+
+[`ImageFormat`](/sdk/topk-js/Namespace.data#imageformat-1)
+
+***
+
 ### List
 
 **`Internal`**
@@ -532,6 +610,16 @@ Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#str
 Placeholder for a value this version of the SDK cannot represent.
 
 ## Type Aliases
+
+### ImageFormat
+
+```ts
+type ImageFormat = "jpeg" | "png";
+```
+
+Image encoding format.
+
+***
 
 ### MatrixValueType
 

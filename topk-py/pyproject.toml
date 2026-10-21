@@ -17,13 +17,16 @@ classifiers = [
 dynamic = ["version"]
 dependencies = ["numpy>=1.20"]
 
+[project.optional-dependencies]
+image = ["pillow>=9.1"]
+
 [project.urls]
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 repository = "https://github.com/topk-io/topk"
 
 [dependency-groups]
-dev = ["maturin>=1.8,<2.0", "pytest", "pytest-xdist", "pytest-asyncio"]
+dev = ["maturin>=1.8,<2.0", "pytest", "pytest-xdist", "pytest-asyncio", "pillow"]
 
 [tool.maturin]
 module-name = "topk_sdk"
