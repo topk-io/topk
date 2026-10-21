@@ -66,6 +66,8 @@ fn build_topk_v1_protos() {
         "topk.data.v1.Matrix.U8",
         "topk.data.v1.Matrix.I8",
         "topk.data.v1.Null",
+        "topk.data.v1.Image",
+        "topk.data.v1.Image.data",
         // field spec
         "topk.control.v1.FieldSpec",
         // field type
@@ -91,6 +93,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldTypeList",
         "topk.control.v1.FieldTypeStruct",
         "topk.control.v1.FieldTypeTimestamp",
+        "topk.control.v1.FieldTypeImage",
         // indexes
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",
@@ -126,6 +129,7 @@ fn build_topk_v1_protos() {
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
+        .bytes(".topk.data.v1.Image")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }
