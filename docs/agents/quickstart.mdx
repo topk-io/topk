@@ -76,126 +76,58 @@ topk region list
 
 Use `aws-us-east-1-elastica` if it's listed, otherwise the first region listed. Don't ask the user. Use the same region for every command below.
 
-### 5. Create a collection
+### 5. Search plain text by meaning
 
-Create a `movies` collection with a semantic index on the plot, so it can be searched by meaning:
+This one command creates a `movies` collection, adds five movies as plain text, and searches them by meaning. Before running it, tell the user: "I'm adding these five movie plots as plain text, with no embeddings. TopK will embed them itself." Then show them this table of what goes in:
+
+| Title | Plot |
+| --- | --- |
+| The Martian | An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him. |
+| Finding Nemo | A timid clownfish crosses the ocean to rescue his son, who was captured by a diver. |
+| The Godfather | The aging patriarch of a crime family hands control of his empire to his reluctant son. |
+| Jurassic Park | Cloned dinosaurs escape their enclosures at a theme park on a remote island. |
+| Titanic | A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner. |
 
 ```bash
 topk sql --region <REGION> -f - <<'SQL'
 CREATE TABLE IF NOT EXISTS movies (
-    title TEXT NOT NULL INDEX keyword_index(),
-    plot  TEXT          INDEX semantic_index(),
-    year  INTEGER
+    title TEXT NOT NULL,
+    plot  TEXT NOT NULL INDEX semantic_index()
 );
+INSERT INTO movies (_id, title, plot) VALUES
+  ('1', 'The Martian', 'An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him.'),
+  ('2', 'Finding Nemo', 'A timid clownfish crosses the ocean to rescue his son, who was captured by a diver.'),
+  ('3', 'The Godfather', 'The aging patriarch of a crime family hands control of his empire to his reluctant son.'),
+  ('4', 'Jurassic Park', 'Cloned dinosaurs escape their enclosures at a theme park on a remote island.'),
+  ('5', 'Titanic', 'A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner.');
+SELECT title, semantic_similarity(plot, 'a castaway in outer space') AS score FROM movies ORDER BY score DESC LIMIT 3;
+SELECT title, semantic_similarity(plot, 'a doomed romance at sea') AS score FROM movies ORDER BY score DESC LIMIT 3;
 SQL
 ```
 
-### 6. Add documents
+The output has one result per statement. `CREATE TABLE` prints `(0 rows)`, which means it succeeded. The Martian should rank first in the first search, and Titanic in the second, each well ahead of the next result.
+
+Show each search to the user as a table with the movie titles and their scores, with the search text above it. Then explain in one or two sentences: neither top result shares a meaningful word with its search ("stranded on Mars" for "a castaway in outer space", "ill-fated ocean liner" for "a doomed romance at sea"), so a keyword search couldn't have found them. `semantic_index()` made TopK embed the plots when they were inserted, with no embedding model to run, no API key, and no vector column.
+
+If a search returns no rows, wait a few seconds and run it again once.
+
+### 6. Let the user search
+
+Ask the user to describe one of the five movies in their own words, without using its title. Run their description as the search, replacing `<DESCRIPTION>` and writing any `'` in it as `''`:
 
 ```bash
-topk sql --region <REGION> -f - <<'SQL'
-INSERT INTO movies (_id, title, plot, year) VALUES
-  ('1',  'Interstellar', 'Astronauts travel through a wormhole near Saturn to find a new home for humanity as Earth becomes uninhabitable.', 2014),
-  ('2',  'The Martian', 'An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him.', 2015),
-  ('3',  'Gravity', 'Two astronauts fight to survive after debris destroys their space shuttle in orbit.', 2013),
-  ('4',  'Apollo 13', 'A damaged spacecraft and its crew must improvise to make it back to Earth alive.', 1995),
-  ('5',  'Alien', 'The crew of a commercial spaceship is hunted by a deadly creature they brought on board.', 1979),
-  ('6',  'The Godfather', 'The aging patriarch of a crime family hands control of his empire to his reluctant son.', 1972),
-  ('7',  'Finding Nemo', 'A timid clownfish crosses the ocean to rescue his son, who was captured by a diver.', 2003),
-  ('8',  'The Shawshank Redemption', 'A banker sentenced to life in prison forms a deep friendship and plans a quiet escape.', 1994),
-  ('9',  'Jurassic Park', 'Cloned dinosaurs escape their enclosures at a theme park on a remote island.', 1993),
-  ('10', 'Inception', 'A thief who steals secrets through dreams is hired to plant an idea in a target''s mind.', 2010),
-  ('11', 'Titanic', 'A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner.', 1997),
-  ('12', 'Spirited Away', 'A girl trapped in a world of spirits works in a bathhouse to free herself and her parents.', 2001);
-SQL
+topk sql --region <REGION> "SELECT title, semantic_similarity(plot, '<DESCRIPTION>') AS score FROM movies ORDER BY score DESC LIMIT 3"
 ```
 
-`INSERT` is an upsert: running it again replaces documents with the same `_id`.
+Show the results as a table with titles and scores. Scores aren't on a 0–1 scale; only their order matters.
 
-### 7. Search
+### 7. Wrap up
 
-Run a semantic search. It matches by meaning, not by keywords:
+Summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
-```bash
-topk sql --region <REGION> "SELECT _id, title, year, semantic_similarity(plot, 'space exploration and survival') AS score FROM movies ORDER BY score DESC LIMIT 5"
-```
-
-The space survival movies should rank first, even though none of their plots contains the words "space exploration".
-
-For comparison, a keyword search on the title with BM25 ranking:
-
-```bash
-topk sql --region <REGION> "SELECT _id, title, bm25_score() AS score FROM movies WHERE match('jurassic', title) ORDER BY score DESC LIMIT 5"
-```
-
-If a search returns no rows right after the insert, wait a few seconds and run it again once.
-
-### 8. Wrap up
-
-Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
-
-- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes about 3 minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
 - Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
-
-## Go bigger
-
-Follow this when the user wants a bigger demo. It loads 50,000 English Wikipedia articles from Hugging Face into a new collection, with no download step and no embedding pipeline, then answers questions over them. Steps 1–4 above must be done first.
-
-### 1. Write the import spec
-
-The spec says where the data comes from and which fields to index. Create `wikipedia.toml` in the current directory:
-
-```bash
-cat > wikipedia.toml <<'TOML'
-[wikipedia]
-from = "hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet"
-id = "id"
-limit = 50000
-
-[wikipedia.fields]
-title = { type = "text", index = "keyword" }
-text = { type = "text", index = "semantic", truncate = 4000 }
-url = { type = "text" }
-TOML
-```
-
-`title` gets a keyword index for exact word matches; `text`, the first 4,000 characters of each article, gets a semantic index for search by meaning.
-
-### 2. Import
-
-Tell the user it takes about 3 minutes, then run:
-
-```bash
-topk import -f wikipedia.toml --region <REGION> --yes
-```
-
-The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`, adding `--yes` so it doesn't wait for confirmation. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
-
-### 3. Ask it questions
-
-Search by meaning: results match what the question is about, not just its exact words:
-
-```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'why did the roman empire collapse') AS score FROM wikipedia ORDER BY score DESC LIMIT 5"
-```
-
-```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'inventions that changed how people communicate') AS score FROM wikipedia ORDER BY score DESC LIMIT 5"
-```
-
-Then run a true hybrid search: one query whose ranking blends meaning (semantic similarity on the article text) with keyword relevance (BM25 on the title). Most search systems run two separate searches and merge the results afterwards; TopK scores both in a single query:
-
-```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'agreements that ended a war and changed borders') AS meaning, bm25_score() AS keywords FROM wikipedia WHERE match('treaty', title) ORDER BY meaning + keywords * 0.1 DESC LIMIT 5"
-```
-
-The keyword match finds articles with "treaty" in the title; the meaning score ranks them by whether they ended a war and moved borders. Show both the `meaning` and `keywords` columns, and point out how each article's two scores combine into its rank. BM25 scores run several times larger than semantic scores, so the `0.1` weight puts them on a similar scale; changing the weights changes the ranking.
-
-Show the results as tables, then invite the user to ask their own questions and run them the same way.
-
-If the first query returns few or no results, the semantic index may still be catching up: wait 30 seconds and run it again.
 
 ## Troubleshooting
 
