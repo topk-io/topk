@@ -179,7 +179,15 @@ A support agent asks about a failed payment with error 221:
 topk sql --region <REGION> "SELECT _id, title, team, semantic_similarity(body, 'customer payment failed with error 221') AS meaning FROM support ORDER BY meaning DESC LIMIT 4"
 ```
 
-The right article (card declined, payments team) should rank first, but the rest of the results are articles about other codes and teams, such as Error 222 and Error 1221. Point this out: to a meaning-based search, codes that look alike are close neighbors, and an assistant reading these results could easily answer with the wrong fix.
+The right article (card declined, payments team) should rank first, followed by articles about other codes and teams, such as Error 222 and Error 1221. Scores aren't on a 0–1 scale; only their order matters.
+
+Now ask the same thing in different words:
+
+```bash
+topk sql --region <REGION> "SELECT _id, title, team, semantic_similarity(body, 'fix error 221') AS meaning FROM support ORDER BY meaning DESC LIMIT 4"
+```
+
+This time the mobile app's Error 221 article should rank first, and Error 2210 should appear too. Point this out: a meaning-based search treats codes that look alike as close neighbors, so which article wins depends on how the question is worded. An assistant reading these results could easily answer with the wrong fix.
 
 ### 4. Combine an exact match, a filter, and meaning
 
@@ -191,7 +199,7 @@ topk sql --region <REGION> "SELECT _id, title, team, semantic_similarity(body, '
 
 Only the card-declined article should come back. Explain each part:
 
-- `body ~ '\bError 221\b'` is a regular expression. `\b` marks a word boundary, so it matches "Error 221" but not "Error 2210" or "Error 1221".
+- `body ~ '\bError 221\b'` is a regular expression. `\b` marks a word boundary, so it matches "Error 221" but not "Error 2210" or "Error 1221". A keyword search for "error 221" wouldn't be exact enough: it also returns the Error 2210 and Error 222 articles, because they contain the word "error".
 - `team = 'payments'` drops the mobile app's unrelated Error 221.
 - `semantic_similarity` ranks whatever matches by how well it answers the question.
 
@@ -202,14 +210,14 @@ Most search systems run exact matching and meaning in separate systems and merge
 Sometimes the exact code should rank first, but other articles should stay in the results as a fallback. `boost` multiplies a score when a condition is true:
 
 ```bash
-topk sql --region <REGION> "SELECT _id, title, boost(semantic_similarity(body, 'how do I fix error 221'), body ~ '\bError 221\b', 2.0) AS score FROM support ORDER BY score DESC LIMIT 4"
+topk sql --region <REGION> "SELECT _id, title, team, boost(semantic_similarity(body, 'customer payment failed with error 221'), body ~ '\bError 221\b', 2.0) AS score FROM support ORDER BY score DESC LIMIT 4"
 ```
 
-Both Error 221 articles should rank first, with their meaning scores doubled, followed by the closest other articles. Point out that the ranking formula is part of the query, so it can be changed per search without reindexing.
+This is the same question as steps 3 and 4. Both Error 221 articles should rank first, with the card-declined article on top, followed by the closest other articles as a fallback. Their scores are about twice their meaning scores from step 3, because `boost` multiplied them by 2.0. Point out that the ranking formula is part of the query, so it can be changed per search without reindexing.
 
 ### 6. Wrap up
 
-Summarize what the user saw: search by meaning alone mixed up similar error codes; one query with an exact match, a filter, and meaning returned only the right article; and `boost` ranked exact matches first while keeping the rest. Ask whether to keep the `support` collection; if they don't need it, delete it:
+Summarize what the user saw: search by meaning alone ranked look-alike error codes differently depending on the wording; one query with an exact match, a filter, and meaning returned only the right article; and `boost` ranked exact matches first while keeping the rest. Ask whether to keep the `support` collection; if they don't need it, delete it:
 
 ```bash
 topk sql --region <REGION> "DROP TABLE support"
