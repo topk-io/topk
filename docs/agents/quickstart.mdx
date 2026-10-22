@@ -134,97 +134,85 @@ If a search returns no rows right after the insert, wait a few seconds and run i
 
 Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
-- Go deeper: give an agent per-user memory in about a minute, using almost no credit. It shows three things most search systems can't do together: memories are searchable the moment they're written, each user's memories stay separate, and filters and meaning combine in one query. If the user says yes, follow [Go deeper](#go-deeper) below.
+- Go deeper: show why searching by meaning alone mixes up look-alike error codes like 221 and 222, and how TopK fixes it with an exact match, a filter, and meaning in one query. It takes about a minute and uses almost no credit. If the user says yes, follow [Go deeper](#go-deeper) below.
 - Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
 
 ## Go deeper
 
-Follow this when the user wants to see what TopK does beyond basic search. It builds a small memory store for an AI assistant with two users, Alice and Bob. Steps 1–4 above must be done first. Tell the user what each step shows as you run it: with this little data, the results look obvious, and the point is how they were produced.
+Follow this when the user wants to see what TopK does beyond basic search. Search by meaning alone mixes up things that sound alike, such as error codes 221 and 222. This demo searches a few support articles and shows how TopK combines an exact match, a filter, and meaning in one query. Steps 1–4 above must be done first. Tell the user what each step shows as you run it.
 
-### 1. Create the memory collection
+### 1. Create the support articles collection
 
 ```bash
 topk sql --region <REGION> -f - <<'SQL'
-CREATE TABLE IF NOT EXISTS memories (
-    note TEXT NOT NULL INDEX semantic_index(),
-    tag  TEXT,
-    day  INTEGER
+CREATE TABLE IF NOT EXISTS support (
+    title TEXT NOT NULL,
+    body  TEXT NOT NULL INDEX semantic_index(),
+    team  TEXT
 );
 SQL
 ```
 
-`note` is what the assistant remembers, searchable by meaning. `tag` and `day` (as `YYYYMMDD`) are plain fields for filtering.
+### 2. Add the articles
 
-### 2. Write each user's memories to their own partition
-
-A partition is a separate space inside a collection, here one per user. `memories$alice` writes to Alice's partition, and it's created on first write:
+The articles use error codes that look alike on purpose: 221, 222, 2210, and 1221.
 
 ```bash
 topk sql --region <REGION> -f - <<'SQL'
-INSERT INTO memories$alice (_id, note, tag, day) VALUES
-  ('a1', 'Allergic to peanuts and carries an EpiPen.', 'health', 20260912),
-  ('a2', 'Prefers window seats on flights longer than three hours.', 'travel', 20261002),
-  ('a3', 'Likes quiet Italian restaurants, not loud bars.', 'food', 20260920),
-  ('a4', 'Flying to Lisbon for a conference in November.', 'travel', 20261015),
-  ('a5', 'Took a train trip to Seattle in June.', 'travel', 20260615);
-INSERT INTO memories$bob (_id, note, tag, day) VALUES
-  ('b1', 'Allergic to shellfish.', 'health', 20260903),
-  ('b2', 'Loves spicy food, especially Sichuan.', 'food', 20260918),
-  ('b3', 'Always books aisle seats.', 'travel', 20260925),
-  ('b4', 'Training for a marathon in December.', 'health', 20261001);
+INSERT INTO support (_id, title, body, team) VALUES
+  ('1', 'Fixing Error 222 in checkout', 'Error 222 means the payment token expired before checkout finished. Ask the customer to retry the payment; the token refreshes automatically.', 'payments'),
+  ('2', 'Error 221: card declined by issuer', 'Error 221 is returned when the card issuer declines the charge. Tell the customer to contact their bank or use a different card.', 'payments'),
+  ('3', 'Error 2210 during payout', 'Error 2210 appears when a payout bank account fails verification. Re-run account verification in the dashboard.', 'payouts'),
+  ('4', 'Troubleshooting failed payments', 'Most failed payments come from expired tokens, declined cards, or network timeouts. Check the error code to find the right fix.', 'payments'),
+  ('5', 'Error 221 in the mobile app login', 'On mobile, Error 221 means the session cookie was rejected. Sign out and sign back in to fix it.', 'mobile'),
+  ('6', 'Error 1221 webhook retries', 'Error 1221 shows up when webhook delivery fails five times in a row. Check that your endpoint returns 200.', 'platform');
 SQL
 ```
 
-Only search a partition after writing to it: searching one that was never written fails with `Partition does not exist`.
+### 3. Search by meaning only
 
-### 3. Recall memories for one user
-
-Ask the same question for each user:
+A support agent asks about a failed payment with error 221:
 
 ```bash
-topk sql --region <REGION> "SELECT _id, note, semantic_similarity(note, 'what should they eat or avoid at a restaurant') AS score FROM memories\$alice ORDER BY score DESC LIMIT 2"
+topk sql --region <REGION> "SELECT _id, title, team, semantic_similarity(body, 'customer payment failed with error 221') AS meaning FROM support ORDER BY meaning DESC LIMIT 4"
 ```
+
+The right article (card declined, payments team) should rank first, but the rest of the results are articles about other codes and teams, such as Error 222 and Error 1221. Point this out: to a meaning-based search, codes that look alike are close neighbors, and an assistant reading these results could easily answer with the wrong fix.
+
+### 4. Combine an exact match, a filter, and meaning
+
+Now require the exact code with a regular expression, keep only the payments team's articles, and rank what's left by meaning, all in one query:
 
 ```bash
-topk sql --region <REGION> "SELECT _id, note, semantic_similarity(note, 'what should they eat or avoid at a restaurant') AS score FROM memories\$bob ORDER BY score DESC LIMIT 2"
+topk sql --region <REGION> "SELECT _id, title, team, semantic_similarity(body, 'customer payment failed with error 221') AS meaning FROM support WHERE body ~ '\bError 221\b' AND team = 'payments' ORDER BY meaning DESC LIMIT 4"
 ```
 
-Alice's results mention Italian restaurants and her peanut allergy; Bob's mention spicy food and shellfish. Point out that Bob's shellfish allergy is relevant to the question but never shows up for Alice: a search scoped to a partition can't return another partition's data. This is how an app keeps each user's or customer's data apart in one collection.
+Only the card-declined article should come back. Explain each part:
 
-### 4. Remember something new and recall it right away
+- `body ~ '\bError 221\b'` is a regular expression. `\b` marks a word boundary, so it matches "Error 221" but not "Error 2210" or "Error 1221".
+- `team = 'payments'` drops the mobile app's unrelated Error 221.
+- `semantic_similarity` ranks whatever matches by how well it answers the question.
 
-Ask whether Alice eats meat. Nothing she has told the assistant answers it yet:
+Most search systems run exact matching and meaning in separate systems and merge the results afterwards. TopK applies all three in a single query. Regular expressions are also how coding agents like to search, so an agent can use the same pattern syntax it would use with `grep`.
+
+### 5. Prefer exact matches without excluding the rest
+
+Sometimes the exact code should rank first, but other articles should stay in the results as a fallback. `boost` multiplies a score when a condition is true:
 
 ```bash
-topk sql --region <REGION> "SELECT _id, note, semantic_similarity(note, 'do they eat meat') AS score FROM memories\$alice ORDER BY score DESC LIMIT 2"
+topk sql --region <REGION> "SELECT _id, title, boost(semantic_similarity(body, 'how do I fix error 221'), body ~ '\bError 221\b', 2.0) AS score FROM support ORDER BY score DESC LIMIT 4"
 ```
 
-Now Alice tells the assistant something new:
-
-```bash
-topk sql --region <REGION> "INSERT INTO memories\$alice (_id, note, tag, day) VALUES ('a6', 'Became vegetarian this month and no longer eats meat.', 'food', 20261020)"
-```
-
-Immediately run the same search again. The new memory should now rank first. Tell the user it was embedded and searchable as soon as the insert returned, with no batch indexing step, so an assistant can use what it just learned in the very next turn. If it's missing, run the search once more.
-
-### 5. Filter and rank in one query
-
-Find Alice's upcoming travel plans: only `travel` memories from October onwards, ranked by meaning:
-
-```bash
-topk sql --region <REGION> "SELECT _id, note, day, semantic_similarity(note, 'planning an upcoming trip') AS score FROM memories\$alice WHERE tag = 'travel' AND day >= 20261001 ORDER BY score DESC LIMIT 5"
-```
-
-The Lisbon trip and the seat preference come back; the June train trip is excluded by the date filter, even though it's about travel. Point out that the filters and the semantic ranking run in one query, and TopK applies filters before ranking, so every matching memory is a candidate, even when a filter matches only a few.
+Both Error 221 articles should rank first, with their meaning scores doubled, followed by the closest other articles. Point out that the ranking formula is part of the query, so it can be changed per search without reindexing.
 
 ### 6. Wrap up
 
-Summarize what the user saw: memories searchable by meaning, separate per user, searchable as soon as they're written, and filtered and ranked in one query. Ask whether to keep the `memories` collection; if they don't need it, delete it:
+Summarize what the user saw: search by meaning alone mixed up similar error codes; one query with an exact match, a filter, and meaning returned only the right article; and `boost` ranked exact matches first while keeping the rest. Ask whether to keep the `support` collection; if they don't need it, delete it:
 
 ```bash
-topk sql --region <REGION> "DROP TABLE memories"
+topk sql --region <REGION> "DROP TABLE support"
 ```
 
 ## Troubleshooting
@@ -235,7 +223,6 @@ topk sql --region <REGION> "DROP TABLE memories"
 | `--region is required` | Add `--region <REGION>` to the command. |
 | `--project-id … is required, or select a default project` | Run `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>`. |
 | An error combining `--project-id` with an API key | Unset `TOPK_API_KEY`: `env -u TOPK_API_KEY topk …`. |
-| `Partition does not exist` | The partition hasn't been written yet. Insert into it first; partitions are created on first write. |
 | `SELECT *` fails | List the columns you want; `SELECT *` isn't supported. |
 | `brew: command not found` | Tell the user the TopK CLI installs with Homebrew. |
 
