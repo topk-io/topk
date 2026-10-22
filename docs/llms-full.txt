@@ -669,7 +669,6 @@ If a search returns no rows right after the insert, wait a few seconds and run i
 Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
 - Go deeper: give an agent per-user memory in about a minute, using almost no credit. It shows three things most search systems can't do together: memories are searchable the moment they're written, each user's memories stay separate, and filters and meaning combine in one query. If the user says yes, follow [Go deeper](#go-deeper) below.
-- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes about 3 minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
 - Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
@@ -761,64 +760,6 @@ Summarize what the user saw: memories searchable by meaning, separate per user, 
 ```bash
 topk sql --region <REGION> "DROP TABLE memories"
 ```
-
-#### Go bigger
-
-Follow this when the user wants a bigger demo. It loads 50,000 English Wikipedia articles from Hugging Face into a new collection, with no download step and no embedding pipeline, then answers questions over them. Steps 1–4 above must be done first.
-
-##### 1. Write the import spec
-
-The spec says where the data comes from and which fields to index. Create `wikipedia.toml` in the current directory:
-
-```bash
-cat > wikipedia.toml <<'TOML'
-[wikipedia]
-from = "hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet"
-id = "id"
-limit = 50000
-
-[wikipedia.fields]
-title = { type = "text", index = "keyword" }
-text = { type = "text", index = "semantic", truncate = 4000 }
-url = { type = "text" }
-TOML
-```
-
-`title` gets a keyword index for exact word matches; `text`, the first 4,000 characters of each article, gets a semantic index for search by meaning.
-
-##### 2. Import
-
-Tell the user it takes about 3 minutes, then run:
-
-```bash
-topk import -f wikipedia.toml --region <REGION> --yes
-```
-
-The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`, adding `--yes` so it doesn't wait for confirmation. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
-
-##### 3. Ask it questions
-
-Search by meaning: results match what the question is about, not just its exact words:
-
-```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'why did the roman empire collapse') AS score FROM wikipedia ORDER BY score DESC LIMIT 5"
-```
-
-```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'inventions that changed how people communicate') AS score FROM wikipedia ORDER BY score DESC LIMIT 5"
-```
-
-Then run a true hybrid search: one query whose ranking blends meaning (semantic similarity on the article text) with keyword relevance (BM25 on the title). Most search systems run two separate searches and merge the results afterwards; TopK scores both in a single query:
-
-```bash
-topk sql --region <REGION> "SELECT title, url, semantic_similarity(text, 'agreements that ended a war and changed borders') AS meaning, bm25_score() AS keywords FROM wikipedia WHERE match('treaty', title) ORDER BY meaning + keywords * 0.1 DESC LIMIT 5"
-```
-
-The keyword match finds articles with "treaty" in the title; the meaning score ranks them by whether they ended a war and moved borders. Show both the `meaning` and `keywords` columns, and point out how each article's two scores combine into its rank. BM25 scores run several times larger than semantic scores, so the `0.1` weight puts them on a similar scale; changing the weights changes the ranking.
-
-Show the results as tables, then invite the user to ask their own questions and run them the same way.
-
-If the first query returns few or no results, the semantic index may still be catching up: wait 30 seconds and run it again.
 
 #### Troubleshooting
 
