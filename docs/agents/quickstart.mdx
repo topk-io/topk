@@ -76,63 +76,46 @@ topk region list
 
 Use `aws-us-east-1-elastica` if it's listed, otherwise the first region listed. Don't ask the user. Use the same region for every command below.
 
-### 5. Create a collection
+### 5. Search plain text by meaning
 
-Create a `movies` collection with a semantic index on the plot, so it can be searched by meaning:
+This one command creates a `movies` collection, adds five movies as plain text, and searches them by meaning. Tell the user first: "I'm adding five movie plots as plain text, with no embeddings. TopK will embed them itself."
 
 ```bash
 topk sql --region <REGION> -f - <<'SQL'
 CREATE TABLE IF NOT EXISTS movies (
-    title TEXT NOT NULL INDEX keyword_index(),
-    plot  TEXT          INDEX semantic_index(),
-    year  INTEGER
+    title TEXT NOT NULL,
+    plot  TEXT NOT NULL INDEX semantic_index()
 );
+INSERT INTO movies (_id, title, plot) VALUES
+  ('1', 'The Martian', 'An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him.'),
+  ('2', 'Finding Nemo', 'A timid clownfish crosses the ocean to rescue his son, who was captured by a diver.'),
+  ('3', 'The Godfather', 'The aging patriarch of a crime family hands control of his empire to his reluctant son.'),
+  ('4', 'Jurassic Park', 'Cloned dinosaurs escape their enclosures at a theme park on a remote island.'),
+  ('5', 'Titanic', 'A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner.');
+SELECT title, semantic_similarity(plot, 'lost in space') AS score FROM movies ORDER BY score DESC LIMIT 1;
+SELECT title, semantic_similarity(plot, 'a doomed romance at sea') AS score FROM movies ORDER BY score DESC LIMIT 1;
 SQL
 ```
 
-### 6. Add documents
+The output has one result per statement. `CREATE TABLE` prints `(0 rows)`, which means it succeeded. The first search should return The Martian and the second Titanic.
+
+Show the user both searches and their results, then explain in one or two sentences: neither result shares a word with its search ("stranded on Mars" for "lost in space", "ill-fated ocean liner" for "a doomed romance at sea"), so a keyword search would find nothing. `semantic_index()` made TopK embed the plots when they were inserted, with no embedding model to run, no API key, and no vector column.
+
+If a search returns no rows, wait a few seconds and run it again once.
+
+### 6. Let the user search
+
+Ask the user to describe one of the five movies in their own words, without using its title. Run their description as the search, replacing `<DESCRIPTION>` and writing any `'` in it as `''`:
 
 ```bash
-topk sql --region <REGION> -f - <<'SQL'
-INSERT INTO movies (_id, title, plot, year) VALUES
-  ('1',  'Interstellar', 'Astronauts travel through a wormhole near Saturn to find a new home for humanity as Earth becomes uninhabitable.', 2014),
-  ('2',  'The Martian', 'An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him.', 2015),
-  ('3',  'Gravity', 'Two astronauts fight to survive after debris destroys their space shuttle in orbit.', 2013),
-  ('4',  'Apollo 13', 'A damaged spacecraft and its crew must improvise to make it back to Earth alive.', 1995),
-  ('5',  'Alien', 'The crew of a commercial spaceship is hunted by a deadly creature they brought on board.', 1979),
-  ('6',  'The Godfather', 'The aging patriarch of a crime family hands control of his empire to his reluctant son.', 1972),
-  ('7',  'Finding Nemo', 'A timid clownfish crosses the ocean to rescue his son, who was captured by a diver.', 2003),
-  ('8',  'The Shawshank Redemption', 'A banker sentenced to life in prison forms a deep friendship and plans a quiet escape.', 1994),
-  ('9',  'Jurassic Park', 'Cloned dinosaurs escape their enclosures at a theme park on a remote island.', 1993),
-  ('10', 'Inception', 'A thief who steals secrets through dreams is hired to plant an idea in a target''s mind.', 2010),
-  ('11', 'Titanic', 'A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner.', 1997),
-  ('12', 'Spirited Away', 'A girl trapped in a world of spirits works in a bathhouse to free herself and her parents.', 2001);
-SQL
+topk sql --region <REGION> "SELECT title, semantic_similarity(plot, '<DESCRIPTION>') AS score FROM movies ORDER BY score DESC LIMIT 3"
 ```
 
-`INSERT` is an upsert: running it again replaces documents with the same `_id`.
+Show the results. Scores aren't on a 0–1 scale; only their order matters.
 
-### 7. Search
+### 7. Wrap up
 
-Run a semantic search. It matches by meaning, not by keywords:
-
-```bash
-topk sql --region <REGION> "SELECT _id, title, year, semantic_similarity(plot, 'space exploration and survival') AS score FROM movies ORDER BY score DESC LIMIT 5"
-```
-
-The space survival movies should rank first, even though none of their plots contains the words "space exploration".
-
-For comparison, a keyword search on the title with BM25 ranking:
-
-```bash
-topk sql --region <REGION> "SELECT _id, title, bm25_score() AS score FROM movies WHERE match('jurassic', title) ORDER BY score DESC LIMIT 5"
-```
-
-If a search returns no rows right after the insert, wait a few seconds and run it again once.
-
-### 8. Wrap up
-
-Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
+Summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
 - Go deeper: show why searching by meaning alone mixes up look-alike error codes like 221 and 222, and how TopK fixes it with an exact match, a filter, and meaning in one query. It takes about a minute and uses almost no credit. If the user says yes, follow [Go deeper](#go-deeper) below.
 - Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
