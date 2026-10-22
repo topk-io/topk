@@ -626,14 +626,14 @@ INSERT INTO movies (_id, title, plot) VALUES
   ('3', 'The Godfather', 'The aging patriarch of a crime family hands control of his empire to his reluctant son.'),
   ('4', 'Jurassic Park', 'Cloned dinosaurs escape their enclosures at a theme park on a remote island.'),
   ('5', 'Titanic', 'A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner.');
-SELECT title, semantic_similarity(plot, 'lost in space') AS score FROM movies ORDER BY score DESC LIMIT 1;
-SELECT title, semantic_similarity(plot, 'a doomed romance at sea') AS score FROM movies ORDER BY score DESC LIMIT 1;
+SELECT title, semantic_similarity(plot, 'a castaway in outer space') AS score FROM movies ORDER BY score DESC LIMIT 3;
+SELECT title, semantic_similarity(plot, 'a doomed romance at sea') AS score FROM movies ORDER BY score DESC LIMIT 3;
 SQL
 ```
 
-The output has one result per statement. `CREATE TABLE` prints `(0 rows)`, which means it succeeded. The first search should return The Martian and the second Titanic.
+The output has one result per statement. `CREATE TABLE` prints `(0 rows)`, which means it succeeded. The Martian should rank first in the first search, and Titanic in the second, each well ahead of the next result.
 
-Show the user both searches and their results, then explain in one or two sentences: neither result shares a word with its search ("stranded on Mars" for "lost in space", "ill-fated ocean liner" for "a doomed romance at sea"), so a keyword search would find nothing. `semantic_index()` made TopK embed the plots when they were inserted, with no embedding model to run, no API key, and no vector column.
+Show each search to the user as a table with the movie titles and their scores, with the search text above it. Then explain in one or two sentences: neither top result shares a meaningful word with its search ("stranded on Mars" for "a castaway in outer space", "ill-fated ocean liner" for "a doomed romance at sea"), so a keyword search couldn't have found them. `semantic_index()` made TopK embed the plots when they were inserted, with no embedding model to run, no API key, and no vector column.
 
 If a search returns no rows, wait a few seconds and run it again once.
 
@@ -645,7 +645,7 @@ Ask the user to describe one of the five movies in their own words, without usin
 topk sql --region <REGION> "SELECT title, semantic_similarity(plot, '<DESCRIPTION>') AS score FROM movies ORDER BY score DESC LIMIT 3"
 ```
 
-Show the results. Scores aren't on a 0–1 scale; only their order matters.
+Show the results as a table with titles and scores. Scores aren't on a 0–1 scale; only their order matters.
 
 ##### 7. Wrap up
 
