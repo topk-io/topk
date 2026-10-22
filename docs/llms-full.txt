@@ -612,7 +612,15 @@ Use `aws-us-east-1-elastica` if it's listed, otherwise the first region listed. 
 
 ##### 5. Search plain text by meaning
 
-This one command creates a `movies` collection, adds five movies as plain text, and searches them by meaning. Tell the user first: "I'm adding five movie plots as plain text, with no embeddings. TopK will embed them itself."
+This one command creates a `movies` collection, adds five movies as plain text, and searches them by meaning. Before running it, tell the user: "I'm adding these five movie plots as plain text, with no embeddings. TopK will embed them itself." Then show them this table of what goes in:
+
+| Title | Plot |
+| --- | --- |
+| The Martian | An astronaut stranded on Mars must use his ingenuity to survive until a rescue mission can reach him. |
+| Finding Nemo | A timid clownfish crosses the ocean to rescue his son, who was captured by a diver. |
+| The Godfather | The aging patriarch of a crime family hands control of his empire to his reluctant son. |
+| Jurassic Park | Cloned dinosaurs escape their enclosures at a theme park on a remote island. |
+| Titanic | A young aristocrat falls in love with a poor artist aboard an ill-fated ocean liner. |
 
 ```bash
 topk sql --region <REGION> -f - <<'SQL'
