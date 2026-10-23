@@ -46,7 +46,7 @@ impl From<RustError> for PyErr {
             topk_rs::Error::SlowDown(e) => SlowDownError::new_err(e),
             topk_rs::Error::PermissionDenied => PermissionDeniedError::new_err(value.0.to_string()),
             // Failed preconditions
-            topk_rs::Error::IndexBuilding(e) => IndexBuildingError::new_err(e),
+            topk_rs::Error::IndexBuilding(e) => SchemaNotReadyError::new_err(e),
             topk_rs::Error::SsnUnavailable(e) => SsnUnavailableError::new_err(e),
             topk_rs::Error::IndexMissing(e) => IndexMissingError::new_err(e),
             topk_rs::Error::SchemaPaused(e) => SchemaPausedError::new_err(e),
@@ -73,6 +73,7 @@ create_exception!(error, SlowDownError, PyException);
 create_exception!(error, PermissionDeniedError, PyException);
 create_exception!(error, FailedPreconditionError, PyException);
 create_exception!(error, IndexBuildingError, FailedPreconditionError);
+create_exception!(error, SchemaNotReadyError, IndexBuildingError);
 create_exception!(error, SsnUnavailableError, FailedPreconditionError);
 create_exception!(error, IndexMissingError, FailedPreconditionError);
 create_exception!(error, SchemaPausedError, SlowDownError);
@@ -157,6 +158,11 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "IndexBuildingError",
         m.py().get_type::<IndexBuildingError>(),
+    )?;
+
+    m.add(
+        "SchemaNotReadyError",
+        m.py().get_type::<SchemaNotReadyError>(),
     )?;
 
     m.add(

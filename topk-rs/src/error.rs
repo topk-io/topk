@@ -77,7 +77,7 @@ pub enum Error {
     #[error("failed precondition: {0}")]
     FailedPrecondition(String),
 
-    #[error("index building: {0}")]
+    #[error("schema not ready: {0}")]
     IndexBuilding(String),
 
     #[error("schema version unavailable: {0}")]
@@ -605,4 +605,28 @@ fn has_h2_source(err: &(dyn std::error::Error + 'static)) -> bool {
         source = e.source();
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_not_ready_preserves_wire_retry() {
+        let code: u32 = CustomErrorCode::IndexBuilding.into();
+        assert_eq!(code, 1413);
+
+        let status: Status = CustomError::new(
+            "Query representation is not ready for schema version 2".into(),
+            CustomErrorCode::IndexBuilding,
+        )
+        .into();
+        let error = Error::from(status);
+        assert!(matches!(&error, Error::IndexBuilding(_)));
+        assert!(error.is_retryable());
+        assert_eq!(
+            error.to_string(),
+            "schema not ready: Query representation is not ready for schema version 2"
+        );
+    }
 }

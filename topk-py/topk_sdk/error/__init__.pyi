@@ -35,7 +35,12 @@ class FailedPreconditionError(Exception):
 
 class IndexBuildingError(FailedPreconditionError):
     """
-    Raised when an index the query needs is not built yet.
+    Compatibility base for schema representation readiness errors.
+    """
+
+class SchemaNotReadyError(IndexBuildingError):
+    """
+    Raised when a field or index needed by the query is still rebuilding.
     """
 
 class InvalidArgumentError(Exception):
