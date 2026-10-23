@@ -1,6 +1,9 @@
 import typing
 import builtins
 from datetime import datetime, timezone
+from pathlib import Path
+
+from PIL import Image
 from topk_sdk import data
 from topk_sdk.schema import (
     binary_vector,
@@ -9,6 +12,7 @@ from topk_sdk.schema import (
     f16_vector,
     f32_vector,
     i8_vector,
+    image,
     int,
     keyword_index,
     matrix,
@@ -23,6 +27,8 @@ from topk_sdk.schema import (
 )
 
 from .. import ProjectContext, AsyncProjectContext
+
+IMAGES = Path(__file__).parents[3] / "assets" / "test" / "img"
 
 
 class books:
@@ -335,6 +341,7 @@ class semantic:
         schema = {
             "title": text().required().index(semantic_index()),
             "summary": text().required().index(semantic_index()),
+            "image": image().index(semantic_index()),
         }
 
         collection = ctx.client.collections().create(
@@ -355,6 +362,7 @@ class semantic:
                 "title": "To Kill a Mockingbird",
                 "published_year": 1960,
                 "summary": "A young girl confronts racial injustice in the Deep South through the eyes of her lawyer father.",
+                "image": Image.open(IMAGES / "cat.jpg"),
                 "nullable_importance": 2.0,
             },
             {
@@ -362,6 +370,7 @@ class semantic:
                 "title": "1984",
                 "published_year": 1949,
                 "summary": "A totalitarian regime uses surveillance and mind control to oppress its citizens.",
+                "image": Image.open(IMAGES / "form.png"),
             },
             {
                 "_id": "pride",
@@ -374,6 +383,7 @@ class semantic:
                 "title": "The Great Gatsby",
                 "published_year": 1925,
                 "summary": "A mysterious millionaire navigates love and wealth in the Roaring Twenties.",
+                "image": data.image((IMAGES / "skier.jpg").read_bytes()),
             },
             {
                 "_id": "catcher",
@@ -392,6 +402,7 @@ class semantic:
                 "title": "The Hobbit",
                 "published_year": 1937,
                 "summary": "A reluctant hobbit embarks on a quest to help a group of dwarves reclaim their mountain home.",
+                "image": data.image((IMAGES / "trafficjam.jpg").read_bytes()),
             },
             {
                 "_id": "harry",
@@ -410,6 +421,7 @@ class semantic:
                 "title": "The Alchemist",
                 "published_year": 1988,
                 "summary": "A shepherd boy journeys to fulfill his destiny and discover the meaning of life.",
+                "image": Image.open(IMAGES / "skier.jpg"),
             },
         ]
 

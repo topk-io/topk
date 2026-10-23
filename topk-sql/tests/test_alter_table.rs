@@ -79,7 +79,7 @@ async fn alter_table_round_trip(
         for sql in setup {
             ctx.sql(sql).await?;
         }
-        ctx.sql(select_sql).await
+        common::wait_for_index(ctx, select_sql).await
     })
     .await
     .unwrap();
@@ -107,14 +107,6 @@ async fn alter_table_round_trip(
     &["CREATE TABLE {{table}} (name TEXT NOT NULL)"],
     "ALTER TABLE {{table}} ALTER COLUMN name TYPE INTEGER",
     "type changes unsupported",
-)]
-#[case::not_null_conflicts_with_data(
-    &[
-        "CREATE TABLE {{table}} (name TEXT, pages INTEGER)",
-        "INSERT INTO {{table}} (_id, pages) VALUES ('a', 412)",
-    ],
-    "ALTER TABLE {{table}} ALTER COLUMN name SET NOT NULL",
-    "name",
 )]
 #[case::drop_unknown_column(
     &["CREATE TABLE {{table}} (name TEXT NOT NULL)"],

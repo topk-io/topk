@@ -92,7 +92,7 @@ async function readPageContent(slug: string): Promise<string> {
 
 // --- Navigation ---
 
-const OVERVIEW_EXCLUDE = new Set(["cli"]);
+const OVERVIEW_EXCLUDE = new Set(["cli", "quickstart"]);
 const LLMS_EXCLUDE = new Set(["usage"]);
 
 const API_ENTRIES: Entry[] = [
@@ -126,6 +126,19 @@ function buildSections(): Section[] {
         heading: isOverview ? "Overview" : group.group!,
         entries: slugs.map((slug): Entry => ({ type: "slug", slug })),
       });
+
+      // Agents tab is hidden from the site nav, so llms.txt is how agents find it
+      if (isOverview) {
+        const agentsTab = docs.navigation.tabs.find((t) => t.tab === "Agents");
+        if (agentsTab) {
+          sections.push({
+            heading: "Agents",
+            entries: normalizeTabPages(agentsTab.pages).flatMap((g) =>
+              g.pages.map((slug): Entry => ({ type: "slug", slug }))
+            ),
+          });
+        }
+      }
 
       if (group.group === "Core Concepts") {
         sections.push({ heading: "APIs", entries: API_ENTRIES });

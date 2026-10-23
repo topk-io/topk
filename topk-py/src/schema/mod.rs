@@ -65,6 +65,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
     m.add_wrapped(wrap_pyfunction!(self::bytes))?;
     m.add_wrapped(wrap_pyfunction!(timestamp))?;
+    m.add_wrapped(wrap_pyfunction!(image))?;
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(list))?;
@@ -149,6 +150,11 @@ pub fn bytes() -> field_spec::FieldSpec {
 #[pyfunction]
 pub fn timestamp() -> field_spec::FieldSpec {
     field_spec::FieldSpec::new(data_type::DataType::Timestamp())
+}
+
+#[pyfunction]
+pub fn image() -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::Image())
 }
 
 #[pyfunction]

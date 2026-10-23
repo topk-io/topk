@@ -174,7 +174,6 @@ impl Error {
             // When quering using `lsn=N`, the client should retry for at least 2 seconds,
             // since the guarantee for "default" consistency mode is ~1 second.
             Error::QueryLsnTimeout => Some(Duration::from_millis(2_000)),
-            // `required_ssn` is a floor, not a wait: the client retries until the version lands.
             Error::SsnUnavailable(_) => Some(Duration::from_millis(60_000)),
             // Writes pause while a schema update validates, up to its deadline.
             Error::SchemaPaused(_) => Some(Duration::from_millis(60_000)),
@@ -580,7 +579,7 @@ impl From<CustomError> for Status {
             CustomErrorCode::IndexMissing => Status::failed_precondition(error.message),
             CustomErrorCode::IndexBuilding => Status::failed_precondition(error.message),
             CustomErrorCode::SsnUnavailable => Status::failed_precondition(error.message),
-            CustomErrorCode::SchemaPaused => Status::unavailable(error.message),
+            CustomErrorCode::SchemaPaused => Status::failed_precondition(error.message),
             CustomErrorCode::SchemaConflict => Status::aborted(error.message),
         };
 

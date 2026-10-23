@@ -133,6 +133,7 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     DataType::Timestamp => {
                         topk_rs::proto::v1::control::field_type::DataType::timestamp()
                     }
+                    DataType::Image => topk_rs::proto::v1::control::field_type::DataType::image(),
                     DataType::List { value_type } => {
                         topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
                     }

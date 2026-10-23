@@ -63,6 +63,23 @@ async fn update(
         .await
 }
 
+async fn update_when_ready(
+    ctx: &ProjectTestContext,
+    name: &str,
+    schema: HashMap<String, FieldSpec>,
+    drop_fields: &[&str],
+) -> Result<Collection, Error> {
+    let deadline = Instant::now() + Duration::from_secs(120);
+    loop {
+        match update(ctx, name, schema.clone(), drop_fields).await {
+            Err(Error::IndexBuilding(_)) if Instant::now() < deadline => {
+                tokio::time::sleep(Duration::from_millis(500)).await
+            }
+            result => return result,
+        }
+    }
+}
+
 async fn upsert(ctx: &ProjectTestContext, name: &str, docs: Vec<Document>) -> String {
     ctx.client
         .collection(name)
@@ -183,11 +200,10 @@ async fn test_add_index_on_written_field(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_required_is_proven_against_data(ctx: &mut ProjectTestContext) {
+async fn test_required_applies_to_new_writes(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, schema!("title" => FieldSpec::text(true))).await;
     let name = collection.name.clone();
     upsert(ctx, &name, docs()).await;
-
     let updated = update(
         ctx,
         &name,
@@ -195,34 +211,48 @@ async fn test_required_is_proven_against_data(ctx: &mut ProjectTestContext) {
         &[],
     )
     .await
-    .expect("every document has a rating");
+    .unwrap();
     assert!(updated.schema["rating"].required);
-
-    let err = ctx
-        .client
-        .collection(&name)
+    let books = ctx.client.collection(&name);
+    let err = books
         .upsert(vec![doc!("_id" => "x", "title" => "no rating")])
         .await
         .unwrap_err();
     assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
-
-    let err = update(ctx, &name, schema!("isbn" => FieldSpec::text(true)), &[])
-        .await
-        .unwrap_err();
-    assert!(reason(err).contains("isbn"));
-    let fetched = ctx.client.collections().get(&name).await.unwrap();
-    assert_eq!(fetched.schema, updated.schema);
-
-    // a type the data contradicts is rejected too
-    let err = update(
+    let updated = update_when_ready(
         ctx,
         &name,
-        schema!("summary" => FieldSpec::integer(false)),
+        schema!("isbn" => FieldSpec::text(true), "summary" => FieldSpec::integer(false)),
         &[],
     )
     .await
-    .unwrap_err();
-    assert!(reason(err).contains("summary"));
+    .unwrap();
+    assert!(updated.schema["isbn"].required);
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                filter(field("isbn").is_null().and(field("summary").is_null())).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 3);
+    let raw = books
+        .get(["pride"], None, None, Some(updated.ssn), None)
+        .await
+        .unwrap();
+    assert_eq!(
+        raw["pride"]["summary"],
+        Value::string("a love story in georgian england")
+    );
+    let err = books
+        .upsert(vec![doc!("_id" => "x", "title" => "new", "rating" => 1u32)])
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
 }
 
 #[test_context(ProjectTestContext)]
@@ -267,22 +297,23 @@ async fn test_drop_index_and_field(ctx: &mut ProjectTestContext) {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    let updated = update(ctx, &name, HashMap::new(), &["summary"])
+    let updated = update_when_ready(ctx, &name, HashMap::new(), &["summary"])
         .await
         .unwrap();
     assert!(!updated.schema.contains_key("summary"));
 
-    let docs = ctx
-        .client
-        .collection(&name)
-        .query(
-            filter(field("summary").eq("a whale and a captain")).limit(10),
-            None,
-            None,
-            None,
-        )
-        .await
-        .unwrap();
+    let docs = wait_for_index(async || {
+        ctx.client
+            .collection(&name)
+            .query(
+                filter(field("summary").eq("a whale and a captain")).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
     assert_eq!(docs.len(), 1);
     assert_eq!(docs[0].id().unwrap(), "moby");
 }
@@ -311,7 +342,7 @@ async fn test_drop_an_index_immediately_after_adding_it(ctx: &mut ProjectTestCon
     )
     .await
     .unwrap();
-    let dropped = update(
+    let dropped = update_when_ready(
         ctx,
         &name,
         schema!("summary" => FieldSpec::text(false)),
@@ -490,7 +521,7 @@ async fn test_update_after_dropping_a_vector_index(ctx: &mut ProjectTestContext)
     .await
     .unwrap();
 
-    let updated = update(
+    let updated = update_when_ready(
         ctx,
         &name,
         schema!("vector" => FieldSpec::f32_vector(2, true)),
@@ -559,35 +590,56 @@ async fn test_writes_during_a_vector_index_add(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_a_refused_update_stays_refused_under_concurrency(ctx: &mut ProjectTestContext) {
-    for attempt in 0..8u32 {
-        let collection = create_named(ctx, &format!("race{attempt}"), HashMap::new()).await;
-        let name = collection.name.clone();
-        upsert(ctx, &name, docs()).await;
-        upsert(
-            ctx,
-            &name,
-            vec![doc!("_id" => "unrated", "title" => "No Rating")],
-        )
-        .await;
-
-        let a = ctx.client.collection(&name);
-        let b = ctx.client.collection(&name);
-        let refusable =
-            a.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
-        let benign = b.update_schema(schema!("summary" => FieldSpec::text(false)), vec![], None);
-        let (refused, _) = tokio::join!(refusable, benign);
+async fn test_required_update_with_missing_history(ctx: &mut ProjectTestContext) {
+    let collection = create(ctx, HashMap::new()).await;
+    let name = collection.name.clone();
+    upsert(ctx, &name, docs()).await;
+    upsert(
+        ctx,
+        &name,
+        vec![doc!("_id" => "unrated", "title" => "No Rating")],
+    )
+    .await;
+    let books = ctx.client.collection(&name);
+    let (required, optional) = tokio::join!(
+        books.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None),
+        books.update_schema(schema!("summary" => FieldSpec::text(false)), vec![], None)
+    );
+    for result in [required, optional] {
         assert!(
-            refused.is_err(),
-            "attempt {attempt}: `rating` has no value in `unrated`, but the update committed"
-        );
-
-        let visible = ctx.client.collections().get(&name).await.unwrap();
-        assert!(
-            !visible.schema.get("rating").is_some_and(|s| s.required),
-            "attempt {attempt}: refused declaration landed in the schema anyway"
+            matches!(
+                result,
+                Ok(_)
+                    | Err(Error::SchemaConflict(_)
+                        | Error::SchemaPaused(_)
+                        | Error::IndexBuilding(_))
+            ),
+            "{result:?}"
         );
     }
+    let updated = update_when_ready(
+        ctx,
+        &name,
+        schema!("rating" => FieldSpec::integer(true)),
+        &[],
+    )
+    .await
+    .unwrap();
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                filter(field("rating").is_null()).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "unrated");
+    let err = books.upsert(vec![doc!("_id" => "new")]).await.unwrap_err();
+    assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
 }
 
 #[test_context(ProjectTestContext)]
@@ -702,31 +754,39 @@ async fn test_an_unindexed_vector_dimension_is_validated(ctx: &mut ProjectTestCo
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_a_scalar_cannot_be_declared_over_nested_data(ctx: &mut ProjectTestContext) {
+async fn test_scalar_declaration_hides_nested_data(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, HashMap::new()).await;
     let name = collection.name.clone();
-    upsert(
-        ctx,
-        &name,
-        vec![doc!("_id" => "a", "meta" => Value::r#struct([("tag", "x".into())]))],
-    )
+    let original = doc!("_id" => "a", "meta" => Value::r#struct([("tag", "x".into())]));
+    upsert(ctx, &name, vec![original.clone()]).await;
+    let updated = update(ctx, &name, schema!("meta" => FieldSpec::text(false)), &[])
+        .await
+        .unwrap();
+    let books = ctx.client.collection(&name);
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                select([("meta", field("meta"))]).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
     .await;
-
-    let err = update(ctx, &name, schema!("meta" => FieldSpec::text(false)), &[])
-        .await
-        .expect_err("`meta` holds a struct, not text");
-    assert!(
-        reason(err).contains("stored values are nested under `meta.tag`"),
-        "the refusal has to name the nested column"
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "a");
+    assert_eq!(
+        rows[0].fields.get("meta").cloned().unwrap_or(Value::null()),
+        Value::null()
     );
-
-    ctx.client
-        .collection(&name)
-        .upsert(vec![
-            doc!("_id" => "b", "meta" => Value::r#struct([("tag", "y".into())])),
-        ])
+    let raw = books
+        .get(["a"], None, None, Some(updated.ssn), None)
         .await
-        .expect("the refused update left the collection accepting its own data");
+        .unwrap();
+    assert_eq!(raw["a"], original.fields);
+    let err = books.upsert(vec![original]).await.unwrap_err();
+    assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
 }
 
 #[test_context(ProjectTestContext)]
@@ -945,7 +1005,6 @@ async fn test_widen_then_redeclare(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, schema!("title" => FieldSpec::text(true))).await;
     let name = collection.name.clone();
     upsert(ctx, &name, docs()).await;
-
     let relaxed = update(ctx, &name, schema!("title" => FieldSpec::text(false)), &[])
         .await
         .unwrap();
@@ -956,167 +1015,215 @@ async fn test_widen_then_redeclare(ctx: &mut ProjectTestContext) {
         vec![doc!("_id" => "untitled", "rating" => 1u32)],
     )
     .await;
-
     let dropped = update(ctx, &name, HashMap::new(), &["title"])
         .await
         .unwrap();
     assert!(!dropped.schema.contains_key("title"));
-
-    let err = update(
+    let updated = update_when_ready(
         ctx,
         &name,
         schema!("title" => FieldSpec::integer(false)),
         &[],
     )
     .await
-    .unwrap_err();
-    assert!(reason(err).contains("title"));
+    .unwrap();
+    let books = ctx.client.collection(&name);
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                filter(field("title").is_null()).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 4);
+    let dropped = update_when_ready(ctx, &name, HashMap::new(), &["title"])
+        .await
+        .unwrap();
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                filter(field("title").eq("Moby Dick")).limit(10),
+                None,
+                Some(dropped.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "moby");
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_nested_field_under_scalar_parent_is_rejected(ctx: &mut ProjectTestContext) {
+async fn test_nested_declaration_over_scalar_parent(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, HashMap::new()).await;
     let name = collection.name.clone();
-    upsert(
-        ctx,
-        &name,
-        vec![doc!("_id" => "a", "meta" => "just a string")],
-    )
-    .await;
-
-    let err = update(
+    let original = doc!("_id" => "a", "meta" => "just a string");
+    upsert(ctx, &name, vec![original.clone()]).await;
+    let updated = update(
         ctx,
         &name,
         schema!("meta.tag" => FieldSpec::text(false)),
         &[],
     )
     .await
-    .unwrap_err();
-    assert!(reason(err).contains("meta"));
+    .unwrap();
+    let books = ctx.client.collection(&name);
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                select([("tag", field("meta.tag"))]).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "a");
+    assert_eq!(
+        rows[0].fields.get("tag").cloned().unwrap_or(Value::null()),
+        Value::null()
+    );
+    let raw = books
+        .get(["a"], None, None, Some(updated.ssn), None)
+        .await
+        .unwrap();
+    assert_eq!(raw["a"], original.fields);
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_required_is_checked_in_every_partition(ctx: &mut ProjectTestContext) {
+async fn test_required_applies_in_every_partition(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, HashMap::new()).await;
     let name = collection.name.clone();
     upsert(ctx, &name, vec![doc!("_id" => "a", "rating" => 5u32)]).await;
-    ctx.client
-        .collection(&name)
+    let books = ctx.client.collection(&name);
+    books
+        .clone()
         .partition("p1")
         .upsert(vec![doc!("_id" => "b", "rating" => 4u32)])
         .await
         .unwrap();
-    ctx.client
-        .collection(&name)
+    books
+        .clone()
         .partition("p2")
         .upsert(vec![doc!("_id" => "c")])
         .await
         .unwrap();
-
-    let err = update(
+    let updated = update(
         ctx,
         &name,
         schema!("rating" => FieldSpec::integer(true)),
         &[],
     )
     .await
-    .unwrap_err();
-    assert!(reason(err).contains("field `rating`: null or missing in some rows"));
-
-    // overwriting `c` does not help: its old segment still holds a row without the field
-    ctx.client
-        .collection(&name)
+    .unwrap();
+    assert!(updated.schema["rating"].required);
+    for partition in [None, Some("p1"), Some("p2")] {
+        let client = match partition {
+            Some(p) => books.clone().partition(p),
+            None => books.clone(),
+        };
+        let err = client.upsert(vec![doc!("_id" => "new")]).await.unwrap_err();
+        assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
+    }
+    let rows = wait_for_index(async || {
+        books
+            .clone()
+            .partition("p2")
+            .query(
+                filter(field("rating").is_null()).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "c");
+    books
+        .clone()
         .partition("p2")
         .upsert(vec![doc!("_id" => "c", "rating" => 3u32)])
         .await
         .unwrap();
-    let err = update(
-        ctx,
-        &name,
-        schema!("rating" => FieldSpec::integer(true)),
-        &[],
-    )
-    .await
-    .unwrap_err();
-    assert!(reason(err).contains("field `rating`: null or missing in some rows"));
-
-    // a collection whose every partition always had the field accepts it
-    let clean = create_named(ctx, "clean", HashMap::new()).await;
-    for partition in ["p1", "p2"] {
-        ctx.client
-            .collection(&clean.name)
-            .partition(partition)
-            .upsert(vec![doc!("_id" => partition, "rating" => 1u32)])
-            .await
-            .unwrap();
-    }
-    let updated = update(
-        ctx,
-        &clean.name,
-        schema!("rating" => FieldSpec::integer(true)),
-        &[],
-    )
-    .await
-    .expect("every partition has a rating");
-    assert!(updated.schema["rating"].required);
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_type_narrowing_follows_stored_values(ctx: &mut ProjectTestContext) {
+async fn test_type_declarations_normalize_stored_values(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, HashMap::new()).await;
     let name = collection.name.clone();
-    upsert(
-        ctx,
-        &name,
-        vec![doc!(
-            "_id" => "a",
-            "score" => 4.5f64,
-            "count" => 3u32,
-            "nums" => vec![1.0f32, 2.0, 3.0],
-            "sparse" => SparseVector::new(vec![1, 5], vec![0.5f32, 0.25f32]),
-        )],
-    )
-    .await;
-
-    for (schema, expected) in [
-        (
-            schema!("score" => FieldSpec::integer(false)),
-            "field `score`: stored values are Primitive(F64)",
-        ),
-        (
-            schema!("count" => FieldSpec::float(false)),
-            "field `count`: stored values are Primitive(U32)",
-        ),
-        (
-            schema!("nums" => FieldSpec::f32_vector(3, false)),
-            "field `nums`: stored values are List(",
-        ),
-        (
-            schema!("sparse" => FieldSpec::u8_sparse_vector(false)),
-            "field `sparse`: stored values are SparseMatrix(F32)",
-        ),
+    let original = doc!("_id" => "a", "score" => 4.5f64, "count" => 3u32, "nums" => vec![1.0f32, 2.0, 3.0], "sparse" => SparseVector::new(vec![1, 5], vec![0.5f32, 0.25f32]));
+    upsert(ctx, &name, vec![original.clone()]).await;
+    let books = ctx.client.collection(&name);
+    for (name_, spec) in [
+        ("score", FieldSpec::integer(false)),
+        ("count", FieldSpec::float(false)),
+        ("nums", FieldSpec::f32_vector(2, false)),
+        ("sparse", FieldSpec::u8_sparse_vector(false)),
     ] {
-        let msg = reason(update(ctx, &name, schema, &[]).await.unwrap_err());
-        assert!(msg.contains(expected), "expected {expected:?} in {msg:?}");
+        let updated = update_when_ready(ctx, &name, schema!(name_ => spec), &[])
+            .await
+            .unwrap();
+        let rows = wait_for_index(async || {
+            books
+                .query(
+                    select([("value", field(name_))]).limit(10),
+                    None,
+                    Some(updated.ssn),
+                    None,
+                )
+                .await
+        })
+        .await;
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id().unwrap(), "a");
+        assert_eq!(
+            rows[0]
+                .fields
+                .get("value")
+                .cloned()
+                .unwrap_or(Value::null()),
+            Value::null()
+        );
     }
-
-    let updated = update(
+    let raw = books.get(["a"], None, None, None, None).await.unwrap();
+    assert_eq!(raw["a"], original.fields);
+    update_when_ready(
         ctx,
         &name,
-        schema!(
-            "score" => FieldSpec::float(true),
-            "count" => FieldSpec::integer(true),
-            "nums" => FieldSpec::list(true, ListValueType::Float),
-            "sparse" => FieldSpec::f32_sparse_vector(true),
-        ),
-        &[],
+        HashMap::new(),
+        &["score", "count", "nums", "sparse"],
     )
     .await
-    .expect("stored values fit the declared types");
-    assert_eq!(updated.schema.len(), 4);
+    .unwrap();
+    let updated = update_when_ready(ctx, &name, schema!(
+        "score" => FieldSpec::float(true), "count" => FieldSpec::integer(true),
+        "nums" => FieldSpec::list(true, ListValueType::Float), "sparse" => FieldSpec::f32_sparse_vector(true)
+    ), &[]).await.unwrap();
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                select([("score", field("score")), ("count", field("count"))]).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].fields["score"], original.fields["score"]);
+    assert_eq!(rows[0].fields["count"], original.fields["count"]);
 }
 
 #[test_context(ProjectTestContext)]
@@ -1233,14 +1340,10 @@ async fn test_concurrent_updates_serialize(ctx: &mut ProjectTestContext) {
                     "{field} won but is not required"
                 );
             }
-            Err(err) => {
-                let msg = reason(err);
-                assert!(
-                    msg.contains("schema update in progress")
-                        || msg.contains("concurrent schema update"),
-                    "{msg}"
-                );
-            }
+            Err(err) => assert!(
+                matches!(err, Error::SchemaConflict(_) | Error::SchemaPaused(_)),
+                "{err:?}"
+            ),
         }
     }
     assert!(wins >= 1);
@@ -1321,17 +1424,18 @@ async fn test_reads_after_update(ctx: &mut ProjectTestContext) {
         .await
         .unwrap();
     assert_eq!(got.len(), 2);
-    let found = ctx
-        .client
-        .collection(&name)
-        .query(
-            filter(field("rating").gte(3u32)).count(),
-            Some(lsn),
-            None,
-            None,
-        )
-        .await
-        .unwrap();
+    let found = wait_for_index(async || {
+        ctx.client
+            .collection(&name)
+            .query(
+                filter(field("rating").gte(3u32)).count(),
+                Some(lsn.clone()),
+                None,
+                None,
+            )
+            .await
+    })
+    .await;
     assert_eq!(found, vec![doc!("_count" => 3u64)]);
 }
 
@@ -1387,7 +1491,7 @@ async fn test_compaction_after_barriers(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_validation_reads_compacted_files(ctx: &mut ProjectTestContext) {
+async fn test_declarations_rewrite_compacted_files(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, HashMap::new()).await;
     let name = collection.name.clone();
     for i in 0..55u32 {
@@ -1399,39 +1503,56 @@ async fn test_validation_reads_compacted_files(ctx: &mut ProjectTestContext) {
         .await;
     }
     upsert(ctx, &name, vec![doc!("_id" => "unrated")]).await;
-    tokio::time::sleep(std::time::Duration::from_secs(12)).await;
-
-    let msg = reason(
-        update(
-            ctx,
-            &name,
-            schema!("rating" => FieldSpec::integer(true)),
-            &[],
-        )
-        .await
-        .unwrap_err(),
-    );
-    assert!(
-        msg.contains("field `rating`: null or missing in some rows"),
-        "{msg}"
-    );
-    let msg = reason(
-        update(ctx, &name, schema!("rating" => FieldSpec::text(false)), &[])
-            .await
-            .unwrap_err(),
-    );
-    assert!(
-        msg.contains("field `rating`: stored values are Primitive(U32)"),
-        "{msg}"
-    );
-    update(
+    tokio::time::sleep(Duration::from_secs(12)).await;
+    let books = ctx.client.collection(&name);
+    let updated = update(
         ctx,
         &name,
-        schema!("rating" => FieldSpec::integer(false)),
+        schema!("rating" => FieldSpec::integer(true)),
         &[],
     )
     .await
-    .expect("compacted values are integers");
+    .unwrap();
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                filter(field("rating").is_null()).limit(100),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "unrated");
+    let err = update(ctx, &name, schema!("rating" => FieldSpec::text(false)), &[])
+        .await
+        .unwrap_err();
+    assert!(reason(err).contains("type changes unsupported"));
+    update_when_ready(ctx, &name, HashMap::new(), &["rating"])
+        .await
+        .unwrap();
+    let updated = update_when_ready(ctx, &name, schema!("rating" => FieldSpec::text(false)), &[])
+        .await
+        .unwrap();
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                filter(field("rating").is_null()).limit(100),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 56);
+    let raw = books
+        .get(["42"], None, None, Some(updated.ssn), None)
+        .await
+        .unwrap();
+    assert_eq!(raw["42"]["rating"], Value::u32(42));
 }
 
 #[test_context(ProjectTestContext)]
@@ -1553,47 +1674,67 @@ async fn test_add_index_over_flushed_files(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_re_add_index_with_other_semantics(ctx: &mut ProjectTestContext) {
-    let exact = FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact));
+    let indexed = |metric| FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(metric));
     let collection = create(
         ctx,
-        schema!("title" => FieldSpec::text(true), "summary" => exact),
+        schema!("vector" => indexed(VectorDistanceMetric::Euclidean)),
     )
     .await;
     let name = collection.name.clone();
-    upsert(ctx, &name, docs()).await;
-
-    // outlast the emulator's `flush_max_interval`, so the exact index lands in a file
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    let ids = wait_for_index(async || {
-        ids_matching(ctx, &name, "a whale and a captain", "summary", None, None).await
-    })
+    upsert(
+        ctx,
+        &name,
+        vec![
+            doc!("_id" => "long", "vector" => vec![5.0f32, 0.0]),
+            doc!("_id" => "close", "vector" => vec![0.9f32, 0.3]),
+            doc!("_id" => "short", "vector" => vec![0.0f32, 0.2]),
+        ],
+    )
     .await;
-    assert_eq!(ids, vec!["moby".to_string()]);
+    let ranked = async |order: SortOrder, ssn: Option<u32>| -> Result<Vec<String>, Error> {
+        let docs = ctx
+            .client
+            .collection(&name)
+            .query(
+                select([("dist", fns::vector_distance("vector", vec![1.0f32, 0.0]))])
+                    .sort([(field("dist"), order)])
+                    .limit(3),
+                None,
+                ssn,
+                None,
+            )
+            .await?;
+        Ok(docs.iter().map(|d| d.id().unwrap().to_string()).collect())
+    };
+
+    // outlast the emulator's `flush_max_interval`, so the euclidean index lands in a file
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    assert_eq!(
+        wait_for_index(async || ranked(SortOrder::Desc, None).await).await,
+        vec!["long", "short", "close"]
+    );
 
     update(
         ctx,
         &name,
-        schema!("summary" => FieldSpec::text(false)),
+        schema!("vector" => FieldSpec::f32_vector(2, false)),
         &[],
     )
     .await
     .unwrap();
-    let tokenized = update(
+    let cosine = update_when_ready(
         ctx,
         &name,
-        schema!("summary" => keyword(FieldSpec::text(false))),
+        schema!("vector" => indexed(VectorDistanceMetric::Cosine)),
         &[],
     )
     .await
     .unwrap();
 
-    // tokenized now: a word out of the middle matches, which the verbatim index cannot answer
+    // cosine ranks by angle, so `close` outranks `short` where euclidean put it last
     assert_eq!(
-        wait_for_index(async || {
-            ids_matching(ctx, &name, "whale", "summary", None, Some(tokenized.ssn)).await
-        })
-        .await,
-        vec!["moby".to_string()]
+        wait_for_index(async || ranked(SortOrder::Desc, Some(cosine.ssn)).await).await,
+        vec!["long", "close", "short"]
     );
 }
 
@@ -1627,37 +1768,46 @@ async fn test_rejected_requests(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_writes_during_a_rejected_update(ctx: &mut ProjectTestContext) {
+async fn test_writes_during_required_update(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, HashMap::new()).await;
     let name = collection.name.clone();
     upsert(ctx, &name, vec![doc!("_id" => "seed")]).await;
-
-    let writer = ctx.client.clone();
+    let books = ctx.client.collection(&name);
     let writes = async {
-        let mut refused = 0;
+        let mut accepted = vec!["seed".to_string()];
         for i in 0..30u32 {
-            match writer
-                .collection(&name)
-                .upsert(vec![doc!("_id" => i.to_string())])
-                .await
-            {
-                Ok(_) => {}
-                Err(Error::DocumentValidationError(_)) => refused += 1,
+            let id = i.to_string();
+            match books.upsert(vec![doc!("_id" => id.clone())]).await {
+                Ok(_) => accepted.push(id),
+                Err(Error::DocumentValidationError(_)) => {}
                 Err(e) => panic!("write {i}: {e:?}"),
             }
         }
-        refused
+        accepted
     };
-    let collection = ctx.client.collection(&name);
-    let update =
-        collection.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None);
-    let (refused, rejected) = tokio::join!(writes, update);
-    assert!(reason(rejected.unwrap_err()).contains("field `rating`: null or missing in some rows"));
-
-    let fetched = ctx.client.collections().get(&name).await.unwrap();
-    assert!(fetched.schema.is_empty(), "rolled back");
-    upsert(ctx, &name, vec![doc!("_id" => "after")]).await;
-    assert!(refused <= 30);
+    let (accepted, updated) = tokio::join!(
+        writes,
+        books.update_schema(schema!("rating" => FieldSpec::integer(true)), vec![], None)
+    );
+    let updated = updated.unwrap();
+    assert!(updated.schema["rating"].required);
+    let raw = books
+        .get(accepted.clone(), None, None, Some(updated.ssn), None)
+        .await
+        .unwrap();
+    assert_eq!(raw.len(), accepted.len());
+    for id in accepted {
+        assert!(raw.contains_key(&id));
+    }
+    let err = books
+        .upsert(vec![doc!("_id" => "after")])
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
+    books
+        .upsert(vec![doc!("_id" => "after", "rating" => 1u32)])
+        .await
+        .unwrap();
 }
 
 #[test_context(ProjectTestContext)]
@@ -1733,19 +1883,37 @@ async fn test_many_fields_in_one_update(ctx: &mut ProjectTestContext) {
 
     let mut one_wrong = all;
     one_wrong.insert("f42".into(), FieldSpec::text(true));
-    let mut fresh = create_named(ctx, "fresh", HashMap::new()).await;
+    let fresh = create_named(ctx, "fresh", HashMap::new()).await;
     let mut doc = doc!("_id" => "a");
     for i in 0..100u32 {
         doc.fields.insert(format!("f{i}"), i.into());
     }
     upsert(ctx, &fresh.name, vec![doc]).await;
-    let msg = reason(update(ctx, &fresh.name, one_wrong, &[]).await.unwrap_err());
-    assert!(
-        msg.contains("field `f42`: stored values are Primitive(U32)"),
-        "{msg}"
+    let updated = update(ctx, &fresh.name, one_wrong, &[]).await.unwrap();
+    assert_eq!(updated.schema.len(), 100);
+    let books = ctx.client.collection(&fresh.name);
+    let rows = wait_for_index(async || {
+        books
+            .query(
+                select([("f42", field("f42")), ("f41", field("f41"))]).limit(10),
+                None,
+                Some(updated.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(
+        rows[0].fields.get("f42").cloned().unwrap_or(Value::null()),
+        Value::null()
     );
-    fresh = ctx.client.collections().get(&fresh.name).await.unwrap();
-    assert!(fresh.schema.is_empty());
+    assert_eq!(rows[0].fields["f41"], Value::u32(41));
+    let raw = books
+        .get(["a"], None, None, Some(updated.ssn), None)
+        .await
+        .unwrap();
+    assert_eq!(raw["a"]["f42"], Value::u32(42));
 }
 
 #[test_context(ProjectTestContext)]
@@ -1778,11 +1946,9 @@ async fn test_five_way_update_race(ctx: &mut ProjectTestContext) {
                 assert!(fetched.schema[&format!("f{i}")].required);
             }
             Err(err) => {
-                let msg = reason(err);
                 assert!(
-                    msg.contains("schema update in progress")
-                        || msg.contains("concurrent schema update"),
-                    "{msg}"
+                    matches!(err, Error::SchemaConflict(_) | Error::SchemaPaused(_)),
+                    "{err:?}"
                 );
                 assert!(!fetched.schema.contains_key(&format!("f{i}")));
             }
@@ -2023,7 +2189,6 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
         seq::{IteratorRandom, SliceRandom},
         Rng, SeedableRng,
     };
-    use std::collections::HashSet;
     use topk_rs::proto::v1::control::FieldType;
 
     fn string_list(required: bool) -> FieldSpec {
@@ -2154,11 +2319,6 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
         schema: HashMap<String, FieldSpec>,
         // id -> (partition, fields)
         live: HashMap<String, (String, HashMap<String, Value>)>,
-        // fields some stored row lacks / holds with another type / holds a scalar where the
-        // field's parent should be; rows outlive their docs
-        missing: HashSet<String>,
-        mistyped: HashSet<String>,
-        scalar_parents: HashSet<String>,
     }
     impl Model {
         fn violates(&self, doc: &HashMap<String, Value>) -> bool {
@@ -2168,36 +2328,9 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
             })
         }
         fn record(&mut self, id: String, partition: &str, doc: HashMap<String, Value>) {
-            for (f, _) in FIELDS {
-                match doc.get(f) {
-                    None => {
-                        self.missing.insert(f.to_string());
-                    }
-                    Some(v) if type_of(v) != natural_type(f) => {
-                        self.mistyped.insert(f.to_string());
-                    }
-                    _ => {}
-                }
-                if let Some(p) = parent(f).filter(|p| doc.contains_key(*p)) {
-                    self.scalar_parents.insert(p.to_string());
-                }
-            }
             self.live.insert(id, (partition.to_string(), doc));
         }
-        // whatever landed is the truth, and proved its newly narrowed fields clean
         fn resync(&mut self, schema: HashMap<String, FieldSpec>) {
-            for (f, spec) in &schema {
-                let old = self.schema.get(f);
-                if old.is_none() {
-                    self.mistyped.remove(f);
-                    if let Some(p) = parent(f) {
-                        self.scalar_parents.remove(p);
-                    }
-                }
-                if spec.required && !old.is_some_and(|o| o.required) {
-                    self.missing.remove(f);
-                }
-            }
             self.schema = schema;
         }
         fn docs_in(&self, partition: &str) -> Vec<String> {
@@ -2209,14 +2342,11 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
         }
     }
 
-    // the error must contain one of `needles`; none means acceptance. `certain` is false when the
-    // only conflicts live in dead rows, so acceptance is fine too.
-    #[derive(Debug)]
-    struct Expect {
-        needles: Vec<String>,
-        certain: bool,
-    }
-    fn predict(model: &Model, request: &HashMap<String, FieldSpec>, drops: &[String]) -> Expect {
+    fn predict(
+        model: &Model,
+        request: &HashMap<String, FieldSpec>,
+        drops: &[String],
+    ) -> Vec<String> {
         let mut plan = vec![];
         for f in drops {
             if !model.schema.contains_key(f) {
@@ -2235,51 +2365,7 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                 plan.push(format!("field `{f}`: type changes unsupported"));
             }
         }
-        if !plan.is_empty() {
-            return Expect {
-                needles: plan,
-                certain: true,
-            };
-        }
-
-        let (mut live, mut dead) = (vec![], vec![]);
-        for (f, spec) in request {
-            let old = model.schema.get(f);
-            let gains_type = old.is_none();
-            let gains_required = spec.required && !old.is_some_and(|o| o.required);
-            let needle = format!("field `{f}`:");
-            let docs = model.live.values().map(|(_, d)| d);
-            if gains_type {
-                if let Some(p) = parent(f) {
-                    if docs.clone().any(|d| d.contains_key(p)) {
-                        live.push(needle.clone());
-                    } else if model.scalar_parents.contains(p) {
-                        dead.push(needle.clone());
-                    }
-                }
-                if docs
-                    .clone()
-                    .any(|d| d.get(f).is_some_and(|v| Some(type_of(v)) != spec.data_type))
-                {
-                    live.push(needle.clone());
-                } else if model.mistyped.contains(f) {
-                    dead.push(needle.clone());
-                }
-            }
-            if gains_required {
-                if docs.clone().any(|d| !d.contains_key(f)) {
-                    live.push(needle);
-                } else if model.missing.contains(f) {
-                    dead.push(needle);
-                }
-            }
-        }
-        let certain = !live.is_empty() || dead.is_empty();
-        live.extend(dead);
-        Expect {
-            needles: live,
-            certain,
-        }
+        plan
     }
     // mostly well-formed: narrow (declare or tighten) or widen (drop or relax); sometimes a
     // request the planner refuses
@@ -2453,7 +2539,10 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                     random_type(&mut rng)
                 };
                 merged.insert(f.to_string(), random_value(&mut rng, &t));
-                let violates = model.violates(&merged);
+                let violates = model
+                    .schema
+                    .get(f)
+                    .is_some_and(|spec| Some(type_of(&merged[f])) != spec.data_type);
                 let patch = HashMap::from([(f.to_string(), merged[f].clone())]);
                 let result = collection(&partition)
                     .update(vec![document(&id, &patch)], true)
@@ -2497,16 +2586,14 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                 let mut expected_schema = model.schema.clone();
                 expected_schema.retain(|f, _| !drops.contains(f));
                 expected_schema.extend(request.clone());
-                let result = client
-                    .collection(&name)
-                    .update_schema(request.clone(), drops.clone(), None)
-                    .await;
+                let drop: Vec<&str> = drops.iter().map(String::as_str).collect();
+                let result = update_when_ready(ctx, &name, request.clone(), &drop).await;
                 println!(
                     "{step}: update {request:?} drop {drops:?} expect {expect:?} -> {:?}",
                     result.as_ref().map(|c| c.schema.len())
                 );
                 match result {
-                    Ok(updated) if expect.needles.is_empty() || !expect.certain => {
+                    Ok(updated) if expect.is_empty() => {
                         assert_eq!(updated.schema, expected_schema, "step {step}");
                         committed_updates += 1;
                         dropped_indexes += model
@@ -2522,12 +2609,12 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                             .count();
                         model.resync(updated.schema);
                     }
-                    Err(err) if !expect.needles.is_empty() => {
+                    Err(err) if !expect.is_empty() => {
                         let msg = reason(err);
                         assert!(
-                            expect.needles.iter().any(|n| msg.contains(n)),
+                            expect.iter().any(|n| msg.contains(n)),
                             "step {step}: {msg:?} has none of {:?}",
-                            expect.needles
+                            expect
                         );
                         let fetched = client.collections().get(&name).await.unwrap();
                         assert_eq!(
@@ -2538,8 +2625,11 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                     other => panic!("step {step}: expected {expect:?}, got {other:?}"),
                 }
             }
-            // 10 writes racing one update: whatever landed satisfies the schema that won
             83..=89 => {
+                let before = Model {
+                    schema: model.schema.clone(),
+                    ..Default::default()
+                };
                 let (request, drops) = random_request(&mut rng, &model);
                 let burst: Vec<(String, &str, HashMap<String, Value>)> = (0..10)
                     .map(|_| {
@@ -2567,8 +2657,8 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                             landed += 1;
                             lsn.insert(partition.to_string(), write_lsn);
                             assert!(
-                                !model.violates(&doc),
-                                "step {step}: {id} landed with {doc:?} against {:?}",
+                                !before.violates(&doc) || !model.violates(&doc),
+                                "step {step}: {id} landed with {doc:?} invalid before and after {:?}",
                                 model.schema
                             );
                             model.record(id, partition, doc);
@@ -2578,12 +2668,12 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                     }
                 }
                 println!("{step}: burst with update {request:?} drop {drops:?} -> update {} landed {landed}", if updated.is_ok() { "ok" } else { "rejected" });
-                if let Err(err) = updated {
-                    let msg = reason(err);
-                    assert!(
-                        msg.contains("field `") || msg.contains("cannot narrow"),
-                        "step {step}: {msg}"
-                    );
+                match updated {
+                    Ok(_) | Err(Error::IndexBuilding(_)) => {}
+                    Err(err) => {
+                        let msg = reason(err);
+                        assert!(msg.contains("field `"), "step {step}: {msg}");
+                    }
                 }
             }
             // 2..=3 updates racing: the schema is the last winner's, losers were told why
@@ -2606,15 +2696,14 @@ async fn fuzz_schema_updates(ctx: &mut ProjectTestContext) {
                 for result in results {
                     match result {
                         Ok(_) => winners += 1,
+                        Err(
+                            Error::SchemaConflict(_)
+                            | Error::SchemaPaused(_)
+                            | Error::IndexBuilding(_),
+                        ) => {}
                         Err(err) => {
                             let msg = reason(err);
-                            assert!(
-                                msg.contains("field `")
-                                    || msg.contains("cannot narrow")
-                                    || msg.contains("in progress")
-                                    || msg.contains("concurrent"),
-                                "step {step}: {msg}"
-                            );
+                            assert!(msg.contains("field `"), "step {step}: {msg}");
                         }
                     }
                 }
@@ -2740,7 +2829,7 @@ async fn test_an_ssn_that_never_commits_is_refused(ctx: &mut ProjectTestContext)
         .collection(&ctx.wrap("books"))
         .count(None, Some(created.ssn + 1), None)
         .await
-        .expect_err("a version nothing committed cannot be waited for");
+        .expect_err("an uncommitted version must eventually time out");
     match error {
         Error::SsnUnavailable(_) => {}
         other => panic!("unexpected error: {other:?}"),
@@ -2805,25 +2894,25 @@ async fn test_a_semantic_index_cannot_be_added(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_an_exact_keyword_is_only_proven_by_absence(ctx: &mut ProjectTestContext) {
-    let exact = || FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact));
+async fn test_an_exact_keyword_cannot_be_added(ctx: &mut ProjectTestContext) {
     let collection = create(ctx, schema!("title" => FieldSpec::text(true))).await;
     let name = collection.name.clone();
     upsert(ctx, &name, docs()).await;
 
-    let msg = reason(
-        update(ctx, &name, schema!("summary" => exact()), &[])
-            .await
-            .unwrap_err(),
-    );
-    assert!(
-        msg.contains("stored values may be longer than 64 characters"),
-        "{msg}"
-    );
-    let updated = update(ctx, &name, schema!("isbn" => exact()), &[])
-        .await
-        .expect("no row ever held an isbn");
-    assert!(updated.schema["isbn"].index.is_some());
+    for field in ["summary", "isbn"] {
+        let exact = FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact));
+        let msg = reason(
+            update(ctx, &name, schema!(field => exact), &[])
+                .await
+                .unwrap_err(),
+        );
+        assert!(
+            msg.contains(&format!(
+                "field `{field}`: updates involving deprecated exact keyword indexes are unsupported"
+            )),
+            "{msg}"
+        );
+    }
 }
 
 #[test_context(ProjectTestContext)]
@@ -2870,20 +2959,37 @@ async fn test_a_struct_child_is_dropped_through_its_parent(ctx: &mut ProjectTest
     assert!(!updated.schema.contains_key("flat.tag"));
     assert!(updated.schema.contains_key("meta"));
 
-    let msg = reason(
-        update(
-            ctx,
-            &name,
-            schema!("meta" => FieldSpec::r#struct(true, [("other", FieldSpec::text(false))])),
-            &[],
-        )
+    upsert(ctx, &name, vec![doc!("_id" => "b")]).await;
+    let required = update_when_ready(
+        ctx,
+        &name,
+        schema!("meta" => FieldSpec::r#struct(true, [("other", FieldSpec::text(false))])),
+        &[],
+    )
+    .await
+    .unwrap();
+    assert!(required.schema["meta"].required);
+    let err = ctx
+        .client
+        .collection(&name)
+        .upsert(vec![doc!("_id" => "new")])
         .await
-        .unwrap_err(),
-    );
-    assert!(
-        msg.contains("field `meta`: null or missing in some rows"),
-        "{msg}"
-    );
+        .unwrap_err();
+    assert!(matches!(err, Error::DocumentValidationError(_)), "{err:?}");
+    let rows = wait_for_index(async || {
+        ctx.client
+            .collection(&name)
+            .query(
+                filter(field("meta.other").is_null()).limit(10),
+                None,
+                Some(required.ssn),
+                None,
+            )
+            .await
+    })
+    .await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id().unwrap(), "b");
 }
 
 #[test_context(ProjectTestContext)]

@@ -402,6 +402,7 @@ impl From<&FieldSpec> for Field {
             field_type::DataType::Float(_) => plain(Type::Float),
             field_type::DataType::Boolean(_) => plain(Type::Bool),
             field_type::DataType::Bytes(_) => plain(Type::Bytes),
+            field_type::DataType::Image(_) => plain(Type::Bytes),
             field_type::DataType::Struct(_) => plain(Type::Struct),
             field_type::DataType::List(list) => plain(match list.value_type() {
                 ListValueType::Integer => Type::IntList,
