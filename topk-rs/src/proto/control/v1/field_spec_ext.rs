@@ -154,4 +154,18 @@ impl FieldSpec {
             _ => None,
         }
     }
+
+    pub fn as_image(&self) -> Option<&FieldTypeImage> {
+        match self.data_type.as_ref()?.data_type.as_ref()? {
+            field_type::DataType::Image(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_matrix(&self) -> Option<&FieldTypeMatrix> {
+        match self.data_type.as_ref()?.data_type.as_ref()? {
+            field_type::DataType::Matrix(m) => Some(m),
+            _ => None,
+        }
+    }
 }
