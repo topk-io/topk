@@ -134,3 +134,24 @@ async fn alter_table_rejected(
         "expected `{expected}` in `{err}`"
     );
 }
+
+#[tokio::test]
+async fn alter_table_visible_to_same_session() {
+    let rows = TableScope::with_scope(async |ctx| {
+        ctx.batch(&[
+            "CREATE TABLE {{table}} (name TEXT NOT NULL)",
+            "SELECT * FROM {{table}}",
+            "ALTER TABLE {{table}} ADD COLUMN pages INTEGER",
+            "INSERT INTO {{table}} (_id, name, pages) VALUES ('a', 'Dune', 412)",
+            "SELECT * FROM {{table}} WHERE _id = 'a'",
+        ])
+        .await
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(
+        rows,
+        vec![doc!("_id" => "a", "name" => "Dune", "pages" => 412_i64)]
+    );
+}
