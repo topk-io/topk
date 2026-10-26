@@ -1,0 +1,35 @@
+syntax = "proto3";
+package topk.management.v1;
+
+service UsageService {
+  rpc GetTotalUsage(GetTotalUsageRequest) returns (GetTotalUsageResponse);
+}
+
+message GetTotalUsageRequest {
+  // Start of the time range (RFC 3339).
+  string start_time = 1;
+  // End of the time range (RFC 3339). Maximum 90 days after start_time.
+  string end_time = 2;
+  // Usage scoped to this project.
+  optional string project_id = 3;
+  // Usage scoped to this collection (requires project_id).
+  optional string collection = 4;
+}
+
+message GetTotalUsageResponse {
+  // Usage per billed metric.
+  repeated UsageMetric metrics = 1;
+}
+
+message UsageMetric {
+  string description = 1;
+  UsageUnit unit = 2;
+  uint64 value = 3;
+}
+
+enum UsageUnit {
+  USAGE_UNIT_UNSPECIFIED = 0;
+  USAGE_UNIT_COUNT = 1;
+  USAGE_UNIT_BYTES = 2;
+  USAGE_UNIT_BYTE_HOURS = 3;
+}
