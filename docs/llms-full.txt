@@ -356,12 +356,13 @@ URL: https://docs.topk.io/limits
 | Write throughput (per partition)  | ~70MB/s                         |
 | Query throughput (global)         | Unlimited                       |
 | Query throughput (per partition)  | 1k+ queries/s                   |
-| Max document size                 | 200KB                           |
 | Max indexed fields                | Unlimited (up to document size) |
 | Max dense vector dimension        | 16,384                          |
 | Max sparse vector dimension       | 2^32-1                          |
 | Max multi-vector dimension        | 1024                            |
 | Max upsert request size           | 8MB                             |
+| Max document size                 | 2MB                             |
+| Max image size                    | 512KB                           |
 | Recall                            | 95%+                            |
 
 <Note>
