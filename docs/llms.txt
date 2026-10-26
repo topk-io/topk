@@ -17,6 +17,7 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 
 - [TopK for coding agents](https://docs.topk.io/agents): Start here if you are an AI coding agent: what TopK is, how to access it, and which agent pages to follow for each task.
 - [Agent quickstart](https://docs.topk.io/agents/quickstart): Step-by-step instructions for AI coding agents to set a user up with TopK using only the CLI: sign up, create a collection, and run a semantic search.
+- [Agent: migrate from Chroma](https://docs.topk.io/agents/migrate-from-chroma): Step-by-step instructions for AI coding agents to move a user's Chroma collections to TopK with the CLI: inventory, export, import and verify.
 
 ## Collection API
 
@@ -36,6 +37,10 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 - [Sparse vector search](https://docs.topk.io/guides/sparse-vector-search): Exact retrieval over high-dimensional sparse representations with 100% recall and support for learned sparse models like SPLADE.
 - [Keyword search (BM25)](https://docs.topk.io/guides/keyword-search): Full-text keyword search using the BM25 ranking function for term-frequency-based document retrieval.
 - [True Hybrid search](https://docs.topk.io/guides/true-hybrid-search): Combine vector, multi-vector, keyword search, and metadata filtering in a single query for best-of-all-worlds retrieval.
+
+## Migrate to TopK
+
+- [Migrate from Chroma](https://docs.topk.io/migrate/from-chroma): Move every Chroma collection to TopK with its embeddings, metadata and distance metric, then check that results match before you cut over.
 
 ## CLI
 
