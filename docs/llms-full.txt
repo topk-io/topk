@@ -822,7 +822,7 @@ topk sql --region <REGION> 'SELECT COUNT(*) FROM "<COLLECTION>"'
 
 `Table does not exist` means the name is free. A count means a TopK collection with that name already exists.
 
-Show the user a plan as a table: each Chroma collection, its record count, dimension, distance function, the TopK collection it becomes (same name) and its TopK metric (`l2` → `euclidean`, `cosine` → `cosine`, `ip` → `dot_product`). Flag any name that already exists in TopK. If a collection's embedding function is one of Chroma Cloud's hosted functions (its name contains `ChromaCloud`, such as Qwen or SPLADE), tell the user that their application embeds queries with it, and recommend a semantic index on the document so TopK embeds both documents and queries; otherwise they need to keep calling the same model for queries. Ask the user to approve the plan and to say whether TopK should also embed the document text (a semantic index). Wait for their answer.
+Show the user a plan as a table: each Chroma collection, its record count, dimension, distance function, the TopK collection it becomes (same name) and its TopK metric (`l2` → `euclidean`, `cosine` → `cosine`, `ip` → `dot_product`). Flag any name that already exists in TopK. If a collection's embedding function isn't `none` (for example `DefaultEmbeddingFunction`, or a hosted one whose name contains `ChromaCloud`), the user's application probably queries with `query_texts`, and Chroma embeds those queries for them. Tell the user, and recommend a semantic index on the document so TopK embeds both documents and queries; otherwise their code has to embed queries with the same model. Ask the user to approve the plan and to say whether TopK should also embed the document text (a semantic index). Wait for their answer.
 
 ##### 5. Export
 
@@ -5424,10 +5424,12 @@ Two edits are worth considering before you import:
 
 #### Step 3: Import into TopK
 
-Log in once, then import every spec:
+Log in, select the project to import into, then import every spec:
 
 ```bash
 topk login
+topk project list
+topk project select <PROJECT_ID>
 for spec in *.toml; do
   topk import -f "$spec" --region aws-us-east-1-elastica --yes
 done
@@ -5531,7 +5533,7 @@ Both systems use approximate nearest neighbor indexes, so expect close to 10 sha
 #### Things to know
 
 - **Unsupported metadata values are skipped.** The spec only declares string, integer, float and boolean metadata. Lists stay in the JSONL but aren't imported unless you add them to the spec with a [list type](/cli#spec).
-- **Hosted embeddings on Chroma Cloud.** If a collection used Chroma Cloud's hosted Qwen or SPLADE embedding functions, its stored dense vectors move as they are, but your application also used those functions to embed queries. Either keep embedding queries with the same model (Qwen3-Embedding and SPLADE++ are open models you can run yourself), or add a [semantic index](/guides/semantic-search) so TopK embeds both documents and queries.
+- **Queries by text.** If your application calls Chroma with `query_texts`, Chroma embedded the query with the collection's embedding function: the default `all-MiniLM-L6-v2`, one you configured, or Chroma Cloud's hosted Qwen or SPLADE. Your stored vectors move as they are, but TopK needs a query vector from the same model. Either embed queries with that model yourself (all of these are open models you can run), or add a [semantic index](/guides/semantic-search) so TopK embeds both documents and queries.
 - **Sparse vectors aren't exported.** Chroma Cloud stores sparse vectors (for example from SPLADE) in metadata, and the script drops them. Use a keyword index for BM25 on the document instead, or a semantic index, which covers keyword matching too.
 - **Reserved names.** Metadata keys called `id`, `document` or `embedding` are overwritten by the record's own values. Rename them in the script if you use them.
 - **Records without a document** import without one; the `document` field is optional.
