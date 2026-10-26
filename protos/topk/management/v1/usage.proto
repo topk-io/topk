@@ -17,7 +17,6 @@ message GetTotalUsageRequest {
 }
 
 message GetTotalUsageResponse {
-  // Usage per billed metric.
   repeated UsageMetric metrics = 1;
 }
 
