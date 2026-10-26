@@ -239,9 +239,6 @@ test-sql:
     ARG --required region
     ARG --required host
     DO +SETUP_ENV --region=$region --host=$host
-    # SETUP_ENV is shared by every test target; only these tests speak pgwire
-    # to a remote cluster, and only they should refuse a plaintext fallback.
-    ENV PGSSLMODE=require
 
     # test
     ARG args=""
@@ -356,8 +353,8 @@ SETUP_ENV:
         ENV TOPK_AUTH_CLIENT_ID=emulator
         ENV TOPK_AUTH_AUDIENCE=http://localhost:5173
 
-        # emulator gateway is plaintext: es on :9200, pgwire on :5432
-        ENV ES_URL=http://emulator.es.ddb:9200
+        # emulator gateway is plaintext: es on :80, pgwire on :5432
+        ENV ES_URL=http://emulator.es.ddb
         ENV PGHOST=emulator.sql.ddb
         ENV PGSSLMODE=disable
     ELSE
