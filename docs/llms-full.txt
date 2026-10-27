@@ -3766,6 +3766,10 @@ If your collection is too large it can take a moment to delete it. You can check
   This operation is irreversible and will permanently delete all data in the collection.
 </Warning>
 
+<Warning>
+  **Re-creating a collection with the same name:** for about 60 seconds after a delete, writes to a new collection with the same name can be lost (a `count()` may show the old documents, then drop to 0). To avoid this, wait 60 seconds before re-creating, use a new name such as `my-collection-v2`, or keep the collection and [delete its documents with a filter](/collections/write#delete-documents-by-filter-expression).
+</Warning>
+
 ## Guides
 
 ### Semantic search
@@ -15042,6 +15046,12 @@ DROP TABLE [IF EXISTS] <table>;
 `IF EXISTS` suppresses the error if the collection does not exist.
 
 </Note>
+
+<Warning>
+
+Wait at least 60 seconds after `DROP TABLE` before you run `CREATE TABLE` with the same name. Writes sent sooner can be lost. See [Re-creating a collection with the same name](/collections/manage#delete).
+
+</Warning>
 
 ##### information_schema
 

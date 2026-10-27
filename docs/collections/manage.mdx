@@ -461,3 +461,7 @@ If your collection is too large it can take a moment to delete it. You can check
 <Warning>
   This operation is irreversible and will permanently delete all data in the collection.
 </Warning>
+
+<Warning>
+  **Re-creating a collection with the same name:** for about 60 seconds after a delete, writes to a new collection with the same name can be lost (a `count()` may show the old documents, then drop to 0). To avoid this, wait 60 seconds before re-creating, use a new name such as `my-collection-v2`, or keep the collection and [delete its documents with a filter](/collections/write#delete-documents-by-filter-expression).
+</Warning>
