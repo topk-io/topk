@@ -52,7 +52,7 @@ Your embeddings are copied as they are. Nothing is re-embedded.
 
 ## Step 1: Export every collection
 
-Save this as `chroma_to_topk.py` and run it with your Chroma credentials in the environment. It walks every non-empty collection in the database and writes `<collection>.jsonl` and `<collection>.toml` to the current directory.
+Save this as `chroma_to_topk.py` in a new, empty directory, and run it there with your Chroma credentials in the environment. It walks every non-empty collection in the database and writes `<collection>.jsonl` and `<collection>.toml` next to it.
 
 ```python chroma_to_topk.py
 import json
@@ -63,6 +63,8 @@ import chromadb
 # Chroma space -> TopK vector metric
 METRICS = {"l2": "euclidean", "cosine": "cosine", "ip": "dot_product"}
 TYPES = {bool: "bool", int: "int", float: "float", str: "text"}
+RESERVED = {"id", "document", "embedding"}
+PAGE = 300  # Chroma Cloud returns at most 300 records per request
 
 chroma = chromadb.CloudClient(
     tenant=os.environ["CHROMA_TENANT"],
@@ -70,17 +72,27 @@ chroma = chromadb.CloudClient(
     api_key=os.environ["CHROMA_API_KEY"],
 )
 
+
+def field_name(key):
+    # TopK field names can't start with "_", and the script uses id,
+    # document and embedding itself, so those keys get a "meta_" prefix.
+    if key.startswith("_") or key in RESERVED:
+        return "meta_" + key.lstrip("_")
+    return key
+
+
 for col in chroma.list_collections():
-    if col.count() == 0:
+    count = col.count()
+    if count == 0:
         continue
     config = col.configuration
     space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
-    fields, dim = {}, None
+    fields, mixed, dim = {}, set(), None
 
     with open(f"{col.name}.jsonl", "w") as out:
-        for offset in range(0, col.count(), 1000):
+        for offset in range(0, count, PAGE):
             page = col.get(
-                limit=1000,
+                limit=PAGE,
                 offset=offset,
                 include=["documents", "metadatas", "embeddings"],
             )
@@ -89,24 +101,36 @@ for col in chroma.list_collections():
                 page["metadatas"], page["embeddings"],
             ):
                 dim = len(emb)
-                # Keep plain values; Chroma Cloud sparse vectors aren't JSON.
-                meta = {
-                    k: v for k, v in (meta or {}).items()
-                    if type(v) in TYPES or type(v) is list
-                }
-                for key, value in meta.items():
+                record = {}
+                for key, value in (meta or {}).items():
                     kind = TYPES.get(type(value))
-                    if kind is None or key in ("id", "document", "embedding"):
+                    if kind is None:  # lists, sparse vectors
                         continue
-                    seen = fields.setdefault(key, kind)
-                    if seen == "int" and kind == "float":
-                        fields[key] = "float"
+                    name = field_name(key)
+                    seen = fields.setdefault(name, kind)
+                    if seen != kind and {seen, kind} == {"int", "float"}:
+                        fields[name] = "float"
+                    elif seen != kind:
+                        fields[name] = "text"
+                        mixed.add(name)
+                    record[name] = value
                 out.write(json.dumps({
-                    **meta,
+                    **record,
                     "id": id,
                     "document": doc,
                     "embedding": [float(x) for x in emb],
                 }) + "\n")
+
+    # A key whose type varied between records is imported as text,
+    # so rewrite its values as strings.
+    if mixed:
+        with open(f"{col.name}.jsonl") as src, open(f"{col.name}.tmp", "w") as dst:
+            for line in src:
+                record = json.loads(line)
+                for key in mixed & record.keys():
+                    record[key] = str(record[key])
+                dst.write(json.dumps(record) + "\n")
+        os.replace(f"{col.name}.tmp", f"{col.name}.jsonl")
 
     with open(f"{col.name}.toml", "w") as spec:
         spec.write(
@@ -122,10 +146,12 @@ for col in chroma.list_collections():
             f'index = {{ vector = {{ metric = "{METRICS[space]}" }} }}\n'
         )
 
-    print(f"{col.name}: {col.count()} records, {dim} dims, {space}")
+    print(f"{col.name}: {count} records, {dim} dims, {space}")
 ```
 
 ```bash
+mkdir chroma-export && cd chroma-export
+# save chroma_to_topk.py here
 export CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=...
 python chroma_to_topk.py
 ```
@@ -138,6 +164,10 @@ tickets: 48210 records, 768 dims, ip
 <Note>
   On self-hosted Chroma, replace `chromadb.CloudClient(...)` with `chromadb.HttpClient(host=..., port=...)`. Everything else stays the same.
 </Note>
+
+<Warning>
+  The export pages through each collection by offset, so records your application writes while it runs can be skipped or exported twice. Pause writes to Chroma during the export, or run the export and import again just before you switch writes to TopK.
+</Warning>
 
 <Note>
   The script reads each collection's distance function from its configuration, so a collection created with `cosine` or `ip` keeps that metric in TopK. Collections without an explicit `space` use Chroma's default, `l2`.
@@ -170,7 +200,7 @@ Two edits are worth considering before you import:
 
 ## Step 3: Import into TopK
 
-Log in, select the project to import into, then import every spec:
+From the export directory, log in, select the project to import into, then import every spec:
 
 ```bash
 topk login
@@ -186,7 +216,7 @@ Pick the region closest to your application from [Regions](/regions). Each spec 
 <Tip>
   - Add `--dry-run` to print the plan and a sample of documents without writing anything.
   - If a run stops, re-run it with `--resume <run-id>`, using the run id printed when it started. Upserts are idempotent, so re-running from scratch is safe too.
-  - To merge per-tenant collections into one collection, add a tenant column to each record and import with `--partition <column>`. Each tenant gets its own isolated partition.
+  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export, add `"tenant": col.name` to each record. In every spec, use the same collection name in the table headers and add `partition = "tenant"` under the first header. Every spec must declare the same fields, because an import into an existing collection with a different schema is rejected.
 </Tip>
 
 ## Step 4: Update your queries
@@ -263,12 +293,16 @@ src = chroma.get_collection("docs")
 dst = topk.collection("docs")
 print("records:", src.count(), dst.count())
 
+# For euclidean (Chroma's l2), a lower score is closer
+config = src.configuration
+space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+
 for q in src.get(limit=20, include=["embeddings"])["embeddings"]:
     q = [float(x) for x in q]
     want = src.query(query_embeddings=[q], n_results=10)["ids"][0]
     got = dst.query(
         select(score=fn.vector_distance("embedding", q))
-        .sort(field("score"), asc=False)  # asc=True for euclidean
+        .sort(field("score"), asc=(space == "l2"))
         .limit(10)
     )
     print(len(set(want) & {d["_id"] for d in got}), "/ 10 shared")
@@ -278,10 +312,11 @@ Both systems use approximate nearest neighbor indexes, so expect close to 10 sha
 
 ## Things to know
 
-- **Unsupported metadata values are skipped.** The spec only declares string, integer, float and boolean metadata. Lists stay in the JSONL but aren't imported unless you add them to the spec with a [list type](/cli#spec).
+- **Only plain metadata values move.** The script exports string, integer, float and boolean metadata, and skips lists and other values.
+- **A key with mixed types becomes text.** If a metadata key holds different types in different records, such as a number in some and a string in others, it's imported as text and every value is stored as a string. A mix of integers and floats becomes float.
+- **Renamed keys.** TopK field names can't start with `_`, so a key like `_internal` becomes `meta_internal`. Keys called `id`, `document` or `embedding` become `meta_id`, `meta_document` and `meta_embedding`, because the script uses those names itself. Use the new names in your filters.
 - **Queries by text.** If your application calls Chroma with `query_texts`, Chroma embedded the query with the collection's embedding function: the default `all-MiniLM-L6-v2`, one you configured, or Chroma Cloud's hosted Qwen or SPLADE. Your stored vectors move as they are, but TopK needs a query vector from the same model. Either embed queries with that model yourself (all of these are open models you can run), or add a [semantic index](/guides/semantic-search) so TopK embeds both documents and queries.
 - **Sparse vectors aren't exported.** Chroma Cloud stores sparse vectors (for example from SPLADE) in metadata, and the script drops them. Use a keyword index for BM25 on the document instead, or a semantic index, which covers keyword matching too.
-- **Reserved names.** Metadata keys called `id`, `document` or `embedding` are overwritten by the record's own values. Rename them in the script if you use them.
 - **Records without a document** import without one; the `document` field is optional.
 - **Squared L2.** Chroma's `l2` is squared Euclidean distance. TopK's `euclidean` ranks results in the same order, but the scores differ.
 
