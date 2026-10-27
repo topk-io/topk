@@ -103,11 +103,6 @@ export declare class CollectionsClient {
    * <Warning>
    *   This operation is irreversible and will permanently delete all data in the collection.
    * </Warning>
-   *
-   * <Warning>
-   *   Wait at least 60 seconds before creating a new collection with the same name.
-   *   Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
-   * </Warning>
    */
   delete(name: string): Promise<void>
 }

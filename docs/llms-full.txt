@@ -3767,13 +3767,7 @@ If your collection is too large it can take a moment to delete it. You can check
 </Warning>
 
 <Warning>
-  **Re-creating a collection with the same name:** for about 60 seconds after a collection is deleted, writes to a new collection with the same name can still go to the deleted one. A `count()` may first show the old documents plus the new ones, and then drop to 0 once the deleted collection is cleaned up, so those new writes are lost. This happens because the write path caches collection metadata for about 60 seconds. This is known, current behavior and a fix is in progress.
-
-  To avoid it, do one of the following:
-
-  - Wait at least 60 seconds after deleting before you create a collection with the same name.
-  - Create the collection under a new name, for example with a version suffix such as `my-collection-v2`.
-  - If the schema doesn't need to change, keep the collection and [delete its documents with a filter](/collections/write#delete-documents-by-filter-expression) that matches every document instead, for example `delete(field("text").is_not_null())` in Python or `delete(field("text").isNotNull())` in JavaScript.
+  **Re-creating a collection with the same name:** for about 60 seconds after a delete, writes to a new collection with the same name can be lost (a `count()` may show the old documents, then drop to 0). To avoid this, wait 60 seconds before re-creating, use a new name such as `my-collection-v2`, or keep the collection and [delete its documents with a filter](/collections/write#delete-documents-by-filter-expression).
 </Warning>
 
 ## Guides
@@ -6659,9 +6653,6 @@ delete(self, collection_name: str) -> None
 
 Delete a collection.
 
-Wait at least 60 seconds before creating a new collection with the same name.
-Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
-
 **Parameters**
 
 | Parameter | Type |
@@ -6754,9 +6745,6 @@ delete(self, collection_name: str) -> Awaitable[None]
 ```
 
 Delete a collection asynchronously.
-
-Wait at least 60 seconds before creating a new collection with the same name.
-Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
 
 **Parameters**
 
@@ -10690,11 +10678,6 @@ Deletes a collection and all its data.
 
 <Warning>
   This operation is irreversible and will permanently delete all data in the collection.
-</Warning>
-
-<Warning>
-  Wait at least 60 seconds before creating a new collection with the same name.
-  Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
 </Warning>
 
 **Parameters**
