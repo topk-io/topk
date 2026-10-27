@@ -1,0 +1,325 @@
+---
+title: "Migrate from Chroma"
+description: "Move every Chroma collection to TopK with its embeddings, metadata and distance metric, then check that results match before you cut over."
+---
+
+<div className="agent-prompt">
+<Card title="Migrate with a coding agent" icon="sparkles">
+  Paste this into Claude Code, Cursor, Codex, or any agent with terminal access. It inventories your Chroma collections, shows you a plan, then exports, imports and verifies each one.
+
+  ```text
+  Migrate my Chroma collections to TopK: docs.topk.io/migrate-chroma
+  ```
+</Card>
+</div>
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login)) and the [TopK CLI](/cli)
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key)), for the verification step
+  - Python with `chromadb` and `topk-sdk` installed
+  - Your Chroma Cloud tenant ID, database name and API key
+</Info>
+
+<Warning>
+  Chroma Cloud stops accepting writes on **November 22, 2026** and stops serving reads on **December 22, 2026** ([wind-down notice](https://www.trychroma.com/cloud-wind-down)). The export below only reads, so it works until December 22, but your application's writes fail from November 22.
+</Warning>
+
+Here is how the migration works:
+
+1. A script exports every collection to JSONL and writes a TopK import spec for it, with the vector dimension, the distance metric and a typed field for each metadata key.
+2. [`topk import`](/cli#import) loads each spec into a new collection.
+3. You switch your queries to the TopK SDK.
+4. A second script compares record counts and sample query results between Chroma and TopK.
+
+Your embeddings are copied as they are. Nothing is re-embedded.
+
+## How Chroma concepts map to TopK
+
+| Chroma | TopK |
+| - | - |
+| Collection | Collection |
+| Record id | `_id` |
+| Embedding | [`f32_vector()`](/sdk/topk-py/schema#f32_vector) field with a [`vector_index()`](/sdk/topk-py/schema#vector_index) |
+| Metadata | Typed fields, usable in filters |
+| Document | Text field with a keyword or semantic index |
+| `space`: `l2` / `cosine` / `ip` | `metric`: `euclidean` / `cosine` / `dot_product` |
+| `query(n_results=10)` | [`.limit(10)`](/sdk/topk-py/query#limit) |
+| `where` | [`.filter()`](/collections/query#filtering) |
+| `where_document={"$contains": ...}` | [`field("document").contains(...)`](/collections/query#contains) |
+| One collection per tenant | [Partitions](/concepts#multi-tenancy) in one collection |
+
+## Step 1: Export every collection
+
+Save this as `chroma_to_topk.py` in a new, empty directory, and run it there with your Chroma credentials in the environment. It walks every non-empty collection in the database and writes `<collection>.jsonl` and `<collection>.toml` next to it.
+
+```python chroma_to_topk.py
+import json
+import os
+
+import chromadb
+
+# Chroma space -> TopK vector metric
+METRICS = {"l2": "euclidean", "cosine": "cosine", "ip": "dot_product"}
+TYPES = {bool: "bool", int: "int", float: "float", str: "text"}
+RESERVED = {"id", "document", "embedding"}
+PAGE = 300  # Chroma Cloud returns at most 300 records per request
+
+chroma = chromadb.CloudClient(
+    tenant=os.environ["CHROMA_TENANT"],
+    database=os.environ["CHROMA_DATABASE"],
+    api_key=os.environ["CHROMA_API_KEY"],
+)
+
+
+def field_name(key):
+    # TopK field names can't start with "_", and the script uses id,
+    # document and embedding itself, so those keys get a "meta_" prefix.
+    if key.startswith("_") or key in RESERVED:
+        return "meta_" + key.lstrip("_")
+    return key
+
+
+for col in chroma.list_collections():
+    count = col.count()
+    if count == 0:
+        continue
+    config = col.configuration
+    space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+    fields, mixed, dim = {}, set(), None
+
+    with open(f"{col.name}.jsonl", "w") as out:
+        for offset in range(0, count, PAGE):
+            page = col.get(
+                limit=PAGE,
+                offset=offset,
+                include=["documents", "metadatas", "embeddings"],
+            )
+            for id, doc, meta, emb in zip(
+                page["ids"], page["documents"],
+                page["metadatas"], page["embeddings"],
+            ):
+                dim = len(emb)
+                record = {}
+                for key, value in (meta or {}).items():
+                    kind = TYPES.get(type(value))
+                    if kind is None:  # lists, sparse vectors
+                        continue
+                    name = field_name(key)
+                    seen = fields.setdefault(name, kind)
+                    if seen != kind and {seen, kind} == {"int", "float"}:
+                        fields[name] = "float"
+                    elif seen != kind:
+                        fields[name] = "text"
+                        mixed.add(name)
+                    record[name] = value
+                out.write(json.dumps({
+                    **record,
+                    "id": id,
+                    "document": doc,
+                    "embedding": [float(x) for x in emb],
+                }) + "\n")
+
+    # A key whose type varied between records is imported as text,
+    # so rewrite its values as strings.
+    if mixed:
+        with open(f"{col.name}.jsonl") as src, open(f"{col.name}.tmp", "w") as dst:
+            for line in src:
+                record = json.loads(line)
+                for key in mixed & record.keys():
+                    record[key] = str(record[key])
+                dst.write(json.dumps(record) + "\n")
+        os.replace(f"{col.name}.tmp", f"{col.name}.jsonl")
+
+    with open(f"{col.name}.toml", "w") as spec:
+        spec.write(
+            f'["{col.name}"]\nfrom = "{col.name}.jsonl"\nid = "id"\n\n'
+            f'["{col.name}".fields]\n'
+            'document = { type = "text", index = "keyword" }\n'
+        )
+        for key, kind in fields.items():
+            spec.write(f'{json.dumps(key)} = {{ type = "{kind}" }}\n')
+        spec.write(
+            f'\n["{col.name}".fields.embedding]\n'
+            f'type = "f32_vector"\ndim = {dim}\n'
+            f'index = {{ vector = {{ metric = "{METRICS[space]}" }} }}\n'
+        )
+
+    print(f"{col.name}: {count} records, {dim} dims, {space}")
+```
+
+```bash
+mkdir chroma-export && cd chroma-export
+# save chroma_to_topk.py here
+export CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=...
+python chroma_to_topk.py
+```
+
+```text Output
+docs: 120000 records, 1536 dims, cosine
+tickets: 48210 records, 768 dims, ip
+```
+
+<Note>
+  On self-hosted Chroma, replace `chromadb.CloudClient(...)` with `chromadb.HttpClient(host=..., port=...)`. Everything else stays the same.
+</Note>
+
+<Warning>
+  The export pages through each collection by offset, so records your application writes while it runs can be skipped or exported twice. Pause writes to Chroma during the export, or run the export and import again just before you switch writes to TopK.
+</Warning>
+
+<Note>
+  The script reads each collection's distance function from its configuration, so a collection created with `cosine` or `ip` keeps that metric in TopK. Collections without an explicit `space` use Chroma's default, `l2`.
+</Note>
+
+## Step 2: Review the import spec
+
+Each generated spec is a plain [import spec](/cli#spec). For a collection called `docs`, it looks like this:
+
+```toml docs.toml
+["docs"]
+from = "docs.jsonl"
+id = "id"
+
+["docs".fields]
+document = { type = "text", index = "keyword" }
+"source" = { type = "text" }
+"year" = { type = "int" }
+
+["docs".fields.embedding]
+type = "f32_vector"
+dim = 1536
+index = { vector = { metric = "cosine" } }
+```
+
+Two edits are worth considering before you import:
+
+- **Let TopK embed the text too.** Change the document's index from `"keyword"` to `"semantic"` and TopK generates [multi-vector embeddings](/guides/semantic-search) for it, alongside your existing vectors. You can then query with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) and skip the query embedding call.
+- **Drop fields you don't query.** The spec is a whitelist: only the fields it declares are imported.
+
+## Step 3: Import into TopK
+
+From the export directory, log in, select the project to import into, then import every spec:
+
+```bash
+topk login
+topk project list
+topk project select <PROJECT_ID>
+for spec in *.toml; do
+  topk import -f "$spec" --region aws-us-east-1-elastica --yes
+done
+```
+
+Pick the region closest to your application from [Regions](/regions). Each spec creates its collection and loads it; documents are searchable as soon as they are written.
+
+<Tip>
+  - Add `--dry-run` to print the plan and a sample of documents without writing anything.
+  - If a run stops, re-run it with `--resume <run-id>`, using the run id printed when it started. Upserts are idempotent, so re-running from scratch is safe too.
+  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export, add `"tenant": col.name` to each record. In every spec, use the same collection name in the table headers and add `partition = "tenant"` under the first header. Every spec must declare the same fields, because an import into an existing collection with a different schema is rejected.
+</Tip>
+
+## Step 4: Update your queries
+
+Chroma's `query()` becomes a TopK query that selects a score, sorts by it and limits the results:
+
+<CodeGroup>
+
+```python Chroma
+results = collection.query(
+    query_embeddings=[query_vector],
+    n_results=10,
+    where={"source": "handbook"},
+)
+```
+
+```python TopK
+from topk_sdk import Client
+from topk_sdk.query import select, field, fn
+
+client = Client(api_key=TOPK_API_KEY, region="aws-us-east-1-elastica")
+
+results = client.collection("docs").query(
+    select(
+        "document",
+        score=fn.vector_distance("embedding", query_vector),
+    )
+    .filter(field("source") == "handbook")
+    .sort(field("score"), asc=False)
+    .limit(10)
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  Sort direction depends on the metric. For `cosine` and `dot_product`, a higher score is closer, so sort with `asc=False`. For `euclidean`, a lower score is closer, so sort with `asc=True`.
+</Warning>
+
+### Filter operators
+
+| Chroma `where` | TopK `.filter()` |
+| - | - |
+| `{"year": 2024}` or `{"year": {"$eq": 2024}}` | `field("year") == 2024` |
+| `{"year": {"$ne": 2024}}` | `field("year") != 2024` |
+| `{"year": {"$gt": 2020}}` | `field("year") > 2020` (also `>=`, `<`, `<=`) |
+| `{"source": {"$in": ["wiki", "handbook"]}}` | `field("source").in_(["wiki", "handbook"])` |
+| `{"source": {"$nin": ["wiki"]}}` | `not_(field("source").in_(["wiki"]))` |
+| `{"$and": [a, b]}` | `(a) & (b)` |
+| `{"$or": [a, b]}` | `(a) \| (b)` |
+| `where_document={"$contains": "refund"}` | `field("document").contains("refund")` |
+
+Wrap each comparison in parentheses when you combine them with `&` or `|`, because Python binds `&` and `|` more tightly than `==`, `>` and the other comparisons. `not_` is imported from `topk_sdk.query`. Both `$contains` and `contains()` are case-sensitive substring matches.
+
+## Step 5: Check that results match
+
+Run this while Chroma still serves reads. It compares record counts, then runs 20 of your own vectors as queries against both systems and prints how many of the top 10 results they share.
+
+```python verify.py
+import os
+
+import chromadb
+from topk_sdk import Client
+from topk_sdk.query import select, field, fn
+
+chroma = chromadb.CloudClient(
+    tenant=os.environ["CHROMA_TENANT"],
+    database=os.environ["CHROMA_DATABASE"],
+    api_key=os.environ["CHROMA_API_KEY"],
+)
+topk = Client(api_key=os.environ["TOPK_API_KEY"], region="aws-us-east-1-elastica")
+
+src = chroma.get_collection("docs")
+dst = topk.collection("docs")
+print("records:", src.count(), dst.count())
+
+# For euclidean (Chroma's l2), a lower score is closer
+config = src.configuration
+space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+
+for q in src.get(limit=20, include=["embeddings"])["embeddings"]:
+    q = [float(x) for x in q]
+    want = src.query(query_embeddings=[q], n_results=10)["ids"][0]
+    got = dst.query(
+        select(score=fn.vector_distance("embedding", q))
+        .sort(field("score"), asc=(space == "l2"))
+        .limit(10)
+    )
+    print(len(set(want) & {d["_id"] for d in got}), "/ 10 shared")
+```
+
+Both systems use approximate nearest neighbor indexes, so expect close to 10 shared results per query rather than identical lists every time. A count mismatch usually means the import stopped early: re-run it with `--resume`.
+
+## Things to know
+
+- **Only plain metadata values move.** The script exports string, integer, float and boolean metadata, and skips lists and other values.
+- **A key with mixed types becomes text.** If a metadata key holds different types in different records, such as a number in some and a string in others, it's imported as text and every value is stored as a string. A mix of integers and floats becomes float.
+- **Renamed keys.** TopK field names can't start with `_`, so a key like `_internal` becomes `meta_internal`. Keys called `id`, `document` or `embedding` become `meta_id`, `meta_document` and `meta_embedding`, because the script uses those names itself. Use the new names in your filters.
+- **Queries by text.** If your application calls Chroma with `query_texts`, Chroma embedded the query with the collection's embedding function: the default `all-MiniLM-L6-v2`, one you configured, or Chroma Cloud's hosted Qwen or SPLADE. Your stored vectors move as they are, but TopK needs a query vector from the same model. Either embed queries with that model yourself (all of these are open models you can run), or add a [semantic index](/guides/semantic-search) so TopK embeds both documents and queries.
+- **Sparse vectors aren't exported.** Chroma Cloud stores sparse vectors (for example from SPLADE) in metadata, and the script drops them. Use a keyword index for BM25 on the document instead, or a semantic index, which covers keyword matching too.
+- **Records without a document** import without one; the `document` field is optional.
+- **Squared L2.** Chroma's `l2` is squared Euclidean distance. TopK's `euclidean` ranks results in the same order, but the scores differ.
+
+## Need help?
+
+If you'd rather not migrate alone, [talk to us](https://www.topk.io/contact). We'll help with the export, the import and the side-by-side check.

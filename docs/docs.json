@@ -17,6 +17,10 @@
       "destination": "/agents/quickstart"
     },
     {
+      "source": "/migrate-chroma",
+      "destination": "/agents/migrate-from-chroma"
+    },
+    {
       "source": "/installation",
       "destination": "/introduction"
     },
@@ -126,7 +130,8 @@
             "group": "Agents",
             "pages": [
               "agents/index",
-              "agents/quickstart"
+              "agents/quickstart",
+              "agents/migrate-from-chroma"
             ]
           }
         ]
@@ -144,6 +149,12 @@
               "guides/sparse-vector-search",
               "guides/keyword-search",
               "guides/true-hybrid-search"
+            ]
+          },
+          {
+            "group": "Migrate to TopK",
+            "pages": [
+              "migrate/from-chroma"
             ]
           }
         ]

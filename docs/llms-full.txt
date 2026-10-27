@@ -527,6 +527,7 @@ npx skills add topk-io/topk --skill topk
 | Page | Follow it when |
 | --- | --- |
 | [Agent quickstart](https://docs.topk.io/agents/quickstart.md) | The user wants to try TopK: sign up, create a collection, and run a search, all from the CLI. |
+| [Migrate from Chroma](https://docs.topk.io/agents/migrate-from-chroma.md) | The user wants to move their Chroma collections to TopK. |
 
 #### Rules for every task
 
@@ -742,6 +743,181 @@ If the first query returns few or no results, the semantic index may still be ca
 | An error combining `--project-id` with an API key | Unset `TOPK_API_KEY`: `env -u TOPK_API_KEY topk …`. |
 | `SELECT *` fails | List the columns you want; `SELECT *` isn't supported. |
 | `brew: command not found` | Tell the user the TopK CLI installs with Homebrew. |
+
+Anything else: show the user the exact command and error message, and point them to [support](https://docs.topk.io/support).
+
+### Agent: migrate from Chroma
+
+URL: https://docs.topk.io/agents/migrate-from-chroma
+
+You are an AI coding agent, and this page is for you. For an overview of TopK and the other agent pages, see [TopK for coding agents](https://docs.topk.io/agents.md). The human version of this guide is [Migrate from Chroma](https://docs.topk.io/migrate/from-chroma.md).
+
+#### Instructions
+
+The user wants to move their Chroma collections to TopK. Follow the steps below in order. You run every command yourself; the user only logs in to TopK in the browser, gives you Chroma credentials if you can't find them, and approves the plan in step 4.
+
+Rules:
+
+- Never write to, modify or delete anything in Chroma. Every Chroma call in this guide is a read.
+- Never print, log or commit the Chroma API key. Pass credentials to commands as environment variables on the same command line.
+- Don't import anything into TopK until the user approves the plan in step 4.
+- Use the `topk` CLI for TopK. Don't ask the user for a TopK API key: `topk login` is enough.
+- Pass `--region <REGION>` to every data command (`topk import`, `topk sql`), and use the same region throughout. Account commands such as `topk login` and `topk project list` don't take it.
+- If `TOPK_API_KEY` or `TOPK_PROJECT_ID` is set in the environment, run `topk` commands with them unset (`env -u TOPK_API_KEY -u TOPK_PROJECT_ID topk …`).
+- Never run a command that waits for keyboard input: pass `--yes` to `topk import`.
+- Chroma Cloud stops accepting writes on November 22, 2026 and stops serving reads on December 22, 2026. If today is after December 22, 2026 and the data is on Chroma Cloud, stop and tell the user the data can no longer be exported from Chroma Cloud.
+
+##### 1. Set up TopK
+
+Follow steps 1 to 4 of the [Agent quickstart](https://docs.topk.io/agents/quickstart.md): install the CLI, log in, select a project and pick a region. Then come back here.
+
+##### 2. Find the Chroma credentials
+
+Look for them in this order, and stop at the first that works:
+
+1. Environment variables `CHROMA_TENANT`, `CHROMA_DATABASE` and `CHROMA_API_KEY`.
+2. The user's project: search the code and `.env` files for `chromadb.CloudClient`, `CloudClient(` or `CHROMA_`. Note which collections the code uses.
+3. Ask the user for their Chroma Cloud tenant ID, database name and API key. They're in the Chroma Cloud dashboard.
+
+If the user runs self-hosted Chroma instead of Chroma Cloud, ask for its host and port, and use `chromadb.HttpClient(host=..., port=...)` everywhere this guide uses `chromadb.CloudClient(...)`.
+
+##### 3. Prepare a Python environment
+
+Work in a new directory so the export files don't mix with the user's code:
+
+```bash
+mkdir -p chroma-to-topk && cd chroma-to-topk
+python3 -m venv .venv
+.venv/bin/pip install --quiet chromadb
+```
+
+##### 4. Inventory and plan
+
+List every non-empty collection with its size, dimension, distance function and embedding function. Empty collections are left out, because the export skips them too:
+
+```bash
+CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=... .venv/bin/python - <<'PY'
+import os, chromadb
+chroma = chromadb.CloudClient(
+    tenant=os.environ["CHROMA_TENANT"],
+    database=os.environ["CHROMA_DATABASE"],
+    api_key=os.environ["CHROMA_API_KEY"],
+)
+for col in chroma.list_collections():
+    count = col.count()
+    if count == 0:
+        continue
+    config = col.configuration
+    space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+    dim = len(col.get(limit=1, include=["embeddings"])["embeddings"][0])
+    ef = config.get("embedding_function")
+    ef = type(ef).__name__ if ef else "none"
+    print(f"{col.name}\t{count} records\t{dim} dims\t{space}\t{ef}")
+PY
+```
+
+Then check that each name is free in TopK. For each collection, run:
+
+```bash
+topk sql --region <REGION> 'SELECT COUNT(*) FROM "<COLLECTION>"'
+```
+
+`Table does not exist` means the name is free. A count means a TopK collection with that name already exists. (`SHOW TABLES` isn't supported yet, so check each name.)
+
+Show the user a plan as a table: each Chroma collection, its record count, dimension, distance function, the TopK collection it becomes (same name) and its TopK metric (`l2` → `euclidean`, `cosine` → `cosine`, `ip` → `dot_product`). Flag any name that already exists in TopK. If a collection's embedding function isn't `none` (for example `DefaultEmbeddingFunction`, or a hosted one whose name contains `ChromaCloud`), the user's application probably queries with `query_texts`, and Chroma embeds those queries for them. Tell the user, and recommend a semantic index on the document so TopK embeds both documents and queries; otherwise their code has to embed queries with the same model. Tell the user that the export pages through each collection, so records their application writes while it runs can be skipped or exported twice: they should pause writes to Chroma during the export, or run the export and import again just before switching writes to TopK. Ask the user to approve the plan and to say whether TopK should also embed the document text (a semantic index). Wait for their answer.
+
+##### 5. Export
+
+Write the export script from step 1 of [Migrate from Chroma](https://docs.topk.io/migrate/from-chroma.md) to `chroma_to_topk.py`, unchanged. If the user approved only some collections, add a check at the top of the loop that skips the others. Run it:
+
+```bash
+CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=... .venv/bin/python chroma_to_topk.py
+```
+
+It writes `<collection>.jsonl` and `<collection>.toml` for each collection, and prints one line per collection. If the user wants TopK to embed the text too, change `index = "keyword"` to `index = "semantic"` on the `document` line of each `.toml` file.
+
+Read each `.toml` file and tell the user about two kinds of field the script changes, because their filters will need the new names or types:
+
+- Fields starting with `meta_` were renamed: TopK field names can't start with `_`, and `id`, `document` and `embedding` are taken by the script.
+- Fields declared `type = "text"` that hold numbers or booleans in Chroma had mixed types, so every value is now a string.
+
+##### 6. Import
+
+Preview one spec first and check the plan it prints:
+
+```bash
+topk import -f <COLLECTION>.toml --region <REGION> --dry-run
+```
+
+Then import every spec:
+
+```bash
+for spec in *.toml; do
+  topk import -f "$spec" --region <REGION> --yes
+done
+```
+
+If an import stops partway, run the command the CLI prints after `to continue:`, adding `--yes`. It resumes the run from its last checkpoint.
+
+##### 7. Verify
+
+For each collection, compare record counts. Chroma's count is in the step 4 output; TopK's is:
+
+```bash
+topk sql --region <REGION> 'SELECT COUNT(*) FROM "<COLLECTION>"'
+```
+
+Then compare search results. This script takes 5 stored vectors from Chroma, runs each as a query against both systems and prints how many of the top 10 results they share. It sorts by the collection's metric, and runs `topk` without `TOPK_API_KEY` and `TOPK_PROJECT_ID`, so your login and selected project apply. Set `COLLECTION` and `REGION` first.
+
+```bash
+COLLECTION=... REGION=... \
+CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=... .venv/bin/python - <<'PY'
+import json, os, subprocess, chromadb
+chroma = chromadb.CloudClient(
+    tenant=os.environ["CHROMA_TENANT"],
+    database=os.environ["CHROMA_DATABASE"],
+    api_key=os.environ["CHROMA_API_KEY"],
+)
+name, region = os.environ["COLLECTION"], os.environ["REGION"]
+src = chroma.get_collection(name)
+config = src.configuration
+space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+order = "ASC" if space == "l2" else "DESC"  # euclidean: lower is closer
+env = {k: v for k, v in os.environ.items()
+       if k not in ("TOPK_API_KEY", "TOPK_PROJECT_ID")}
+for q in src.get(limit=5, include=["embeddings"])["embeddings"]:
+    q = [float(x) for x in q]
+    want = src.query(query_embeddings=[q], n_results=10)["ids"][0]
+    sql = (f"SELECT _id, vector_distance(embedding, '{json.dumps(q)}'::f32_vector) AS score "
+           f"FROM \"{name}\" ORDER BY score {order} LIMIT 10")
+    out = subprocess.run(
+        ["topk", "sql", "--region", region, "-o", "json", "-f", "-"],
+        input=sql, capture_output=True, text=True, check=True, env=env,
+    ).stdout
+    got = {json.loads(line)["_id"] for line in out.splitlines() if line.strip()}
+    print(f"{len(set(want) & got)} / 10 shared")
+PY
+```
+
+Expect close to 10 shared per query: both systems use approximate indexes. If counts differ, or most queries share fewer than 7, resume or re-run that collection's import, then verify again. If it still doesn't match, show the user the numbers.
+
+##### 8. Wrap up
+
+Show the user a table per collection: Chroma count, TopK count and the average number of shared results. Then:
+
+- Point out where their code calls Chroma (from step 2), and offer to switch those queries to the TopK SDK, following step 4 of [Migrate from Chroma](https://docs.topk.io/migrate/from-chroma.md). Before writing that code, install the TopK skill: `npx skills add topk-io/topk --skill topk`.
+- The TopK SDKs need an API key: the user creates one at [console.topk.io/api-key](https://console.topk.io/api-key).
+- Remind them of the Chroma Cloud dates if they apply: writes stop on November 22, 2026, so their application has to write to TopK before then.
+- Tell them the export files in `chroma-to-topk/` contain their data, and can be deleted once they're satisfied.
+
+#### Troubleshooting
+
+| Error or symptom | Fix |
+| --- | --- |
+| `chromadb` authentication error | Check the tenant ID, database name and API key with the user. |
+| Import rejects an existing collection | A TopK collection with that name exists with a different schema. Ask the user whether to import under another name: change the collection name in every table header of the `.toml` file. |
+| `--region is required` | Add `--region <REGION>` to the command. |
+| `not logged in` or `session expired` | Run `topk login` again. |
 
 Anything else: show the user the exact command and error message, and point them to [support](https://docs.topk.io/support).
 
@@ -5086,6 +5262,333 @@ Let's break down the example above:
 1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
 2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.
 3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
+
+## Migrate to TopK
+
+### Migrate from Chroma
+
+URL: https://docs.topk.io/migrate/from-chroma
+
+<div className="agent-prompt">
+<Card title="Migrate with a coding agent" icon="sparkles">
+  Paste this into Claude Code, Cursor, Codex, or any agent with terminal access. It inventories your Chroma collections, shows you a plan, then exports, imports and verifies each one.
+
+  ```text
+  Migrate my Chroma collections to TopK: docs.topk.io/migrate-chroma
+  ```
+</Card>
+</div>
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login)) and the [TopK CLI](/cli)
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key)), for the verification step
+  - Python with `chromadb` and `topk-sdk` installed
+  - Your Chroma Cloud tenant ID, database name and API key
+</Info>
+
+<Warning>
+  Chroma Cloud stops accepting writes on **November 22, 2026** and stops serving reads on **December 22, 2026** ([wind-down notice](https://www.trychroma.com/cloud-wind-down)). The export below only reads, so it works until December 22, but your application's writes fail from November 22.
+</Warning>
+
+Here is how the migration works:
+
+1. A script exports every collection to JSONL and writes a TopK import spec for it, with the vector dimension, the distance metric and a typed field for each metadata key.
+2. [`topk import`](/cli#import) loads each spec into a new collection.
+3. You switch your queries to the TopK SDK.
+4. A second script compares record counts and sample query results between Chroma and TopK.
+
+Your embeddings are copied as they are. Nothing is re-embedded.
+
+#### How Chroma concepts map to TopK
+
+| Chroma | TopK |
+| - | - |
+| Collection | Collection |
+| Record id | `_id` |
+| Embedding | [`f32_vector()`](/sdk/topk-py/schema#f32_vector) field with a [`vector_index()`](/sdk/topk-py/schema#vector_index) |
+| Metadata | Typed fields, usable in filters |
+| Document | Text field with a keyword or semantic index |
+| `space`: `l2` / `cosine` / `ip` | `metric`: `euclidean` / `cosine` / `dot_product` |
+| `query(n_results=10)` | [`.limit(10)`](/sdk/topk-py/query#limit) |
+| `where` | [`.filter()`](/collections/query#filtering) |
+| `where_document={"$contains": ...}` | [`field("document").contains(...)`](/collections/query#contains) |
+| One collection per tenant | [Partitions](/concepts#multi-tenancy) in one collection |
+
+#### Step 1: Export every collection
+
+Save this as `chroma_to_topk.py` in a new, empty directory, and run it there with your Chroma credentials in the environment. It walks every non-empty collection in the database and writes `<collection>.jsonl` and `<collection>.toml` next to it.
+
+```python chroma_to_topk.py
+import json
+import os
+
+import chromadb
+
+### Chroma space -> TopK vector metric
+METRICS = {"l2": "euclidean", "cosine": "cosine", "ip": "dot_product"}
+TYPES = {bool: "bool", int: "int", float: "float", str: "text"}
+RESERVED = {"id", "document", "embedding"}
+PAGE = 300  # Chroma Cloud returns at most 300 records per request
+
+chroma = chromadb.CloudClient(
+    tenant=os.environ["CHROMA_TENANT"],
+    database=os.environ["CHROMA_DATABASE"],
+    api_key=os.environ["CHROMA_API_KEY"],
+)
+
+
+def field_name(key):
+    # TopK field names can't start with "_", and the script uses id,
+    # document and embedding itself, so those keys get a "meta_" prefix.
+    if key.startswith("_") or key in RESERVED:
+        return "meta_" + key.lstrip("_")
+    return key
+
+
+for col in chroma.list_collections():
+    count = col.count()
+    if count == 0:
+        continue
+    config = col.configuration
+    space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+    fields, mixed, dim = {}, set(), None
+
+    with open(f"{col.name}.jsonl", "w") as out:
+        for offset in range(0, count, PAGE):
+            page = col.get(
+                limit=PAGE,
+                offset=offset,
+                include=["documents", "metadatas", "embeddings"],
+            )
+            for id, doc, meta, emb in zip(
+                page["ids"], page["documents"],
+                page["metadatas"], page["embeddings"],
+            ):
+                dim = len(emb)
+                record = {}
+                for key, value in (meta or {}).items():
+                    kind = TYPES.get(type(value))
+                    if kind is None:  # lists, sparse vectors
+                        continue
+                    name = field_name(key)
+                    seen = fields.setdefault(name, kind)
+                    if seen != kind and {seen, kind} == {"int", "float"}:
+                        fields[name] = "float"
+                    elif seen != kind:
+                        fields[name] = "text"
+                        mixed.add(name)
+                    record[name] = value
+                out.write(json.dumps({
+                    **record,
+                    "id": id,
+                    "document": doc,
+                    "embedding": [float(x) for x in emb],
+                }) + "\n")
+
+    # A key whose type varied between records is imported as text,
+    # so rewrite its values as strings.
+    if mixed:
+        with open(f"{col.name}.jsonl") as src, open(f"{col.name}.tmp", "w") as dst:
+            for line in src:
+                record = json.loads(line)
+                for key in mixed & record.keys():
+                    record[key] = str(record[key])
+                dst.write(json.dumps(record) + "\n")
+        os.replace(f"{col.name}.tmp", f"{col.name}.jsonl")
+
+    with open(f"{col.name}.toml", "w") as spec:
+        spec.write(
+            f'["{col.name}"]\nfrom = "{col.name}.jsonl"\nid = "id"\n\n'
+            f'["{col.name}".fields]\n'
+            'document = { type = "text", index = "keyword" }\n'
+        )
+        for key, kind in fields.items():
+            spec.write(f'{json.dumps(key)} = {{ type = "{kind}" }}\n')
+        spec.write(
+            f'\n["{col.name}".fields.embedding]\n'
+            f'type = "f32_vector"\ndim = {dim}\n'
+            f'index = {{ vector = {{ metric = "{METRICS[space]}" }} }}\n'
+        )
+
+    print(f"{col.name}: {count} records, {dim} dims, {space}")
+```
+
+```bash
+mkdir chroma-export && cd chroma-export
+### save chroma_to_topk.py here
+export CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=...
+python chroma_to_topk.py
+```
+
+```text Output
+docs: 120000 records, 1536 dims, cosine
+tickets: 48210 records, 768 dims, ip
+```
+
+<Note>
+  On self-hosted Chroma, replace `chromadb.CloudClient(...)` with `chromadb.HttpClient(host=..., port=...)`. Everything else stays the same.
+</Note>
+
+<Warning>
+  The export pages through each collection by offset, so records your application writes while it runs can be skipped or exported twice. Pause writes to Chroma during the export, or run the export and import again just before you switch writes to TopK.
+</Warning>
+
+<Note>
+  The script reads each collection's distance function from its configuration, so a collection created with `cosine` or `ip` keeps that metric in TopK. Collections without an explicit `space` use Chroma's default, `l2`.
+</Note>
+
+#### Step 2: Review the import spec
+
+Each generated spec is a plain [import spec](/cli#spec). For a collection called `docs`, it looks like this:
+
+```toml docs.toml
+["docs"]
+from = "docs.jsonl"
+id = "id"
+
+["docs".fields]
+document = { type = "text", index = "keyword" }
+"source" = { type = "text" }
+"year" = { type = "int" }
+
+["docs".fields.embedding]
+type = "f32_vector"
+dim = 1536
+index = { vector = { metric = "cosine" } }
+```
+
+Two edits are worth considering before you import:
+
+- **Let TopK embed the text too.** Change the document's index from `"keyword"` to `"semantic"` and TopK generates [multi-vector embeddings](/guides/semantic-search) for it, alongside your existing vectors. You can then query with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) and skip the query embedding call.
+- **Drop fields you don't query.** The spec is a whitelist: only the fields it declares are imported.
+
+#### Step 3: Import into TopK
+
+From the export directory, log in, select the project to import into, then import every spec:
+
+```bash
+topk login
+topk project list
+topk project select <PROJECT_ID>
+for spec in *.toml; do
+  topk import -f "$spec" --region aws-us-east-1-elastica --yes
+done
+```
+
+Pick the region closest to your application from [Regions](/regions). Each spec creates its collection and loads it; documents are searchable as soon as they are written.
+
+<Tip>
+  - Add `--dry-run` to print the plan and a sample of documents without writing anything.
+  - If a run stops, re-run it with `--resume <run-id>`, using the run id printed when it started. Upserts are idempotent, so re-running from scratch is safe too.
+  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export, add `"tenant": col.name` to each record. In every spec, use the same collection name in the table headers and add `partition = "tenant"` under the first header. Every spec must declare the same fields, because an import into an existing collection with a different schema is rejected.
+</Tip>
+
+#### Step 4: Update your queries
+
+Chroma's `query()` becomes a TopK query that selects a score, sorts by it and limits the results:
+
+<CodeGroup>
+
+```python Chroma
+results = collection.query(
+    query_embeddings=[query_vector],
+    n_results=10,
+    where={"source": "handbook"},
+)
+```
+
+```python TopK
+from topk_sdk import Client
+from topk_sdk.query import select, field, fn
+
+client = Client(api_key=TOPK_API_KEY, region="aws-us-east-1-elastica")
+
+results = client.collection("docs").query(
+    select(
+        "document",
+        score=fn.vector_distance("embedding", query_vector),
+    )
+    .filter(field("source") == "handbook")
+    .sort(field("score"), asc=False)
+    .limit(10)
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  Sort direction depends on the metric. For `cosine` and `dot_product`, a higher score is closer, so sort with `asc=False`. For `euclidean`, a lower score is closer, so sort with `asc=True`.
+</Warning>
+
+##### Filter operators
+
+| Chroma `where` | TopK `.filter()` |
+| - | - |
+| `{"year": 2024}` or `{"year": {"$eq": 2024}}` | `field("year") == 2024` |
+| `{"year": {"$ne": 2024}}` | `field("year") != 2024` |
+| `{"year": {"$gt": 2020}}` | `field("year") > 2020` (also `>=`, `<`, `<=`) |
+| `{"source": {"$in": ["wiki", "handbook"]}}` | `field("source").in_(["wiki", "handbook"])` |
+| `{"source": {"$nin": ["wiki"]}}` | `not_(field("source").in_(["wiki"]))` |
+| `{"$and": [a, b]}` | `(a) & (b)` |
+| `{"$or": [a, b]}` | `(a) \| (b)` |
+| `where_document={"$contains": "refund"}` | `field("document").contains("refund")` |
+
+Wrap each comparison in parentheses when you combine them with `&` or `|`, because Python binds `&` and `|` more tightly than `==`, `>` and the other comparisons. `not_` is imported from `topk_sdk.query`. Both `$contains` and `contains()` are case-sensitive substring matches.
+
+#### Step 5: Check that results match
+
+Run this while Chroma still serves reads. It compares record counts, then runs 20 of your own vectors as queries against both systems and prints how many of the top 10 results they share.
+
+```python verify.py
+import os
+
+import chromadb
+from topk_sdk import Client
+from topk_sdk.query import select, field, fn
+
+chroma = chromadb.CloudClient(
+    tenant=os.environ["CHROMA_TENANT"],
+    database=os.environ["CHROMA_DATABASE"],
+    api_key=os.environ["CHROMA_API_KEY"],
+)
+topk = Client(api_key=os.environ["TOPK_API_KEY"], region="aws-us-east-1-elastica")
+
+src = chroma.get_collection("docs")
+dst = topk.collection("docs")
+print("records:", src.count(), dst.count())
+
+### For euclidean (Chroma's l2), a lower score is closer
+config = src.configuration
+space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
+
+for q in src.get(limit=20, include=["embeddings"])["embeddings"]:
+    q = [float(x) for x in q]
+    want = src.query(query_embeddings=[q], n_results=10)["ids"][0]
+    got = dst.query(
+        select(score=fn.vector_distance("embedding", q))
+        .sort(field("score"), asc=(space == "l2"))
+        .limit(10)
+    )
+    print(len(set(want) & {d["_id"] for d in got}), "/ 10 shared")
+```
+
+Both systems use approximate nearest neighbor indexes, so expect close to 10 shared results per query rather than identical lists every time. A count mismatch usually means the import stopped early: re-run it with `--resume`.
+
+#### Things to know
+
+- **Only plain metadata values move.** The script exports string, integer, float and boolean metadata, and skips lists and other values.
+- **A key with mixed types becomes text.** If a metadata key holds different types in different records, such as a number in some and a string in others, it's imported as text and every value is stored as a string. A mix of integers and floats becomes float.
+- **Renamed keys.** TopK field names can't start with `_`, so a key like `_internal` becomes `meta_internal`. Keys called `id`, `document` or `embedding` become `meta_id`, `meta_document` and `meta_embedding`, because the script uses those names itself. Use the new names in your filters.
+- **Queries by text.** If your application calls Chroma with `query_texts`, Chroma embedded the query with the collection's embedding function: the default `all-MiniLM-L6-v2`, one you configured, or Chroma Cloud's hosted Qwen or SPLADE. Your stored vectors move as they are, but TopK needs a query vector from the same model. Either embed queries with that model yourself (all of these are open models you can run), or add a [semantic index](/guides/semantic-search) so TopK embeds both documents and queries.
+- **Sparse vectors aren't exported.** Chroma Cloud stores sparse vectors (for example from SPLADE) in metadata, and the script drops them. Use a keyword index for BM25 on the document instead, or a semantic index, which covers keyword matching too.
+- **Records without a document** import without one; the `document` field is optional.
+- **Squared L2.** Chroma's `l2` is squared Euclidean distance. TopK's `euclidean` ranks results in the same order, but the scores differ.
+
+#### Need help?
+
+If you'd rather not migrate alone, [talk to us](https://www.topk.io/contact). We'll help with the export, the import and the side-by-side check.
 
 ## CLI
 
