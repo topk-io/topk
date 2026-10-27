@@ -598,6 +598,12 @@ DROP TABLE [IF EXISTS] <table>;
 
 </Note>
 
+<Warning>
+
+Wait at least 60 seconds after `DROP TABLE` before you run `CREATE TABLE` with the same name. Writes sent sooner can be lost. See [Re-creating a collection with the same name](/collections/manage#delete).
+
+</Warning>
+
 ### information_schema
 
 TopK exposes two `information_schema` virtual tables for inspecting collections and their schemas. Specify column names explicitly in the select list — `SELECT *` is not supported on virtual tables.

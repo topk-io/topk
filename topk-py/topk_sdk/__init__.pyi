@@ -291,6 +291,9 @@ class CollectionsClient:
     def delete(self, collection_name: builtins.str) -> None:
         """
         Delete a collection.
+
+        Wait at least 60 seconds before creating a new collection with the same name.
+        Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
         """
         ...
 
@@ -326,6 +329,9 @@ class AsyncCollectionsClient:
     def delete(self, collection_name: builtins.str) -> typing.Awaitable[None]:
         """
         Delete a collection asynchronously.
+
+        Wait at least 60 seconds before creating a new collection with the same name.
+        Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
         """
         ...
 

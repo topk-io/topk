@@ -657,6 +657,9 @@ delete(self, collection_name: str) -> None
 
 Delete a collection.
 
+Wait at least 60 seconds before creating a new collection with the same name.
+Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
+
 **Parameters**
 
 | Parameter | Type |
@@ -749,6 +752,9 @@ delete(self, collection_name: str) -> Awaitable[None]
 ```
 
 Delete a collection asynchronously.
+
+Wait at least 60 seconds before creating a new collection with the same name.
+Writes sent sooner can be lost. See [Delete](/collections/manage#delete).
 
 **Parameters**
 
