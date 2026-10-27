@@ -1,0 +1,169 @@
+---
+title: "Agent: migrate from turbopuffer"
+description: "Step-by-step instructions for AI coding agents to move a user's turbopuffer namespaces to TopK with the CLI: inventory, export, import and verify."
+---
+
+You are an AI coding agent, and this page is for you. For an overview of TopK and the other agent pages, see [TopK for coding agents](https://docs.topk.io/agents.md). The human version of this guide is [Migrate from turbopuffer](https://docs.topk.io/migrate/from-turbopuffer.md).
+
+## Instructions
+
+The user wants to move their turbopuffer namespaces to TopK. Follow the steps below in order. You run every command yourself; the user only logs in to TopK in the browser, gives you turbopuffer credentials if you can't find them, and approves the plan in step 4.
+
+Rules:
+
+- Never write to, modify or delete anything in turbopuffer. Every turbopuffer call in this guide is a read: `namespaces()`, `metadata()` and `query()`. Never call `write`, `delete_all`, `copy_from_namespace` or any other method that changes data.
+- Never print, log or commit the turbopuffer API key. Pass credentials to commands as environment variables on the same command line.
+- Don't import anything into TopK until the user approves the plan in step 4.
+- Use the `topk` CLI for TopK. Don't ask the user for a TopK API key: `topk login` is enough.
+- Pass `--region <REGION>` to every data command (`topk import`, `topk sql`), and use the same region throughout. Account commands such as `topk login` and `topk project list` don't take it.
+- If `TOPK_API_KEY` or `TOPK_PROJECT_ID` is set in the environment, run `topk` commands with them unset (`env -u TOPK_API_KEY -u TOPK_PROJECT_ID topk …`).
+- Never run a command that waits for keyboard input: pass `--yes` to `topk import`.
+
+### 1. Set up TopK
+
+Follow steps 1 to 4 of the [Agent quickstart](https://docs.topk.io/agents/quickstart.md): install the CLI, log in, select a project and pick a region. Then come back here.
+
+### 2. Find the turbopuffer credentials
+
+Look for them in this order, and stop at the first that works:
+
+1. Environment variables `TURBOPUFFER_API_KEY` and `TURBOPUFFER_REGION`.
+2. The user's project: search the code and `.env` files for `turbopuffer.Turbopuffer`, `Turbopuffer(` or `TURBOPUFFER_`. Note the region and which namespaces the code uses.
+3. Ask the user for a turbopuffer API key that can list namespaces, and the region their namespaces are in (for example `aws-us-east-1` or `gcp-us-central1`). Both are in the turbopuffer dashboard.
+
+### 3. Prepare a Python environment
+
+The turbopuffer SDK needs Python 3.11 or later. Work in a new directory so the export files don't mix with the user's code:
+
+```bash
+mkdir -p tpuf-to-topk && cd tpuf-to-topk
+python3 -m venv .venv
+.venv/bin/pip install --quiet turbopuffer
+```
+
+### 4. Inventory and plan
+
+List every namespace with its approximate size and schema:
+
+```bash
+TURBOPUFFER_API_KEY=... TURBOPUFFER_REGION=... .venv/bin/python - <<'PY'
+import turbopuffer
+tpuf = turbopuffer.Turbopuffer()
+for entry in tpuf.namespaces():
+    meta = tpuf.namespace(entry.id).metadata()
+    attrs = []
+    for name, config in meta.schema_.items():
+        ann = getattr(config, "ann", None)
+        metric = getattr(ann, "distance_metric", None)
+        embed = " embed" if getattr(config, "embed", None) else ""
+        fts = " fts" if getattr(config, "full_text_search", None) else ""
+        attrs.append(f"{name}:{config.type}{' ' + metric if metric else ''}{fts}{embed}")
+    print(f"{entry.id}\t~{meta.approx_row_count} docs\t{', '.join(attrs)}")
+PY
+```
+
+Then check that each name is free in TopK. For each namespace, run:
+
+```bash
+topk sql --region <REGION> 'SELECT COUNT(*) FROM "<NAMESPACE>"'
+```
+
+`Table does not exist` means the name is free. A count means a TopK collection with that name already exists. (`SHOW TABLES` isn't supported yet, so check each name.)
+
+Show the user a plan as a table: each namespace, its approximate document count, its vector attributes with dimension, the TopK collection it becomes (same name) and its TopK metric (`cosine_distance` → `cosine`, `euclidean_squared` → `euclidean`). Then flag:
+
+- Any name that already exists in TopK.
+- Attributes the export skips: late-interaction (`[][N]f32`), sparse (`{}f16`), `bytes` and `[]bool`.
+- Attributes marked `embed`: turbopuffer embedded that text and the user's queries for them. Recommend a semantic index on that text so TopK embeds both documents and queries; otherwise their code has to embed queries with the same model.
+- Many small namespaces with the same schema (one per tenant): offer to merge them into one collection with a partition per tenant, following the tip in step 3 of [Migrate from turbopuffer](https://docs.topk.io/migrate/from-turbopuffer.md).
+
+Tell the user that the export pages through each namespace by id, so documents their application writes or deletes while it runs may or may not be included: they should pause writes to turbopuffer during the export, or run the export and import again just before switching writes to TopK. Ask the user to approve the plan and to say whether TopK should also embed any text attribute (a semantic index). Wait for their answer.
+
+### 5. Export
+
+Write the export script from step 1 of [Migrate from turbopuffer](https://docs.topk.io/migrate/from-turbopuffer.md) to `tpuf_to_topk.py`, unchanged. If the user approved only some namespaces, add a check at the top of the loop that skips the others. Run it:
+
+```bash
+TURBOPUFFER_API_KEY=... TURBOPUFFER_REGION=... .venv/bin/python tpuf_to_topk.py
+```
+
+It writes `<namespace>.jsonl` and `<namespace>.toml` for each namespace, and prints one line per namespace with the documents exported and any attributes it skipped. If the user wants TopK to embed a text attribute, change its `index = "keyword"` to `index = "semantic"` in the `.toml` file, or add `index = "semantic"` if it has none.
+
+Read each `.toml` file and tell the user about fields the script renames: fields starting with `meta_` started with `_` in turbopuffer, because TopK field names can't. Also tell them that document ids are now strings, so `42` becomes `"42"`.
+
+### 6. Import
+
+Preview one spec first and check the plan it prints:
+
+```bash
+topk import -f <NAMESPACE>.toml --region <REGION> --dry-run
+```
+
+Then import every spec:
+
+```bash
+for spec in *.toml; do
+  topk import -f "$spec" --region <REGION> --yes
+done
+```
+
+If an import stops partway, run the command the CLI prints after `to continue:`, adding `--yes`. It resumes the run from its last checkpoint.
+
+### 7. Verify
+
+For each collection, compare document counts. The export printed how many documents it wrote; TopK's count is:
+
+```bash
+topk sql --region <REGION> 'SELECT COUNT(*) FROM "<NAMESPACE>"'
+```
+
+Then compare search results. This script takes 5 stored vectors from turbopuffer, runs each as a query against both systems and prints how many of the top 10 results they share. It sorts by the namespace's metric, and runs `topk` without `TOPK_API_KEY` and `TOPK_PROJECT_ID`, so your login and selected project apply. Set `NAMESPACE`, `VECTOR` (the vector attribute, usually `vector`) and `REGION` first.
+
+```bash
+NAMESPACE=... VECTOR=vector REGION=... \
+TURBOPUFFER_API_KEY=... TURBOPUFFER_REGION=... .venv/bin/python - <<'PY'
+import json, os, subprocess, turbopuffer
+tpuf = turbopuffer.Turbopuffer()
+name, vec, region = os.environ["NAMESPACE"], os.environ["VECTOR"], os.environ["REGION"]
+src = tpuf.namespace(name)
+ann = src.metadata().schema_[vec].ann
+euclidean = getattr(ann, "distance_metric", None) == "euclidean_squared"
+order = "ASC" if euclidean else "DESC"  # euclidean: lower is closer
+env = {k: v for k, v in os.environ.items()
+       if k not in ("TOPK_API_KEY", "TOPK_PROJECT_ID")}
+for row in src.query(rank_by=("id", "asc"), limit=5, include_attributes=[vec]).rows:
+    q = [float(x) for x in (row.vector if vec == "vector" else row[vec])]
+    want = {str(r.id) for r in src.query(rank_by=(vec, "ANN", q), limit=10).rows}
+    sql = (f"SELECT _id, vector_distance(\"{vec}\", '{json.dumps(q)}'::f32_vector) AS score "
+           f"FROM \"{name}\" ORDER BY score {order} LIMIT 10")
+    out = subprocess.run(
+        ["topk", "sql", "--region", region, "-o", "json", "-f", "-"],
+        input=sql, capture_output=True, text=True, check=True, env=env,
+    ).stdout
+    got = {json.loads(line)["_id"] for line in out.splitlines() if line.strip()}
+    print(f"{len(want & got)} / 10 shared")
+PY
+```
+
+Expect close to 10 shared per query: both systems use approximate indexes. If counts differ, or most queries share fewer than 7, resume or re-run that namespace's import, then verify again. If it still doesn't match, show the user the numbers.
+
+### 8. Wrap up
+
+Show the user a table per namespace: documents exported, TopK count and the average number of shared results. Then:
+
+- Point out where their code calls turbopuffer (from step 2), and offer to switch those queries to the TopK SDK, following step 4 of [Migrate from turbopuffer](https://docs.topk.io/migrate/from-turbopuffer.md). Each hybrid `multi_query` becomes one query sorted by a weighted sum of a vector score and `bm25_score()`. Before writing that code, install the TopK skill: `npx skills add topk-io/topk --skill topk`.
+- The TopK SDKs need an API key: the user creates one at [console.topk.io/api-key](https://console.topk.io/api-key).
+- Tell them the export files in `tpuf-to-topk/` contain their data, and can be deleted once they're satisfied.
+
+## Troubleshooting
+
+| Error or symptom | Fix |
+| --- | --- |
+| turbopuffer `401` or `403` | Check the API key with the user; listing namespaces needs a key with list or admin permission. |
+| turbopuffer `404` on a namespace | `TURBOPUFFER_REGION` doesn't match the namespace's region. Ask the user which region it is in. |
+| Import rejects an existing collection | A TopK collection with that name exists with a different schema. Ask the user whether to import under another name: change the collection name in every table header of the `.toml` file. |
+| Import fails on an `int` field | A `uint` value is above 2<sup>63</sup>. Change that field's type to `text` in the `.toml` file and re-run. |
+| `--region is required` | Add `--region <REGION>` to the command. |
+| `not logged in` or `session expired` | Run `topk login` again. |
+
+Anything else: show the user the exact command and error message, and point them to [support](https://docs.topk.io/support).

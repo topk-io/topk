@@ -21,6 +21,10 @@
       "destination": "/agents/migrate-from-chroma"
     },
     {
+      "source": "/migrate-turbopuffer",
+      "destination": "/agents/migrate-from-turbopuffer"
+    },
+    {
       "source": "/installation",
       "destination": "/introduction"
     },
@@ -131,7 +135,8 @@
             "pages": [
               "agents/index",
               "agents/quickstart",
-              "agents/migrate-from-chroma"
+              "agents/migrate-from-chroma",
+              "agents/migrate-from-turbopuffer"
             ]
           }
         ]
@@ -154,7 +159,8 @@
           {
             "group": "Migrate to TopK",
             "pages": [
-              "migrate/from-chroma"
+              "migrate/from-chroma",
+              "migrate/from-turbopuffer"
             ]
           }
         ]
