@@ -1,11 +1,13 @@
 use crate::client::sync::runtime::Runtime;
 use crate::client::Document;
 use crate::client::CHANNEL_BUFFER_SIZE;
+use crate::data::collection::Collection;
 use crate::data::partition::Partition;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::delete::DeleteExprUnion;
 use crate::query::{ConsistencyLevel, Query};
+use crate::schema::{Schema, SchemaFieldSpec};
 use futures_util::StreamExt;
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
@@ -46,7 +48,7 @@ impl CollectionClient {
 
 #[pymethods]
 impl CollectionClient {
-    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None))]
+    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None, *, ssn=None))]
     pub fn get(
         &self,
         py: Python<'_>,
@@ -54,13 +56,14 @@ impl CollectionClient {
         fields: Option<Vec<String>>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<HashMap<String, Document>> {
         let docs = self
             .runtime
             .block_on(
                 py,
                 self.collection()
-                    .get(ids, fields, lsn, consistency.map(|c| c.into())),
+                    .get(ids, fields, lsn, ssn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
@@ -70,31 +73,34 @@ impl CollectionClient {
             .collect())
     }
 
-    #[pyo3(signature = (lsn=None, consistency=None))]
+    #[pyo3(signature = (lsn=None, consistency=None, *, ssn=None))]
     pub fn count(
         &self,
         py: Python<'_>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<u64> {
         let count = self
             .runtime
             .block_on(
                 py,
-                self.collection().count(lsn, consistency.map(|c| c.into())),
+                self.collection()
+                    .count(lsn, ssn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
         Ok(count)
     }
 
-    #[pyo3(signature = (query, lsn=None, consistency=None))]
+    #[pyo3(signature = (query, lsn=None, consistency=None, *, ssn=None))]
     pub fn query(
         &self,
         py: Python<'_>,
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<Vec<Document>> {
         // Convert query to proto while GIL is held
         let query: topk_rs::proto::v1::data::Query = query.into();
@@ -104,7 +110,7 @@ impl CollectionClient {
             .block_on(
                 py,
                 self.collection()
-                    .query(query, lsn, consistency.map(|c| c.into())),
+                    .query(query, lsn, ssn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
@@ -163,6 +169,29 @@ impl CollectionClient {
             .runtime
             .block_on(py, self.collection().delete(spec))
             .map_err(RustError)?)
+    }
+
+    #[pyo3(signature = (schema, drop_fields=vec![], expected_ssn=None))]
+    pub fn update_schema(
+        &self,
+        py: Python<'_>,
+        schema: HashMap<String, SchemaFieldSpec>,
+        drop_fields: Vec<String>,
+        expected_ssn: Option<u32>,
+    ) -> PyResult<Collection> {
+        let schema = Schema(schema.into_iter().map(|(k, v)| (k, v.0)).collect());
+
+        let collection = self
+            .runtime
+            .block_on(
+                py,
+                self.client
+                    .collection(&self.collection)
+                    .update_schema(schema, drop_fields, expected_ssn),
+            )
+            .map_err(RustError)?;
+
+        Ok(collection.into())
     }
 
     #[pyo3(signature = (prefix=None))]

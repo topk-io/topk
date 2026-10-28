@@ -28,6 +28,21 @@ class DocumentValidationError(Exception):
     Raised when a document is invalid.
     """
 
+class FailedPreconditionError(Exception):
+    """
+    Raised when the collection is not in a state that allows the operation.
+    """
+
+class IndexBuildingError(FailedPreconditionError):
+    """
+    Compatibility base for schema representation readiness errors.
+    """
+
+class SchemaNotReadyError(IndexBuildingError):
+    """
+    Raised when a field or index needed by the query is still rebuilding.
+    """
+
 class InvalidArgumentError(Exception):
     """
     Raised when an invalid argument is provided.
@@ -61,4 +76,24 @@ class SchemaValidationError(Exception):
 class SlowDownError(Exception):
     """
     Raised when a slow down occurs.
+    """
+
+class SsnUnavailableError(FailedPreconditionError):
+    """
+    Raised when the requested schema version is not available yet.
+    """
+
+class IndexMissingError(FailedPreconditionError):
+    """
+    Raised when data lacks an index the query needs.
+    """
+
+class SchemaPausedError(SlowDownError):
+    """
+    Raised when writes stay paused by a schema update past the retry window.
+    """
+
+class SchemaConflictError(FailedPreconditionError):
+    """
+    Raised when a schema update conflicts with the expected version or another update.
     """

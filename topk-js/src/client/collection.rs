@@ -8,11 +8,13 @@ use napi_derive::napi;
 
 use super::partition::{PartitionListStream, PartitionListStreamMessage};
 use super::{RUNTIME, STREAM_BUFFER_SIZE};
+use crate::data::Collection;
 use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
 use crate::expr::delete::DeleteExpression;
 use crate::query::query::Query;
+use crate::schema::field_spec::FieldSpec;
 
 /// Client for interacting with a specific collection.
 ///
@@ -39,6 +41,8 @@ pub struct CollectionClient {
 pub struct QueryOptions {
     /// Last sequence number to query at (for consistency)
     pub lsn: Option<String>,
+    /// Committed schema sequence number to plan under, at the earliest
+    pub ssn: Option<u32>,
     /// Consistency level for the query
     pub consistency: Option<ConsistencyLevel>,
 }
@@ -106,6 +110,7 @@ impl CollectionClient {
                 ids,
                 fields,
                 options.lsn,
+                options.ssn,
                 options.consistency.map(|c| c.into()),
             )
             .await
@@ -124,7 +129,11 @@ impl CollectionClient {
 
         let count = self
             .collection()
-            .count(options.lsn, options.consistency.map(|c| c.into()))
+            .count(
+                options.lsn,
+                options.ssn,
+                options.consistency.map(|c| c.into()),
+            )
             .await
             .map_err(TopkError::from)?;
 
@@ -145,6 +154,7 @@ impl CollectionClient {
             .query(
                 query.clone().into(),
                 options.lsn,
+                options.ssn,
                 options.consistency.map(|c| c.into()),
             )
             .await
@@ -230,6 +240,29 @@ impl CollectionClient {
             .map_err(TopkError::from)?;
 
         Ok(lsn)
+    }
+
+    /// Adds, replaces or undeclares fields of the collection schema.
+    #[napi]
+    pub async fn update_schema(
+        &self,
+        #[napi(ts_arg_type = "Record<string, SchemaFieldSpec>")] schema: HashMap<String, FieldSpec>,
+        drop_fields: Option<Vec<String>>,
+        expected_ssn: Option<u32>,
+    ) -> Result<Collection> {
+        let proto_schema: HashMap<String, topk_rs::proto::v1::control::FieldSpec> = schema
+            .into_iter()
+            .map(|(k, v)| (k, v.clone().into()))
+            .collect();
+
+        let collection = self
+            .client
+            .collection(&self.collection)
+            .update_schema(proto_schema, drop_fields.unwrap_or_default(), expected_ssn)
+            .await
+            .map_err(TopkError::from)?;
+
+        Ok(collection.into())
     }
 
     /// List partitions in the collection as an async iterator.

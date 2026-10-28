@@ -27,7 +27,8 @@ use topk_rs::proto::v1::data::query_service_server::{QueryService, QueryServiceS
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
 use topk_rs::proto::v1::data::{
     DeleteDocumentsRequest, DeleteDocumentsResponse, UpdateDocumentsRequest,
-    UpdateDocumentsResponse, UpsertDocumentsRequest, UpsertDocumentsResponse,
+    UpdateDocumentsResponse, UpdateSchemaRequest, UpdateSchemaResponse, UpsertDocumentsRequest,
+    UpsertDocumentsResponse,
 };
 use topk_rs::proto::v1::data::{
     DocumentData, GetRequest, GetResponse, Query, QueryRequest, QueryResponse,
@@ -163,6 +164,12 @@ impl WriteService for Service {
         &self,
         _: Request<DeleteDocumentsRequest>,
     ) -> Result<Response<DeleteDocumentsResponse>, Status> {
+        Err(Status::unimplemented("unused"))
+    }
+    async fn update_schema(
+        &self,
+        _: Request<UpdateSchemaRequest>,
+    ) -> Result<Response<UpdateSchemaResponse>, Status> {
         Err(Status::unimplemented("unused"))
     }
 }
@@ -429,7 +436,7 @@ async fn streams_authenticate_once_at_initialization() {
     let client = ctx.client(interceptor.clone());
     let mut stream = client
         .collection("books")
-        .query_stream(Query::new(vec![]), None, None)
+        .query_stream(Query::new(vec![]), None, None, None)
         .await
         .unwrap();
     assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer token-0");

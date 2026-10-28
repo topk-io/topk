@@ -63,6 +63,8 @@ export declare class CollectionClient {
    * ```
    */
   delete(expr: Array<string> | query.LogicalExpression): Promise<string>
+  /** Adds, replaces or undeclares fields of the collection schema. */
+  updateSchema(schema: Record<string, SchemaFieldSpec>, dropFields?: Array<string> | undefined | null, expectedSsn?: number | undefined | null): Promise<Collection>
   /** List partitions in the collection as an async iterator. */
   listPartitions(prefix?: string | undefined | null): PartitionListStream
   /** Delete a partition and all documents within it. */
@@ -175,6 +177,8 @@ export interface Collection {
   region: string
   /** Timestamp when the collection was created (ISO 8601) */
   createdAt: string
+  /** Committed schema sequence number */
+  ssn: number
 }
 
 /**
@@ -226,6 +230,8 @@ export interface Partition {
 export interface QueryOptions {
   /** Last sequence number to query at (for consistency) */
   lsn?: string
+  /** Committed schema sequence number to plan under, at the earliest */
+  ssn?: number
   /** Consistency level for the query */
   consistency?: ConsistencyLevel
 }

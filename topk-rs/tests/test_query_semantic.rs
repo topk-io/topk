@@ -31,7 +31,7 @@ async fn test_semantic_index_write_docs(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect("could not query");
 
@@ -50,6 +50,7 @@ async fn test_semantic_index_query(ctx: &mut ProjectTestContext) {
             select([("sim", fns::semantic_similarity("title", "dummy"))])
                 .sort((field("sim"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -74,6 +75,7 @@ async fn test_semantic_index_query_with_text_filter(ctx: &mut ProjectTestContext
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -93,6 +95,7 @@ async fn test_semantic_index_query_with_missing_index(ctx: &mut ProjectTestConte
             select([("sim", fns::semantic_similarity("published_year", "dummy"))])
                 .sort((field("sim"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -119,6 +122,7 @@ async fn test_semantic_index_query_multiple_fields(ctx: &mut ProjectTestContext)
             .limit(5),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -138,6 +142,7 @@ async fn test_semantic_index_query_image_field(ctx: &mut ProjectTestContext) {
             select([("image_sim", fns::semantic_similarity("image", "doggo"))])
                 .sort((field("image_sim"), SortOrder::Desc))
                 .limit(2),
+            None,
             None,
             None,
         )
