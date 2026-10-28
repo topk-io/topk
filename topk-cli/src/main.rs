@@ -131,12 +131,12 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     }
 }
 
-/// Off unless `-v` or `RUST_LOG` (which wins); stdout carries results.
+/// Warnings unless `-v` or `RUST_LOG` (which wins); stdout carries results.
 fn init_logging(verbose: bool) {
     let filter =
         tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| match verbose {
             true => tracing_subscriber::EnvFilter::new("info"),
-            false => tracing_subscriber::EnvFilter::new("off"),
+            false => tracing_subscriber::EnvFilter::new("warn"),
         });
     tracing_subscriber::fmt()
         .with_env_filter(filter)

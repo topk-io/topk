@@ -1,6 +1,7 @@
 use rand::prelude::*;
 use std::future::Future;
 use tokio::time::{Duration, Instant};
+use tracing::warn;
 
 #[derive(Clone, Debug)]
 pub struct RetryConfig {
@@ -89,6 +90,7 @@ where
                         return Err(e);
                     }
 
+                    warn!(error = %e, attempt = i + 1, elapsed = ?start_time.elapsed(), "retrying");
                     next_backoff = wait_for_backoff(&retry_config.backoff, next_backoff).await;
                     i += 1;
                 }

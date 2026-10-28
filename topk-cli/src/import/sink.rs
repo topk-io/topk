@@ -374,9 +374,10 @@ impl BatchWriter<'_> {
                 loop {
                     match collection.upsert(docs.clone()).await {
                         Ok(_) => return Ok::<(), Error>(()),
-                        Err(topk_rs::Error::SlowDown(_))
+                        Err(e @ topk_rs::Error::SlowDown(_))
                             if started.elapsed() < SLOW_DOWN_TIMEOUT =>
                         {
+                            tracing::warn!(error = %e, elapsed = ?started.elapsed(), "retrying");
                             tokio::time::sleep(backoff).await;
                             backoff = (backoff * 2).min(SLOW_DOWN_MAX_BACKOFF);
                         }
