@@ -1,8 +1,10 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
-    Statement as SqlStatement, TableObject, Value as SqlValue,
+    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, LimitClause, ObjectName,
+    SelectItem, SetExpr, ShowObjects, ShowStatementIn, ShowStatementInClause,
+    ShowStatementInParentType, ShowStatementOptions, Statement as SqlStatement, TableObject,
+    Value as SqlValue,
 };
 
 use super::{SqlExprExt, TableFactorExt};
@@ -16,6 +18,12 @@ pub trait SqlStatementExt {
 
     /// Get the table name from the statement, if present.
     fn table(&self) -> Result<Option<Table>, Error>;
+
+    /// The table of `SHOW PARTITIONS FROM TABLE <name>`, if that is the statement.
+    fn show_partitions_table(&self) -> Option<&ObjectName>;
+
+    /// The `LIMIT` expression of a query or of `SHOW PARTITIONS`, if present.
+    fn limit(&self) -> Option<&SqlExpr>;
 
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
@@ -80,12 +88,47 @@ impl SqlStatementExt for SqlStatement {
                     None => return Ok(None),
                 }
             }
+            SqlStatement::ShowObjects(_) => match self.show_partitions_table() {
+                Some(name) => name,
+                None => return Ok(None),
+            },
             _ => return Ok(None),
         };
 
         let table = Table::new(name.clone())?;
 
         Ok(Some(table))
+    }
+
+    // `TopKDialect` parses `SHOW PARTITIONS FROM TABLE <name>` into `SHOW OBJECTS`
+    fn show_partitions_table(&self) -> Option<&ObjectName> {
+        match self {
+            SqlStatement::ShowObjects(ShowObjects {
+                show_options:
+                    ShowStatementOptions {
+                        show_in:
+                            Some(ShowStatementIn {
+                                clause: ShowStatementInClause::FROM,
+                                parent_type: Some(ShowStatementInParentType::Table),
+                                parent_name: Some(name),
+                            }),
+                        ..
+                    },
+                ..
+            }) => Some(name),
+            _ => None,
+        }
+    }
+
+    fn limit(&self) -> Option<&SqlExpr> {
+        match self {
+            SqlStatement::Query(q) => match &q.limit_clause {
+                Some(LimitClause::LimitOffset { limit, .. }) => limit.as_ref(),
+                _ => None,
+            },
+            SqlStatement::ShowObjects(show) => show.show_options.limit.as_ref(),
+            _ => None,
+        }
     }
 
     fn assignment_placeholders(&self) -> Vec<(usize, &str)> {
@@ -127,6 +170,8 @@ mod tests {
     #[case("UPDATE books SET title = $1 WHERE _id = $2", Table::Collection("books".into()))]
     #[case("INSERT INTO books (_id, title) VALUES ('1', 'a')", Table::Collection("books".into()))]
     #[case("DELETE FROM books WHERE _id = '1'", Table::Collection("books".into()))]
+    #[case("SHOW PARTITIONS FROM TABLE books", Table::Collection("books".into()))]
+    #[case("show partitions from table public.books", Table::Collection("books".into()))]
     fn table(#[case] sql: &str, #[case] expected: Table) {
         assert_eq!(parse_one(sql).table().unwrap().unwrap(), expected);
     }
@@ -134,6 +179,7 @@ mod tests {
     #[rstest]
     #[case("SELECT 1")]
     #[case("SELECT * FROM (SELECT 1) sub")]
+    #[case("SHOW transaction_isolation")]
     fn table_none(#[case] sql: &str) {
         assert_eq!(parse_one(sql).table().unwrap(), None);
     }

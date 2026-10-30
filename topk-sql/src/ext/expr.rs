@@ -56,7 +56,7 @@ impl SqlExprExt for SqlExpr {
         match self {
             SqlExpr::Value(v) => match &v.value {
                 SqlValue::Placeholder(p) => {
-                    p.strip_prefix('$')?.parse::<usize>().ok().map(|n| n - 1)
+                    p.strip_prefix('$')?.parse::<usize>().ok()?.checked_sub(1)
                 }
                 _ => None,
             },

@@ -14562,7 +14562,7 @@ Partitions can be specified with `$` or the `PARTITION` keyword:
 | `schema.collection$partition` | `public.books$2024` |
 | `collection PARTITION name` | `books PARTITION 2024` |
 
-Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE` and `DROP TABLE` name collections without partitions; partitions are created implicitly on first write.
+Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE`, `DROP TABLE` and `SHOW PARTITIONS` name collections without partitions; partitions are created implicitly on first write.
 
 ##### SELECT
 
@@ -15052,6 +15052,14 @@ DROP TABLE [IF EXISTS] <table>;
 Wait at least 60 seconds after `DROP TABLE` before you run `CREATE TABLE` with the same name. Writes sent sooner can be lost. See [Re-creating a collection with the same name](/collections/manage#delete).
 
 </Warning>
+
+##### SHOW PARTITIONS
+
+Lists a collection's partitions, one row per partition with its `partition_name` and `created_at`. `STARTS WITH` keeps only partitions whose name starts with the given prefix, and `LIMIT` caps the number of rows.
+
+```sql
+SHOW PARTITIONS FROM TABLE <collection> [STARTS WITH '<prefix>'] [LIMIT <n>];
+```
 
 ##### information_schema
 

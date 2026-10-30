@@ -1,7 +1,8 @@
 use sqlparser::ast::helpers::attached_token::AttachedToken;
 use sqlparser::ast::{
-    CheckConstraint, ColumnOption, Expr as SqlExpr, Statement as SqlStatement, Update,
-    UpdateTableFromKind,
+    CheckConstraint, ColumnOption, Expr as SqlExpr, ShowObjects, ShowStatementIn,
+    ShowStatementInClause, ShowStatementInParentType, ShowStatementOptions,
+    Statement as SqlStatement, Update, UpdateTableFromKind, Value,
 };
 use sqlparser::dialect::{Dialect, PostgreSqlDialect, Precedence};
 use sqlparser::keywords::Keyword;
@@ -85,6 +86,9 @@ impl Dialect for TopKDialect {
         if parser.parse_keyword(Keyword::UPDATE) {
             return Some(parse_update_statement(parser));
         }
+        if parser.parse_keywords(&[Keyword::SHOW, Keyword::PARTITIONS]) {
+            return Some(parse_show_partitions(parser));
+        }
 
         self.postgres.parse_statement(parser)
     }
@@ -143,5 +147,44 @@ fn parse_update_statement(parser: &mut Parser) -> Result<SqlStatement, ParserErr
         returning,
         or: None,
         limit: None,
+    }))
+}
+
+// `SHOW PARTITIONS FROM TABLE <collection> [STARTS WITH '<prefix>'] [LIMIT <n>]`, after
+// CockroachDB, with Snowflake's `SHOW` filters. sqlparser has no such statement; `SHOW OBJECTS` is
+// the one whose options carry a `FROM TABLE <name>`, a `STARTS WITH` and a `LIMIT`, so it stands
+// in for it. Only this parser produces it: postgres has no `SHOW OBJECTS`.
+fn parse_show_partitions(parser: &mut Parser) -> Result<SqlStatement, ParserError> {
+    parser.expect_keywords(&[Keyword::FROM, Keyword::TABLE])?;
+    let name = parser.parse_object_name(false)?;
+    let starts_with = match parser.parse_keywords(&[Keyword::STARTS, Keyword::WITH]) {
+        true => match parser.parse_value()?.value {
+            prefix @ Value::SingleQuotedString(_) => Some(prefix),
+            other => {
+                return Err(ParserError::ParserError(format!(
+                    "STARTS WITH expects a quoted string, found: {other}"
+                )))
+            }
+        },
+        false => None,
+    };
+    let limit = parser
+        .parse_keyword(Keyword::LIMIT)
+        .then(|| parser.parse_expr())
+        .transpose()?;
+
+    Ok(SqlStatement::ShowObjects(ShowObjects {
+        terse: false,
+        show_options: ShowStatementOptions {
+            show_in: Some(ShowStatementIn {
+                clause: ShowStatementInClause::FROM,
+                parent_type: Some(ShowStatementInParentType::Table),
+                parent_name: Some(name),
+            }),
+            starts_with,
+            limit,
+            limit_from: None,
+            filter_position: None,
+        },
     }))
 }

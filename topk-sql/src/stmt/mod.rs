@@ -13,6 +13,7 @@ mod drop;
 mod explain;
 mod insert;
 mod select;
+mod show;
 mod update;
 
 #[derive(Debug, Clone, PartialEq, IntoStaticStr)]
@@ -84,6 +85,16 @@ pub enum Statement {
         if_exists: bool,
     },
 
+    /// `SHOW PARTITIONS FROM TABLE <collection> [STARTS WITH '<prefix>'] [LIMIT <n>]`
+    ShowPartitions {
+        /// Table name (`<collection>`).
+        table: Table,
+        /// Only list partitions whose name starts with this prefix.
+        prefix: Option<String>,
+        /// Maximum number of partitions to list.
+        limit: Option<u64>,
+    },
+
     Explain {
         /// Statement to explain.
         stmt: Box<Statement>,
@@ -115,7 +126,8 @@ impl Statement {
             | Statement::Delete { table, .. }
             | Statement::DeletePartition { table }
             | Statement::CreateTable { table, .. }
-            | Statement::DropTable { table, .. } => Some(table),
+            | Statement::DropTable { table, .. }
+            | Statement::ShowPartitions { table, .. } => Some(table),
             Statement::Explain { stmt, .. } => stmt.table(),
             _ => None,
         }
@@ -139,6 +151,7 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::Explain { .. } => explain::try_from_sql(stmt),
             SqlStatement::CreateTable(ct) => Statement::try_from(ct),
             SqlStatement::Drop { .. } => drop::try_from_sql(stmt),
+            SqlStatement::ShowObjects(_) => show::try_from_sql(stmt),
             other => Err(Error::Unsupported(format!("statement: {other:?}"))),
         }
     }
