@@ -46,8 +46,6 @@ impl Table {
             .value
             .as_str();
 
-        sql_invalid!(value.is_empty(), "table name cannot be empty");
-
         if let Some((collection, partition)) = value.split_once('$') {
             sql_invalid!(
                 collection.is_empty() || partition.is_empty(),
@@ -59,6 +57,8 @@ impl Table {
                 partition.to_string(),
             ))
         } else {
+            sql_invalid!(value.is_empty(), "table name cannot be empty");
+
             Ok(Self::Collection(value.to_string()))
         }
     }
