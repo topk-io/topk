@@ -3,16 +3,7 @@ use sqlparser::ast::{Statement as SqlStatement, Value as SqlValue};
 use crate::{sql_invalid, sql_unsupported, Error, SqlExprExt, SqlStatementExt, Statement, Table};
 
 pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
-    let Some(name) = stmt.show_partitions_table() else {
-        sql_unsupported!("statement: {stmt:?}");
-    };
-
-    let table = Table::new(name.clone())?;
-    sql_invalid!(
-        !matches!(table, Table::Collection(_)),
-        "SHOW PARTITIONS requires a collection name"
-    );
-    // `TopKDialect` only writes a string here; an empty prefix matches every partition
+    // `TopKDialect` only writes a string here; an empty prefix matches every name
     let prefix = match &stmt {
         SqlStatement::ShowObjects(show) => match &show.show_options.starts_with {
             Some(SqlValue::SingleQuotedString(prefix)) if !prefix.is_empty() => {
@@ -29,6 +20,20 @@ pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
                 .ok_or_else(|| Error::Invalid("LIMIT must be a non-negative integer".to_string()))
         })
         .transpose()?;
+
+    if stmt.is_show_collections() {
+        return Ok(Statement::ShowCollections { prefix, limit });
+    }
+
+    let Some(name) = stmt.show_partitions_table() else {
+        sql_unsupported!("statement: {stmt:?}");
+    };
+
+    let table = Table::new(name.clone())?;
+    sql_invalid!(
+        !matches!(table, Table::Collection(_)),
+        "SHOW PARTITIONS requires a collection name"
+    );
 
     Ok(Statement::ShowPartitions {
         table,
@@ -81,6 +86,35 @@ mod tests {
     }
 
     #[rstest]
+    #[case("SHOW COLLECTIONS", None, None)]
+    #[case("show collections", None, None)]
+    #[case("SHOW COLLECTIONS LIMIT 10", None, Some(10))]
+    #[case("SHOW COLLECTIONS STARTS WITH 'acme'", Some("acme"), None)]
+    #[case("SHOW COLLECTIONS STARTS WITH 'acme' LIMIT 10", Some("acme"), Some(10))]
+    #[case("SHOW COLLECTIONS STARTS WITH ''", None, None)]
+    #[case("SHOW COLLECTIONS;", None, None)]
+    fn show_collections(
+        #[case] sql: &str,
+        #[case] prefix: Option<&str>,
+        #[case] limit: Option<u64>,
+    ) {
+        assert_eq!(
+            convert(sql).unwrap(),
+            Statement::ShowCollections {
+                prefix: prefix.map(str::to_string),
+                limit,
+            }
+        );
+    }
+
+    #[rstest]
+    #[case::collections_from("SHOW COLLECTIONS FROM TABLE books")]
+    #[case::collections_trailing("SHOW COLLECTIONS books")]
+    #[case::collections_negative_limit("SHOW COLLECTIONS LIMIT -1")]
+    #[case::collections_prefix_not_string("SHOW COLLECTIONS STARTS WITH acme")]
+    #[case::collections_limit_before_prefix("SHOW COLLECTIONS LIMIT 10 STARTS WITH 'acme'")]
+    #[case::quoted_collections("SHOW \"collections\"")]
+    #[case::tables("SHOW TABLES")]
     #[case::partition("SHOW PARTITIONS FROM TABLE books$p1")]
     #[case::schema("SHOW PARTITIONS FROM TABLE other.books")]
     #[case::no_table("SHOW PARTITIONS FROM TABLE")]

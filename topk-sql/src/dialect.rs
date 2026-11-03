@@ -7,6 +7,7 @@ use sqlparser::ast::{
 use sqlparser::dialect::{Dialect, PostgreSqlDialect, Precedence};
 use sqlparser::keywords::Keyword;
 use sqlparser::parser::{Parser, ParserError};
+use sqlparser::tokenizer::Token;
 
 #[derive(Debug)]
 pub struct TopKDialect {
@@ -89,6 +90,17 @@ impl Dialect for TopKDialect {
         if parser.parse_keywords(&[Keyword::SHOW, Keyword::PARTITIONS]) {
             return Some(parse_show_partitions(parser));
         }
+        // `COLLECTIONS` is not a sqlparser keyword
+        if let [Token::Word(show), Token::Word(collections)] = parser.peek_tokens() {
+            if show.keyword == Keyword::SHOW
+                && collections.quote_style.is_none()
+                && collections.value.eq_ignore_ascii_case("collections")
+            {
+                parser.next_token();
+                parser.next_token();
+                return Some(parse_show_objects(parser, None));
+            }
+        }
 
         self.postgres.parse_statement(parser)
     }
@@ -157,6 +169,21 @@ fn parse_update_statement(parser: &mut Parser) -> Result<SqlStatement, ParserErr
 fn parse_show_partitions(parser: &mut Parser) -> Result<SqlStatement, ParserError> {
     parser.expect_keywords(&[Keyword::FROM, Keyword::TABLE])?;
     let name = parser.parse_object_name(false)?;
+
+    parse_show_objects(
+        parser,
+        Some(ShowStatementIn {
+            clause: ShowStatementInClause::FROM,
+            parent_type: Some(ShowStatementInParentType::Table),
+            parent_name: Some(name),
+        }),
+    )
+}
+
+fn parse_show_objects(
+    parser: &mut Parser,
+    show_in: Option<ShowStatementIn>,
+) -> Result<SqlStatement, ParserError> {
     let starts_with = match parser.parse_keywords(&[Keyword::STARTS, Keyword::WITH]) {
         true => match parser.parse_value()?.value {
             prefix @ Value::SingleQuotedString(_) => Some(prefix),
@@ -176,11 +203,7 @@ fn parse_show_partitions(parser: &mut Parser) -> Result<SqlStatement, ParserErro
     Ok(SqlStatement::ShowObjects(ShowObjects {
         terse: false,
         show_options: ShowStatementOptions {
-            show_in: Some(ShowStatementIn {
-                clause: ShowStatementInClause::FROM,
-                parent_type: Some(ShowStatementInParentType::Table),
-                parent_name: Some(name),
-            }),
+            show_in,
             starts_with,
             limit,
             limit_from: None,

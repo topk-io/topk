@@ -22,7 +22,10 @@ pub trait SqlStatementExt {
     /// The table of `SHOW PARTITIONS FROM TABLE <name>`, if that is the statement.
     fn show_partitions_table(&self) -> Option<&ObjectName>;
 
-    /// The `LIMIT` expression of a query or of `SHOW PARTITIONS`, if present.
+    /// Whether the statement is `SHOW COLLECTIONS`.
+    fn is_show_collections(&self) -> bool;
+
+    /// The `LIMIT` expression of a query, `SHOW PARTITIONS` or `SHOW COLLECTIONS`, if present.
     fn limit(&self) -> Option<&SqlExpr>;
 
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
@@ -120,6 +123,17 @@ impl SqlStatementExt for SqlStatement {
         }
     }
 
+    // `TopKDialect` parses `SHOW COLLECTIONS` into `SHOW OBJECTS` without a `FROM`
+    fn is_show_collections(&self) -> bool {
+        matches!(
+            self,
+            SqlStatement::ShowObjects(ShowObjects {
+                show_options: ShowStatementOptions { show_in: None, .. },
+                ..
+            })
+        )
+    }
+
     fn limit(&self) -> Option<&SqlExpr> {
         match self {
             SqlStatement::Query(q) => match &q.limit_clause {
@@ -179,6 +193,7 @@ mod tests {
     #[rstest]
     #[case("SELECT 1")]
     #[case("SELECT * FROM (SELECT 1) sub")]
+    #[case("SHOW COLLECTIONS")]
     #[case("SHOW transaction_isolation")]
     fn table_none(#[case] sql: &str) {
         assert_eq!(parse_one(sql).table().unwrap(), None);
