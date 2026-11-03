@@ -47,11 +47,18 @@ impl Table {
             .as_str();
 
         if let Some((collection, partition)) = value.split_once('$') {
+            sql_invalid!(
+                collection.is_empty() || partition.is_empty(),
+                "invalid table reference '{value}'; expected collection$partition"
+            );
+
             Ok(Self::Partition(
                 collection.to_string(),
                 partition.to_string(),
             ))
         } else {
+            sql_invalid!(value.is_empty(), "table name cannot be empty");
+
             Ok(Self::Collection(value.to_string()))
         }
     }
@@ -134,6 +141,24 @@ mod tests {
         "unknown schema 'information_schema'; only 'public' is supported"
     )]
     fn new_rejects_non_public_schema(#[case] table: &str, #[case] message: &str) {
+        match Table::new(name(table)).unwrap_err() {
+            Error::Invalid(msg) => assert_eq!(msg, message),
+            other => panic!("expected Invalid, got {other:?}"),
+        }
+    }
+
+    #[rstest]
+    #[case("\"\"", "table name cannot be empty")]
+    #[case(
+        "\"books$\"",
+        "invalid table reference 'books$'; expected collection$partition"
+    )]
+    #[case(
+        "\"$part\"",
+        "invalid table reference '$part'; expected collection$partition"
+    )]
+    #[case("\"$\"", "invalid table reference '$'; expected collection$partition")]
+    fn new_rejects_empty_name(#[case] table: &str, #[case] message: &str) {
         match Table::new(name(table)).unwrap_err() {
             Error::Invalid(msg) => assert_eq!(msg, message),
             other => panic!("expected Invalid, got {other:?}"),
