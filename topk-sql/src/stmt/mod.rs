@@ -94,8 +94,8 @@ pub enum Statement {
         /// Maximum number of partitions to list.
         limit: Option<u64>,
     },
-    /// `SHOW COLLECTIONS [STARTS WITH '<prefix>'] [LIMIT <n>]`
-    ShowCollections {
+    /// `SHOW TABLES [STARTS WITH '<prefix>'] [LIMIT <n>]`
+    ShowTables {
         /// Only list collections whose name starts with this prefix.
         prefix: Option<String>,
         /// Maximum number of collections to list.

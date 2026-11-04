@@ -579,12 +579,12 @@ DROP TABLE [IF EXISTS] <table>;
 > Wait at least 60 seconds after `DROP TABLE` before you run `CREATE TABLE` with the same name. Writes sent sooner can be lost. See [Re-creating a collection with the same name](/collections/manage#delete).
 
 
-### SHOW COLLECTIONS
+### SHOW TABLES
 
-Lists the project's collections, one row per collection with its `collection_name` and `created_at`. `STARTS WITH` keeps only collections whose name starts with the given prefix, and `LIMIT` caps the number of rows.
+Lists the project's collections, one row per collection with its `table_name` and `created_at`. `STARTS WITH` keeps only collections whose name starts with the given prefix, and `LIMIT` caps the number of rows.
 
 ```sql
-SHOW COLLECTIONS [STARTS WITH '<prefix>'] [LIMIT <n>];
+SHOW TABLES [STARTS WITH '<prefix>'] [LIMIT <n>];
 ```
 
 

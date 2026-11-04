@@ -21,8 +21,8 @@ pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
         })
         .transpose()?;
 
-    if stmt.is_show_collections() {
-        return Ok(Statement::ShowCollections { prefix, limit });
+    if stmt.is_show_tables() {
+        return Ok(Statement::ShowTables { prefix, limit });
     }
 
     let Some(name) = stmt.show_partitions_table() else {
@@ -86,21 +86,17 @@ mod tests {
     }
 
     #[rstest]
-    #[case("SHOW COLLECTIONS", None, None)]
-    #[case("show collections", None, None)]
-    #[case("SHOW COLLECTIONS LIMIT 10", None, Some(10))]
-    #[case("SHOW COLLECTIONS STARTS WITH 'acme'", Some("acme"), None)]
-    #[case("SHOW COLLECTIONS STARTS WITH 'acme' LIMIT 10", Some("acme"), Some(10))]
-    #[case("SHOW COLLECTIONS STARTS WITH ''", None, None)]
-    #[case("SHOW COLLECTIONS;", None, None)]
-    fn show_collections(
-        #[case] sql: &str,
-        #[case] prefix: Option<&str>,
-        #[case] limit: Option<u64>,
-    ) {
+    #[case("SHOW TABLES", None, None)]
+    #[case("show tables", None, None)]
+    #[case("SHOW TABLES LIMIT 10", None, Some(10))]
+    #[case("SHOW TABLES STARTS WITH 'acme'", Some("acme"), None)]
+    #[case("SHOW TABLES STARTS WITH 'acme' LIMIT 10", Some("acme"), Some(10))]
+    #[case("SHOW TABLES STARTS WITH ''", None, None)]
+    #[case("SHOW TABLES;", None, None)]
+    fn show_tables(#[case] sql: &str, #[case] prefix: Option<&str>, #[case] limit: Option<u64>) {
         assert_eq!(
             convert(sql).unwrap(),
-            Statement::ShowCollections {
+            Statement::ShowTables {
                 prefix: prefix.map(str::to_string),
                 limit,
             }
@@ -108,13 +104,15 @@ mod tests {
     }
 
     #[rstest]
-    #[case::collections_from("SHOW COLLECTIONS FROM TABLE books")]
-    #[case::collections_trailing("SHOW COLLECTIONS books")]
-    #[case::collections_negative_limit("SHOW COLLECTIONS LIMIT -1")]
-    #[case::collections_prefix_not_string("SHOW COLLECTIONS STARTS WITH acme")]
-    #[case::collections_limit_before_prefix("SHOW COLLECTIONS LIMIT 10 STARTS WITH 'acme'")]
-    #[case::quoted_collections("SHOW \"collections\"")]
-    #[case::tables("SHOW TABLES")]
+    #[case::tables_from("SHOW TABLES FROM SCHEMA public")]
+    #[case::tables_like("SHOW TABLES LIKE 'acme%'")]
+    #[case::tables_full("SHOW FULL TABLES")]
+    #[case::tables_trailing("SHOW TABLES books")]
+    #[case::tables_negative_limit("SHOW TABLES LIMIT -1")]
+    #[case::tables_prefix_not_string("SHOW TABLES STARTS WITH acme")]
+    #[case::tables_limit_before_prefix("SHOW TABLES LIMIT 10 STARTS WITH 'acme'")]
+    #[case::quoted_tables("SHOW \"tables\"")]
+    #[case::collections("SHOW COLLECTIONS")]
     #[case::partition("SHOW PARTITIONS FROM TABLE books$p1")]
     #[case::schema("SHOW PARTITIONS FROM TABLE other.books")]
     #[case::no_table("SHOW PARTITIONS FROM TABLE")]

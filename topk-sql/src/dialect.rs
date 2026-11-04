@@ -7,7 +7,6 @@ use sqlparser::ast::{
 use sqlparser::dialect::{Dialect, PostgreSqlDialect, Precedence};
 use sqlparser::keywords::Keyword;
 use sqlparser::parser::{Parser, ParserError};
-use sqlparser::tokenizer::Token;
 
 #[derive(Debug)]
 pub struct TopKDialect {
@@ -90,16 +89,9 @@ impl Dialect for TopKDialect {
         if parser.parse_keywords(&[Keyword::SHOW, Keyword::PARTITIONS]) {
             return Some(parse_show_partitions(parser));
         }
-        // `COLLECTIONS` is not a sqlparser keyword
-        if let [Token::Word(show), Token::Word(collections)] = parser.peek_tokens() {
-            if show.keyword == Keyword::SHOW
-                && collections.quote_style.is_none()
-                && collections.value.eq_ignore_ascii_case("collections")
-            {
-                parser.next_token();
-                parser.next_token();
-                return Some(parse_show_objects(parser, None));
-            }
+        // Parsed here, not by sqlparser's own `SHOW TABLES`, to accept only `STARTS WITH` and `LIMIT`
+        if parser.parse_keywords(&[Keyword::SHOW, Keyword::TABLES]) {
+            return Some(parse_show_objects(parser, None));
         }
 
         self.postgres.parse_statement(parser)
