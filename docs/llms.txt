@@ -18,6 +18,7 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 - [TopK for coding agents](https://docs.topk.io/agents): Start here if you are an AI coding agent: what TopK is, how to access it, and which agent pages to follow for each task.
 - [Agent quickstart](https://docs.topk.io/agents/quickstart): Step-by-step instructions for AI coding agents to set a user up with TopK using only the CLI: sign up, create a collection, and run a semantic search.
 - [Agent: migrate from Chroma](https://docs.topk.io/agents/migrate-from-chroma): Step-by-step instructions for AI coding agents to move a user's Chroma collections to TopK with the CLI: inventory, export, import and verify.
+- [Agent: migrate from turbopuffer](https://docs.topk.io/agents/migrate-from-turbopuffer): Step-by-step instructions for AI coding agents to move a user's turbopuffer namespaces to TopK with the CLI: inventory, export, import and verify.
 
 ## Collection API
 
@@ -41,6 +42,7 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 ## Migrate to TopK
 
 - [Migrate from Chroma](https://docs.topk.io/migrate/from-chroma): Move every Chroma collection to TopK with its embeddings, metadata and distance metric, then check that results match before you cut over.
+- [Migrate from turbopuffer](https://docs.topk.io/migrate/from-turbopuffer): Move every turbopuffer namespace to TopK with its ids, vectors, attributes and distance metric, then check that results match before you cut over.
 
 ## CLI
 
