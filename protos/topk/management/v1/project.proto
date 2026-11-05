@@ -13,6 +13,8 @@ message Project {
   string project_id = 2;
   string name = 3;
   int64 created_at = 4;
+
+  uint64 collection_count = 5;
 }
 
 message ListProjectsRequest {
