@@ -45,6 +45,15 @@ impl SqlStatementExt for SqlStatement {
             }
             ControlFlow::Continue(())
         });
+        // `STARTS WITH` holds a bare value, which the expression visitor does not reach
+        if let SqlStatement::ShowObjects(show) = self {
+            if matches!(
+                show.show_options.starts_with,
+                Some(SqlValue::Placeholder(_))
+            ) {
+                count += 1;
+            }
+        }
         count
     }
 

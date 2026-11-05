@@ -178,10 +178,10 @@ fn parse_show_objects(
 ) -> Result<SqlStatement, ParserError> {
     let starts_with = match parser.parse_keywords(&[Keyword::STARTS, Keyword::WITH]) {
         true => match parser.parse_value()?.value {
-            prefix @ Value::SingleQuotedString(_) => Some(prefix),
+            prefix @ (Value::SingleQuotedString(_) | Value::Placeholder(_)) => Some(prefix),
             other => {
                 return Err(ParserError::ParserError(format!(
-                    "STARTS WITH expects a quoted string, found: {other}"
+                    "STARTS WITH expects a quoted string or a parameter, found: {other}"
                 )))
             }
         },

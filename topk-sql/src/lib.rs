@@ -10,7 +10,8 @@ use dialect::TopKDialect;
 
 mod ext;
 pub use ext::{
-    ObjectNameExt, SelectItemExt, SqlExprExt, SqlFunctionExt, SqlStatementExt, TableFactorExt,
+    ObjectNameExt, SelectItemExt, SqlExprExt, SqlFunctionExt, SqlStatementExt, SqlValueExt,
+    TableFactorExt,
 };
 
 mod expr;

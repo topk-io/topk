@@ -7,10 +7,10 @@ pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
         sql_unsupported!("statement: {stmt:?}");
     };
 
-    // `TopKDialect` only writes a string here; an empty prefix matches every name
     let prefix = match &show.show_options.starts_with {
-        Some(SqlValue::SingleQuotedString(prefix)) if !prefix.is_empty() => Some(prefix.clone()),
-        _ => None,
+        None => None,
+        Some(SqlValue::SingleQuotedString(prefix)) => (!prefix.is_empty()).then(|| prefix.clone()),
+        Some(other) => sql_invalid!("STARTS WITH expects a string, found: {other}"),
     };
     let limit = show
         .show_options
@@ -120,7 +120,7 @@ mod tests {
     #[case::negative_limit("SHOW PARTITIONS FROM TABLE books LIMIT -1")]
     #[case::text_limit("SHOW PARTITIONS FROM TABLE books LIMIT 'ten'")]
     #[case::prefix_not_string("SHOW PARTITIONS FROM TABLE books STARTS WITH acme")]
-    #[case::prefix_placeholder("SHOW PARTITIONS FROM TABLE books STARTS WITH $1")]
+    #[case::unbound_prefix_placeholder("SHOW PARTITIONS FROM TABLE books STARTS WITH $1")]
     #[case::limit_before_prefix("SHOW PARTITIONS FROM TABLE books LIMIT 10 STARTS WITH 'acme'")]
     #[case::variable("SHOW transaction_isolation")]
     fn show_rejected(#[case] sql: &str) {

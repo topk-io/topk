@@ -12,3 +12,6 @@ pub use stmt::SqlStatementExt;
 
 mod table;
 pub use table::{ObjectNameExt, TableFactorExt};
+
+mod value;
+pub use value::SqlValueExt;
