@@ -31,6 +31,11 @@ impl TableScope {
         let sql = sql.replace("{{table}}", &self.name);
         self.sql.query(&sql).await
     }
+
+    pub async fn prepared(&self, sql: &str, params: Vec<Value>) -> anyhow::Result<Vec<Document>> {
+        let sql = sql.replace("{{table}}", &self.name);
+        self.sql.prepared(&sql, params).await
+    }
 }
 
 impl AsyncTestContext for TableScope {

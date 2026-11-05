@@ -5,7 +5,7 @@ use topk_rs::doc;
 use topk_rs::proto::v1::data::{Document, Value};
 
 mod common;
-use common::{ids, BooksContext, Scope};
+use common::{ids, BooksContext, Scope, TableScope};
 
 #[rstest]
 #[case::text("SELECT _id FROM {{table}} WHERE author = $1", vec![Value::string("Tolkien")], ids!["hobbit", "lotr"])]
@@ -80,6 +80,62 @@ async fn prepared_update(
 ) {
     let rows = BooksContext::with_scope(async |ctx| {
         ctx.prepared(update_sql, params).await?;
+        ctx.sql(select_sql).await
+    })
+    .await
+    .unwrap();
+    assert_eq!(rows, expected);
+}
+
+const PNG_BYTES: [u8; 6] = [0x89, b'P', b'N', b'G', 0x00, 0xff];
+
+#[rstest]
+#[case::bytes(
+    "CREATE TABLE {{table}} (payload BYTEA NOT NULL)",
+    "INSERT INTO {{table}} (_id, payload) VALUES ('doc', $1)",
+    Value::bytes(PNG_BYTES.to_vec()),
+    "SELECT payload::bytea AS payload FROM {{table}} WHERE _id = 'doc'",
+    vec![doc!("payload" => Value::bytes(PNG_BYTES.to_vec()))],
+)]
+#[case::bytes_fn(
+    "CREATE TABLE {{table}} (payload BYTEA NOT NULL)",
+    "INSERT INTO {{table}} (_id, payload) VALUES ('doc', bytes($1))",
+    Value::bytes(PNG_BYTES.to_vec()),
+    "SELECT payload::bytea AS payload FROM {{table}} WHERE _id = 'doc'",
+    vec![doc!("payload" => Value::bytes(PNG_BYTES.to_vec()))],
+)]
+#[case::image_png(
+    "CREATE TABLE {{table}} (cover IMAGE NOT NULL)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('doc', image_png($1))",
+    Value::bytes(PNG_BYTES.to_vec()),
+    "SELECT _id FROM {{table}} WHERE _id = 'doc'",
+    vec![doc!("_id" => "doc")],
+)]
+#[case::image_jpeg(
+    "CREATE TABLE {{table}} (cover IMAGE NOT NULL)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('doc', image_jpeg($1))",
+    Value::bytes(PNG_BYTES.to_vec()),
+    "SELECT _id FROM {{table}} WHERE _id = 'doc'",
+    vec![doc!("_id" => "doc")],
+)]
+#[case::image_data_uri(
+    "CREATE TABLE {{table}} (cover IMAGE NOT NULL)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('doc', image($1))",
+    Value::string("data:image/png;base64,iVBORw0KGgo="),
+    "SELECT _id FROM {{table}} WHERE _id = 'doc'",
+    vec![doc!("_id" => "doc")],
+)]
+#[tokio::test]
+async fn prepared_binary_insert(
+    #[case] create_sql: &str,
+    #[case] insert_sql: &str,
+    #[case] param: Value,
+    #[case] select_sql: &str,
+    #[case] expected: Vec<Document>,
+) {
+    let rows = TableScope::with_scope(async |ctx| {
+        ctx.sql(create_sql).await?;
+        ctx.prepared(insert_sql, vec![param]).await?;
         ctx.sql(select_sql).await
     })
     .await

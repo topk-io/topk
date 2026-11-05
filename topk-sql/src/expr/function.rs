@@ -1,7 +1,7 @@
 use sqlparser::ast::{Expr as SqlExpr, Function as SqlFunction};
 
 use topk_rs::proto::v1::data::{
-    list, text_expr::Term, value, FunctionExpr, LogicalExpr, TextExpr, Value,
+    image, list, text_expr::Term, value, FunctionExpr, LogicalExpr, TextExpr, Value,
 };
 
 use super::typed::{coerce_i64s, ElemType, TypedValues};
@@ -115,27 +115,16 @@ impl TryFrom<SqlFunction> for Expr {
             "f8_matrix" => Self::Literal(matrix_ctor(args, &name, ElemType::F8Vector)?),
             "u8_matrix" => Self::Literal(matrix_ctor(args, &name, ElemType::U8Vector)?),
             "i8_matrix" => Self::Literal(matrix_ctor(args, &name, ElemType::I8Vector)?),
-            "bytes" => {
+            "bytes" => Self::Literal(Value::bytes(bytes(args, &name)?)),
+            "image_png" => Self::Literal(Value::png(bytes(args, &name)?)),
+            "image_jpeg" => Self::Literal(Value::jpeg(bytes(args, &name)?)),
+            "image" => {
                 let [arg]: [SqlExpr; 1] = exact(args, &name)?;
-                let s = arg.as_string().ok_or_else(|| {
-                    Error::Invalid(format!("{name}: argument must be a hex string"))
-                })?;
-                let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-                if !cleaned.len().is_multiple_of(2) {
-                    return Err(Error::Invalid("bytes: hex string has odd length".into()));
-                }
-                let bytes = (0..cleaned.len())
-                    .step_by(2)
-                    .map(|i| {
-                        u8::from_str_radix(&cleaned[i..i + 2], 16).map_err(|e| {
-                            Error::Invalid(format!(
-                                "bytes: invalid hex `{}`: {e}",
-                                &cleaned[i..i + 2]
-                            ))
-                        })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                Self::Literal(Value::bytes(bytes))
+                let uri = match Value::from_sql(arg)?.value {
+                    Some(value::Value::String(uri)) => uri,
+                    _ => sql_invalid!("{name}: argument must be a data URI string"),
+                };
+                Self::Literal(Value::image(image::Data::try_from(uri)?))
             }
             "struct" => {
                 if !args.len().is_multiple_of(2) {
@@ -234,6 +223,15 @@ impl TryFrom<SqlFunction> for Expr {
             }
             _ => return Err(Error::UnknownFunction(name)),
         })
+    }
+}
+
+fn bytes(args: Vec<SqlExpr>, name: &str) -> Result<Vec<u8>, Error> {
+    let [arg]: [SqlExpr; 1] = exact(args, name)?;
+    match Value::from_sql(arg)?.value {
+        Some(value::Value::Binary(b)) => Ok(b.to_vec()),
+        Some(value::Value::String(hex)) => Ok(hex::decode(hex)?),
+        _ => sql_invalid!("{name}: argument must be a hex string or bytes"),
     }
 }
 

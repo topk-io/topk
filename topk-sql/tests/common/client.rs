@@ -90,6 +90,7 @@ impl SqlClient {
                 Some(value::Value::F32(v)) => args.add(v).unwrap(),
                 Some(value::Value::F64(v)) => args.add(v).unwrap(),
                 Some(value::Value::Bool(v)) => args.add(v).unwrap(),
+                Some(value::Value::Binary(v)) => args.add(v.to_vec()).unwrap(),
                 Some(value::Value::Null(_)) | None => args.add(None::<String>).unwrap(),
                 other => anyhow::bail!("unsupported param type: {other:?}"),
             }

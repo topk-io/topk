@@ -170,6 +170,8 @@ impl FromSql<DataType> for FieldType {
                         Ok(FieldType::matrix(dim, MatrixValueType::I8))
                     }
 
+                    "image" => Ok(FieldType::image()),
+
                     _ => sql_unsupported!("data type: {name}"),
                 }
             }

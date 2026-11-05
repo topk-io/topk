@@ -526,6 +526,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
 | `TEXT` / `VARCHAR` | `text` |
 | `BYTEA` | `bytes` |
+| `IMAGE` | `image` |
 | `TIMESTAMP` | `timestamp` |
 | `TEXT[]` | `list<string>` |
 | `INTEGER[]` | `list<integer>` |
@@ -551,6 +552,12 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 <Note>
 
 `NOT NULL` marks a field as required. All columns are optional by default.
+
+</Note>
+
+<Note>
+
+`IMAGE` values are used for semantic indexing and are not stored. Selecting an `IMAGE` column returns `NULL`.
 
 </Note>
 
@@ -660,7 +667,7 @@ Additional `AND` clauses (e.g. `AND table_schema = 'public'`) are accepted but *
 | `integer` | `bigint` |
 | `float` | `double precision` |
 | `boolean` | `boolean` |
-| `bytes` | `bytea` |
+| `bytes`, `image` | `bytea` |
 | `*_vector(n)` (all dense variants) | `real[]` |
 | `*_sparse_vector` (all variants) | `jsonb` |
 | `list`, `struct`, `*_matrix` | `jsonb` |
@@ -764,6 +771,10 @@ PostgreSQL wire-type casts (`::float8`, …) apply only in `SELECT` projection.
 | `u8_matrix(…)` | (same pattern) |
 | `i8_matrix(…)` | (same pattern) |
 | `bytes('hexstring')` | `bytes('deadbeef')` |
+| `X'hexstring'` | `X'deadbeef'` (bytes) |
+| `image('data URI')` | `image('data:image/png;base64,iVBORw0KGgo…')` (PNG or JPEG) |
+| `image_png('hexstring')` | `image_png('89504e470d0a1a0a…')` |
+| `image_jpeg('hexstring')` | `image_jpeg('ffd8ffe0…')` |
 | `struct(key1, val1, …)` | `struct('publisher', 'Penguin', 'pages', 320)` |
 | `ARRAY[elem, …]` | `ARRAY['classic', 'fiction']` (list) |
 

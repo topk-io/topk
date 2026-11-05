@@ -64,6 +64,7 @@ async fn upsert_omitted_null(
 #[rstest]
 #[case::dense_vector("embedding", "f32_vector(ARRAY[0.1, 0.2, 0.3, 0.4])", ids!["doc"])]
 #[case::bytes("checksum", "bytes('deadbeef')", ids!["doc"])]
+#[case::hex_literal("checksum", "X'deadbeef'", ids!["doc"])]
 #[case::list("tags", "ARRAY['a', 'b', 'c']", ids!["doc"])]
 #[case::sparse_vector(
     "sparse_emb",
@@ -134,11 +135,11 @@ async fn upsert_field_types(
 )]
 #[case::invalid_bytes_hex(
     "INSERT INTO {{table}} (_id, checksum) VALUES ('x', bytes('xyz'))",
-    "Invalid: bytes: hex string has odd length"
+    "Invalid hex: Odd number of digits"
 )]
 #[case::hex_invalid_char(
     "INSERT INTO {{table}} (_id, checksum) VALUES ('x', bytes('zz'))",
-    "Invalid: bytes: invalid hex `zz`: invalid digit found in string"
+    "Invalid hex: Invalid character 'z' at position 0"
 )]
 #[case::odd_struct_args(
     "INSERT INTO {{table}} (_id, metadata) VALUES ('x', struct('a', 1, 'b'))",
