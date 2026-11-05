@@ -3,43 +3,41 @@ use sqlparser::ast::{Statement as SqlStatement, Value as SqlValue};
 use crate::{sql_invalid, sql_unsupported, Error, SqlExprExt, SqlStatementExt, Statement, Table};
 
 pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
+    let SqlStatement::ShowObjects(show) = &stmt else {
+        sql_unsupported!("statement: {stmt:?}");
+    };
+
     // `TopKDialect` only writes a string here; an empty prefix matches every name
-    let prefix = match &stmt {
-        SqlStatement::ShowObjects(show) => match &show.show_options.starts_with {
-            Some(SqlValue::SingleQuotedString(prefix)) if !prefix.is_empty() => {
-                Some(prefix.clone())
-            }
-            _ => None,
-        },
+    let prefix = match &show.show_options.starts_with {
+        Some(SqlValue::SingleQuotedString(prefix)) if !prefix.is_empty() => Some(prefix.clone()),
         _ => None,
     };
-    let limit = stmt
-        .limit()
+    let limit = show
+        .show_options
+        .limit
+        .as_ref()
         .map(|expr| {
             expr.as_u64()
                 .ok_or_else(|| Error::Invalid("LIMIT must be a non-negative integer".to_string()))
         })
         .transpose()?;
 
-    if stmt.is_show_tables() {
-        return Ok(Statement::ShowTables { prefix, limit });
+    // `SHOW PARTITIONS FROM TABLE <name>` has a table; `SHOW TABLES` does not
+    match stmt.table()? {
+        Some(table) => {
+            sql_invalid!(
+                !matches!(table, Table::Collection(_)),
+                "SHOW PARTITIONS requires a collection name"
+            );
+
+            Ok(Statement::ShowPartitions {
+                table,
+                prefix,
+                limit,
+            })
+        }
+        None => Ok(Statement::ShowTables { prefix, limit }),
     }
-
-    let Some(name) = stmt.show_partitions_table() else {
-        sql_unsupported!("statement: {stmt:?}");
-    };
-
-    let table = Table::new(name.clone())?;
-    sql_invalid!(
-        !matches!(table, Table::Collection(_)),
-        "SHOW PARTITIONS requires a collection name"
-    );
-
-    Ok(Statement::ShowPartitions {
-        table,
-        prefix,
-        limit,
-    })
 }
 
 #[cfg(test)]

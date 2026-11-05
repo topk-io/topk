@@ -1,10 +1,9 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, LimitClause, ObjectName,
-    SelectItem, SetExpr, ShowObjects, ShowStatementIn, ShowStatementInClause,
-    ShowStatementInParentType, ShowStatementOptions, Statement as SqlStatement, TableObject,
-    Value as SqlValue,
+    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
+    ShowObjects, ShowStatementIn, ShowStatementInClause, ShowStatementInParentType,
+    ShowStatementOptions, Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
 use super::{SqlExprExt, TableFactorExt};
@@ -18,15 +17,6 @@ pub trait SqlStatementExt {
 
     /// Get the table name from the statement, if present.
     fn table(&self) -> Result<Option<Table>, Error>;
-
-    /// The table of `SHOW PARTITIONS FROM TABLE <name>`, if that is the statement.
-    fn show_partitions_table(&self) -> Option<&ObjectName>;
-
-    /// Whether the statement is `SHOW TABLES`.
-    fn is_show_tables(&self) -> bool;
-
-    /// The `LIMIT` expression of a query, `SHOW PARTITIONS` or `SHOW TABLES`, if present.
-    fn limit(&self) -> Option<&SqlExpr>;
 
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
@@ -91,21 +81,7 @@ impl SqlStatementExt for SqlStatement {
                     None => return Ok(None),
                 }
             }
-            SqlStatement::ShowObjects(_) => match self.show_partitions_table() {
-                Some(name) => name,
-                None => return Ok(None),
-            },
-            _ => return Ok(None),
-        };
-
-        let table = Table::new(name.clone())?;
-
-        Ok(Some(table))
-    }
-
-    // `TopKDialect` parses `SHOW PARTITIONS FROM TABLE <name>` into `SHOW OBJECTS`
-    fn show_partitions_table(&self) -> Option<&ObjectName> {
-        match self {
+            // `TopKDialect` parses `SHOW PARTITIONS FROM TABLE <name>` into `SHOW OBJECTS`
             SqlStatement::ShowObjects(ShowObjects {
                 show_options:
                     ShowStatementOptions {
@@ -118,31 +94,13 @@ impl SqlStatementExt for SqlStatement {
                         ..
                     },
                 ..
-            }) => Some(name),
-            _ => None,
-        }
-    }
+            }) => name,
+            _ => return Ok(None),
+        };
 
-    // `TopKDialect` parses `SHOW TABLES` into `SHOW OBJECTS` without a `FROM`
-    fn is_show_tables(&self) -> bool {
-        matches!(
-            self,
-            SqlStatement::ShowObjects(ShowObjects {
-                show_options: ShowStatementOptions { show_in: None, .. },
-                ..
-            })
-        )
-    }
+        let table = Table::new(name.clone())?;
 
-    fn limit(&self) -> Option<&SqlExpr> {
-        match self {
-            SqlStatement::Query(q) => match &q.limit_clause {
-                Some(LimitClause::LimitOffset { limit, .. }) => limit.as_ref(),
-                _ => None,
-            },
-            SqlStatement::ShowObjects(show) => show.show_options.limit.as_ref(),
-            _ => None,
-        }
+        Ok(Some(table))
     }
 
     fn assignment_placeholders(&self) -> Vec<(usize, &str)> {
