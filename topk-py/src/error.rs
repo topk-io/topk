@@ -45,6 +45,13 @@ impl From<RustError> for PyErr {
             topk_rs::Error::QuotaExceeded(e) => QuotaExceededError::new_err(e),
             topk_rs::Error::SlowDown(e) => SlowDownError::new_err(e),
             topk_rs::Error::PermissionDenied => PermissionDeniedError::new_err(value.0.to_string()),
+            // Failed preconditions
+            topk_rs::Error::IndexBuilding(e) => SchemaNotReadyError::new_err(e),
+            topk_rs::Error::SsnUnavailable(e) => SsnUnavailableError::new_err(e),
+            topk_rs::Error::IndexMissing(e) => IndexMissingError::new_err(e),
+            topk_rs::Error::SchemaPaused(e) => SchemaPausedError::new_err(e),
+            topk_rs::Error::SchemaConflict(e) => SchemaConflictError::new_err(e),
+            topk_rs::Error::FailedPrecondition(e) => FailedPreconditionError::new_err(e),
             // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
         }
@@ -64,6 +71,13 @@ create_exception!(error, RequestTooLargeError, PyException);
 create_exception!(error, QuotaExceededError, PyException);
 create_exception!(error, SlowDownError, PyException);
 create_exception!(error, PermissionDeniedError, PyException);
+create_exception!(error, FailedPreconditionError, PyException);
+create_exception!(error, IndexBuildingError, FailedPreconditionError);
+create_exception!(error, SchemaNotReadyError, IndexBuildingError);
+create_exception!(error, SsnUnavailableError, FailedPreconditionError);
+create_exception!(error, IndexMissingError, FailedPreconditionError);
+create_exception!(error, SchemaPausedError, SlowDownError);
+create_exception!(error, SchemaConflictError, FailedPreconditionError);
 
 ////////////////////////////////////////////////////////////
 /// Error
@@ -135,6 +149,31 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "PermissionDeniedError",
         m.py().get_type::<PermissionDeniedError>(),
     )?;
+
+    m.add(
+        "FailedPreconditionError",
+        m.py().get_type::<FailedPreconditionError>(),
+    )?;
+
+    m.add(
+        "IndexBuildingError",
+        m.py().get_type::<IndexBuildingError>(),
+    )?;
+
+    m.add(
+        "SchemaNotReadyError",
+        m.py().get_type::<SchemaNotReadyError>(),
+    )?;
+
+    m.add(
+        "SsnUnavailableError",
+        m.py().get_type::<SsnUnavailableError>(),
+    )?;
+
+    m.add("IndexMissingError", m.py().get_type::<IndexMissingError>())?;
+
+    m.add("SchemaPausedError", m.py().get_type::<SchemaPausedError>())?;
+    m.add("SchemaConflictError", m.py().get_type::<SchemaConflictError>())?;
 
     Ok(())
 }

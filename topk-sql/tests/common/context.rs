@@ -31,6 +31,16 @@ impl TableScope {
         let sql = sql.replace("{{table}}", &self.name);
         self.sql.query(&sql).await
     }
+
+    pub async fn batch(&self, sqls: &[&str]) -> anyhow::Result<Vec<Document>> {
+        let sqls = sqls
+            .iter()
+            .map(|sql| sql.replace("{{table}}", &self.name))
+            .collect::<Vec<_>>();
+        self.sql
+            .batch(&sqls.iter().map(String::as_str).collect::<Vec<_>>())
+            .await
+    }
 }
 
 impl AsyncTestContext for TableScope {

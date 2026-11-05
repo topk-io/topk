@@ -17,7 +17,7 @@ mod expr;
 pub use expr::Expr;
 
 mod stmt;
-pub use stmt::{RowFilter, Statement};
+pub use stmt::{index_name, AlterOp, RowFilter, Statement};
 
 mod table;
 pub use table::Table;

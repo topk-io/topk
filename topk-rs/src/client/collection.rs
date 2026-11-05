@@ -12,6 +12,7 @@ use tonic::{Response, Streaming};
 
 use crate::create_client;
 use crate::error::Error;
+use crate::proto::v1::control::{Collection, FieldSpec};
 use crate::proto::v1::data::partition_service_client::PartitionServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
@@ -20,6 +21,7 @@ use crate::proto::v1::data::Partition;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
 use crate::proto::v1::data::UpdateDocumentsRequest;
+use crate::proto::v1::data::UpdateSchemaRequest;
 use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
@@ -108,6 +110,7 @@ impl CollectionClient {
         ids: impl IntoIterator<Item = impl Into<String>>,
         fields: Option<Vec<String>>,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
@@ -129,6 +132,7 @@ impl CollectionClient {
                         fields: fields.unwrap_or_default(),
                         required_lsn: lsn,
                         consistency_level: consistency.map(|c| c.into()),
+                        required_ssn: ssn,
                     })
                     .map_err(Self::map_status_to_error)
                     .await
@@ -157,6 +161,7 @@ impl CollectionClient {
     pub async fn count(
         &self,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<u64, Error> {
         let query = Query::new(vec![Stage::count()]);
@@ -166,7 +171,7 @@ impl CollectionClient {
             let lsn = lsn.clone();
             let consistency = consistency.clone();
 
-            async move { self.query(query, lsn, consistency).await }
+            async move { self.query(query, lsn, ssn, consistency).await }
         })
         .await?;
 
@@ -197,9 +202,10 @@ impl CollectionClient {
         &self,
         query: Query,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
-        let stream = self.query_stream(query, lsn, consistency).await?;
+        let stream = self.query_stream(query, lsn, ssn, consistency).await?;
         let results = stream.try_collect::<Vec<_>>().await?;
         Ok(results)
     }
@@ -208,6 +214,7 @@ impl CollectionClient {
         &self,
         query: Query,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<DocumentStream, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
@@ -225,6 +232,7 @@ impl CollectionClient {
                         query: Some(query.into()),
                         required_lsn: lsn.clone(),
                         consistency_level: consistency.map(|c| c.into()),
+                        required_ssn: ssn,
                         // DEPRECATED: This field is no longer used, kept for backwards compatibility.
                         collection: String::new(),
                     })
@@ -309,6 +317,43 @@ impl CollectionClient {
         .await?;
 
         Ok(response.into_inner().lsn)
+    }
+
+    /// Adds, replaces or undeclares fields of a collection's schema.
+    ///
+    /// Returns once the change is decided. Index builds happen in the background:
+    /// a search on an index that is still building fails with `FailedPrecondition`.
+    pub async fn update_schema(
+        &self,
+        set_fields: impl Into<HashMap<String, FieldSpec>>,
+        drop_fields: Vec<String>,
+        expected_ssn: Option<u32>,
+    ) -> Result<Collection, Error> {
+        let client = create_client!(WriteServiceClient, self.write, self.config).await?;
+        let set_fields = set_fields.into();
+        let response = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let set_fields = set_fields.clone();
+            let drop_fields = drop_fields.clone();
+            async move {
+                client
+                    .update_schema(UpdateSchemaRequest {
+                        set_fields,
+                        drop_fields,
+                        expected_ssn,
+                    })
+                    .await
+                    .map_err(|e| match e.code() {
+                        tonic::Code::NotFound => Error::CollectionNotFound,
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
+        Ok(response
+            .into_inner()
+            .collection
+            .expect("Invalid collection proto"))
     }
 
     /// List partitions in the collection.

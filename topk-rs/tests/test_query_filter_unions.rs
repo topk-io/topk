@@ -21,6 +21,7 @@ async fn test_query_union_eq(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -44,6 +45,7 @@ async fn test_query_union_starts_with(ctx: &mut ProjectTestContext) {
             .filter(field("user_ratings").starts_with("good"))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -73,6 +75,7 @@ async fn test_query_union_contains(ctx: &mut ProjectTestContext) {
                     .limit(100),
                 None,
                 None,
+                None,
             )
             .await
             .expect("could not query");
@@ -97,6 +100,7 @@ async fn test_query_union_contains_both_string_and_list(ctx: &mut ProjectTestCon
             .filter(field("user_ratings").contains("good"))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )

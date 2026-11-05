@@ -53,6 +53,14 @@ impl From<TopkError> for napi::Error {
                 napi::Error::new(napi::Status::GenericFailure, "permission denied")
             }
             // Other errors
+            topk_rs::Error::IndexBuilding(ref message)
+            | topk_rs::Error::SsnUnavailable(ref message)
+            | topk_rs::Error::IndexMissing(ref message)
+            | topk_rs::Error::SchemaPaused(ref message)
+            | topk_rs::Error::SchemaConflict(ref message)
+            | topk_rs::Error::FailedPrecondition(ref message) => {
+                napi::Error::new(napi::Status::GenericFailure, message.clone())
+            }
             _ => napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error)),
         }
     }

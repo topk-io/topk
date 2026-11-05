@@ -27,7 +27,8 @@ use topk::ProjectId;
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
 use topk_rs::proto::v1::data::{
     DeleteDocumentsRequest, DeleteDocumentsResponse, UpdateDocumentsRequest,
-    UpdateDocumentsResponse, UpsertDocumentsRequest, UpsertDocumentsResponse,
+    UpdateDocumentsResponse, UpdateSchemaRequest, UpdateSchemaResponse, UpsertDocumentsRequest,
+    UpsertDocumentsResponse,
 };
 use topk_rs::{doc, Client, ClientConfig, Error};
 
@@ -138,6 +139,12 @@ impl WriteService for Service {
         &self,
         _: Request<DeleteDocumentsRequest>,
     ) -> Result<Response<DeleteDocumentsResponse>, Status> {
+        Err(Status::unimplemented("unused"))
+    }
+    async fn update_schema(
+        &self,
+        _: Request<UpdateSchemaRequest>,
+    ) -> Result<Response<UpdateSchemaResponse>, Status> {
         Err(Status::unimplemented("unused"))
     }
 }

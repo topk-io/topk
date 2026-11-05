@@ -24,6 +24,7 @@ async fn test_query_fetch(ctx: &mut ProjectTestContext) {
                 .fetch(["summary"]),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -56,6 +57,7 @@ async fn test_query_fetch_streaming(ctx: &mut ProjectTestContext) {
                 .fetch(["summary"]),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -86,6 +88,7 @@ async fn test_query_fetch_rejects_select_overlap(ctx: &mut ProjectTestContext) {
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(10)
                 .fetch(["title"]),
+            None,
             None,
             None,
         )

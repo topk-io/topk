@@ -74,6 +74,24 @@ pub enum Error {
     #[error("unauthenticated: {0}")]
     Unauthenticated(String),
 
+    #[error("failed precondition: {0}")]
+    FailedPrecondition(String),
+
+    #[error("schema not ready: {0}")]
+    IndexBuilding(String),
+
+    #[error("schema version unavailable: {0}")]
+    SsnUnavailable(String),
+
+    #[error("schema update in progress: {0}")]
+    SchemaPaused(String),
+
+    #[error("schema conflict: {0}")]
+    SchemaConflict(String),
+
+    #[error("index missing: {0}")]
+    IndexMissing(String),
+
     #[error("unexpected error: {0}")]
     Unexpected(String),
 
@@ -114,6 +132,9 @@ impl Error {
             Error::QueryLsnTimeout => true,
             Error::Unavailable(_) => true,
             Error::TransportError(_) => true,
+            Error::IndexBuilding(_) => true,
+            Error::SsnUnavailable(_) => true,
+            Error::SchemaPaused(_) => true,
             // Not retryable
             // The server is out of capacity; retrying right away only adds load.
             Error::SlowDown(_) => false,
@@ -132,6 +153,9 @@ impl Error {
             Error::RequestTooLarge(_) => false,
             Error::DeadlineExceeded(_) => false,
             Error::Unauthenticated(_) => false,
+            Error::FailedPrecondition(_) => false,
+            Error::SchemaConflict(_) => false,
+            Error::IndexMissing(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
@@ -150,6 +174,9 @@ impl Error {
             // When quering using `lsn=N`, the client should retry for at least 2 seconds,
             // since the guarantee for "default" consistency mode is ~1 second.
             Error::QueryLsnTimeout => Some(Duration::from_millis(2_000)),
+            Error::SsnUnavailable(_) => Some(Duration::from_millis(60_000)),
+            // Writes pause while a schema update validates, up to its deadline.
+            Error::SchemaPaused(_) => Some(Duration::from_millis(60_000)),
             _ => None,
         }
     }
@@ -184,6 +211,11 @@ impl From<Status> for Error {
             Ok(error) => match error.code() {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
+                CustomErrorCode::IndexMissing => Error::IndexMissing(error.message),
+                CustomErrorCode::IndexBuilding => Error::IndexBuilding(error.message),
+                CustomErrorCode::SsnUnavailable => Error::SsnUnavailable(error.message),
+                CustomErrorCode::SchemaPaused => Error::SchemaPaused(error.message),
+                CustomErrorCode::SchemaConflict => Error::SchemaConflict(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
                 CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
@@ -214,6 +246,9 @@ impl From<Status> for Error {
                 }
                 tonic::Code::Unauthenticated => {
                     Error::Unauthenticated(append_request_id(e.message()))
+                }
+                tonic::Code::FailedPrecondition => {
+                    Error::FailedPrecondition(append_request_id(e.message()))
                 }
                 _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
             },
@@ -490,6 +525,11 @@ pub enum CustomErrorCode {
     SlowDown,
     PartitionNotFound,
     DocumentNotFound,
+    IndexMissing,
+    IndexBuilding,
+    SsnUnavailable,
+    SchemaPaused,
+    SchemaConflict,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -499,6 +539,11 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::SlowDown => 1429,
             CustomErrorCode::PartitionNotFound => 1404,
             CustomErrorCode::DocumentNotFound => 1405,
+            CustomErrorCode::IndexMissing => 1412,
+            CustomErrorCode::IndexBuilding => 1413,
+            CustomErrorCode::SsnUnavailable => 1414,
+            CustomErrorCode::SchemaPaused => 1415,
+            CustomErrorCode::SchemaConflict => 1416,
         }
     }
 }
@@ -512,6 +557,11 @@ impl TryFrom<u32> for CustomErrorCode {
             1429 => Ok(CustomErrorCode::SlowDown),
             1404 => Ok(CustomErrorCode::PartitionNotFound),
             1405 => Ok(CustomErrorCode::DocumentNotFound),
+            1412 => Ok(CustomErrorCode::IndexMissing),
+            1413 => Ok(CustomErrorCode::IndexBuilding),
+            1414 => Ok(CustomErrorCode::SsnUnavailable),
+            1415 => Ok(CustomErrorCode::SchemaPaused),
+            1416 => Ok(CustomErrorCode::SchemaConflict),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -526,6 +576,11 @@ impl From<CustomError> for Status {
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
             CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
             CustomErrorCode::DocumentNotFound => Status::not_found(error.message),
+            CustomErrorCode::IndexMissing => Status::failed_precondition(error.message),
+            CustomErrorCode::IndexBuilding => Status::failed_precondition(error.message),
+            CustomErrorCode::SsnUnavailable => Status::failed_precondition(error.message),
+            CustomErrorCode::SchemaPaused => Status::failed_precondition(error.message),
+            CustomErrorCode::SchemaConflict => Status::aborted(error.message),
         };
 
         let error_code: u32 = error.code.into();
@@ -550,4 +605,28 @@ fn has_h2_source(err: &(dyn std::error::Error + 'static)) -> bool {
         source = e.source();
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_not_ready_preserves_wire_retry() {
+        let code: u32 = CustomErrorCode::IndexBuilding.into();
+        assert_eq!(code, 1413);
+
+        let status: Status = CustomError::new(
+            "Query representation is not ready for schema version 2".into(),
+            CustomErrorCode::IndexBuilding,
+        )
+        .into();
+        let error = Error::from(status);
+        assert!(matches!(&error, Error::IndexBuilding(_)));
+        assert!(error.is_retryable());
+        assert_eq!(
+            error.to_string(),
+            "schema not ready: Query representation is not ready for schema version 2"
+        );
+    }
 }

@@ -26,6 +26,7 @@ async fn test_string_contains_literal(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -48,6 +49,7 @@ async fn test_string_contains_literal_no_match(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -68,6 +70,7 @@ async fn test_string_contains_literal_empty(ctx: &mut ProjectTestContext) {
             filter(field("_id").contains(""))
                 .sort("published_year")
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -106,6 +109,7 @@ async fn test_string_contains_literal_with_keyword_index(ctx: &mut ProjectTestCo
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -127,6 +131,7 @@ async fn test_string_contains_field(ctx: &mut ProjectTestContext) {
             filter(field("title").contains(field("_id")))
                 .sort("published_year")
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -151,6 +156,7 @@ async fn test_string_in_field(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -171,6 +177,7 @@ async fn test_string_contains_field_self(ctx: &mut ProjectTestContext) {
             filter(not(field("title").contains(field("title"))))
                 .sort("published_year")
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -198,6 +205,7 @@ async fn test_list_match_any_with_keyword_index(ctx: &mut ProjectTestContext) {
             .filter(field("tags").match_any("love"))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -237,6 +245,7 @@ async fn test_list_match_any_all_without_keyword_index(ctx: &mut ProjectTestCont
                 .limit(100),
                 None,
                 None,
+                None,
             )
             .await
             .expect_err("should have failed");
@@ -263,6 +272,7 @@ async fn test_list_contains_with_keyword_index(ctx: &mut ProjectTestContext) {
             .filter(field("tags").contains("love"))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -298,6 +308,7 @@ async fn test_list_contains_literal(ctx: &mut ProjectTestContext) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -330,6 +341,7 @@ async fn test_list_contains_int_literal(ctx: &mut ProjectTestContext) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -355,6 +367,7 @@ async fn test_list_contains_int_literal_different_type(ctx: &mut ProjectTestCont
             .filter(field("reprint_years").contains(1999i32))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -384,6 +397,7 @@ async fn test_list_contains_int_field(ctx: &mut ProjectTestContext) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -409,6 +423,7 @@ async fn test_list_in_int_field(ctx: &mut ProjectTestContext) {
             .filter(field("published_year").add(1).in_(field("reprint_years")))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -438,6 +453,7 @@ async fn test_list_contains_string_field_with_keyword_index(ctx: &mut ProjectTes
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -465,6 +481,7 @@ async fn test_list_in_string_field_with_keyword_index(ctx: &mut ProjectTestConte
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -490,6 +507,7 @@ async fn test_list_contains_string_field_without_keyword_index(ctx: &mut Project
             .filter(field("codes").contains(field("_id")))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -531,6 +549,7 @@ async fn test_list_contains_invalid_types(#[case] expr: LogicalExpr) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("query failed");
@@ -554,6 +573,7 @@ async fn test_string_in(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -574,6 +594,7 @@ async fn test_in_list_literal_int(ctx: &mut ProjectTestContext) {
                 .filter(field("published_year").in_(Value::list(vec![1999u32, 1988, 1997])))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -602,6 +623,7 @@ async fn test_in_list_literal_string(ctx: &mut ProjectTestContext) {
                 ])))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )

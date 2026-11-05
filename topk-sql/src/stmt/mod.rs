@@ -2,11 +2,13 @@ use std::collections::HashMap;
 
 use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, SelectItem, Statement as SqlStatement};
 use strum_macros::IntoStaticStr;
-use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec};
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, LogicalExpr, Query};
 
 use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt, Table};
 
+mod alter_table;
+mod create_index;
 mod create_table;
 mod delete;
 mod drop;
@@ -14,6 +16,8 @@ mod explain;
 mod insert;
 mod select;
 mod update;
+pub use alter_table::AlterOp;
+pub use create_index::index_name;
 
 #[derive(Debug, Clone, PartialEq, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
@@ -83,6 +87,30 @@ pub enum Statement {
         /// Silently ignore if the table does not exist.
         if_exists: bool,
     },
+    AlterTable {
+        /// Table name (`<collection>`).
+        table: Table,
+        /// Schema changes to apply as one update.
+        ops: Vec<AlterOp>,
+    },
+    CreateIndex {
+        /// Table name (`<collection>`).
+        table: Table,
+        /// Column to index.
+        field: String,
+        /// `topk_rs::FieldIndex` to attach to the column.
+        index: FieldIndex,
+        /// Silently ignore if the column is already indexed.
+        if_not_exists: bool,
+    },
+    DropIndex {
+        /// Collection the index belongs to, from the required `ON` clause.
+        table: Table,
+        /// Index name (`<collection>_<field>_idx`).
+        name: String,
+        /// Silently ignore if the index does not exist.
+        if_exists: bool,
+    },
 
     Explain {
         /// Statement to explain.
@@ -115,7 +143,9 @@ impl Statement {
             | Statement::Delete { table, .. }
             | Statement::DeletePartition { table }
             | Statement::CreateTable { table, .. }
-            | Statement::DropTable { table, .. } => Some(table),
+            | Statement::DropTable { table, .. }
+            | Statement::AlterTable { table, .. }
+            | Statement::CreateIndex { table, .. } => Some(table),
             Statement::Explain { stmt, .. } => stmt.table(),
             _ => None,
         }
@@ -138,6 +168,8 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::Delete(delete) => Statement::try_from(delete),
             SqlStatement::Explain { .. } => explain::try_from_sql(stmt),
             SqlStatement::CreateTable(ct) => Statement::try_from(ct),
+            SqlStatement::CreateIndex(ci) => Statement::try_from(ci),
+            SqlStatement::AlterTable(alter) => Statement::try_from(alter),
             SqlStatement::Drop { .. } => drop::try_from_sql(stmt),
             other => Err(Error::Unsupported(format!("statement: {other:?}"))),
         }

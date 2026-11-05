@@ -330,6 +330,7 @@ impl Ctx {
                 ids.iter().copied(),
                 None,
                 None,
+                None,
                 Some(ConsistencyLevel::Strong),
             )
             .await
@@ -347,6 +348,7 @@ impl Ctx {
             .partition(partition)
             .get(
                 ids.iter().copied(),
+                None,
                 None,
                 None,
                 Some(ConsistencyLevel::Strong),
