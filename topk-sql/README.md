@@ -508,6 +508,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
 | `TEXT` / `VARCHAR` | `text` |
 | `BYTEA` | `bytes` |
+| `IMAGE` | `image` |
 | `TIMESTAMP` | `timestamp` |
 | `TEXT[]` | `list<string>` |
 | `INTEGER[]` | `list<integer>` |
@@ -532,6 +533,9 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 
 > [!NOTE]
 > `NOT NULL` marks a field as required. All columns are optional by default.
+
+> [!NOTE]
+> `IMAGE` values are used for semantic indexing and are not stored. Selecting an `IMAGE` column returns `NULL`.
 
 #### Index types
 
@@ -575,6 +579,8 @@ DROP TABLE [IF EXISTS] <table>;
 > [!NOTE]
 > `IF EXISTS` suppresses the error if the collection does not exist.
 
+> [!WARNING]
+> Wait at least 60 seconds after `DROP TABLE` before you run `CREATE TABLE` with the same name. Writes sent sooner can be lost. See [Re-creating a collection with the same name](/collections/manage#delete).
 
 ### information_schema
 
@@ -627,7 +633,7 @@ WHERE table_name = 'books';
 | `integer` | `bigint` |
 | `float` | `double precision` |
 | `boolean` | `boolean` |
-| `bytes` | `bytea` |
+| `bytes`, `image` | `bytea` |
 | `*_vector(n)` (all dense variants) | `real[]` |
 | `*_sparse_vector` (all variants) | `jsonb` |
 | `list`, `struct`, `*_matrix` | `jsonb` |
@@ -735,6 +741,10 @@ PostgreSQL wire-type casts (`::float8`, …) apply only in `SELECT` projection.
 | `u8_matrix(…)` | (same pattern) |
 | `i8_matrix(…)` | (same pattern) |
 | `bytes('hexstring')` | `bytes('deadbeef')` |
+| `X'hexstring'` | `X'deadbeef'` (bytes) |
+| `image('data URI')` | `image('data:image/png;base64,iVBORw0KGgo…')` (PNG or JPEG) |
+| `image_png('hexstring')` | `image_png('89504e470d0a1a0a…')` |
+| `image_jpeg('hexstring')` | `image_jpeg('ffd8ffe0…')` |
 | `struct(key1, val1, …)` | `struct('publisher', 'Penguin', 'pages', 320)` |
 | `ARRAY[elem, …]` | `ARRAY['classic', 'fiction']` (list) |
 

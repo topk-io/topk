@@ -31,6 +31,15 @@ use common::{ids, Scope, TableScope};
     "SELECT label FROM {{table}} WHERE _id = 'r'",
     vec![doc!("label" => "hello")],
 )]
+#[case::image(
+    "CREATE TABLE {{table}} (cover IMAGE NOT NULL)",
+    "INSERT INTO {{table}} (_id, cover) VALUES
+        ('png', image_png('89504e47')),
+        ('jpeg', image_jpeg('ffd8ffe0')),
+        ('uri', image('data:image/png;base64,iVBORw=='))",
+    "SELECT _id FROM {{table}} WHERE _id IN ('png', 'jpeg', 'uri') ORDER BY _id LIMIT 10",
+    vec![doc!("_id" => "jpeg"), doc!("_id" => "png"), doc!("_id" => "uri")],
+)]
 #[case::indexes(
     "CREATE TABLE {{table}} (
         title     TEXT NOT NULL  INDEX keyword_index(),
@@ -75,6 +84,26 @@ async fn create_table_round_trip(
     "CREATE TABLE {{table}} (name TEXT NOT NULL, score FLOAT)",
     "INSERT INTO {{table}} (_id, score) VALUES ('x', 1.0)",
     "Invalid row: ValidationErrorBag([MissingField { doc_id: \"x\", field: \"name\" }])"
+)]
+#[case::image_rejects_bytes(
+    "CREATE TABLE {{table}} (cover IMAGE)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('x', bytes('89504e47'))",
+    "Invalid row: ValidationErrorBag([InvalidDataType { doc_id: \"x\", field: \"cover\", expected_type: \"image\", got_value: \"binary(4)\" }])"
+)]
+#[case::image_png_invalid_hex(
+    "CREATE TABLE {{table}} (cover IMAGE)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('x', image_png('zz'))",
+    "Invalid hex: Invalid character 'z' at position 0"
+)]
+#[case::image_not_data_uri(
+    "CREATE TABLE {{table}} (cover IMAGE)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('x', image('89504e47'))",
+    "TopK error: invalid argument: Cannot parse provided string as image data"
+)]
+#[case::image_non_string(
+    "CREATE TABLE {{table}} (cover IMAGE)",
+    "INSERT INTO {{table}} (_id, cover) VALUES ('x', image(42))",
+    "Invalid: image: argument must be a data URI string"
 )]
 #[case::duplicate_table(
     "CREATE TABLE {{table}} (name TEXT NOT NULL)",

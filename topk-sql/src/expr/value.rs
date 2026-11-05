@@ -18,6 +18,7 @@ impl FromSql<SqlExpr> for Value {
                     Ok(Value::string(s))
                 }
                 SqlValue::Boolean(b) => Ok(Value::bool(b)),
+                SqlValue::HexStringLiteral(hex) => Ok(Value::bytes(hex::decode(hex)?)),
                 SqlValue::Null => Ok(Value::null()),
                 other => Err(Error::InvalidLiteral(format!("{other:?}"))),
             },
