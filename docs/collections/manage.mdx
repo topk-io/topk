@@ -369,7 +369,7 @@ for await (const collection of client.collections().list()) {
 ```
 
 ```sql SQL
-SELECT table_name FROM information_schema.tables;
+SHOW TABLES;
 ```
 
 </CodeGroup>
@@ -385,6 +385,11 @@ collections = client.collections().list(prefix="books")
 
 ```typescript Javascript
 const collections = client.collections().list({ prefix: "books" });
+```
+
+
+```sql SQL
+SHOW TABLES STARTS WITH 'books';
 ```
 
 </CodeGroup>
