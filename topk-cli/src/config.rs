@@ -66,6 +66,20 @@ impl Config {
         &self.host.host
     }
 
+    pub fn hostname(&self) -> &str {
+        self.host
+            .host
+            .rsplit_once(':')
+            .map_or(&self.host.host, |(name, _)| name)
+    }
+
+    pub fn port(&self) -> Option<u16> {
+        self.host
+            .host
+            .rsplit_once(':')
+            .and_then(|(_, port)| port.parse().ok())
+    }
+
     pub fn https(&self) -> bool {
         self.host.https
     }

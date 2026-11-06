@@ -21,7 +21,8 @@ pub struct SqlClient {
 
 impl SqlClient {
     pub async fn connect(config: &Config, endpoint: &DataEndpoint) -> Result<Self> {
-        let host = format!("{}.sql.{}", endpoint.region()?, config.host());
+        let host = format!("{}.sql.{}", endpoint.region()?, config.hostname());
+        let port = config.port().unwrap_or(PORT);
         let password = match endpoint.credentials(config)? {
             Credentials::ApiKey(api_key) => api_key,
             Credentials::Project(project_id) => {
@@ -37,7 +38,7 @@ impl SqlClient {
         };
         let options = PgConnectOptions::new_without_pgpass()
             .host(&host)
-            .port(PORT)
+            .port(port)
             .username(USER)
             .password(&password)
             .database(DATABASE)
@@ -48,7 +49,7 @@ impl SqlClient {
                 // Disable SSL for non https connections.
                 false => PgSslMode::Disable,
             });
-        info!(%host, port = PORT, "connecting to the SQL endpoint");
+        info!(%host, port, "connecting to the SQL endpoint");
         let connection = PgConnection::connect_with(&options).await.map_err(error)?;
         Ok(Self { connection })
     }

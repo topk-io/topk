@@ -5,6 +5,7 @@ pub struct Host {
         long,
         env = "TOPK_HOST",
         default_value = "topk.io",
+        value_parser = parse_host,
         global = true,
         hide = true
     )]
@@ -21,4 +22,13 @@ pub struct Host {
         hide = true
     )]
     pub https: bool,
+}
+
+/// `name[:port]`. With a port, every service is reached on it; without one, on its own default.
+fn parse_host(host: &str) -> Result<String, String> {
+    if let Some((_, port)) = host.rsplit_once(':') {
+        port.parse::<u16>()
+            .map_err(|e| format!("invalid port {port:?}: {e}"))?;
+    }
+    Ok(host.to_string())
 }
