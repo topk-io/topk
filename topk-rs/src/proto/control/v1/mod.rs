@@ -1,9 +1,26 @@
 include!(concat!(env!("OUT_DIR"), "/topk.control.v1.rs"));
 
+use chrono::{DateTime, Utc};
+
+use crate::Error;
+
 pub mod data_type_ext;
 pub mod field_index_ext;
 pub mod field_spec_ext;
 pub mod field_type_ext;
+
+impl Collection {
+    pub fn created_at(&self) -> Result<DateTime<Utc>, Error> {
+        DateTime::parse_from_rfc3339(&self.created_at)
+            .map(|created_at| created_at.to_utc())
+            .map_err(|e| {
+                Error::Unexpected(format!(
+                    "collection {} created_at {:?}: {e}",
+                    self.name, self.created_at
+                ))
+            })
+    }
+}
 
 impl field_type::DataType {
     pub fn to_user_friendly_type_name(&self) -> String {

@@ -83,7 +83,9 @@ SELECT _id FROM support$acme ORDER BY semantic_similarity(body, 'refunds') DESC 
 ## Inspect
 
 ```sql
-SELECT table_name FROM information_schema.tables;
+SHOW TABLES;
+SHOW TABLES STARTS WITH 'arti' LIMIT 10;
+SHOW PARTITIONS FROM TABLE support STARTS WITH 'acme';
 SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'articles';
 ```
 

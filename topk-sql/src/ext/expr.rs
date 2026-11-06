@@ -1,6 +1,6 @@
 use sqlparser::ast::{Expr as SqlExpr, Value as SqlValue};
 
-use super::SqlFunctionExt;
+use super::{SqlFunctionExt, SqlValueExt};
 
 pub trait SqlExprExt {
     fn as_id(&self) -> Option<String>;
@@ -54,12 +54,7 @@ impl SqlExprExt for SqlExpr {
 
     fn as_placeholder(&self) -> Option<usize> {
         match self {
-            SqlExpr::Value(v) => match &v.value {
-                SqlValue::Placeholder(p) => {
-                    p.strip_prefix('$')?.parse::<usize>().ok().map(|n| n - 1)
-                }
-                _ => None,
-            },
+            SqlExpr::Value(v) => v.value.as_placeholder(),
             SqlExpr::Nested(inner) => inner.as_placeholder(),
             _ => None,
         }

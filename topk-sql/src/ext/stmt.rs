@@ -2,7 +2,8 @@ use std::ops::ControlFlow;
 
 use sqlparser::ast::{
     visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
-    Statement as SqlStatement, TableObject, Value as SqlValue,
+    ShowObjects, ShowStatementIn, ShowStatementInClause, ShowStatementInParentType,
+    ShowStatementOptions, Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
 use super::{SqlExprExt, TableFactorExt};
@@ -44,6 +45,15 @@ impl SqlStatementExt for SqlStatement {
             }
             ControlFlow::Continue(())
         });
+        // `STARTS WITH` holds a bare value, which the expression visitor does not reach
+        if let SqlStatement::ShowObjects(show) = self {
+            if matches!(
+                show.show_options.starts_with,
+                Some(SqlValue::Placeholder(_))
+            ) {
+                count += 1;
+            }
+        }
         count
     }
 
@@ -80,6 +90,20 @@ impl SqlStatementExt for SqlStatement {
                     None => return Ok(None),
                 }
             }
+            // `TopKDialect` parses `SHOW PARTITIONS FROM TABLE <name>` into `SHOW OBJECTS`
+            SqlStatement::ShowObjects(ShowObjects {
+                show_options:
+                    ShowStatementOptions {
+                        show_in:
+                            Some(ShowStatementIn {
+                                clause: ShowStatementInClause::FROM,
+                                parent_type: Some(ShowStatementInParentType::Table),
+                                parent_name: Some(name),
+                            }),
+                        ..
+                    },
+                ..
+            }) => name,
             _ => return Ok(None),
         };
 
@@ -127,6 +151,8 @@ mod tests {
     #[case("UPDATE books SET title = $1 WHERE _id = $2", Table::Collection("books".into()))]
     #[case("INSERT INTO books (_id, title) VALUES ('1', 'a')", Table::Collection("books".into()))]
     #[case("DELETE FROM books WHERE _id = '1'", Table::Collection("books".into()))]
+    #[case("SHOW PARTITIONS FROM TABLE books", Table::Collection("books".into()))]
+    #[case("show partitions from table public.books", Table::Collection("books".into()))]
     fn table(#[case] sql: &str, #[case] expected: Table) {
         assert_eq!(parse_one(sql).table().unwrap().unwrap(), expected);
     }
@@ -134,6 +160,8 @@ mod tests {
     #[rstest]
     #[case("SELECT 1")]
     #[case("SELECT * FROM (SELECT 1) sub")]
+    #[case("SHOW TABLES")]
+    #[case("SHOW transaction_isolation")]
     fn table_none(#[case] sql: &str) {
         assert_eq!(parse_one(sql).table().unwrap(), None);
     }

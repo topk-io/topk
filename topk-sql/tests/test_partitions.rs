@@ -171,6 +171,85 @@ async fn delete_partition() {
 }
 
 #[tokio::test]
+async fn show_partitions() {
+    BooksContext::with_scope(async |ctx| {
+        ctx.sql("INSERT INTO {{table}}$p1 (_id, title) VALUES ('a', 'p1-a')")
+            .await?;
+        ctx.sql("INSERT INTO {{table}}$p2 (_id, title) VALUES ('a', 'p2-a')")
+            .await?;
+
+        let mut names: Vec<String> = ctx
+            .sql("SHOW PARTITIONS FROM TABLE {{table}}")
+            .await?
+            .into_iter()
+            .filter_map(|row| {
+                row.fields
+                    .get("partition_name")?
+                    .as_string()
+                    .map(str::to_string)
+            })
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["p1", "p2"]);
+
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn show_partitions_limit() {
+    BooksContext::with_scope(async |ctx| {
+        for partition in ["p1", "p2", "p3"] {
+            ctx.sql(&format!(
+                "INSERT INTO {{{{table}}}}${partition} (_id, title) VALUES ('a', '{partition}')"
+            ))
+            .await?;
+        }
+
+        let rows = ctx
+            .sql("SHOW PARTITIONS FROM TABLE {{table}} LIMIT 2")
+            .await?;
+        assert_eq!(rows.len(), 2);
+
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn show_partitions_starts_with() {
+    BooksContext::with_scope(async |ctx| {
+        for partition in ["acme_1", "acme_2", "globex_1"] {
+            ctx.sql(&format!(
+                "INSERT INTO {{{{table}}}}${partition} (_id, title) VALUES ('a', '{partition}')"
+            ))
+            .await?;
+        }
+
+        let mut names: Vec<String> = ctx
+            .sql("SHOW PARTITIONS FROM TABLE {{table}} STARTS WITH 'acme'")
+            .await?
+            .into_iter()
+            .filter_map(|row| {
+                row.fields
+                    .get("partition_name")?
+                    .as_string()
+                    .map(str::to_string)
+            })
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["acme_1", "acme_2"]);
+
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn count_partition_scoped() {
     BooksContext::with_scope(async |ctx| {
         ctx.sql("INSERT INTO {{table}}$p1 (_id, title) VALUES ('a', 'one')")
