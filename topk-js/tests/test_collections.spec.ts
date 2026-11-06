@@ -82,7 +82,7 @@ describe("Collections", () => {
     const ctx = getContext();
 
     await expect(listCollections(ctx, { prefix: "-books" })).rejects.toThrow(
-      "Invalid collection name"
+      "Invalid prefix"
     );
   });
 
