@@ -392,10 +392,10 @@ class RetryConfig:
     Maximum number of retries to attempt.
     Default is 3 retries.
     """
-    timeout: typing.Annotated[typing.Optional[builtins.int], "The total timetout for the retry chain in milliseconds. Default is 30,000 milliseconds (30 seconds)"]
+    timeout: typing.Annotated[typing.Optional[builtins.int], "The total timeout for the retry chain in milliseconds. Default is 180,000 milliseconds (180 seconds)"]
     """
     The total timeout for the retry chain in milliseconds.
-    Default is 30,000 milliseconds (30 seconds).
+    Default is 180,000 milliseconds (180 seconds).
     """
     backoff: typing.Annotated[typing.Optional[BackoffConfig], "The backoff configuration for the client."]
     """

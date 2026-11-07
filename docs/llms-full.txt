@@ -6803,7 +6803,7 @@ By default, retries occur in two situations:
 | Property | Type |             |
 | -------- | ---- | ----------- |
 | `max_retries` | Optional[int] | Maximum number of retries to attempt. Default is 3 retries. |
-| `timeout` | Optional[int] | The total timetout for the retry chain in milliseconds. Default is 30,000 milliseconds (30 seconds) |
+| `timeout` | Optional[int] | The total timeout for the retry chain in milliseconds. Default is 180,000 milliseconds (180 seconds) |
 | `backoff` | Optional[[`BackoffConfig`](#backoffconfig)] | The backoff configuration for the client. |
 
 **Methods**

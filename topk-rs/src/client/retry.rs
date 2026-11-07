@@ -54,18 +54,21 @@ where
     F: Future<Output = Result<T, crate::Error>>,
 {
     let start_time = Instant::now();
+    let mut last_error = None;
+
     // Max backoff starts at `init_backoff` and is multiplied by `base` for each retry
     let mut next_backoff = retry_config.backoff.init_backoff;
 
     // Retry chain
     let retry_chain = async {
         let mut i = 0;
+
         loop {
             match f().await {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    // If error is not retryable, exit early.
-                    if !e.is_retryable() {
+                    // Stop on permanent errors or when retries are disabled.
+                    if !e.is_retryable() || retry_config.max_retries == 0 {
                         return Err(e);
                     }
 
@@ -80,7 +83,7 @@ where
                         // 2. `Unavailable`-like errors where client is expected to retry N times
                         None => {
                             // For count-based retries, check max_retries
-                            retry_config.max_retries > 0 && i < retry_config.max_retries - 1
+                            i < retry_config.max_retries - 1
                         }
                     };
 
@@ -89,7 +92,12 @@ where
                         return Err(e);
                     }
 
-                    next_backoff = wait_for_backoff(&retry_config.backoff, next_backoff).await;
+                    let scale = e.backoff_scale();
+
+                    // Save the error before sleeping so deadline expiry can return it.
+                    last_error = Some(e);
+                    next_backoff =
+                        wait_for_backoff(&retry_config.backoff, next_backoff, scale).await;
                     i += 1;
                 }
             }
@@ -99,14 +107,15 @@ where
     // Enfore total timeout
     match tokio::time::timeout(retry_config.timeout, retry_chain).await {
         Ok(result) => result,
-        Err(_) => Err(crate::Error::RetryTimeout),
+        Err(_) => Err(last_error.unwrap_or(crate::Error::RetryTimeout)),
     }
 }
 
 /// Wait for backoff and return the next backoff.
-async fn wait_for_backoff(config: &BackoffConfig, next_backoff: Duration) -> Duration {
-    // Generate random backoff between `init_backoff` and `next_backoff`
-    let backoff = rand::thread_rng().gen_range(config.init_backoff..=next_backoff);
+async fn wait_for_backoff(config: &BackoffConfig, next_backoff: Duration, scale: u32) -> Duration {
+    // Generate random backoff between zero and the scaled `next_backoff`
+    let cap = (next_backoff * scale).min(config.max_backoff);
+    let backoff = rand::thread_rng().gen_range(Duration::ZERO..=cap);
 
     // Sleep for backoff
     tokio::time::sleep(backoff).await;
@@ -118,6 +127,7 @@ async fn wait_for_backoff(config: &BackoffConfig, next_backoff: Duration) -> Dur
 #[cfg(test)]
 mod tests {
     use crate::Error;
+    use rstest::rstest;
 
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -157,7 +167,7 @@ mod tests {
         let retry_config = RetryConfig::default();
 
         let (attempts, result, _) = simulate(&retry_config, |_| {
-            Err(crate::Error::Internal("test".to_string()))
+            Err(crate::Error::Internal(tonic::Status::internal("test")))
         })
         .await;
 
@@ -166,14 +176,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn slow_down_is_not_retried() {
+    async fn slow_down_is_retried() {
         let retry_config = RetryConfig::default();
 
         let (attempts, result, _) =
             simulate(&retry_config, |_| Err(Error::SlowDown("test".to_string()))).await;
 
         assert!(matches!(result, Err(crate::Error::SlowDown(_))));
-        assert_eq!(attempts, 1);
+        assert_eq!(attempts, retry_config.max_retries);
     }
 
     #[tokio::test]
@@ -181,7 +191,9 @@ mod tests {
         let retry_config = RetryConfig::default();
 
         let (attempts, result, _) = simulate(&retry_config, |count| match count {
-            0 => Err(crate::Error::Unavailable("test".to_string())),
+            0 => Err(crate::Error::Unavailable(tonic::Status::unavailable(
+                "test",
+            ))),
             _ => Ok(()),
         })
         .await;
@@ -198,7 +210,7 @@ mod tests {
         };
 
         let (attempts, result, _) = simulate(&retry_config, |_| {
-            Err(Error::Unavailable("test".to_string()))
+            Err(Error::Unavailable(tonic::Status::unavailable("test")))
         })
         .await;
 
@@ -234,15 +246,18 @@ mod tests {
     #[tokio::test]
     async fn timeout_exceeded() {
         let retry_config = RetryConfig {
+            max_retries: usize::MAX,
             timeout: Duration::from_millis(100),
             ..Default::default()
         };
 
         let start_time = Instant::now();
-        let (attempts, result, _) =
-            simulate(&retry_config, |_| Err(Error::Unavailable("test".into()))).await;
+        let (attempts, result, _) = simulate(&retry_config, |_| {
+            Err(Error::Unavailable(tonic::Status::unavailable("test")))
+        })
+        .await;
 
-        assert!(matches!(result, Err(crate::Error::RetryTimeout)));
+        assert!(matches!(result, Err(crate::Error::Unavailable(_))));
         assert!(attempts > 0);
         assert!(start_time.elapsed() >= Duration::from_millis(100));
     }
@@ -281,7 +296,7 @@ mod tests {
                 if i > 0 {
                     backoff_times.lock().unwrap().push(start_time.elapsed());
                 }
-                Err(Error::Unavailable("test".to_string()))
+                Err(Error::Unavailable(tonic::Status::unavailable("test")))
             }
         })
         .await;
@@ -314,11 +329,76 @@ mod tests {
         };
 
         let (attempts, result, _) = simulate(&retry_config, |_| {
-            Err(Error::Unavailable("test".to_string()))
+            Err(Error::Unavailable(tonic::Status::unavailable("test")))
         })
         .await;
 
         assert!(matches!(result, Err(crate::Error::Unavailable(_))));
         assert_eq!(attempts, 1); // Should fail immediately
+    }
+    #[rstest]
+    #[case::lsn_timeout(|| Error::QueryLsnTimeout)]
+    #[case::slow_down(|| Error::SlowDown("shed".into()))]
+    #[tokio::test]
+    async fn zero_disables_retries(#[case] error: fn() -> Error) {
+        let config = RetryConfig {
+            max_retries: 0,
+            ..Default::default()
+        };
+        let (attempts, result, _) = simulate(&config, |_| Err(error())).await;
+        assert!(result.is_err());
+        assert_eq!(attempts, 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn slow_down_backoff_jitter() {
+        let config = RetryConfig {
+            max_retries: 2,
+            backoff: BackoffConfig {
+                init_backoff: Duration::from_millis(10),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut delays = Vec::new();
+        for _ in 0..50 {
+            let (_, result, elapsed) =
+                simulate(&config, |_| Err(Error::SlowDown("shed".into()))).await;
+            assert!(matches!(result, Err(Error::SlowDown(_))));
+            delays.push(elapsed);
+        }
+        assert!(
+            delays.iter().all(|d| *d <= Duration::from_millis(100)),
+            "{delays:?}"
+        );
+        assert!(
+            delays.iter().any(|d| *d > Duration::from_millis(10)),
+            "{delays:?}"
+        );
+        assert!(delays.iter().any(|d| *d != delays[0]), "{delays:?}");
+    }
+
+    #[rstest]
+    #[case::no_reply(false)]
+    #[case::last_error(true)]
+    #[tokio::test(start_paused = true)]
+    async fn timeout_while_pending(#[case] fail_first: bool) {
+        let config = RetryConfig {
+            timeout: Duration::from_millis(300),
+            ..Default::default()
+        };
+        let attempts = AtomicUsize::new(0);
+        let result: Result<(), Error> = call_with_retry(&config, || async {
+            if fail_first && attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Err(Error::Unavailable(tonic::Status::unavailable("down")));
+            }
+            std::future::pending().await
+        })
+        .await;
+        match result.unwrap_err() {
+            Error::Unavailable(status) if fail_first => assert_eq!(status.message(), "down"),
+            Error::RetryTimeout if !fail_first => {}
+            error => panic!("{error:?}"),
+        }
     }
 }

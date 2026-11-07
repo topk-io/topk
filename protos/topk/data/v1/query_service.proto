@@ -22,7 +22,7 @@ enum ConsistencyLevel {
 
 // Query
 message QueryRequest {
-  string collection = 1;
+  string collection = 1 [deprecated = true];
   Query query = 2;
   optional string required_lsn = 3;
   optional ConsistencyLevel consistency_level = 4;

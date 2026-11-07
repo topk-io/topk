@@ -53,7 +53,7 @@ impl From<TopkError> for napi::Error {
                 napi::Error::new(napi::Status::GenericFailure, "permission denied")
             }
             // Other errors
-            _ => napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error)),
+            _ => napi::Error::new(napi::Status::GenericFailure, error.0.to_string()),
         }
     }
 }

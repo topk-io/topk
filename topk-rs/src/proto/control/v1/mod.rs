@@ -14,7 +14,7 @@ impl Collection {
         DateTime::parse_from_rfc3339(&self.created_at)
             .map(|created_at| created_at.to_utc())
             .map_err(|e| {
-                Error::Unexpected(format!(
+                Error::MalformedResponse(format!(
                     "collection {} created_at {:?}: {e}",
                     self.name, self.created_at
                 ))

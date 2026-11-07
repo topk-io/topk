@@ -91,8 +91,14 @@ impl Service<Request<Body>> for Transport {
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let transport = self.clone();
+
         Box::pin(async move {
-            let request = transport.intercept(request).await?;
+            // Keep interceptor statuses from being mistaken for RPC responses.
+            let request = transport.intercept(request).await.map_err(|error| {
+                let mut status = tonic::Status::unknown(error.to_string());
+                status.set_source(Arc::new(error));
+                status
+            })?;
             Ok(transport.channel.oneshot(request).await?)
         })
     }
@@ -106,12 +112,8 @@ impl TryFrom<&ClientConfig> for HeaderMap {
             .headers()
             .iter()
             .map(|(key, value)| {
-                let key = key
-                    .parse::<HeaderName>()
-                    .map_err(|e| Error::Input(anyhow::anyhow!("invalid header name: {e:?}")))?;
-                let value = value
-                    .parse::<HeaderValue>()
-                    .map_err(|e| Error::Input(anyhow::anyhow!("invalid header value: {e:?}")))?;
+                let key = key.parse::<HeaderName>().map_err(http::Error::from)?;
+                let value = value.parse::<HeaderValue>().map_err(http::Error::from)?;
                 Ok((key, value))
             })
             .collect()

@@ -3,7 +3,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::{Stream, TryStreamExt};
-use futures_util::TryFutureExt;
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
 
@@ -38,15 +37,17 @@ impl CollectionsClient {
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Collection, Error>> + Send>>, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
 
-        let stream = call_with_retry(&self.config.retry_config(), || {
-            let prefix = prefix.clone();
+        let request = ListCollectionsStreamRequest { prefix };
+
+        let stream = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .list_collections_stream(ListCollectionsStreamRequest { prefix })
-                    .map_err(Error::from)
+                    .list_collections_stream(request)
                     .await
+                    .map_err(Error::from)
             }
         })
         .await?
@@ -57,30 +58,28 @@ impl CollectionsClient {
 
     pub async fn get(&self, name: impl Into<String>) -> Result<Collection, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
-        let name = name.into();
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let request = GetCollectionRequest { name: name.into() };
+
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let name = name.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .get_collection(GetCollectionRequest { name })
+                    .get_collection(request)
+                    .await
                     .map_err(|e| match e.code() {
                         // Collection not found
                         tonic::Code::NotFound => Error::CollectionNotFound,
                         // Delegate other errors
                         _ => Error::from(e),
                     })
-                    .await
             }
         })
         .await?;
 
-        Ok(response
-            .into_inner()
-            .collection
-            .expect("Invalid collection proto"))
+        response.into_inner().collection.ok_or(Error::InvalidProto)
     }
 
     pub async fn create(
@@ -90,22 +89,21 @@ impl CollectionsClient {
         region: Option<String>,
     ) -> Result<Collection, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
-        let name = name.into();
         let schema = schema.into();
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let request = CreateCollectionRequest {
+            name: name.into(),
+            schema,
+            region,
+        };
+
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let name = name.clone();
-            let schema = schema.clone();
-            let region = region.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .create_collection(CreateCollectionRequest {
-                        name,
-                        schema,
-                        region,
-                    })
+                    .create_collection(request)
                     .await
                     .map_err(|e| match e.code() {
                         // Collection already exists
@@ -117,23 +115,21 @@ impl CollectionsClient {
         })
         .await?;
 
-        Ok(response
-            .into_inner()
-            .collection
-            .expect("Invalid collection proto"))
+        response.into_inner().collection.ok_or(Error::InvalidProto)
     }
 
     pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
-        let name = name.into();
 
-        let _ = call_with_retry(&self.config.retry_config(), || {
+        let request = DeleteCollectionRequest { name: name.into() };
+
+        let _ = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let name = name.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .delete_collection(DeleteCollectionRequest { name })
+                    .delete_collection(request)
                     .await
                     .map_err(|e| match e.code() {
                         // Collection not found
