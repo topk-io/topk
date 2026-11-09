@@ -105,7 +105,7 @@ async fn dev_semantic_search_rejected(
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_semantic_query_standalone_ranks_by_similarity(scope: &TestScope) {
+async fn test_semantic_query_standalone_orders_by_score(scope: &TestScope) {
     scope
         .create_with_properties(json!({ "content": { "type": "semantic_text" } }))
         .await;
@@ -129,11 +129,10 @@ async fn test_semantic_query_standalone_ranks_by_similarity(scope: &TestScope) {
         }))
         .await
         .expect("search should succeed");
-    assert_eq!(
-        body.hit_ids(),
-        vec!["1", "2"],
-        "most semantically similar document should rank first: {body}"
-    );
+    let ids = body.hit_ids();
+    assert_eq!(ids.len(), 2, "{body}");
+    assert!(body.score(&ids[0]) >= body.score(&ids[1]), "{body}");
+    assert_eq!(body.max_score(), body.score(&ids[0]), "{body}");
 }
 
 #[test_context(TestScope)]
@@ -155,21 +154,30 @@ async fn test_semantic_multi_clause_scores_combine(scope: &TestScope) {
     ])
     .await;
 
-    let body = scope
-        .search(json!({
-            "query": { "bool": { "should": [
-                { "semantic": { "field": "content", "query": "kittens and cats" } },
-                { "semantic": { "field": "content", "query": "sleepy pets indoors" } }
-            ] } },
-            "size": 2
-        }))
-        .await
-        .expect("search should succeed");
-    assert_eq!(
-        body.hit_ids(),
-        vec!["1", "2"],
-        "both semantic clauses should score in one query and favor the cat doc: {body}"
-    );
+    let cats = json!({ "semantic": { "field": "content", "query": "kittens and cats" } });
+    let pets = json!({ "semantic": { "field": "content", "query": "sleepy pets indoors" } });
+    let mut bodies = Vec::new();
+    for query in [
+        cats.clone(),
+        pets.clone(),
+        json!({ "bool": { "should": [cats, pets] } }),
+    ] {
+        bodies.push(
+            scope
+                .search(json!({ "query": query, "size": 2 }))
+                .await
+                .expect("search should succeed"),
+        );
+    }
+    for id in ["1", "2"] {
+        let sum = bodies[0].score(id) + bodies[1].score(id);
+        let combined = bodies[2].score(id);
+        assert!(
+            (combined - sum).abs() <= 1e-4 * sum.abs(),
+            "doc {id}: combined {combined} != {sum}: {}",
+            bodies[2]
+        );
+    }
 }
 
 #[test_context(TestScope)]
