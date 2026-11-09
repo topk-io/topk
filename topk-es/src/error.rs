@@ -35,6 +35,24 @@ pub enum Error {
     #[error("unavailable_shards_exception: {0}")]
     Unavailable(String),
 
+    #[error("es_rejected_execution_exception: {0}")]
+    TooManyRequests(String),
+
+    #[error("security_exception: {0}")]
+    Unauthorized(String),
+
+    #[error("security_exception: {0}")]
+    Forbidden(String),
+
+    #[error("cluster_block_exception: {0}")]
+    Blocked(String),
+
+    #[error("content_too_long_exception: {0}")]
+    ContentTooLong(String),
+
+    #[error("timeout_exception: {0}")]
+    Timeout(String),
+
     #[error("internal_server_error: {0}")]
     Internal(String),
 
@@ -75,14 +93,28 @@ impl From<TopkError> for Error {
         match e {
             TopkError::CollectionNotFound => Error::IndexNotFound(e.to_string()),
             TopkError::CollectionAlreadyExists => Error::IndexAlreadyExists(e.to_string()),
-            TopkError::NotFound => Error::DocumentNotFound(e.to_string()),
-            TopkError::InvalidArgument(msg) => Error::BadRequest(msg),
-            TopkError::DocumentValidationError(_) | TopkError::SchemaValidationError(_) => {
-                Error::BadRequest(e.to_string())
+            TopkError::NotFound | TopkError::DocumentNotFound(_) => {
+                Error::DocumentNotFound(e.to_string())
             }
+            TopkError::PartitionNotFound => Error::SourceNotFound(e.to_string()),
+            TopkError::InvalidArgument(msg) => Error::BadRequest(msg),
+            TopkError::DocumentValidationError(_)
+            | TopkError::SchemaValidationError(_)
+            | TopkError::CollectionValidationError(_) => Error::BadRequest(e.to_string()),
+            TopkError::RequestTooLarge(msg) => Error::ContentTooLong(msg),
+            TopkError::SlowDown(msg) => Error::TooManyRequests(msg),
+            TopkError::QuotaExceeded(msg) => Error::Blocked(msg),
             TopkError::QueryLsnTimeout => {
                 Error::Unavailable("timed out waiting for writes to become searchable".into())
             }
+            TopkError::Unavailable(_) | TopkError::TransportError(_) => {
+                Error::Unavailable(e.to_string())
+            }
+            TopkError::DeadlineExceeded(_) | TopkError::RetryTimeout => {
+                Error::Timeout(e.to_string())
+            }
+            TopkError::PermissionDenied => Error::Forbidden(e.to_string()),
+            TopkError::Unauthenticated(_) => Error::Unauthorized(e.to_string()),
             _ => Error::Internal(e.to_string()),
         }
     }
@@ -110,6 +142,12 @@ impl Error {
             }
             Error::SerdeJson(msg) => (400, "json_parse_exception", msg.clone()),
             Error::Unavailable(msg) => (503, "unavailable_shards_exception", msg.clone()),
+            Error::TooManyRequests(msg) => (429, "es_rejected_execution_exception", msg.clone()),
+            Error::Unauthorized(msg) => (401, "security_exception", msg.clone()),
+            Error::Forbidden(msg) => (403, "security_exception", msg.clone()),
+            Error::Blocked(msg) => (403, "cluster_block_exception", msg.clone()),
+            Error::ContentTooLong(msg) => (413, "content_too_long_exception", msg.clone()),
+            Error::Timeout(msg) => (504, "timeout_exception", msg.clone()),
             Error::Internal(_) => (500, "internal_server_error", "Internal error".into()),
             Error::InvalidQuery(msg) => (400, "parsing_exception", msg.clone()),
             Error::Unsupported(msg) => (400, "illegal_argument_exception", msg.clone()),
@@ -153,5 +191,43 @@ impl IntoResponse for Error {
         };
 
         (code, Json(body)).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+    use tonic::Status;
+
+    use super::*;
+
+    #[rstest]
+    #[case::slow_down(TopkError::SlowDown("x".into()), 429, "es_rejected_execution_exception")]
+    #[case::quota(TopkError::QuotaExceeded("x".into()), 403, "cluster_block_exception")]
+    #[case::unauthenticated(
+        TopkError::Unauthenticated(Status::unauthenticated("x")),
+        401,
+        "security_exception"
+    )]
+    #[case::permission_denied(TopkError::PermissionDenied, 403, "security_exception")]
+    #[case::too_large(TopkError::RequestTooLarge("x".into()), 413, "content_too_long_exception")]
+    #[case::unavailable(
+        TopkError::Unavailable(Status::unavailable("x")),
+        503,
+        "unavailable_shards_exception"
+    )]
+    #[case::deadline(
+        TopkError::DeadlineExceeded(Status::deadline_exceeded("x")),
+        504,
+        "timeout_exception"
+    )]
+    #[case::retry_timeout(TopkError::RetryTimeout, 504, "timeout_exception")]
+    fn topk_errors_map_to_es_status(
+        #[case] error: TopkError,
+        #[case] status: u16,
+        #[case] error_type: &str,
+    ) {
+        let (code, body) = Error::from(error).parts();
+        assert_eq!((code, body.error_type), (status, error_type));
     }
 }
