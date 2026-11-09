@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 
@@ -86,9 +86,42 @@ fn main() -> ExitCode {
     async_main()
 }
 
+/// `--project-id` defaults to the project `topk project select` saved; without
+/// one, `sql` requires it and `import` requires it unless `--dry-run`.
+fn command() -> clap::Command {
+    // Clap's `required` ignores defaults, so a selected project lifts it.
+    let selected: Option<&'static str> = selected_project().map(|id| &*id.leak());
+    let command = Cli::command().mut_subcommand("sql", |sql| {
+        sql.mut_arg("project_id", |arg| match selected {
+            Some(id) => arg.default_value(id).required(false),
+            None => arg,
+        })
+    });
+    #[cfg(feature = "import")]
+    let command = command.mut_subcommand("import", |import| {
+        import.mut_arg("project_id", |arg| match selected {
+            Some(id) => arg.default_value(id),
+            None => arg.required_unless_present("dry_run"),
+        })
+    });
+    command
+}
+
+/// Read before the real parse: `--host` and the auth flags pick where it is saved.
+/// Unreadable means none, so a broken file cannot fail unrelated commands.
+fn selected_project() -> Option<String> {
+    let matches = Cli::command().ignore_errors(true).try_get_matches().ok()?;
+    let config = Config::new(
+        Host::from_arg_matches(&matches).ok()?,
+        OAuthConfig::from_arg_matches(&matches).ok()?,
+        Config::dir().ok()?,
+    );
+    Some(config.defaults().ok()?.project_id?.to_string())
+}
+
 #[tokio::main]
 async fn async_main() -> ExitCode {
-    let cli = Cli::parse();
+    let cli = Cli::from_arg_matches(&command().get_matches()).unwrap_or_else(|e| e.exit());
     init_logging(cli.verbose);
     match run(&cli).await {
         Ok(code) => code,

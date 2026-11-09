@@ -9,24 +9,24 @@ use topk_rs::{Client, ClientConfig};
 
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
-use crate::endpoint::{Credentials, DataEndpoint};
+use crate::ProjectId;
+
+pub const MISSING_PROJECT: &str =
+    "--project-id (or TOPK_PROJECT_ID environment variable) is required, \
+     or select a default project with `topk project select`";
 
 #[derive(Clone)]
 pub struct DataClient(Client);
 
 impl DataClient {
-    pub fn new(config: &Config, endpoint: DataEndpoint) -> Result<Self> {
-        let region = endpoint.region()?;
-        let client = match endpoint.credentials(config)? {
-            Credentials::ApiKey(api_key) => ClientConfig::new(api_key, region),
-            Credentials::Project(project_id) => ClientConfig::default()
-                .with_region(region)
-                .with_interceptor(Arc::new(AccessTokenProvider::new(
-                    ManagementClient::new(config.clone())?,
-                    config.clone(),
-                    project_id,
-                ))),
-        };
+    pub fn new(config: &Config, project_id: ProjectId, region: &str) -> Result<Self> {
+        let client = ClientConfig::default()
+            .with_region(region)
+            .with_interceptor(Arc::new(AccessTokenProvider::new(
+                ManagementClient::new(config.clone())?,
+                config.clone(),
+                project_id,
+            )));
         // A batch tool rides out transient errors: retries never run out, an hour of
         // continuous failures fails the request, and `--resume` picks up.
         Ok(Self(Client::new(

@@ -1,7 +1,7 @@
 use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
-use crate::common::jsonl;
+use crate::import::common::jsonl;
 
 pub struct S3 {
     conn: duckdb::Connection,

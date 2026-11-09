@@ -148,7 +148,6 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 | `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
 | `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
 | `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
-| `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
 
 #### Run a query
 
@@ -161,9 +160,6 @@ topk sql "SELECT _id, title, semantic_similarity(title, 'classic American novel'
           FROM books ORDER BY score DESC LIMIT 10" \
   --project-id <project-id> --region aws-us-east-1-elastica
 ```
-
-> [!TIP]
-> Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of using your login and `--project-id`.
 
 See the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) for complete documentation.
 
@@ -218,8 +214,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
-| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
-| `--api-key <API_KEY>` | Use an API key instead of your login; overrides the `TOPK_API_KEY` environment variable |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none, except from a `topk://` source |
 
 #### Authenticate
 
@@ -235,11 +230,7 @@ Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explici
 
 > [!TIP]
 > Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
-> Run `topk project select` once to omit `--project-id` from later commands. An API key (`--api-key` or `TOPK_API_KEY`) takes precedence over the selected project.
-> Alternatively, pass `--api-key` or set `TOPK_API_KEY` instead of logging in and providing `--project-id`. [Get an API key in the TopK console](https://console.topk.io/api-key).
-
-> [!WARNING]
-> `--project-id` or `TOPK_PROJECT_ID` cannot be combined with an API key (`--api-key` or `TOPK_API_KEY`). Unset `TOPK_API_KEY` to use your login.
+> Run `topk project select` once to omit `--project-id` from later commands.
 
 #### Import a database
 
@@ -314,7 +305,7 @@ Resume skips finished collections and continues unfinished ones from their sourc
 | files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
-| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's API key or access token |
+| topk | `topk://<region>/<collection>` | — | your login session|
 
 #### Spec
 

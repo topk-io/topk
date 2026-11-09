@@ -4,16 +4,18 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
+use anyhow::Context;
 use clap::Args;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 
-use crate::client::DataClient;
+use crate::client::{DataClient, MISSING_PROJECT};
 use crate::config::Config;
 use crate::endpoint::DataEndpoint;
 use crate::import::{
     self, render, Error, Import, LoadOutcome, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
 use crate::output::Output;
+use crate::ProjectId;
 
 #[derive(Args, Debug)]
 // Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
@@ -111,6 +113,9 @@ pub struct ImportArgs {
     )]
     pub batch_bytes: bytesize::ByteSize,
 
+    #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
+    pub project_id: Option<ProjectId>,
+
     #[command(flatten)]
     pub data: DataEndpoint,
 }
@@ -119,6 +124,7 @@ async fn plan(
     source: &Source,
     args: &ImportArgs,
     config: &Config,
+    project_id: Option<&ProjectId>,
     given: Option<Spec>,
 ) -> Result<Spec, Error> {
     // Discovery reads the CLI source's catalog; a spec brings its own collections
@@ -147,7 +153,7 @@ async fn plan(
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => file_catalogs(&spec, config, &args.data).await?,
+        None => file_catalogs(&spec, config, project_id).await?,
     };
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
@@ -177,12 +183,12 @@ async fn plan(
 async fn file_catalogs(
     spec: &Spec,
     config: &Config,
-    endpoint: &DataEndpoint,
+    project_id: Option<&ProjectId>,
 ) -> Result<Vec<import::Table>, Error> {
     let mut tables = Vec::new();
     for target in spec.collections.values() {
         let uri: Uri = target.from.parse()?;
-        let source = Source::connect(&uri, config, endpoint).await?;
+        let source = Source::connect(&uri, config, project_id).await?;
         if source.columns_are_exhaustive() {
             tables.extend(source.catalog().await?);
         }
@@ -254,23 +260,26 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         (None, Some(state)) => Some(toml::from_str(&state.spec)?),
         (None, None) => None,
     };
-    let source = Source::connect(&uri, &config, &args.data).await?;
-    let mut spec = plan(&source, args, &config, given).await?;
+    let project_id = args.project_id.as_ref();
+    let source = Source::connect(&uri, &config, project_id).await?;
+    let mut spec = plan(&source, args, &config, project_id, given).await?;
 
-    let (state, done, after) = State::prepare(
-        resumed,
-        &uri.to_string(),
-        args.data.project_id.as_ref(),
-        &mut spec,
-    )?;
-    if spec.collections.is_empty() {
-        eprintln!(
-            "run {}: all {done} collection(s) already imported",
-            state.id
-        );
-        State::remove(&state.id);
-        return Ok(ExitCode::SUCCESS);
-    }
+    let (resumed, done, after) = match resumed {
+        Some(mut state) => {
+            let project_id = project_id.context(MISSING_PROJECT)?;
+            let (done, after) = state.resume(&uri.to_string(), project_id, &mut spec)?;
+            if spec.collections.is_empty() {
+                eprintln!(
+                    "run {}: all {done} collection(s) already imported",
+                    state.id
+                );
+                State::remove(&state.id);
+                return Ok(ExitCode::SUCCESS);
+            }
+            (Some(state), done, after)
+        }
+        None => (None, 0, BTreeMap::new()),
+    };
     if args.dry_run {
         print!("{}", render(&spec, None, &after));
         for (name, target) in spec.collections.iter() {
@@ -292,7 +301,13 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             .into());
         }
     }
-    let client = DataClient::new(&config, args.data.clone())?;
+    let region = args.data.region()?;
+    let project_id = project_id.cloned().context(MISSING_PROJECT)?;
+    let client = DataClient::new(&config, project_id.clone(), region)?;
+    let state = match resumed {
+        Some(state) => state,
+        None => State::new(&uri.to_string(), project_id, &spec)?,
+    };
     let import = Import::prepare(client, &source, &spec, &after).await?;
     let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
     // Before the run: a killed run prints nothing after.
@@ -305,7 +320,6 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         }
     );
     eprint!("{}", render(&spec, Some(&fresh), &after));
-    let region = args.data.region.as_deref().unwrap_or_default();
     if !args.yes && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }
@@ -318,11 +332,8 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         import::set_progress(progress.clone());
     }
     let resume_hint = format!(
-        "nothing else was imported; to continue: topk import --region '{region}' {}{}--resume {}",
-        match &args.data.project_id {
-            Some(project_id) => format!("--project-id {project_id} "),
-            None => String::new(),
-        },
+        "nothing else was imported; to continue: topk import --region '{region}' --project-id {} {}--resume {}",
+        state.project_id,
         match args.source.is_none() {
             true => String::new(),
             false => format!("'{}' ", state.source),

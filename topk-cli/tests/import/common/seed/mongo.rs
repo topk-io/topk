@@ -5,7 +5,7 @@ use mongodb::bson;
 use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
-use crate::common::json;
+use crate::import::common::json;
 
 pub struct Mongo(mongodb::Client);
 

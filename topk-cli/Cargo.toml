@@ -97,7 +97,3 @@ test-macros = { path = "../utils/test-macros" }
 test-context = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }
 
-[[test]]
-name = "import"
-path = "tests/import/main.rs"
-required-features = ["import"]

@@ -1,6 +1,6 @@
 use test_context::test_context;
 
-use super::common::CliTestContext;
+use crate::common::session::CliTestContext;
 
 #[test_context(CliTestContext)]
 #[tokio::test]

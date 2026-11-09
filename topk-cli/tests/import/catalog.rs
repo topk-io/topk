@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::common::seed::{es, mongo, mysql, parquet, pg, sqlite, Seed};
-use crate::common::*;
+use crate::import::common::seed::{es, mongo, mysql, parquet, pg, sqlite, Seed};
+use crate::import::common::*;
 use rstest::rstest;
 
 #[rstest]

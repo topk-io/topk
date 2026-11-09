@@ -75,6 +75,8 @@ fn tilde_survives_remote_paths(#[case] input: &str) {
 #[case::unknown_file_type("data.txt", "cannot tell the file type")]
 #[case::no_extension("data/books", "cannot tell the file type")]
 #[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
+#[case::topk_without_a_region("topk:///books", "needs a region")]
+#[case::topk_with_a_key("topk://key@sunflower/books", "does not take an API key")]
 fn bad_uris(#[case] input: &str, #[case] fragment: &str) {
     let message = match input.parse::<Uri>() {
         Err(Error::InvalidArgument(message)) => message,

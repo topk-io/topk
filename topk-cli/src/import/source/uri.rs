@@ -33,11 +33,14 @@ impl FromStr for Uri {
             return Err(Error::InvalidArgument("empty source uri".into()));
         }
         if let Some(rest) = s.strip_prefix("topk://") {
-            let (authority, collection) = rest.split_once('/').unwrap_or((rest, ""));
-            let (api_key, region) = match authority.rsplit_once('@') {
-                Some((key, region)) => (Some(key.to_string()), region),
-                None => (None, authority),
-            };
+            let (region, collection) = rest.split_once('/').unwrap_or((rest, ""));
+            if region.contains('@') {
+                return Err(Error::InvalidArgument(
+                    "topk:// does not take an API key; it reads with your login and \
+                     --project-id, e.g. topk://sunflower/books"
+                        .into(),
+                ));
+            }
             if region.is_empty() {
                 return Err(Error::InvalidArgument(
                     "topk:// needs a region, e.g. topk://sunflower/books".into(),
@@ -45,7 +48,6 @@ impl FromStr for Uri {
             }
             return Ok(Uri::Topk(topk::Uri {
                 region: region.to_string(),
-                api_key,
                 collection: collection.to_string(),
             }));
         }

@@ -24,7 +24,6 @@ fn tenant_path(dir: &TempDir) -> PathBuf {
 fn command(dir: &TempDir) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_topk"));
     for key in [
-        "TOPK_API_KEY",
         "TOPK_PROJECT_ID",
         "TOPK_CONFIG_DIR",
         "TOPK_REGION",
@@ -188,11 +187,8 @@ fn local_dry_run_requires_no_authentication() {
         String::from_utf8_lossy(&output.stderr)
     );
     for (args, message) in [
-        (vec![], "--region is required"),
-        (
-            vec!["--region", "test"],
-            "or select a default project with `topk project select`",
-        ),
+        (vec!["--region", "test"], "--project-id <PROJECT_ID>"),
+        (vec!["--project-id", "p1"], "--region is required"),
     ] {
         let output = command(&dir)
             .arg("import")
@@ -211,7 +207,7 @@ fn local_dry_run_requires_no_authentication() {
 }
 
 #[tokio::test]
-async fn endpoint_selects_api_key_or_project_authentication() {
+async fn endpoint_authenticates_with_the_project() {
     let try_parse = |args: &[&str]| {
         let matches = DataEndpoint::augment_args(ClapCommand::new("test"))
             .mut_args(|arg| arg.env(None::<&str>))
@@ -229,39 +225,19 @@ async fn endpoint_selects_api_key_or_project_authentication() {
         },
         dir.path().to_owned(),
     );
-    assert!(try_parse(&[
-        "test",
-        "--region",
-        "test",
-        "--api-key",
-        "key",
-        "--project-id",
-        "p1",
-    ])
-    .err()
-    .unwrap()
-    .to_string()
-    .contains("cannot be used with"));
+    assert!(try_parse(&["test", "--region", "test", "--api-key", "key"])
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("unexpected argument '--api-key'"));
     let client = DataClient::new(
         &config,
-        parse(&["test", "--region", "test", "--api-key", "key"]),
-    )
-    .unwrap();
-    assert_eq!(client.config().headers()["authorization"], "Bearer key");
-    let client = DataClient::new(
-        &config,
-        parse(&["test", "--region", "test", "--project-id", "p1"]),
+        "p1".parse().unwrap(),
+        parse(&["test", "--region", "test"]).region().unwrap(),
     )
     .unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
-    assert!(
-        DataClient::new(&config, parse(&["test", "--region", "test"]))
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("or select a default project with `topk project select`")
-    );
 }
 
 #[test]
@@ -287,7 +263,7 @@ fn logout_clears_access_tokens() {
 
 #[cfg(feature = "import")]
 #[test]
-fn project_environment_is_validated_overridden_by_flag_and_conflicts_with_api_key() {
+fn project_environment_is_validated_and_overridden_by_flag() {
     let dir = TempDir::new().unwrap();
     let source = dir.path().join("books.jsonl");
     std::fs::write(&source, "{\"_id\":\"one\",\"title\":\"Book\"}\n").unwrap();
@@ -304,5 +280,4 @@ fn project_environment_is_validated_overridden_by_flag_and_conflicts_with_api_ke
     assert!(run("p1", &[]).status.success());
     assert_eq!(run("../invalid", &[]).status.code(), Some(2));
     assert!(run("../invalid", &["--project-id", "p2"]).status.success());
-    assert_eq!(run("p1", &["--api-key", "test-key"]).status.code(), Some(2));
 }

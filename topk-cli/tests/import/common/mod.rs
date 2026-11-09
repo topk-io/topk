@@ -1,8 +1,5 @@
 pub mod seed;
 
-#[path = "../../common/command.rs"]
-mod command;
-
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write as _;
@@ -15,15 +12,19 @@ use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
-pub use command::TestCommand;
 use topk::auth::OAuthConfig;
+use topk::client::DataClient;
 use topk::config::Config;
 use topk::endpoint::DataEndpoint;
 use topk::host::Host;
 use topk::import::{Field, Spec, Target};
+use topk::ProjectId;
 use topk_rs::doc;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, Value};
-use topk_rs::{Client, ClientConfig};
+use topk_rs::Client;
+
+pub use crate::common::command::TestCommand;
+use crate::common::session::CliTestContext;
 
 /// A flag group's defaults, ignoring the environment.
 fn defaults<T: Args + FromArgMatches>() -> T {
@@ -42,8 +43,10 @@ pub fn config() -> Config {
     )
 }
 
-pub fn endpoint() -> DataEndpoint {
-    defaults()
+/// A flag group as the CLI would parse it from the environment.
+fn from_env<T: Args + FromArgMatches>() -> T {
+    let matches = T::augment_args(Command::new("test")).get_matches_from(["test"]);
+    T::from_arg_matches(&matches).expect("arguments from the environment")
 }
 
 pub fn books() -> Vec<Document> {
@@ -120,7 +123,7 @@ pub fn topk() -> TestCommand {
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     let uri = locator.parse().expect("source uri parses");
     let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    let catalog = topk::import::Source::connect(&uri, &config(), &endpoint())
+    let catalog = topk::import::Source::connect(&uri, &config(), None)
         .await
         .expect("connect")
         .catalog()
@@ -143,7 +146,7 @@ pub async fn stream_docs_from(
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let source = topk::import::Source::connect(&uri, &config(), &endpoint()).await?;
+    let source = topk::import::Source::connect(&uri, &config(), None).await?;
     let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = BTreeMap::new();
     while let Some(row) = rows.next().await {
@@ -295,7 +298,9 @@ impl AsyncTestContext for Scratch {
 
 pub struct Ctx {
     scratch: Scratch,
-    client: Client,
+    _session: CliTestContext,
+    project_id: ProjectId,
+    client: DataClient,
     scope: String,
     used: RefCell<HashSet<String>>,
 }
@@ -311,6 +316,10 @@ impl std::ops::Deref for Ctx {
 impl Ctx {
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    pub fn project_id(&self) -> &ProjectId {
+        &self.project_id
     }
 
     pub fn collection(&self, name: &str) -> String {
@@ -358,19 +367,25 @@ impl Ctx {
 
 impl AsyncTestContext for Ctx {
     async fn setup() -> Self {
-        let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
-        let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY not set");
-        let host = std::env::var("TOPK_HOST").unwrap_or_else(|_| "topk.io".to_string());
-        let https = std::env::var("TOPK_HTTPS")
-            .map(|v| v == "true")
-            .unwrap_or(true);
+        let session = CliTestContext::logged_out();
+        session.login().await;
+        let project_id = session.e2e_project();
+        std::env::set_var("TOPK_PROJECT_ID", project_id.as_str());
+        let config = Config::new(
+            from_env::<Host>(),
+            from_env::<OAuthConfig>(),
+            Config::dir().expect("config directory"),
+        );
         Ctx {
             scratch: Scratch::setup().await,
-            client: Client::new(
-                ClientConfig::new(api_key, region)
-                    .with_host(host)
-                    .with_https(https),
-            ),
+            _session: session,
+            client: DataClient::new(
+                &config,
+                project_id.clone(),
+                from_env::<DataEndpoint>().region().expect("TOPK_REGION"),
+            )
+            .expect("data client"),
+            project_id,
             scope: format!("it-{}", Uuid::new_v4()),
             used: RefCell::new(HashSet::new()),
         }

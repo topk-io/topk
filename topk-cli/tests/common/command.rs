@@ -1,6 +1,3 @@
-// Shared by several test crates; each uses a different part of it.
-#![allow(dead_code)]
-
 use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::io::Write;

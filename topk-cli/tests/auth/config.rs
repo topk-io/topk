@@ -79,7 +79,7 @@ async fn lock_coordinates_separate_processes() {
     let dir = tempfile::tempdir().unwrap();
     let guard = lock(dir.path().join("shared.lock")).await.unwrap();
     let mut child = tokio::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "config::lock_child"])
+        .args(["--exact", "auth::config::lock_child"])
         .env("TOPK_TEST_LOCK_DIR", dir.path())
         .stdout(std::process::Stdio::null())
         .kill_on_drop(true)

@@ -5,17 +5,21 @@ use tempfile::NamedTempFile;
 use test_context::{test_context, AsyncTestContext};
 use uuid::Uuid;
 
-#[path = "../common/command.rs"]
-mod command;
+use crate::common::command::TestCommand;
+use crate::common::session::CliTestContext;
+
 mod meta;
-use command::TestCommand;
 
 struct Books {
     table: String,
+    _session: CliTestContext,
 }
 
 impl AsyncTestContext for Books {
     async fn setup() -> Self {
+        let session = CliTestContext::logged_out();
+        session.login().await;
+        std::env::set_var("TOPK_PROJECT_ID", session.e2e_project().as_str());
         let table = format!("cli_sql_{}", &Uuid::new_v4().simple().to_string()[..8]);
         TestCommand::new()
             .args([
@@ -32,7 +36,10 @@ impl AsyncTestContext for Books {
                 ),
             ])
             .ok();
-        Self { table }
+        Self {
+            table,
+            _session: session,
+        }
     }
 
     async fn teardown(self) {

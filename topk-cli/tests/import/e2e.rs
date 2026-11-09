@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::common::seed::{self, rustfs, sqlite, Seed};
-use crate::common::*;
+use crate::import::common::seed::{self, rustfs, sqlite, Seed};
+use crate::import::common::*;
 use indexmap::IndexMap;
 use rstest::rstest;
 use serde_json::json;
@@ -1051,8 +1051,8 @@ async fn exhausted_limit_resumes_without_reading(ctx: &mut Ctx) {
     let collection = ctx.collection("exhausted");
     let spec = ctx.target_spec(&collection, object);
     topk().args(["import", "-f", &spec, "--yes"]).ok();
-    let mut plan: Spec = toml::from_str(&std::fs::read_to_string(spec).unwrap()).unwrap();
-    let (mut state, _, _) = topk::import::State::prepare(None, "", None, &mut plan).unwrap();
+    let plan: Spec = toml::from_str(&std::fs::read_to_string(spec).unwrap()).unwrap();
+    let mut state = topk::import::State::new("", ctx.project_id().clone(), &plan).unwrap();
     state.cursors.insert(
         collection.clone(),
         topk::import::Mark::After(topk::import::Checkpoint {

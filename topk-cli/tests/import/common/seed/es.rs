@@ -10,7 +10,7 @@ use serde_json::json;
 use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
-use crate::common::json as doc_json;
+use crate::import::common::json as doc_json;
 
 pub struct Es(Elasticsearch);
 
