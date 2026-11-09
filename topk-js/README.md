@@ -164,7 +164,7 @@ const client = new Client({
   region: "aws-us-east-1-elastica",
   retryConfig: {
     maxRetries: 5,       // default: 3
-    timeout: 60_000,     // total retry chain timeout in ms, default: 30,000
+    timeout: 60_000,     // total retry chain timeout in ms, default: 180,000
     backoff: {
       initBackoff: 200,  // default: 100 ms
       maxBackoff: 5_000, // default: 10,000 ms

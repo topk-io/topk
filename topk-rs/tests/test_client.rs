@@ -1,4 +1,6 @@
+use rstest::rstest;
 use test_context::test_context;
+use tonic::{Code, Status};
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::query::{field, filter, r#match};
 use topk_rs::{Client, ClientConfig, Error};
@@ -55,4 +57,12 @@ async fn test_protobuf_recursion_limit_returns_invalid_argument(ctx: &mut Projec
         "Expected InvalidArgument error with 'failed to decode Protobuf message', but got: {}",
         err
     );
+}
+
+#[rstest]
+#[case::aborted(Code::Aborted, true)]
+#[case::unknown_without_transport(Code::Unknown, false)]
+fn status_retry_class(#[case] code: Code, #[case] retryable: bool) {
+    let error = Error::from(Status::new(code, "test"));
+    assert_eq!(error.is_retryable(), retryable, "{error:?}");
 }

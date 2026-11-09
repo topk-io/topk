@@ -46,7 +46,7 @@ impl From<RustError> for PyErr {
             topk_rs::Error::SlowDown(e) => SlowDownError::new_err(e),
             topk_rs::Error::PermissionDenied => PermissionDeniedError::new_err(value.0.to_string()),
             // Other errors
-            _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
+            _ => PyException::new_err(format!("topk returned error: {}", value.0)),
         }
     }
 }

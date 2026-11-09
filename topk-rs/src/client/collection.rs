@@ -4,12 +4,13 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures::{Stream, TryStreamExt};
-use futures_util::{StreamExt, TryFutureExt};
+use futures_util::StreamExt;
 use prost::Message;
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
 use tonic::{Response, Streaming};
 
+use super::retry::call_with_retry;
 use crate::create_client;
 use crate::error::Error;
 use crate::proto::v1::data::partition_service_client::PartitionServiceClient;
@@ -27,7 +28,6 @@ use crate::proto::v1::data::{
 use crate::proto::v1::data::{DeletePartitionRequest, DocumentData};
 
 use super::config::ClientConfig;
-use super::retry::call_with_retry;
 
 pub struct DocumentStream {
     // Underying stream
@@ -45,6 +45,7 @@ impl DocumentStream {
 
         let stream = response
             .into_inner()
+            .map_err(CollectionClient::map_status_to_error)
             .map(|result| match Document::decode(result?.data) {
                 Ok(doc) => Ok(doc),
                 Err(e) => Err(Error::MalformedResponse(e.to_string())),
@@ -111,33 +112,30 @@ impl CollectionClient {
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
-        let ids: Vec<String> = ids.into_iter().map(|id| id.into()).collect();
-        // A no-op write returns an empty LSN, which means there is nothing to wait for.
-        let lsn = lsn.filter(|lsn| !lsn.is_empty());
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let request = GetRequest {
+            ids: ids.into_iter().map(|id| id.into()).collect(),
+            fields: fields.unwrap_or_default(),
+            // A no-op write returns an empty LSN, which means there is nothing to wait for.
+            required_lsn: lsn.filter(|lsn| !lsn.is_empty()),
+            consistency_level: consistency.map(|c| c.into()),
+        };
+
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let ids = ids.clone();
-            let fields = fields.clone();
-            let lsn = lsn.clone();
-            let consistency = consistency.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .get_stream(GetRequest {
-                        ids: ids,
-                        fields: fields.unwrap_or_default(),
-                        required_lsn: lsn,
-                        consistency_level: consistency.map(|c| c.into()),
-                    })
-                    .map_err(Self::map_status_to_error)
+                    .get_stream(request)
                     .await
+                    .map_err(Self::map_status_to_error)
             }
         })
         .await?;
 
         // Collect results from stream
-        let mut stream = response.into_inner();
+        let mut stream = response.into_inner().map_err(Self::map_status_to_error);
         let mut docs = HashMap::new();
         while let Some(result) = stream.next().await {
             // Decode document
@@ -161,14 +159,7 @@ impl CollectionClient {
     ) -> Result<u64, Error> {
         let query = Query::new(vec![Stage::count()]);
 
-        let docs = call_with_retry(&self.config.retry_config(), || {
-            let query = query.clone();
-            let lsn = lsn.clone();
-            let consistency = consistency.clone();
-
-            async move { self.query(query, lsn, consistency).await }
-        })
-        .await?;
+        let docs = self.query(query, lsn, consistency).await?;
 
         for doc in docs {
             match doc.fields.get("_count") {
@@ -211,25 +202,24 @@ impl CollectionClient {
         consistency: Option<ConsistencyLevel>,
     ) -> Result<DocumentStream, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
-        // A no-op write returns an empty LSN, which means there is nothing to wait for.
-        let lsn = lsn.filter(|lsn| !lsn.is_empty());
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let request = QueryRequest {
+            query: Some(query.into()),
+            // A no-op write returns an empty LSN, which means there is nothing to wait for.
+            required_lsn: lsn.filter(|lsn| !lsn.is_empty()),
+            consistency_level: consistency.map(|c| c.into()),
+            ..Default::default()
+        };
+
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let query = query.clone();
-            let lsn = lsn.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .query_stream(QueryRequest {
-                        query: Some(query.into()),
-                        required_lsn: lsn.clone(),
-                        consistency_level: consistency.map(|c| c.into()),
-                        // DEPRECATED: This field is no longer used, kept for backwards compatibility.
-                        collection: String::new(),
-                    })
-                    .map_err(Self::map_status_to_error)
+                    .query_stream(request)
                     .await
+                    .map_err(Self::map_status_to_error)
             }
         })
         .await?;
@@ -243,13 +233,15 @@ impl CollectionClient {
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
         let client = create_client!(WriteServiceClient, self.write, self.config).await?;
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let request = UpsertDocumentsRequest { docs };
+
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let docs = docs.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .upsert_documents(UpsertDocumentsRequest { docs })
+                    .upsert_documents(request)
                     .await
                     .map_err(Self::map_status_to_error)
             }
@@ -270,16 +262,18 @@ impl CollectionClient {
     ) -> Result<String, Error> {
         let client = create_client!(WriteServiceClient, self.write, self.config).await?;
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let request = UpdateDocumentsRequest {
+            docs,
+            fail_on_missing,
+        };
+
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let docs = docs.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .update_documents(UpdateDocumentsRequest {
-                        docs,
-                        fail_on_missing,
-                    })
+                    .update_documents(request)
                     .await
                     .map_err(Self::map_status_to_error)
             }
@@ -293,15 +287,15 @@ impl CollectionClient {
     pub async fn delete(&self, req: impl Into<DeleteDocumentsRequest>) -> Result<String, Error> {
         let client = create_client!(WriteServiceClient, self.write, self.config).await?;
 
-        let req = req.into();
+        let request: DeleteDocumentsRequest = req.into();
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let response = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
-            let req = req.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .delete_documents(req)
+                    .delete_documents(request)
                     .await
                     .map_err(Self::map_status_to_error)
             }
@@ -321,37 +315,40 @@ impl CollectionClient {
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Partition, Error>> + Send>>, Error> {
         let client = create_client!(PartitionServiceClient, self.write, self.config).await?;
 
-        let stream = call_with_retry(&self.config.retry_config(), || {
-            let prefix = prefix.clone();
+        let request = ListPartitionsRequest { prefix };
+
+        let stream = call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .list(ListPartitionsRequest { prefix })
-                    .map_err(Self::map_status_to_error)
+                    .list(request)
                     .await
+                    .map_err(Self::map_status_to_error)
             }
         })
         .await?
         .into_inner();
 
-        Ok(Box::pin(stream.map_err(|e| Error::from(e))))
+        Ok(Box::pin(stream.map_err(Self::map_status_to_error)))
     }
 
     /// Delete partition from the collection.
     ///
     /// All documents in the partition will be deleted atomically.
     pub async fn delete_partition(&self, name: impl Into<String>) -> Result<(), Error> {
-        let name = name.into();
         let client = create_client!(PartitionServiceClient, self.write, self.config).await?;
 
-        call_with_retry(&self.config.retry_config(), || {
-            let name = name.clone();
+        let request = DeletePartitionRequest { name: name.into() };
+
+        call_with_retry(self.config.retry_config(), || {
             let mut client = client.clone();
+            let request = request.clone();
 
             async move {
                 client
-                    .delete(DeletePartitionRequest { name })
+                    .delete(request)
                     .await
                     .map_err(Self::map_status_to_error)
             }

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
@@ -23,8 +24,11 @@ pub const MAX_DECODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
 pub const MAX_ENCODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
 
 // request config
-pub const TIMEOUT: u64 = 600_000; // 10 minutes
 pub const MAX_HEADER_LIST_SIZE: u32 = 1024 * 64; // 64KB
+
+// (client) keepalive config; GCP's load balancer sends GOAWAY too_many_pings at a 10s interval
+pub const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(60);
+pub const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(30);
 
 // (client) retry config
 pub const RETRY_TIMEOUT: u64 = 180_000; // 3 minutes
@@ -84,11 +88,7 @@ impl Client {
 macro_rules! create_client {
     ($client:ident, $channel:expr, $config:expr) => {
         async {
-            use crate::client::transport::Transport;
-            use crate::client::MAX_DECODING_MESSAGE_SIZE;
-            use crate::client::MAX_ENCODING_MESSAGE_SIZE;
-            use crate::client::MAX_HEADER_LIST_SIZE;
-            use crate::client::TIMEOUT;
+            use crate::client;
             use crate::Error;
 
             // Lazily connect the channel on first use
@@ -97,12 +97,13 @@ macro_rules! create_client {
                     Ok::<_, Error>(
                         $config
                             .endpoint()?
-                            // Do not close idle connections so they can be reused
+                            // Send keepalive pings even while the connection is idle.
                             .keep_alive_while_idle(true)
+                            // Use keepalive to detect stalled connections.
+                            .http2_keep_alive_interval(client::KEEP_ALIVE_INTERVAL)
+                            .keep_alive_timeout(client::KEEP_ALIVE_TIMEOUT)
                             // Set max header list size to 64KB
-                            .http2_max_header_list_size(MAX_HEADER_LIST_SIZE)
-                            // Request timeout
-                            .timeout(std::time::Duration::from_millis(TIMEOUT))
+                            .http2_max_header_list_size(client::MAX_HEADER_LIST_SIZE)
                             // Disable Nagle's algorithm
                             .tcp_nodelay(true)
                             // Disable adaptive window
@@ -117,12 +118,12 @@ macro_rules! create_client {
                 .await?;
 
             // Create transport
-            let transport = Transport::new(channel.clone(), &$config)?;
+            let transport = client::transport::Transport::new(channel.clone(), &$config)?;
 
             // Build client
             let client = $client::new(transport)
-                .max_decoding_message_size(MAX_DECODING_MESSAGE_SIZE)
-                .max_encoding_message_size(MAX_ENCODING_MESSAGE_SIZE);
+                .max_decoding_message_size(client::MAX_DECODING_MESSAGE_SIZE)
+                .max_encoding_message_size(client::MAX_ENCODING_MESSAGE_SIZE);
 
             Result::<_, Error>::Ok(client)
         }

@@ -6,6 +6,7 @@ use std::time::Duration;
 use futures::{StreamExt, TryStreamExt};
 use http::header::InvalidHeaderValue;
 use http::{Method, Request as HttpRequest, Version};
+use rstest::rstest;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::TcpListenerStream;
@@ -187,7 +188,18 @@ impl QueryService for Service {
                     .into(),
             )
             .unwrap();
-        Ok(Response::new(tokio_stream::iter(vec![])))
+        let stream = match request
+            .metadata()
+            .get("x-topk-collection")
+            .unwrap()
+            .to_str()
+        {
+            Ok("unavailable") => return Err(Status::unavailable("down")),
+            Ok("broken") => vec![Err(Status::unavailable("reset"))],
+            Ok("missing") => vec![Err(Status::not_found("gone"))],
+            _ => vec![],
+        };
+        Ok(Response::new(tokio_stream::iter(stream)))
     }
     async fn get_stream(
         &self,
@@ -339,26 +351,34 @@ async fn interceptor_statuses_keep_their_sources_and_never_retry() {
         (Code::Unavailable, true),
         (Code::PermissionDenied, true),
         (Code::Unauthenticated, false),
+        (Code::NotFound, true),
+        (Code::AlreadyExists, true),
     ] {
         let interceptor = Arc::new(FailingInterceptor {
             calls: AtomicUsize::new(0),
             response: Err(code),
             context,
         });
-        let error = ctx
-            .client(interceptor.clone())
-            .collections()
-            .list(None)
-            .await
-            .err()
-            .unwrap();
-        assert!(matches!(error, Error::Interceptor(_)), "{error:?}");
-        assert!(!error.is_retryable());
-        let status = std::iter::successors(error.source(), |e| (*e).source())
-            .find_map(|e| e.downcast_ref::<Status>())
-            .expect("original status remains in the source chain");
-        assert_eq!(status.code(), code);
-        assert_eq!(interceptor.calls.load(Ordering::SeqCst), 1);
+        let client = ctx.client(interceptor.clone());
+        let collections = client.collections();
+        for error in [
+            collections.list(None).await.err().unwrap(),
+            collections.get("books").await.err().unwrap(),
+            collections
+                .create("books", std::collections::HashMap::new(), None)
+                .await
+                .err()
+                .unwrap(),
+            collections.delete("books").await.err().unwrap(),
+        ] {
+            assert!(matches!(error, Error::Interceptor(_)), "{error:?}");
+            assert!(!error.is_retryable());
+            let status = std::iter::successors(error.source(), |e| (*e).source())
+                .find_map(|e| e.downcast_ref::<Status>())
+                .expect("original status remains in the source chain");
+            assert_eq!(status.code(), code);
+        }
+        assert_eq!(interceptor.calls.load(Ordering::SeqCst), 4);
         assert!(ctx.requests.try_recv().is_err());
     }
 }
@@ -528,8 +548,71 @@ async fn invalid_configured_headers_are_rejected() {
         );
         assert!(matches!(
             client.collections().list(None).await,
-            Err(Error::Input(_))
+            Err(Error::InvalidHeader(_))
         ));
         assert!(ctx.requests.try_recv().is_err());
     }
+}
+
+#[rstest]
+#[case::setup_retried("unavailable", 3, |e: &Error| matches!(e, Error::Unavailable(_)))]
+#[case::stream_not_retried("broken", 1, |e: &Error| matches!(e, Error::Unavailable(_)))]
+#[case::stream_not_found("missing", 1, |e: &Error| matches!(e, Error::CollectionNotFound))]
+#[tokio::test]
+async fn count_retries_only_until_the_response(
+    #[case] collection: &str,
+    #[case] attempts: usize,
+    #[case] expected: fn(&Error) -> bool,
+) {
+    let mut ctx = Fixture::new().await;
+    let interceptor = Arc::new(FailingInterceptor {
+        calls: AtomicUsize::new(0),
+        response: Ok("token"),
+        context: false,
+    });
+    let error = ctx
+        .client(interceptor)
+        .collection(collection)
+        .count(None, None)
+        .await
+        .unwrap_err();
+    assert!(expected(&error), "{error:?}");
+    let mut requests = 0;
+    while ctx.requests.try_recv().is_ok() {
+        requests += 1;
+    }
+    assert_eq!(requests, attempts);
+}
+
+#[tokio::test]
+async fn connection_resets_are_retried() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint =
+        Endpoint::from_shared(format!("http://{}", listener.local_addr().unwrap())).unwrap();
+    let accepts = Arc::new(AtomicUsize::new(0));
+    tokio::spawn({
+        let accepts = accepts.clone();
+        async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                accepts.fetch_add(1, Ordering::SeqCst);
+                drop(stream);
+            }
+        }
+    });
+    let client = Client::from_channel(
+        ClientConfig::default()
+            .with_region("test")
+            .with_retry_config(RetryConfig {
+                max_retries: 2,
+                timeout: Duration::from_secs(5),
+                backoff: BackoffConfig {
+                    init_backoff: Duration::from_millis(1),
+                    ..BackoffConfig::default()
+                },
+            }),
+        endpoint.connect_lazy(),
+    );
+    let error = client.collections().list(None).await.err().unwrap();
+    assert!(matches!(error, Error::Unavailable(_)), "{error:?}");
+    assert_eq!(accepts.load(Ordering::SeqCst), 2);
 }

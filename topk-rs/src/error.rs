@@ -10,10 +10,12 @@ pub const MAX_VECTOR_DIMENSION: u32 = 16_384; // Double the size of `8192` which
 pub const MAX_MATRIX_DIMENSION: u32 = 1024; // 8 * 128 which is the commonly used multi-vector dimension.
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("lsn timeout")]
     QueryLsnTimeout,
 
+    /// The retry budget ran out before any reply arrived.
     #[error("retry timeout")]
     RetryTimeout,
 
@@ -53,29 +55,26 @@ pub enum Error {
     #[error("request too large: {0}")]
     RequestTooLarge(String),
 
-    #[error("input error: {0}")]
-    Input(anyhow::Error),
+    #[error("invalid header: {0}")]
+    InvalidHeader(#[from] http::Error),
 
     #[error("request interceptor failed: {0:#}")]
     Interceptor(#[source] Arc<anyhow::Error>),
 
-    #[error("io error: {0}")]
-    IoError(#[from] std::io::Error),
+    #[error("internal error: {}", with_request_id(.0))]
+    Internal(#[source] Status),
 
-    #[error("internal error: {0}")]
-    Internal(String),
+    #[error("unavailable: {}", with_request_id(.0))]
+    Unavailable(#[source] Status),
 
-    #[error("unavailable: {0}")]
-    Unavailable(String),
+    #[error("deadline exceeded: {}", with_request_id(.0))]
+    DeadlineExceeded(#[source] Status),
 
-    #[error("deadline exceeded: {0}")]
-    DeadlineExceeded(String),
+    #[error("unauthenticated: {}", with_request_id(.0))]
+    Unauthenticated(#[source] Status),
 
-    #[error("unauthenticated: {0}")]
-    Unauthenticated(String),
-
-    #[error("unexpected error: {0}")]
-    Unexpected(String),
+    #[error("unexpected error: {:?}: {}", .0.code(), with_request_id(.0))]
+    Unexpected(#[source] Status),
 
     #[error("slow down: {0}")]
     SlowDown(String),
@@ -112,11 +111,10 @@ impl Error {
         match self {
             // Retryable
             Error::QueryLsnTimeout => true,
+            Error::SlowDown(_) => true,
             Error::Unavailable(_) => true,
             Error::TransportError(_) => true,
             // Not retryable
-            // The server is out of capacity; retrying right away only adds load.
-            Error::SlowDown(_) => false,
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
             Error::CollectionNotFound => false,
@@ -135,9 +133,8 @@ impl Error {
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
-            Error::Input(_) => false,
+            Error::InvalidHeader(_) => false,
             Error::Interceptor(_) => false,
-            Error::IoError(_) => false,
             Error::InvalidProto => false,
         }
     }
@@ -153,6 +150,14 @@ impl Error {
             _ => None,
         }
     }
+
+    /// How many times wider this error's backoff range is than the configured one.
+    pub fn backoff_scale(&self) -> u32 {
+        match self {
+            Error::SlowDown(_) => 10,
+            _ => 1,
+        }
+    }
 }
 
 impl From<Status> for Error {
@@ -164,20 +169,6 @@ impl From<Status> for Error {
                 return Error::Interceptor(source.clone());
             }
         }
-
-        let request_id = status
-            .metadata()
-            .get("x-request-id")
-            .and_then(|v| v.to_str().ok())
-            .map(|v| v.to_string());
-
-        let append_request_id = |message: &str| {
-            if let Some(request_id) = request_id {
-                format!("{message} (x-request-id: {request_id})")
-            } else {
-                message.to_string()
-            }
-        };
 
         match CustomError::try_from(status) {
             // Custom error
@@ -203,19 +194,21 @@ impl From<Status> for Error {
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,
                 tonic::Code::Internal => match has_h2_source(&e) {
-                    true => Error::Unavailable(append_request_id(e.message())),
-                    false => Error::Internal(append_request_id(e.message())),
+                    true => Error::Unavailable(e),
+                    false => Error::Internal(e),
                 },
-                tonic::Code::Unavailable | tonic::Code::Cancelled => {
-                    Error::Unavailable(append_request_id(e.message()))
+                tonic::Code::Unavailable | tonic::Code::Cancelled | tonic::Code::Aborted => {
+                    Error::Unavailable(e)
                 }
-                tonic::Code::DeadlineExceeded => {
-                    Error::DeadlineExceeded(append_request_id(e.message()))
+                tonic::Code::DeadlineExceeded => Error::DeadlineExceeded(e),
+                tonic::Code::Unauthenticated => Error::Unauthenticated(e),
+                tonic::Code::Unknown
+                    if std::iter::successors(e.source(), |s| (*s).source())
+                        .any(|s| s.is::<tonic::transport::Error>()) =>
+                {
+                    Error::Unavailable(e)
                 }
-                tonic::Code::Unauthenticated => {
-                    Error::Unauthenticated(append_request_id(e.message()))
-                }
-                _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
+                _ => Error::Unexpected(e),
             },
         }
     }
@@ -534,6 +527,17 @@ impl From<CustomError> for Status {
             .insert("x-topk-error-code", error_code.into());
 
         status
+    }
+}
+
+fn with_request_id(status: &Status) -> String {
+    match status
+        .metadata()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+    {
+        Some(request_id) => format!("{} (x-request-id: {request_id})", status.message()),
+        None => status.message().to_string(),
     }
 }
 
