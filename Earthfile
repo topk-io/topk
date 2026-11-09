@@ -110,7 +110,7 @@ test-py:
         && TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox pytest -n auto --tb=long --durations=50 --color=yes -vv $args
 
 test-js:
-    FROM node:20-slim
+    FROM node:24-slim
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler curl build-essential

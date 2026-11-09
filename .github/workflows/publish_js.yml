@@ -141,7 +141,7 @@ jobs:
               sudo apt-get install gcc-riscv64-linux-gnu -y
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
             build: yarn build --target riscv64gc-unknown-linux-gnu
-    name: stable - ${{ matrix.settings.target }} - node@20
+    name: stable - ${{ matrix.settings.target }} - node@24
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -149,7 +149,7 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: ${{ !matrix.settings.docker }}
         with:
-          node-version: 20
+          node-version: 24
           cache: yarn
           cache-dependency-path: ./topk-js
       - name: Install
