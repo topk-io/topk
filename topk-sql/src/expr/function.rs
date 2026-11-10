@@ -154,7 +154,7 @@ impl TryFrom<SqlFunction> for Expr {
                 }
                 Self::Literal(Value::r#struct(fields))
             }
-            "contains" => {
+            "contains" | "array_contains" => {
                 let [field, value]: [SqlExpr; 2] = exact(args, &name)?;
                 let field = LogicalExpr::from_sql(field)?;
                 let value = Value::from_sql(value)?;

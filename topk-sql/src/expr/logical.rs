@@ -229,6 +229,15 @@ impl FromSql<SqlExpr> for LogicalExpr {
             SqlExpr::Function(func) => LogicalExpr::from_sql(func),
             SqlExpr::Cast { .. } => sql_unsupported!("explicit CAST is only supported in SELECT"),
 
+            SqlExpr::AnyOp {
+                left,
+                compare_op: BinaryOperator::Eq,
+                right,
+                ..
+            } if right.as_ident().is_some() => {
+                Ok(LogicalExpr::from_sql(*right)?.contains(Value::from_sql(*left)?))
+            }
+
             other => sql_unsupported!("expression: {other:?}"),
         }
     }
