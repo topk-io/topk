@@ -39,67 +39,62 @@ pub struct State {
     pub started: DateTime<Utc>,
     /// The whole plan as TOML, done collections included.
     pub spec: String,
-    /// The `--project-id` the run started with; `None` when it used an API key.
-    #[serde(default)]
-    pub project_id: Option<ProjectId>,
+    /// The project the run writes to.
+    pub project_id: ProjectId,
     #[serde(default)]
     pub cursors: BTreeMap<String, Mark>,
 }
 
 impl State {
-    pub fn prepare(
-        resumed: Option<State>,
+    /// A fresh run of the whole `spec`.
+    pub fn new(source: &str, project_id: ProjectId, spec: &Spec) -> Result<State, Error> {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or_default();
+        Ok(State {
+            id: format!("{:08x}", nanos as u32 ^ std::process::id()),
+            source: source.to_string(),
+            started: Utc::now(),
+            spec: toml::to_string_pretty(spec)
+                .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?,
+            project_id,
+            cursors: BTreeMap::new(),
+        })
+    }
+
+    /// Checks that this invocation continues the stopped run, drops its done
+    /// collections from `spec`, and returns how many were done and where the
+    /// rest stopped.
+    pub fn resume(
+        &mut self,
         source: &str,
-        project_id: Option<&ProjectId>,
+        project_id: &ProjectId,
         spec: &mut Spec,
-    ) -> Result<(State, usize, BTreeMap<String, Checkpoint>), Error> {
-        let plan = toml::to_string_pretty(&spec)
+    ) -> Result<(usize, BTreeMap<String, Checkpoint>), Error> {
+        let plan = toml::to_string_pretty(spec)
             .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
-        let mut state = match resumed {
-            Some(state) => state,
-            None => {
-                let nanos = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_nanos() as u64)
-                    .unwrap_or_default();
-                return Ok((
-                    State {
-                        id: format!("{:08x}", nanos as u32 ^ std::process::id()),
-                        source: source.to_string(),
-                        started: Utc::now(),
-                        spec: plan,
-                        project_id: project_id.cloned(),
-                        cursors: BTreeMap::new(),
-                    },
-                    0,
-                    BTreeMap::new(),
-                ));
-            }
-        };
-        if state.source != source {
+        if self.source != source {
             return Err(Error::InvalidArgument(format!(
                 "run {} reads {}, not {source:?}",
-                state.id,
-                match state.source.is_empty() {
+                self.id,
+                match self.source.is_empty() {
                     true => "files".to_string(),
-                    false => format!("{:?}", state.source),
+                    false => format!("{:?}", self.source),
                 }
             )));
         }
-        if project_id != state.project_id.as_ref() {
+        if *project_id != self.project_id {
             return Err(Error::InvalidArgument(format!(
-                "run {} was started with different credentials; resume it {}",
-                state.id,
-                match &state.project_id {
-                    Some(started) => format!("with --project-id {started}"),
-                    None => "with --api-key (or set TOPK_API_KEY)".to_string(),
-                }
+                "run {} was started for project {started}; resume it with --project-id {started}",
+                self.id,
+                started = self.project_id,
             )));
         }
         let mut after: BTreeMap<String, Checkpoint> = BTreeMap::new();
         // A cursor only holds for an unchanged target.
-        let stored: Spec = toml::from_str(&state.spec)?;
-        state.cursors.retain(|name, cursor| {
+        let stored: Spec = toml::from_str(&self.spec)?;
+        self.cursors.retain(|name, cursor| {
             let (target, was) = match (spec.collections.get(name), stored.collections.get(name)) {
                 (Some(target), Some(was)) => (target, was),
                 _ => return false,
@@ -123,15 +118,15 @@ impl State {
                 }
             }
         }
-        let done = state
+        let done = self
             .cursors
             .values()
             .filter(|c| matches!(c, Mark::Done))
             .count();
         spec.collections
-            .retain(|name, _| !matches!(state.cursors.get(name), Some(Mark::Done)));
-        state.spec = plan;
-        Ok((state, done, after))
+            .retain(|name, _| !matches!(self.cursors.get(name), Some(Mark::Done)));
+        self.spec = plan;
+        Ok((done, after))
     }
 
     fn path(id: &str) -> Result<PathBuf, Error> {
@@ -153,7 +148,13 @@ impl State {
                 path.display()
             ))
         })?;
-        let mut state: State = toml::from_str(&text)?;
+        let mut state: State = toml::from_str(&text).map_err(|e| {
+            Error::InvalidArgument(format!(
+                "run {id} cannot be resumed ({}): saved by an older topk? \
+                 Start the import again; upserts are idempotent",
+                e.message()
+            ))
+        })?;
         state.id = id.to_string();
         Ok(state)
     }

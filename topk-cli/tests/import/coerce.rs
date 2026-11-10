@@ -2,11 +2,11 @@ use rstest::rstest;
 use topk::import::{build_row, Error, Spec, Target};
 use topk_rs::proto::v1::data::Value;
 
-use crate::common::{json, refused, spec_toml};
+use crate::import::common::{json, refused, spec_toml};
 use serde_json::json;
 
 fn target(fields: &str) -> Target {
-    crate::common::target("f.parquet", "_id", fields)
+    crate::import::common::target("f.parquet", "_id", fields)
 }
 
 fn coerce(field: &str, value: Value) -> Result<Value, Error> {

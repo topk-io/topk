@@ -75,6 +75,9 @@ fn tilde_survives_remote_paths(#[case] input: &str) {
 #[case::unknown_file_type("data.txt", "cannot tell the file type")]
 #[case::no_extension("data/books", "cannot tell the file type")]
 #[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
+#[case::topk_without_a_project("topk://aws-us-east-1-elastica/books", "needs a project")]
+#[case::topk_without_a_region("topk://p1@/books", "needs a region")]
+#[case::topk_with_a_bad_project("topk://p.1@aws-us-east-1-elastica/books", "invalid project ID")]
 fn bad_uris(#[case] input: &str, #[case] fragment: &str) {
     let message = match input.parse::<Uri>() {
         Err(Error::InvalidArgument(message)) => message,

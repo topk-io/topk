@@ -16,7 +16,7 @@ Rules:
 - Don't import anything into TopK until the user approves the plan in step 4.
 - Use the `topk` CLI for TopK. Don't ask the user for a TopK API key: `topk login` is enough.
 - Pass `--region <REGION>` to every data command (`topk import`, `topk sql`), and use the same region throughout. Account commands such as `topk login` and `topk project list` don't take it.
-- If `TOPK_API_KEY` or `TOPK_PROJECT_ID` is set in the environment, run `topk` commands with them unset (`env -u TOPK_API_KEY -u TOPK_PROJECT_ID topk …`).
+- If `TOPK_PROJECT_ID` is set in the environment, run `topk` commands with it unset (`env -u TOPK_PROJECT_ID topk …`).
 - Never run a command that waits for keyboard input: pass `--yes` to `topk import`.
 - Chroma Cloud stops accepting writes on November 22, 2026 and stops serving reads on December 22, 2026. If today is after December 22, 2026 and the data is on Chroma Cloud, stop and tell the user the data can no longer be exported from Chroma Cloud.
 
@@ -120,7 +120,7 @@ For each collection, compare record counts. Chroma's count is in the step 4 outp
 topk sql --region <REGION> 'SELECT COUNT(*) FROM "<COLLECTION>"'
 ```
 
-Then compare search results. This script takes 5 stored vectors from Chroma, runs each as a query against both systems and prints how many of the top 10 results they share. It sorts by the collection's metric, and runs `topk` without `TOPK_API_KEY` and `TOPK_PROJECT_ID`, so your login and selected project apply. Set `COLLECTION` and `REGION` first.
+Then compare search results. This script takes 5 stored vectors from Chroma, runs each as a query against both systems and prints how many of the top 10 results they share. It sorts by the collection's metric, and runs `topk` without `TOPK_PROJECT_ID`, so your selected project applies. Set `COLLECTION` and `REGION` first.
 
 ```bash
 COLLECTION=... REGION=... \
@@ -136,8 +136,7 @@ src = chroma.get_collection(name)
 config = src.configuration
 space = (config.get("spann") or config.get("hnsw") or {}).get("space", "l2")
 order = "ASC" if space == "l2" else "DESC"  # euclidean: lower is closer
-env = {k: v for k, v in os.environ.items()
-       if k not in ("TOPK_API_KEY", "TOPK_PROJECT_ID")}
+env = {k: v for k, v in os.environ.items() if k != "TOPK_PROJECT_ID"}
 for q in src.get(limit=5, include=["embeddings"])["embeddings"]:
     q = [float(x) for x in q]
     want = src.query(query_embeddings=[q], n_results=10)["ids"][0]

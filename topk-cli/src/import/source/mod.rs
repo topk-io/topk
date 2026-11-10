@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::data::Value;
 
 use crate::config::Config;
-use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::spec::{Field, Target};
 
@@ -104,16 +103,12 @@ pub enum Source {
 }
 
 impl Source {
-    pub async fn connect(
-        uri: &Uri,
-        config: &Config,
-        endpoint: &DataEndpoint,
-    ) -> Result<Source, Error> {
+    pub async fn connect(uri: &Uri, config: &Config) -> Result<Source, Error> {
         Ok(match uri {
             Uri::Duck(duck) => Source::Duck(duck.clone()),
             Uri::Es(url) => Source::Es(Es::new(url.clone())?),
             Uri::Mongo(url) => Source::Mongo(Mongo::connect(url).await?),
-            Uri::Topk(uri) => Source::Topk(Topk::connect(uri, config, endpoint)?),
+            Uri::Topk(uri) => Source::Topk(Topk::connect(uri, config)?),
         })
     }
 

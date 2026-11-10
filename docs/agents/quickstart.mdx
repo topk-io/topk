@@ -14,7 +14,6 @@ Rules:
 - Use the `topk` CLI only. Don't write Python or JavaScript, and don't ask the user for an API key: `topk login` is enough.
 - Pass `--region <REGION>` to every `topk sql` command. Environment variables you `export` may not survive between your commands.
 - Use `-o json` when you need to read IDs from a command's output. It prints one JSON object per line, not an array.
-- If `TOPK_API_KEY` is set in the environment, run `topk` commands with it unset (`env -u TOPK_API_KEY topk …`): an API key silently overrides the login and the selected project.
 - If `TOPK_PROJECT_ID` is set in the environment, it overrides the project you select in step 3. Run `topk` commands with it unset (`env -u TOPK_PROJECT_ID topk …`), or pass `--project-id <PROJECT_ID>` explicitly.
 - Never run a `topk` command that waits for keyboard input: always pass the IDs and flags shown below.
 
@@ -203,8 +202,7 @@ If the first query returns few or no results, the semantic index may still be ca
 | --- | --- |
 | `not logged in` or `session expired` | Run `topk login` again. |
 | `--region is required` | Add `--region <REGION>` to the command. |
-| `--project-id … is required, or select a default project` | Run `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>`. |
-| An error combining `--project-id` with an API key | Unset `TOPK_API_KEY`: `env -u TOPK_API_KEY topk …`. |
+| `required arguments were not provided: --project-id` | Run `topk project select <PROJECT_ID>`, or pass `--project-id <PROJECT_ID>`. |
 | `SELECT *` fails | List the columns you want; `SELECT *` isn't supported. |
 | `brew: command not found` | Tell the user the TopK CLI installs with Homebrew. |
 

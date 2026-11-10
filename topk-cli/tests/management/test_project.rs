@@ -1,7 +1,7 @@
 use serde_json::json;
 use test_context::test_context;
 
-use super::common::{unique_name, CliTestContext};
+use crate::common::session::{unique_name, CliTestContext};
 
 #[test_context(CliTestContext)]
 #[tokio::test]

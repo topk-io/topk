@@ -328,7 +328,7 @@ async fn processes_share_one_mint() {
     for _ in 0..3 {
         children.push(
             tokio::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "access_token::mint_child"])
+                .args(["--exact", "auth::access_token::mint_child"])
                 .env("TOPK_TEST_TOKEN_DIR", ctx.dir.path())
                 .env("TOPK_TEST_TOKEN_ISSUER", ctx.oauth.url.as_str())
                 .env("TOPK_TEST_TOKEN_ENDPOINT", ctx.endpoint.uri().to_string())

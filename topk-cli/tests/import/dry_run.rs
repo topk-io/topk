@@ -1,5 +1,5 @@
-use crate::common::seed::pg;
-use crate::common::*;
+use crate::import::common::seed::pg;
+use crate::import::common::*;
 use serde_json::json;
 use test_context::test_context;
 use topk::import::{Spec, Target};

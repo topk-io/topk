@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
-use crate::endpoint::{Credentials, DataEndpoint};
+use crate::ProjectId;
 
 const PORT: u16 = 5432;
 const USER: &str = "topk";
@@ -20,22 +20,17 @@ pub struct SqlClient {
 }
 
 impl SqlClient {
-    pub async fn connect(config: &Config, endpoint: &DataEndpoint) -> Result<Self> {
-        let host = format!("{}.sql.{}", endpoint.region()?, config.hostname());
+    pub async fn connect(config: &Config, project_id: ProjectId, region: &str) -> Result<Self> {
+        let host = format!("{region}.sql.{}", config.hostname());
         let port = config.port().unwrap_or(PORT);
-        let password = match endpoint.credentials(config)? {
-            Credentials::ApiKey(api_key) => api_key,
-            Credentials::Project(project_id) => {
-                AccessTokenProvider::new(
-                    ManagementClient::new(config.clone())?,
-                    config.clone(),
-                    project_id,
-                )
-                .token()
-                .await?
-                .token
-            }
-        };
+        let password = AccessTokenProvider::new(
+            ManagementClient::new(config.clone())?,
+            config.clone(),
+            project_id,
+        )
+        .token()
+        .await?
+        .token;
         let options = PgConnectOptions::new_without_pgpass()
             .host(&host)
             .port(port)
@@ -44,7 +39,7 @@ impl SqlClient {
             .database(DATABASE)
             .application_name(APPLICATION_NAME)
             .ssl_mode(match config.https() {
-                // Authenticate the endpoint before sending the API key or access token.
+                // Authenticate the endpoint before sending the access token.
                 true => PgSslMode::VerifyFull,
                 // Disable SSL for non https connections.
                 false => PgSslMode::Disable,

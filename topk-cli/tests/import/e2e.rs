@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::common::seed::{self, rustfs, sqlite, Seed};
-use crate::common::*;
+use crate::import::common::seed::{self, rustfs, sqlite, Seed};
+use crate::import::common::*;
 use indexmap::IndexMap;
 use rstest::rstest;
 use serde_json::json;
@@ -1051,8 +1051,8 @@ async fn exhausted_limit_resumes_without_reading(ctx: &mut Ctx) {
     let collection = ctx.collection("exhausted");
     let spec = ctx.target_spec(&collection, object);
     topk().args(["import", "-f", &spec, "--yes"]).ok();
-    let mut plan: Spec = toml::from_str(&std::fs::read_to_string(spec).unwrap()).unwrap();
-    let (mut state, _, _) = topk::import::State::prepare(None, "", None, &mut plan).unwrap();
+    let plan: Spec = toml::from_str(&std::fs::read_to_string(spec).unwrap()).unwrap();
+    let mut state = topk::import::State::new("", ctx.project_id().clone(), &plan).unwrap();
     state.cursors.insert(
         collection.clone(),
         topk::import::Mark::After(topk::import::Checkpoint {
@@ -1295,7 +1295,7 @@ async fn topk_source_copies_schema_and_indexed_vectors(ctx: &mut Ctx) {
     topk()
         .args([
             "import",
-            &format!("topk://{region}/{source}"),
+            &format!("topk://{}@{region}/{source}", ctx.project_id()),
             "--to",
             &target,
             "--yes",
@@ -1366,7 +1366,7 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
         .expect("seed source");
 
     let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
-    let uri = format!("topk://{region}/{source}");
+    let uri = format!("topk://{}@{region}/{source}", ctx.project_id());
 
     // A limit takes the first ids in order, not an arbitrary thousand.
     topk()
@@ -1384,11 +1384,13 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
     std::fs::write(
         state_dir().join(format!("{run}.toml")),
         format!(
-            "source = \"topk://{region}/{source}\"\n\
+            "source = \"{uri}\"\n\
+             project_id = \"{}\"\n\
              started = \"2026-01-01T00:00:00Z\"\n\
              spec = \"\"\"\n{spec}\"\"\"\n\n\
              [cursors.\"{target}\"]\n\
-             after = {{ key = \"d0999\" }}\n"
+             after = {{ key = \"d0999\" }}\n",
+            ctx.project_id(),
         ),
     )
     .expect("write resume state");

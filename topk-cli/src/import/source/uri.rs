@@ -34,18 +34,22 @@ impl FromStr for Uri {
         }
         if let Some(rest) = s.strip_prefix("topk://") {
             let (authority, collection) = rest.split_once('/').unwrap_or((rest, ""));
-            let (api_key, region) = match authority.rsplit_once('@') {
-                Some((key, region)) => (Some(key.to_string()), region),
-                None => (None, authority),
+            let Some((project_id, region)) = authority.split_once('@') else {
+                return Err(Error::InvalidArgument(
+                    "topk:// needs a project, e.g. topk://<project-id>@aws-us-east-1-elastica/books".into(),
+                ));
             };
             if region.is_empty() {
                 return Err(Error::InvalidArgument(
-                    "topk:// needs a region, e.g. topk://sunflower/books".into(),
+                    "topk:// needs a region, e.g. topk://<project-id>@aws-us-east-1-elastica/books"
+                        .into(),
                 ));
             }
             return Ok(Uri::Topk(topk::Uri {
+                project_id: project_id
+                    .parse()
+                    .map_err(|e| Error::InvalidArgument(format!("topk://: {e}")))?,
                 region: region.to_string(),
-                api_key,
                 collection: collection.to_string(),
             }));
         }

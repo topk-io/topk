@@ -9,34 +9,29 @@ use topk_rs::query::{field, filter, SortOrder};
 
 use crate::client::DataClient;
 use crate::config::Config;
-use crate::endpoint::DataEndpoint;
 use crate::import::error::Error;
 use crate::import::source::Record;
 use crate::import::spec::{Field, Target};
 use crate::import::ID;
+use crate::ProjectId;
 
 use super::{Chunk, ChunkStream, Table};
 
-/// `topk://[<key>@]<region>/<collection>`; credentials default to the run's own.
-#[derive(Clone)]
+/// `topk://<project-id>@<region>/<collection>`, read with your login.
+#[derive(Clone, Debug)]
 pub struct Uri {
+    pub project_id: ProjectId,
     pub region: String,
-    pub api_key: Option<String>,
     pub collection: String,
 }
 
 impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "topk://{}/{}", self.region, self.collection)
-    }
-}
-
-impl fmt::Debug for Uri {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Topk")
-            .field("region", &self.region)
-            .field("collection", &self.collection)
-            .finish()
+        write!(
+            f,
+            "topk://{}@{}/{}",
+            self.project_id, self.region, self.collection
+        )
     }
 }
 
@@ -72,19 +67,9 @@ pub struct Topk {
 }
 
 impl Topk {
-    /// The uri names the region and may carry its own key; the host is the run's.
-    pub fn connect(uri: &Uri, config: &Config, endpoint: &DataEndpoint) -> Result<Topk, Error> {
-        let endpoint = DataEndpoint {
-            // A key in the uri replaces the run's credentials, including `--project-id`.
-            project_id: match uri.api_key {
-                Some(_) => None,
-                None => endpoint.project_id.clone(),
-            },
-            api_key: uri.api_key.clone().or_else(|| endpoint.api_key.clone()),
-            region: Some(uri.region.clone()),
-        };
+    pub fn connect(uri: &Uri, config: &Config) -> Result<Topk, Error> {
         Ok(Topk {
-            client: DataClient::new(config, endpoint)
+            client: DataClient::new(config, uri.project_id.clone(), &uri.region)
                 .map_err(|e| Error::InvalidArgument(e.to_string()))?,
             collection: uri.collection.clone(),
         })

@@ -1,5 +1,5 @@
-use crate::common::seed::{self as seed, es, mongo, mysql, parquet, pg, sqlite, Seed};
-use crate::common::*;
+use crate::import::common::seed::{self as seed, es, mongo, mysql, parquet, pg, sqlite, Seed};
+use crate::import::common::*;
 use indexmap::IndexMap;
 use rstest::rstest;
 use serde_json::json;
@@ -128,7 +128,7 @@ async fn a_limit_caps_rows(#[case] backend: Box<dyn Seed>) {
 #[tokio::test]
 async fn es_filter_requires_object(#[case] filter: &str) {
     let uri = "es+http://127.0.0.1:1".parse().unwrap();
-    let source = topk::import::Source::connect(&uri, &config(), &endpoint())
+    let source = topk::import::Source::connect(&uri, &config())
         .await
         .unwrap();
     let target = Target {
