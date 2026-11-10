@@ -1,12 +1,13 @@
 use sqlparser::ast::helpers::attached_token::AttachedToken;
 use sqlparser::ast::{
-    CheckConstraint, ColumnOption, Expr as SqlExpr, ShowObjects, ShowStatementIn,
+    CheckConstraint, ColumnOption, Expr as SqlExpr, ObjectType, ShowObjects, ShowStatementIn,
     ShowStatementInClause, ShowStatementInParentType, ShowStatementOptions,
     Statement as SqlStatement, Update, UpdateTableFromKind, Value,
 };
 use sqlparser::dialect::{Dialect, PostgreSqlDialect, Precedence};
 use sqlparser::keywords::Keyword;
 use sqlparser::parser::{Parser, ParserError};
+use sqlparser::tokenizer::Token;
 
 #[derive(Debug)]
 pub struct TopKDialect {
@@ -86,12 +87,34 @@ impl Dialect for TopKDialect {
         if parser.parse_keyword(Keyword::UPDATE) {
             return Some(parse_update_statement(parser));
         }
-        if parser.parse_keywords(&[Keyword::SHOW, Keyword::PARTITIONS]) {
-            return Some(parse_show_partitions(parser));
+        if parser.parse_keywords(&[Keyword::CREATE, Keyword::COLLECTION]) {
+            return Some(
+                parser
+                    .parse_create_table(false, false, None, false)
+                    .map(Into::into),
+            );
         }
-        // Parsed here, not by sqlparser's own `SHOW TABLES`, to accept only `STARTS WITH` and `LIMIT`
-        if parser.parse_keywords(&[Keyword::SHOW, Keyword::TABLES]) {
-            return Some(parse_show_objects(parser, None));
+        if parser.parse_keywords(&[Keyword::DROP, Keyword::COLLECTION]) {
+            return Some(parse_drop_collection(parser));
+        }
+        if parser.parse_keyword(Keyword::SHOW) {
+            match parser.next_token().token {
+                Token::Word(w) if w.keyword == Keyword::PARTITIONS => {
+                    return Some(parse_show_partitions(parser));
+                }
+                // Parsed here, not by sqlparser's own `SHOW TABLES`, to accept only `STARTS WITH` and `LIMIT`
+                Token::Word(w)
+                    if w.keyword == Keyword::TABLES
+                        || (w.quote_style.is_none()
+                            && w.value.eq_ignore_ascii_case("COLLECTIONS")) =>
+                {
+                    return Some(parse_show_objects(parser, None));
+                }
+                _ => {
+                    parser.prev_token();
+                    parser.prev_token();
+                }
+            }
         }
 
         self.postgres.parse_statement(parser)
@@ -159,7 +182,13 @@ fn parse_update_statement(parser: &mut Parser) -> Result<SqlStatement, ParserErr
 // the one whose options carry a `FROM TABLE <name>`, a `STARTS WITH` and a `LIMIT`, so it stands
 // in for it. Only this parser produces it: postgres has no `SHOW OBJECTS`.
 fn parse_show_partitions(parser: &mut Parser) -> Result<SqlStatement, ParserError> {
-    parser.expect_keywords(&[Keyword::FROM, Keyword::TABLE])?;
+    parser.expect_keyword(Keyword::FROM)?;
+    if parser
+        .parse_one_of_keywords(&[Keyword::TABLE, Keyword::COLLECTION])
+        .is_none()
+    {
+        return parser.expected("TABLE or COLLECTION", parser.peek_token());
+    }
     let name = parser.parse_object_name(false)?;
 
     parse_show_objects(
@@ -170,6 +199,20 @@ fn parse_show_partitions(parser: &mut Parser) -> Result<SqlStatement, ParserErro
             parent_name: Some(name),
         }),
     )
+}
+
+// `DROP COLLECTION [IF EXISTS] <name>`
+fn parse_drop_collection(parser: &mut Parser) -> Result<SqlStatement, ParserError> {
+    Ok(SqlStatement::Drop {
+        object_type: ObjectType::Table,
+        if_exists: parser.parse_keywords(&[Keyword::IF, Keyword::EXISTS]),
+        names: parser.parse_comma_separated(|p| p.parse_object_name(false))?,
+        cascade: false,
+        restrict: false,
+        purge: false,
+        temporary: false,
+        table: None,
+    })
 }
 
 fn parse_show_objects(

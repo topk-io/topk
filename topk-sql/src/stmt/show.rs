@@ -68,6 +68,7 @@ mod tests {
     )]
     #[case("SHOW PARTITIONS FROM TABLE books STARTS WITH ''", None, None)]
     #[case("SHOW PARTITIONS FROM TABLE books;", None, None)]
+    #[case("SHOW PARTITIONS FROM COLLECTION books", None, None)]
     fn show_partitions(
         #[case] sql: &str,
         #[case] prefix: Option<&str>,
@@ -91,6 +92,8 @@ mod tests {
     #[case("SHOW TABLES STARTS WITH 'acme' LIMIT 10", Some("acme"), Some(10))]
     #[case("SHOW TABLES STARTS WITH ''", None, None)]
     #[case("SHOW TABLES;", None, None)]
+    #[case("SHOW COLLECTIONS", None, None)]
+    #[case("show collections starts with 'acme' limit 10", Some("acme"), Some(10))]
     fn show_tables(#[case] sql: &str, #[case] prefix: Option<&str>, #[case] limit: Option<u64>) {
         assert_eq!(
             convert(sql).unwrap(),
@@ -110,11 +113,12 @@ mod tests {
     #[case::tables_prefix_not_string("SHOW TABLES STARTS WITH acme")]
     #[case::tables_limit_before_prefix("SHOW TABLES LIMIT 10 STARTS WITH 'acme'")]
     #[case::quoted_tables("SHOW \"tables\"")]
-    #[case::collections("SHOW COLLECTIONS")]
+    #[case::quoted_collections("SHOW \"collections\"")]
     #[case::partition("SHOW PARTITIONS FROM TABLE books$p1")]
     #[case::schema("SHOW PARTITIONS FROM TABLE other.books")]
     #[case::no_table("SHOW PARTITIONS FROM TABLE")]
     #[case::no_from("SHOW PARTITIONS books")]
+    #[case::no_kind("SHOW PARTITIONS FROM books")]
     #[case::space_for_dot("SHOW PARTITIONS FROM TABLE public books")]
     #[case::trailing("SHOW PARTITIONS FROM TABLE books (")]
     #[case::negative_limit("SHOW PARTITIONS FROM TABLE books LIMIT -1")]

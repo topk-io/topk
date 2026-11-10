@@ -92,14 +92,15 @@ const CALLOUT_MAP: Record<string, string> = {
 
 function transformCallouts(content: string): string {
   return content.replace(
-    /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:> [^\n]*\n)*)/gm,
+    // A bare `>` line separates blocks inside one callout, e.g. a sentence and a table.
+    /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:>(?: [^\n]*)?\n)*)/gm,
     (_, type, body) => {
       const component = CALLOUT_MAP[type];
       const inner = body
         .split("\n")
         .map((line: string) => line.replace(/^> ?/, ""))
-        .filter((line: string) => line.trim() !== "")
-        .join("\n");
+        .join("\n")
+        .trim();
       return `<${component}>\n\n${inner}\n\n</${component}>\n`;
     }
   );
