@@ -1,8 +1,11 @@
+use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
+use tracing_indicatif::{filter::IndicatifFilter, style::ProgressStyle, IndicatifLayer};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 use topk::auth::OAuthConfig;
 use topk::config::Config;
@@ -131,15 +134,21 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     }
 }
 
-/// Off unless `-v` or `RUST_LOG` (which wins); stdout carries results.
+/// Warnings by default; `RUST_LOG` overrides verbosity. Stdout carries results.
 fn init_logging(verbose: bool) {
     let filter =
         tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| match verbose {
             true => tracing_subscriber::EnvFilter::new("info"),
-            false => tracing_subscriber::EnvFilter::new("off"),
+            false => tracing_subscriber::EnvFilter::new("warn"),
         });
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_writer(std::io::stderr)
+    let progress = IndicatifLayer::new().with_progress_style(ProgressStyle::default_spinner());
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(std::io::stderr().is_terminal())
+                .with_writer(progress.get_stderr_writer())
+                .with_filter(filter),
+        )
+        .with(progress.with_filter(IndicatifFilter::new(false)))
         .init();
 }

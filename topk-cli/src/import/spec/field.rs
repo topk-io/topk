@@ -1,492 +1,552 @@
-use serde::{Deserialize, Serialize};
-use topk_rs::proto::v1::control::field_type_list::ListValueType;
-use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
+#![allow(deprecated)]
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize, Serializer};
 use topk_rs::proto::v1::control::{
-    field_index, field_type, FieldIndex, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric,
-    MultiVectorQuantization, VectorDistanceMetric,
+    field_index, field_type::DataType, field_type_list::ListValueType,
+    field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, KeywordIndexType,
+    MultiVectorDistanceMetric, MultiVectorIndex, MultiVectorQuantization, SemanticIndex,
+    VectorDistanceMetric,
 };
 
-use crate::import::error::Error;
+use crate::import::Error;
 
-#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(try_from = "FieldInput")]
 pub struct Field {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<String>,
-
-    #[serde(rename = "type")]
-    pub ty: Type,
-
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub required: bool,
-
-    /// Keep at most this many characters — declared loss, like `float` over a
-    /// wide decimal.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub truncate: Option<usize>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dim: Option<u32>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cols: Option<u32>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub index: Option<Index>,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(try_from = "String", into = "String")]
-pub enum Type {
-    #[default]
-    Text,
-    Int,
-    Float,
-    Bool,
-    Bytes,
-    Timestamp,
-    Struct,
-    TextList,
-    IntList,
-    FloatList,
-    Vector(Element),
-    Matrix(Element),
-    Sparse(Element),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display, strum::EnumString)]
-#[strum(serialize_all = "snake_case")]
-pub enum Element {
-    F32,
-    F16,
-    F8,
-    U8,
-    I8,
-    Binary,
+    pub schema: FieldSpec,
 }
 
 impl Field {
-    /// The source column this field reads: `from`, or the field's own name.
+    pub fn new(schema: FieldSpec) -> Self {
+        Self {
+            from: None,
+            truncate: None,
+            schema,
+        }
+    }
+
     pub fn source<'a>(&'a self, name: &'a str) -> &'a str {
         self.from.as_deref().unwrap_or(name)
     }
+
+    pub fn validate(&self) -> Result<(), Error> {
+        validate_field(&self.schema, self.truncate)
+    }
 }
 
-impl Type {
-    pub fn is_dense(self) -> bool {
-        matches!(self, Type::Vector(_))
+impl Serialize for Field {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        let input = FieldInput::try_from(self).map_err(serde::ser::Error::custom)?;
+        input.serialize(serializer)
     }
+}
 
-    pub fn is_sparse(self) -> bool {
-        matches!(self, Type::Sparse(_))
-    }
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct FieldInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    from: Option<String>,
+    #[serde(rename = "type")]
+    ty: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    truncate: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dim: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cols: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fields: Option<BTreeMap<String, Field>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    index: Option<IndexInput>,
+}
 
-    pub fn is_matrix(self) -> bool {
-        matches!(self, Type::Matrix(_))
-    }
+impl TryFrom<FieldInput> for Field {
+    type Error = Error;
 
-    pub fn is_scalar(self) -> bool {
-        matches!(
-            self,
-            Type::Text | Type::Int | Type::Float | Type::Bool | Type::Bytes | Type::Timestamp
-        )
-    }
-
-    /// Element type of a vector, matrix or sparse vector; `FloatList` is f32.
-    pub fn element(self) -> Option<Element> {
-        match self {
-            Type::Vector(element) | Type::Matrix(element) | Type::Sparse(element) => Some(element),
-            Type::FloatList => Some(Element::F32),
-            _ => None,
+    fn try_from(input: FieldInput) -> Result<Self, Error> {
+        let vector = input.ty.ends_with("_vector") && !input.ty.ends_with("_sparse_vector");
+        let matrix = input.ty.ends_with("_matrix");
+        for (name, present, allowed, required) in [
+            ("dim", input.dim.is_some(), vector, true),
+            ("cols", input.cols.is_some(), matrix, true),
+            (
+                "fields",
+                input.fields.is_some(),
+                input.ty == "struct",
+                false,
+            ),
+        ] {
+            if present && !allowed {
+                return Err(Error::InvalidArgument(format!(
+                    "unknown field `{name}` for {}",
+                    input.ty
+                )));
+            }
+            if required && allowed && !present {
+                return Err(Error::InvalidArgument(format!(
+                    "missing field `{name}` for {}",
+                    input.ty
+                )));
+            }
         }
-    }
-}
-
-impl std::fmt::Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Type::Text => f.write_str("text"),
-            Type::Int => f.write_str("int"),
-            Type::Float => f.write_str("float"),
-            Type::Bool => f.write_str("bool"),
-            Type::Bytes => f.write_str("bytes"),
-            Type::Timestamp => f.write_str("timestamp"),
-            Type::Struct => f.write_str("struct"),
-            Type::TextList => f.write_str("text_list"),
-            Type::IntList => f.write_str("int_list"),
-            Type::FloatList => f.write_str("float_list"),
-            Type::Vector(element) => write!(f, "{element}_vector"),
-            Type::Matrix(element) => write!(f, "{element}_matrix"),
-            Type::Sparse(element) => write!(f, "{element}_sparse_vector"),
+        if input
+            .fields
+            .iter()
+            .flatten()
+            .any(|(_, field)| field.from.is_some() || field.truncate.is_some())
+        {
+            return Err(Error::InvalidArgument(
+                "nested schema fields cannot rename or truncate source values".into(),
+            ));
         }
+        let mut schema = match input.ty.as_str() {
+            "text" => FieldSpec::text(input.required),
+            "int" => FieldSpec::integer(input.required),
+            "float" => FieldSpec::float(input.required),
+            "bool" => FieldSpec::boolean(input.required),
+            "bytes" => FieldSpec::bytes(input.required),
+            "timestamp" => FieldSpec::timestamp(input.required),
+            "struct" => FieldSpec::r#struct(
+                input.required,
+                input
+                    .fields
+                    .into_iter()
+                    .flatten()
+                    .map(|(name, field)| (name, field.schema)),
+            ),
+            "text_list" => FieldSpec::list(input.required, ListValueType::String),
+            "int_list" => FieldSpec::list(input.required, ListValueType::Integer),
+            "float_list" => FieldSpec::list(input.required, ListValueType::Float),
+            "f32_vector" => FieldSpec::f32_vector(input.dim.unwrap_or_default(), input.required),
+            "f16_vector" => FieldSpec::f16_vector(input.dim.unwrap_or_default(), input.required),
+            "f8_vector" => FieldSpec::f8_vector(input.dim.unwrap_or_default(), input.required),
+            "u8_vector" => FieldSpec::u8_vector(input.dim.unwrap_or_default(), input.required),
+            "i8_vector" => FieldSpec::i8_vector(input.dim.unwrap_or_default(), input.required),
+            "binary_vector" => {
+                FieldSpec::binary_vector(input.dim.unwrap_or_default(), input.required)
+            }
+            "f32_sparse_vector" => FieldSpec::f32_sparse_vector(input.required),
+            "f32_matrix" => FieldSpec::matrix(
+                input.required,
+                input.cols.unwrap_or_default(),
+                MatrixValueType::F32,
+            ),
+            "f16_sparse_vector" => FieldSpec::f16_sparse_vector(input.required),
+            "f16_matrix" => FieldSpec::matrix(
+                input.required,
+                input.cols.unwrap_or_default(),
+                MatrixValueType::F16,
+            ),
+            "f8_sparse_vector" => FieldSpec::f8_sparse_vector(input.required),
+            "f8_matrix" => FieldSpec::matrix(
+                input.required,
+                input.cols.unwrap_or_default(),
+                MatrixValueType::F8,
+            ),
+            "u8_sparse_vector" => FieldSpec::u8_sparse_vector(input.required),
+            "u8_matrix" => FieldSpec::matrix(
+                input.required,
+                input.cols.unwrap_or_default(),
+                MatrixValueType::U8,
+            ),
+            "i8_sparse_vector" => FieldSpec::i8_sparse_vector(input.required),
+            "i8_matrix" => FieldSpec::matrix(
+                input.required,
+                input.cols.unwrap_or_default(),
+                MatrixValueType::I8,
+            ),
+            _ => {
+                return Err(Error::InvalidArgument(format!(
+                    "unknown field type `{}`",
+                    input.ty
+                )))
+            }
+        };
+        schema.index = input.index.map(FieldIndex::try_from).transpose()?;
+        let field = Self {
+            from: input.from,
+            truncate: input.truncate,
+            schema,
+        };
+        field.validate()?;
+        Ok(field)
     }
 }
 
-impl std::str::FromStr for Type {
-    type Err = Error;
+impl TryFrom<&Field> for FieldInput {
+    type Error = Error;
 
-    fn from_str(s: &str) -> Result<Self, Error> {
-        let unknown = || Error::InvalidArgument(format!("unknown field type `{s}`"));
-        let shaped = |suffix: &str| s.strip_suffix(suffix).map(str::parse::<Element>);
-        Ok(match s {
-            "text" => Type::Text,
-            "int" => Type::Int,
-            "float" => Type::Float,
-            "bool" => Type::Bool,
-            "bytes" => Type::Bytes,
-            "timestamp" => Type::Timestamp,
-            "struct" => Type::Struct,
-            "text_list" => Type::TextList,
-            "int_list" => Type::IntList,
-            "float_list" => Type::FloatList,
-            // `binary` is a dense-only quantization, not an element width.
-            _ => match (
-                shaped("_sparse_vector"),
-                shaped("_matrix"),
-                shaped("_vector"),
-            ) {
-                (Some(Ok(element)), _, _) if element != Element::Binary => Type::Sparse(element),
-                (_, Some(Ok(element)), _) if element != Element::Binary => Type::Matrix(element),
-                (_, _, Some(Ok(element))) => Type::Vector(element),
-                _ => return Err(unknown()),
+    fn try_from(field: &Field) -> Result<Self, Error> {
+        let mut dim = None;
+        let mut cols = None;
+        let mut fields = None;
+        let ty = field
+            .schema
+            .data_type
+            .as_ref()
+            .and_then(|ty| ty.data_type.as_ref())
+            .ok_or_else(|| Error::InvalidArgument("source field has no data type".into()))?;
+        let ty = match ty {
+            DataType::Text(_) => "text".into(),
+            DataType::Integer(_) => "int".into(),
+            DataType::Float(_) => "float".into(),
+            DataType::Boolean(_) => "bool".into(),
+            DataType::Bytes(_) => "bytes".into(),
+            DataType::Timestamp(_) => "timestamp".into(),
+            DataType::F32Vector(v) => {
+                dim = Some(v.dimension);
+                "f32_vector".into()
+            }
+            DataType::F16Vector(v) => {
+                dim = Some(v.dimension);
+                "f16_vector".into()
+            }
+            DataType::F8Vector(v) => {
+                dim = Some(v.dimension);
+                "f8_vector".into()
+            }
+            DataType::U8Vector(v) => {
+                dim = Some(v.dimension);
+                "u8_vector".into()
+            }
+            DataType::I8Vector(v) => {
+                dim = Some(v.dimension);
+                "i8_vector".into()
+            }
+            DataType::BinaryVector(v) => {
+                dim = Some(v.dimension);
+                "binary_vector".into()
+            }
+            DataType::F32SparseVector(_) => "f32_sparse_vector".into(),
+            DataType::F16SparseVector(_) => "f16_sparse_vector".into(),
+            DataType::F8SparseVector(_) => "f8_sparse_vector".into(),
+            DataType::U8SparseVector(_) => "u8_sparse_vector".into(),
+            DataType::I8SparseVector(_) => "i8_sparse_vector".into(),
+            DataType::Matrix(m) => {
+                cols = Some(m.dimension);
+                match m.value_type() {
+                    MatrixValueType::F32 => "f32_matrix",
+                    MatrixValueType::F16 => "f16_matrix",
+                    MatrixValueType::F8 => "f8_matrix",
+                    MatrixValueType::U8 => "u8_matrix",
+                    MatrixValueType::I8 => "i8_matrix",
+                    _ => {
+                        return Err(Error::InvalidArgument(
+                            "unsupported matrix element type".into(),
+                        ))
+                    }
+                }
+                .into()
+            }
+            DataType::List(list) => match list.value_type() {
+                ListValueType::String => "text_list",
+                ListValueType::Integer => "int_list",
+                ListValueType::Float => "float_list",
+                _ => {
+                    return Err(Error::InvalidArgument(
+                        "unsupported list element type".into(),
+                    ))
+                }
+            }
+            .into(),
+            DataType::Struct(nested) => {
+                if !nested.fields.is_empty() {
+                    fields = Some(
+                        nested
+                            .fields
+                            .iter()
+                            .map(|(name, schema)| (name.clone(), Field::new(schema.clone())))
+                            .collect(),
+                    );
+                }
+                "struct".into()
+            }
+            DataType::Image(_) => {
+                return Err(Error::InvalidArgument("unsupported image field".into()))
+            }
+        };
+        Ok(Self {
+            ty,
+            dim,
+            cols,
+            fields,
+            from: field.from.clone(),
+            truncate: field.truncate,
+            required: field.schema.required,
+            index: field
+                .schema
+                .index
+                .as_ref()
+                .map(IndexInput::try_from)
+                .transpose()?,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(untagged)]
+enum IndexInput {
+    Name(String),
+    Options(IndexOptions),
+}
+
+impl TryFrom<IndexInput> for FieldIndex {
+    type Error = Error;
+
+    fn try_from(input: IndexInput) -> Result<Self, Error> {
+        Ok(match input {
+            IndexInput::Name(name) if name == "keyword" => {
+                FieldIndex::keyword(KeywordIndexType::Text)
+            }
+            IndexInput::Name(name) if name == "exact" => {
+                FieldIndex::keyword(KeywordIndexType::Exact)
+            }
+            IndexInput::Name(name) if name == "semantic" => FieldIndex::semantic(),
+            IndexInput::Name(name) if name == "ngram" => FieldIndex::ngram(),
+            IndexInput::Options(IndexOptions::Vector { metric, exact }) => FieldIndex {
+                index: Some(field_index::Index::VectorIndex(
+                    topk_rs::proto::v1::control::VectorIndex {
+                        metric: metric as i32,
+                        exact,
+                    },
+                )),
+            },
+            IndexInput::Options(IndexOptions::MultiVector {
+                quantization,
+                skip_smve,
+                width,
+                top_k,
+                encoding_version,
+                sketch_bits,
+            }) => FieldIndex {
+                index: Some(field_index::Index::MultiVectorIndex(MultiVectorIndex {
+                    metric: MultiVectorDistanceMetric::Maxsim as i32,
+                    quantization: quantization.map(|q| q as i32),
+                    skip_smve,
+                    width,
+                    top_k,
+                    encoding_version,
+                    sketch_bits,
+                })),
+            },
+            IndexInput::Name(name) => {
+                return Err(Error::InvalidArgument(format!("unknown index `{name}`")))
+            }
+            IndexInput::Options(IndexOptions::Semantic(index)) => FieldIndex {
+                index: Some(field_index::Index::SemanticIndex(index)),
             },
         })
     }
 }
 
-impl TryFrom<String> for Type {
+impl TryFrom<&FieldIndex> for IndexInput {
     type Error = Error;
 
-    fn try_from(s: String) -> Result<Self, Error> {
-        s.parse()
+    fn try_from(index: &FieldIndex) -> Result<Self, Error> {
+        let invalid = || Error::InvalidArgument("unsupported source index".into());
+        Ok(match index.index.as_ref().ok_or_else(invalid)? {
+            field_index::Index::KeywordIndex(index) => Self::Name(match index.index_type() {
+                KeywordIndexType::Text => "keyword".into(),
+                KeywordIndexType::Exact => "exact".into(),
+                _ => return Err(invalid()),
+            }),
+            field_index::Index::NgramIndex(_) => Self::Name("ngram".into()),
+            field_index::Index::SemanticIndex(index) if *index == SemanticIndex::default() => {
+                Self::Name("semantic".into())
+            }
+            field_index::Index::SemanticIndex(index) => {
+                Self::Options(IndexOptions::Semantic(index.clone()))
+            }
+            field_index::Index::VectorIndex(index) => Self::Options(IndexOptions::Vector {
+                metric: match index.metric() {
+                    VectorDistanceMetric::Cosine => Metric::Cosine,
+                    VectorDistanceMetric::Euclidean => Metric::Euclidean,
+                    VectorDistanceMetric::DotProduct => Metric::DotProduct,
+                    VectorDistanceMetric::Hamming => Metric::Hamming,
+                    _ => return Err(invalid()),
+                },
+                exact: index.exact,
+            }),
+            field_index::Index::MultiVectorIndex(index) => {
+                Self::Options(IndexOptions::MultiVector {
+                    quantization: index
+                        .quantization
+                        .map(|q| match MultiVectorQuantization::try_from(q) {
+                            Ok(MultiVectorQuantization::Unspecified) => Ok(Quant::Unspecified),
+                            Ok(MultiVectorQuantization::Binary1bit) => Ok(Quant::Binary1bit),
+                            Ok(MultiVectorQuantization::Binary2bit) => Ok(Quant::Binary2bit),
+                            Ok(MultiVectorQuantization::Scalar) => Ok(Quant::Scalar),
+                            _ => Err(invalid()),
+                        })
+                        .transpose()?,
+                    skip_smve: index.skip_smve,
+                    width: index.width,
+                    top_k: index.top_k,
+                    encoding_version: index.encoding_version,
+                    sketch_bits: index.sketch_bits,
+                })
+            }
+        })
     }
 }
 
-impl From<Type> for String {
-    fn from(ty: Type) -> Self {
-        ty.to_string()
-    }
-}
-
-#[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum Index {
-    Keyword,
-    Exact,
-    Semantic,
-    Ngram,
+enum IndexOptions {
     Vector {
         metric: Metric,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        exact: Option<bool>,
     },
     MultiVector {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         quantization: Option<Quant>,
-
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         skip_smve: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        width: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        top_k: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sketch_bits: Option<u32>,
+        #[serde(default, skip_serializing_if = "is_zero")]
+        encoding_version: u32,
     },
+    Semantic(#[serde(with = "SemanticInput")] SemanticIndex),
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Metric {
-    Cosine,
-    Euclidean,
-    DotProduct,
-    Hamming,
+enum Metric {
+    Cosine = VectorDistanceMetric::Cosine as isize,
+    Euclidean = VectorDistanceMetric::Euclidean as isize,
+    DotProduct = VectorDistanceMetric::DotProduct as isize,
+    Hamming = VectorDistanceMetric::Hamming as isize,
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
-pub enum Quant {
+#[derive(Clone, Copy, Deserialize, Serialize)]
+enum Quant {
+    #[serde(rename = "unspecified")]
+    Unspecified = MultiVectorQuantization::Unspecified as isize,
     #[serde(rename = "1bit")]
-    Binary1bit,
+    Binary1bit = MultiVectorQuantization::Binary1bit as isize,
     #[serde(rename = "2bit")]
-    Binary2bit,
+    Binary2bit = MultiVectorQuantization::Binary2bit as isize,
     #[serde(rename = "scalar")]
-    Scalar,
+    Scalar = MultiVectorQuantization::Scalar as isize,
 }
 
-impl From<Element> for MatrixValueType {
-    fn from(element: Element) -> Self {
-        match element {
-            Element::F32 => MatrixValueType::F32,
-            Element::F16 => MatrixValueType::F16,
-            Element::F8 => MatrixValueType::F8,
-            Element::U8 | Element::Binary => MatrixValueType::U8,
-            Element::I8 => MatrixValueType::I8,
-        }
-    }
+fn is_zero(value: &u32) -> bool {
+    *value == 0
 }
 
-impl From<Metric> for VectorDistanceMetric {
-    fn from(metric: Metric) -> Self {
-        match metric {
-            Metric::Cosine => VectorDistanceMetric::Cosine,
-            Metric::Euclidean => VectorDistanceMetric::Euclidean,
-            Metric::DotProduct => VectorDistanceMetric::DotProduct,
-            Metric::Hamming => VectorDistanceMetric::Hamming,
-        }
-    }
+#[derive(Deserialize, Serialize)]
+#[serde(remote = "SemanticIndex", deny_unknown_fields)]
+struct SemanticInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    embedding_type: Option<i32>,
 }
 
-impl From<VectorDistanceMetric> for Metric {
-    fn from(metric: VectorDistanceMetric) -> Self {
-        match metric {
-            VectorDistanceMetric::Euclidean => Metric::Euclidean,
-            VectorDistanceMetric::DotProduct => Metric::DotProduct,
-            VectorDistanceMetric::Hamming => Metric::Hamming,
-            _ => Metric::Cosine,
-        }
-    }
-}
-
-impl From<Quant> for MultiVectorQuantization {
-    fn from(quant: Quant) -> Self {
-        match quant {
-            Quant::Binary1bit => MultiVectorQuantization::Binary1bit,
-            Quant::Binary2bit => MultiVectorQuantization::Binary2bit,
-            Quant::Scalar => MultiVectorQuantization::Scalar,
-        }
-    }
-}
-
-impl TryFrom<MultiVectorQuantization> for Quant {
-    type Error = ();
-
-    fn try_from(quant: MultiVectorQuantization) -> Result<Self, ()> {
-        match quant {
-            MultiVectorQuantization::Binary1bit => Ok(Quant::Binary1bit),
-            MultiVectorQuantization::Binary2bit => Ok(Quant::Binary2bit),
-            MultiVectorQuantization::Scalar => Ok(Quant::Scalar),
-            MultiVectorQuantization::Unspecified => Err(()),
-        }
-    }
-}
-
-impl TryFrom<&Field> for FieldSpec {
-    type Error = Error;
-
-    fn try_from(field: &Field) -> Result<Self, Self::Error> {
-        let vector = field.ty.is_dense();
-        let matrix = field.ty.is_matrix();
-
-        if vector && field.dim.is_none() {
-            return Err(Error::InvalidArgument(format!(
-                "{} requires `dim`",
-                field.ty
-            )));
-        }
-        if !vector && field.dim.is_some() {
-            return Err(Error::InvalidArgument(format!(
-                "{} does not take `dim`",
-                field.ty
-            )));
-        }
-        if field.truncate.is_some() && !matches!(field.ty, Type::Text) {
-            return Err(Error::InvalidArgument(format!(
-                "{} does not take `truncate`",
-                field.ty
-            )));
-        }
-        if field.truncate == Some(0) {
+fn validate_field(schema: &FieldSpec, truncate: Option<usize>) -> Result<(), Error> {
+    let ty = schema
+        .data_type
+        .as_ref()
+        .and_then(|ty| ty.data_type.as_ref())
+        .ok_or_else(|| Error::InvalidArgument("source field has no data type".into()))?;
+    match ty {
+        DataType::Image(_) => return Err(Error::InvalidArgument("unsupported image field".into())),
+        DataType::List(list)
+            if !matches!(
+                ListValueType::try_from(list.value_type),
+                Ok(ListValueType::String | ListValueType::Integer | ListValueType::Float)
+            ) =>
+        {
             return Err(Error::InvalidArgument(
-                "`truncate` must keep at least 1 character".to_string(),
+                "unsupported list element type".into(),
+            ))
+        }
+        DataType::Matrix(matrix)
+            if !matches!(
+                MatrixValueType::try_from(matrix.value_type),
+                Ok(MatrixValueType::F32
+                    | MatrixValueType::F16
+                    | MatrixValueType::F8
+                    | MatrixValueType::U8
+                    | MatrixValueType::I8)
+            ) =>
+        {
+            return Err(Error::InvalidArgument(
+                "unsupported matrix element type".into(),
+            ))
+        }
+        DataType::Struct(nested) => {
+            for schema in nested.fields.values() {
+                validate_field(schema, None)?;
+            }
+        }
+        _ => {}
+    }
+    if truncate.is_some() && !matches!(ty, DataType::Text(_)) {
+        return Err(Error::InvalidArgument(
+            "unknown field `truncate` for non-text field".into(),
+        ));
+    }
+    if let Some(index) = &schema.index {
+        let valid = match &index.index {
+            Some(field_index::Index::KeywordIndex(index)) => {
+                matches!(
+                    KeywordIndexType::try_from(index.index_type),
+                    Ok(KeywordIndexType::Text | KeywordIndexType::Exact)
+                ) && matches!(ty, DataType::Text(_))
+            }
+            Some(field_index::Index::SemanticIndex(_) | field_index::Index::NgramIndex(_)) => {
+                matches!(ty, DataType::Text(_))
+            }
+            Some(field_index::Index::VectorIndex(index)) => {
+                matches!(
+                    VectorDistanceMetric::try_from(index.metric),
+                    Ok(VectorDistanceMetric::Cosine
+                        | VectorDistanceMetric::Euclidean
+                        | VectorDistanceMetric::DotProduct
+                        | VectorDistanceMetric::Hamming)
+                ) && matches!(
+                    ty,
+                    DataType::F32Vector(_)
+                        | DataType::F16Vector(_)
+                        | DataType::F8Vector(_)
+                        | DataType::U8Vector(_)
+                        | DataType::I8Vector(_)
+                        | DataType::BinaryVector(_)
+                        | DataType::F32SparseVector(_)
+                        | DataType::F16SparseVector(_)
+                        | DataType::F8SparseVector(_)
+                        | DataType::U8SparseVector(_)
+                        | DataType::I8SparseVector(_)
+                )
+            }
+            Some(field_index::Index::MultiVectorIndex(index)) => {
+                index.metric == MultiVectorDistanceMetric::Maxsim as i32
+                    && index
+                        .quantization
+                        .is_none_or(|q| MultiVectorQuantization::try_from(q).is_ok())
+                    && matches!(ty, DataType::Matrix(_))
+            }
+            None => false,
+        };
+        if !valid {
+            return Err(Error::InvalidArgument(
+                "incompatible index for field type".into(),
             ));
         }
-        if matrix && field.cols.is_none() {
-            return Err(Error::InvalidArgument(format!(
-                "{} requires `cols`",
-                field.ty
-            )));
-        }
-        if !matrix && field.cols.is_some() {
-            return Err(Error::InvalidArgument(format!(
-                "{} does not take `cols`",
-                field.ty
-            )));
-        }
-
-        for (name, size) in [("dim", field.dim), ("cols", field.cols)] {
-            if size == Some(0) {
-                return Err(Error::InvalidArgument(format!(
-                    "`{name}` must be greater than zero"
-                )));
-            }
-        }
-
-        if let Some(index) = field.index {
-            let (ok, kind, needs) = match index {
-                Index::Keyword => (matches!(field.ty, Type::Text), "keyword", "a `text` field"),
-                Index::Exact => (matches!(field.ty, Type::Text), "exact", "a `text` field"),
-                Index::Semantic => (matches!(field.ty, Type::Text), "semantic", "a `text` field"),
-                Index::Ngram => (matches!(field.ty, Type::Text), "ngram", "a `text` field"),
-                Index::Vector { .. } => (
-                    vector || field.ty.is_sparse(),
-                    "vector",
-                    "a vector or sparse vector field",
-                ),
-                Index::MultiVector { .. } => (matrix, "multi_vector", "a matrix field"),
-            };
-            if !ok {
-                return Err(Error::InvalidArgument(format!(
-                    "a {kind} index needs {needs}"
-                )));
-            }
-        }
-
-        let spec = match field.ty {
-            Type::Text => FieldSpec::text(field.required),
-            Type::Int => FieldSpec::integer(field.required),
-            Type::Float => FieldSpec::float(field.required),
-            Type::Bool => FieldSpec::boolean(field.required),
-            Type::Bytes => FieldSpec::bytes(field.required),
-            Type::Timestamp => FieldSpec::timestamp(field.required),
-            Type::Struct => FieldSpec::r#struct(field.required, Vec::<(String, FieldSpec)>::new()),
-            Type::TextList => FieldSpec::list(field.required, ListValueType::String),
-            Type::IntList => FieldSpec::list(field.required, ListValueType::Integer),
-            Type::FloatList => FieldSpec::list(field.required, ListValueType::Float),
-            Type::Vector(element) => {
-                let dim = field.dim.unwrap();
-                match element {
-                    Element::F32 => FieldSpec::f32_vector(dim, field.required),
-                    Element::F16 => FieldSpec::f16_vector(dim, field.required),
-                    Element::F8 => FieldSpec::f8_vector(dim, field.required),
-                    Element::U8 => FieldSpec::u8_vector(dim, field.required),
-                    Element::I8 => FieldSpec::i8_vector(dim, field.required),
-                    Element::Binary => FieldSpec::binary_vector(dim, field.required),
-                }
-            }
-            Type::Matrix(element) => {
-                FieldSpec::matrix(field.required, field.cols.unwrap(), element.into())
-            }
-            Type::Sparse(element) => match element {
-                Element::F32 => FieldSpec::f32_sparse_vector(field.required),
-                Element::F16 => FieldSpec::f16_sparse_vector(field.required),
-                Element::F8 => FieldSpec::f8_sparse_vector(field.required),
-                Element::U8 => FieldSpec::u8_sparse_vector(field.required),
-                Element::I8 | Element::Binary => FieldSpec::i8_sparse_vector(field.required),
-            },
-        };
-        Ok(match field.index {
-            Some(index) => spec.with_index(FieldIndex::from(index)),
-            None => spec,
-        })
     }
-}
-
-impl From<&FieldSpec> for Field {
-    fn from(spec: &FieldSpec) -> Self {
-        let data_type = match spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()) {
-            Some(data_type) => data_type,
-            None => return Field::default(),
-        };
-        let index = index(spec);
-        let required = spec.required;
-        let plain = |ty| Field {
-            ty,
-            index,
-            required,
-            ..Default::default()
-        };
-        let vector = |ty, dim| Field {
-            ty,
-            dim: Some(dim),
-            index,
-            required,
-            ..Default::default()
-        };
-        match data_type {
-            field_type::DataType::Text(_) => plain(Type::Text),
-            field_type::DataType::Timestamp(_) => plain(Type::Timestamp),
-            field_type::DataType::Integer(_) => plain(Type::Int),
-            field_type::DataType::Float(_) => plain(Type::Float),
-            field_type::DataType::Boolean(_) => plain(Type::Bool),
-            field_type::DataType::Bytes(_) => plain(Type::Bytes),
-            field_type::DataType::Image(_) => plain(Type::Bytes),
-            field_type::DataType::Struct(_) => plain(Type::Struct),
-            field_type::DataType::List(list) => plain(match list.value_type() {
-                ListValueType::Integer => Type::IntList,
-                ListValueType::Float => Type::FloatList,
-                _ => Type::TextList,
-            }),
-            field_type::DataType::F32Vector(v) => vector(Type::Vector(Element::F32), v.dimension),
-            field_type::DataType::F16Vector(v) => vector(Type::Vector(Element::F16), v.dimension),
-            field_type::DataType::F8Vector(v) => vector(Type::Vector(Element::F8), v.dimension),
-            field_type::DataType::U8Vector(v) => vector(Type::Vector(Element::U8), v.dimension),
-            field_type::DataType::I8Vector(v) => vector(Type::Vector(Element::I8), v.dimension),
-            field_type::DataType::BinaryVector(v) => {
-                vector(Type::Vector(Element::Binary), v.dimension)
-            }
-            field_type::DataType::F32SparseVector(_) => plain(Type::Sparse(Element::F32)),
-            field_type::DataType::F16SparseVector(_) => plain(Type::Sparse(Element::F16)),
-            field_type::DataType::F8SparseVector(_) => plain(Type::Sparse(Element::F8)),
-            field_type::DataType::U8SparseVector(_) => plain(Type::Sparse(Element::U8)),
-            field_type::DataType::I8SparseVector(_) => plain(Type::Sparse(Element::I8)),
-            field_type::DataType::Matrix(m) => Field {
-                index,
-                required,
-                ty: Type::Matrix(match m.value_type() {
-                    MatrixValueType::F16 => Element::F16,
-                    MatrixValueType::F8 => Element::F8,
-                    MatrixValueType::U8 => Element::U8,
-                    MatrixValueType::I8 => Element::I8,
-                    _ => Element::F32,
-                }),
-                cols: Some(m.dimension),
-                ..Default::default()
-            },
-        }
-    }
-}
-
-impl From<Index> for FieldIndex {
-    fn from(index: Index) -> Self {
-        match index {
-            Index::Keyword => FieldIndex::keyword(KeywordIndexType::Text),
-            Index::Exact => FieldIndex::keyword(KeywordIndexType::Exact),
-            Index::Semantic => FieldIndex::semantic(),
-            Index::Ngram => FieldIndex::ngram(),
-            Index::Vector { metric } => FieldIndex::vector(metric.into()),
-            Index::MultiVector {
-                quantization,
-                skip_smve,
-            } => {
-                let index = FieldIndex::multi_vector(
-                    MultiVectorDistanceMetric::Maxsim,
-                    quantization.map(MultiVectorQuantization::from),
-                    None,
-                    None,
-                );
-                match skip_smve {
-                    true => index.skip_smve(),
-                    false => index,
-                }
-            }
-        }
-    }
-}
-
-fn index(spec: &FieldSpec) -> Option<Index> {
-    Some(match spec.index.as_ref()?.index.as_ref()? {
-        field_index::Index::KeywordIndex(keyword) => {
-            match KeywordIndexType::try_from(keyword.index_type) {
-                Ok(KeywordIndexType::Exact) => Index::Exact,
-                _ => Index::Keyword,
-            }
-        }
-        field_index::Index::SemanticIndex(_) => Index::Semantic,
-        field_index::Index::NgramIndex(_) => Index::Ngram,
-        field_index::Index::VectorIndex(vector) => Index::Vector {
-            metric: VectorDistanceMetric::try_from(vector.metric)
-                .unwrap_or(VectorDistanceMetric::Cosine)
-                .into(),
-        },
-        field_index::Index::MultiVectorIndex(multi) => Index::MultiVector {
-            quantization: multi
-                .quantization
-                .and_then(|quant| MultiVectorQuantization::try_from(quant).ok())
-                .and_then(|quant| Quant::try_from(quant).ok()),
-            skip_smve: multi.skip_smve,
-        },
-    })
+    Ok(())
 }

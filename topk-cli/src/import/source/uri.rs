@@ -4,23 +4,59 @@ use std::str::FromStr;
 use url::Url;
 
 use crate::import::error::Error;
+use crate::ProjectId;
 
 use super::duck::Duckdb;
-use super::topk;
+use super::es::Es;
+use super::mongo::Mongo;
+use super::File;
+use super::{Backend, Source};
 
 /// A source as named on the command line, parsed but not connected.
 #[derive(Clone)]
 pub enum Uri {
-    Duck(Duckdb),
-    Es(Url),
+    Postgres(Url),
+    Mysql(Url),
+    Sqlite(String),
+    Files(Option<File>),
+    Elasticsearch(Url),
     Mongo(Url),
-    Topk(topk::Uri),
+    Topk {
+        project: Option<ProjectId>,
+        collection: String,
+    },
 }
 
-/// No source: every spec `from` is its own file locator.
-impl Default for Uri {
-    fn default() -> Uri {
-        Uri::Duck(Duckdb::Files(None))
+impl Uri {
+    pub async fn connect(&self) -> Result<Source, Error> {
+        let locator = self.to_string();
+        let backend = match self {
+            Uri::Postgres(url) => Backend::Duck(Duckdb::Postgres(url.clone())),
+            Uri::Mysql(url) => Backend::Duck(Duckdb::Mysql(url.clone())),
+            Uri::Sqlite(path) => Backend::Duck(Duckdb::Sqlite(path.clone())),
+            Uri::Files(file) => Backend::Duck(Duckdb::Files(file.clone())),
+            Uri::Elasticsearch(url) => Backend::Es(Es::new(url.clone())?),
+            Uri::Mongo(url) => Backend::Mongo(Mongo::connect(url).await?),
+            Uri::Topk { .. } => {
+                return Err(Error::InvalidArgument(
+                    "TopK sources require a connected client; use Source::topk".into(),
+                ))
+            }
+        };
+        Ok(Source {
+            locator,
+            backend,
+            catalog: tokio::sync::OnceCell::new(),
+        })
+    }
+
+    pub fn password(&self) -> Option<&str> {
+        match self {
+            Uri::Postgres(url) | Uri::Mysql(url) | Uri::Elasticsearch(url) | Uri::Mongo(url) => {
+                url.password()
+            }
+            _ => None,
+        }
     }
 }
 
@@ -33,25 +69,32 @@ impl FromStr for Uri {
             return Err(Error::InvalidArgument("empty source uri".into()));
         }
         if let Some(rest) = s.strip_prefix("topk://") {
-            let (authority, collection) = rest.split_once('/').unwrap_or((rest, ""));
-            let Some((project_id, region)) = authority.split_once('@') else {
+            if rest.contains('@') {
                 return Err(Error::InvalidArgument(
-                    "topk:// needs a project, e.g. topk://<project-id>@aws-us-east-1-elastica/books".into(),
-                ));
-            };
-            if region.is_empty() {
-                return Err(Error::InvalidArgument(
-                    "topk:// needs a region, e.g. topk://<project-id>@aws-us-east-1-elastica/books"
-                        .into(),
+                    "topk:// does not take an API key; use --project-id".into(),
                 ));
             }
-            return Ok(Uri::Topk(topk::Uri {
-                project_id: project_id
-                    .parse()
-                    .map_err(|e| Error::InvalidArgument(format!("topk://: {e}")))?,
-                region: region.to_string(),
+            let (collection, project_id) = match rest.split_once('/') {
+                Some((project, collection)) => (
+                    collection,
+                    Some(project.parse::<ProjectId>().map_err(|_| {
+                        Error::InvalidArgument(format!("invalid project ID: {project:?}"))
+                    })?),
+                ),
+                None => (rest, None),
+            };
+            if collection.contains('/') {
+                return Err(Error::InvalidArgument(
+                    "topk:// collection names cannot contain '/'".into(),
+                ));
+            }
+            if collection.is_empty() || collection.contains(['*', '?']) {
+                return Err(Error::InvalidArgument("topk:// needs an exact collection name, e.g. topk://books or topk://project/books".into()));
+            }
+            return Ok(Uri::Topk {
                 collection: collection.to_string(),
-            }));
+                project: project_id,
+            });
         }
         if s.starts_with("mongodb://") || s.starts_with("mongodb+srv://") {
             // A bare scheme reads MONGODB_URI.
@@ -85,7 +128,7 @@ impl FromStr for Uri {
             ("es+https://", "https"),
         ] {
             if let Some(rest) = s.strip_prefix(prefix) {
-                return Ok(Uri::Es(url(&format!("{scheme}://{rest}"))?));
+                return Ok(Uri::Elasticsearch(url(&format!("{scheme}://{rest}"))?));
             }
         }
         // An Elastic Cloud endpoint is ES even as a bare https url:
@@ -96,24 +139,26 @@ impl FromStr for Uri {
             if url.host_str().is_some_and(|host| {
                 host.ends_with(".cloud.es.io") || host.ends_with(".elastic.cloud")
             }) {
-                return Ok(Uri::Es(url));
+                return Ok(Uri::Elasticsearch(url));
             }
         }
         if s.starts_with("postgres://") || s.starts_with("postgresql://") {
-            return Ok(Uri::Duck(Duckdb::Postgres(url(s)?)));
+            return Ok(Uri::Postgres(url(s)?));
         }
         if s.starts_with("mysql://") || s.starts_with("mariadb://") {
-            return Ok(Uri::Duck(Duckdb::Mysql(url(s)?)));
+            return Ok(Uri::Mysql(url(s)?));
         }
         if let Some(path) = s
             .strip_prefix("sqlite://")
             .or_else(|| s.strip_prefix("sqlite:"))
         {
-            return Ok(Uri::Duck(Duckdb::Sqlite(
-                shellexpand::tilde(path).into_owned(),
-            )));
+            return Ok(Uri::Sqlite(
+                std::path::absolute(&*shellexpand::tilde(path))?
+                    .display()
+                    .to_string(),
+            ));
         }
-        Ok(Uri::Duck(Duckdb::Files(Some(s.parse()?))))
+        Ok(Uri::Files(Some(s.parse()?)))
     }
 }
 
@@ -121,26 +166,37 @@ impl FromStr for Uri {
 impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Uri::Duck(duck) => duck.fmt(f),
-            Uri::Es(url) | Uri::Mongo(url) => f.write_str(&redact(url)),
-            Uri::Topk(uri) => uri.fmt(f),
+            Uri::Postgres(url) | Uri::Mysql(url) => f.write_str(&redact(url)),
+            Uri::Sqlite(path) => write!(f, "sqlite:{path}"),
+            Uri::Files(Some(file)) => f.write_str(&file.path),
+            Uri::Files(None) => Ok(()),
+            Uri::Elasticsearch(url) => write!(f, "es+{}", redact(url)),
+            Uri::Mongo(url) => f.write_str(&redact(url)),
+            Uri::Topk {
+                project: Some(project),
+                collection,
+            } => write!(f, "topk://{project}/{collection}"),
+            Uri::Topk {
+                project: None,
+                collection,
+            } => write!(f, "topk://{collection}"),
         }
     }
 }
 
 impl fmt::Debug for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Uri::Duck(duck) => duck.fmt(f),
-            Uri::Es(url) => f.debug_tuple("Es").field(&redact(url)).finish(),
-            Uri::Mongo(url) => f.debug_tuple("Mongo").field(&redact(url)).finish(),
-            Uri::Topk(uri) => uri.fmt(f),
-        }
+        fmt::Display::fmt(self, f)
     }
 }
 
 fn url(s: &str) -> Result<Url, Error> {
-    Url::parse(s).map_err(|e| Error::InvalidArgument(format!("bad source uri {s:?}: {e}")))
+    Url::parse(s).map_err(|error| {
+        Error::Setup(anyhow::Error::new(error).context(format!(
+            "bad source uri {:?}",
+            if s.contains('@') { "<redacted>" } else { s }
+        )))
+    })
 }
 
 pub(super) fn redact(url: &Url) -> String {

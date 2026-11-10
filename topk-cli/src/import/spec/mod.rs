@@ -1,33 +1,28 @@
-use std::str::FromStr;
+use std::collections::HashSet;
 
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 
-use topk_rs::proto::v1::control::FieldSpec;
-
 use crate::import::error::Error;
+use crate::import::source::Table;
 use crate::import::ID;
 
-mod discover;
 mod field;
-mod render;
-pub use discover::{discover, validate_columns};
-pub use field::{Element, Field, Index, Type};
-pub use render::{inline, render};
+pub use field::Field;
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(transparent)]
 pub struct Spec {
     pub collections: IndexMap<String, Target>,
 }
 
-#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Target {
     pub from: String,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    #[serde(default = "Target::default_id")]
+    pub id: String,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filter: Option<String>,
@@ -38,27 +33,103 @@ pub struct Target {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
 
-    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub fields: IndexMap<String, Field>,
 }
 
 impl Target {
-    /// The source column used as the document id.
-    pub fn id_column(&self) -> &str {
-        self.id.as_deref().unwrap_or(ID)
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.from.trim().is_empty() {
+            return Err(Error::InvalidArgument(
+                "`from` is empty — name the table, index, collection or file path to read".into(),
+            ));
+        }
+        if self.id.trim().is_empty() {
+            return Err(Error::InvalidArgument("`id` cannot be empty".into()));
+        }
+        // The spec is a whitelist, so no fields would import ids and nothing else.
+        if self.fields.is_empty() {
+            return Err(Error::InvalidArgument(
+                "declare at least one field — only declared fields are imported".into(),
+            ));
+        }
+        for (field_name, field) in &self.fields {
+            field.validate()?;
+            if field_name.is_empty() || field_name.starts_with('_') {
+                return Err(Error::InvalidArgument(format!("{field_name:?}: field names cannot be empty or start with `_` — read the column under another name with `from = {field_name:?}`")));
+            }
+        }
+        Ok(())
     }
 
-    pub fn parsed_filter<F: FromStr<Err = Error>>(&self) -> Result<Option<F>, Error> {
-        self.filter.as_deref().map(str::parse).transpose()
+    pub fn capped(&self, limit: u64) -> Self {
+        Self {
+            limit: Some(self.limit.map_or(limit, |existing| existing.min(limit))),
+            ..self.clone()
+        }
+    }
+
+    fn default_id() -> String {
+        ID.to_string()
     }
 
     /// Every source column this target reads: the spec is a whitelist, so this
     /// is the whole projection.
-    pub fn source_columns(&self) -> IndexSet<&str> {
-        std::iter::once(self.id_column())
+    pub(super) fn source_columns(&self) -> IndexSet<&str> {
+        std::iter::once(self.id.as_str())
             .chain(self.fields.iter().map(|(name, field)| field.source(name)))
             .chain(self.partition.as_deref())
             .collect()
+    }
+    pub fn from_table(table: &Table, id: Option<&str>) -> Result<Target, Error> {
+        let id = id
+            .or(table.key.as_deref())
+            .or_else(|| {
+                table
+                    .columns
+                    .iter()
+                    .find(|(name, _)| matches!(name.to_ascii_lowercase().as_str(), "_id" | "id"))
+                    .map(|(name, _)| name.as_str())
+            })
+            .ok_or_else(|| Error::MissingId(table.from.clone()))?;
+
+        // Field names may not start with `_`, but sources use it for bookkeeping
+        // columns (`_lang`, `_n_chars`); strip it and keep the source column in
+        // `from`. A name that strips to nothing or onto another column is left
+        // for validation to reject.
+        let mut fields: IndexMap<String, Field> = IndexMap::new();
+        let taken: HashSet<&str> = table
+            .columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect();
+        for (name, field) in table
+            .columns
+            .iter()
+            .filter(|(name, _)| name.as_str() != id)
+            .filter_map(|(name, field)| field.as_ref().map(|field| (name, field)))
+        {
+            let stripped = name.trim_start_matches('_');
+            if name.starts_with('_')
+                && !stripped.is_empty()
+                && !taken.contains(stripped)
+                && !fields.contains_key(stripped)
+            {
+                let mut field = Field::new(field.clone());
+                field.from = Some(name.clone());
+                fields.insert(stripped.to_string(), field);
+            } else {
+                fields.insert(name.clone(), Field::new(field.clone()));
+            }
+        }
+
+        Ok(Target {
+            fields,
+            from: table.from.clone(),
+            id: id.to_string(),
+            filter: None,
+            partition: None,
+            limit: None,
+        })
     }
 }
 
@@ -69,15 +140,12 @@ fn collection_name(name: &str) -> Result<(), Error> {
         && name.len() <= 255;
     match valid {
         true => Ok(()),
-        false => Err(Error::InvalidArgument(format!(
-            "{name:?}: collection names start with a letter or digit, \
-             then letters, digits, `_`, `.` or `-` (max 255 characters)"
-        ))),
+        false => Err(Error::InvalidArgument(format!("{name:?}: collection names start with a letter or digit, then letters, digits, `_`, `.` or `-` (max 255 characters)"))),
     }
 }
 
 /// Source object hint → collection name; None when no valid name derives.
-pub fn collection_key(hint: &str) -> Option<String> {
+pub(super) fn collection_key(hint: &str) -> Option<String> {
     let key: String = hint
         .chars()
         .map(|c| {
@@ -104,36 +172,18 @@ impl TryFrom<IndexMap<String, Target>> for Spec {
     type Error = Error;
 
     fn try_from(collections: IndexMap<String, Target>) -> Result<Spec, Error> {
-        for (name, target) in collections.iter() {
+        let spec = Spec { collections };
+        spec.validate()?;
+        Ok(spec)
+    }
+}
+
+impl Spec {
+    pub fn validate(&self) -> Result<(), Error> {
+        for (name, target) in self.collections.iter() {
             collection_name(name)?;
-            if target.limit == Some(0) {
-                return Err(Error::InvalidArgument(format!(
-                    "{name}: limit must be greater than zero"
-                )));
-            }
-            if target.from.trim().is_empty() {
-                return Err(Error::InvalidArgument(
-                    "`from` is empty — name the table, index, collection or file path to read"
-                        .to_string(),
-                ));
-            }
-            // The spec is a whitelist, so no fields would import ids and nothing else.
-            if target.fields.is_empty() {
-                return Err(Error::InvalidArgument(format!(
-                    "{name}: declare at least one field under [{name}.fields] — only \
-                     declared fields are imported"
-                )));
-            }
-            for (field_name, field) in &target.fields {
-                if field_name.is_empty() || field_name.starts_with('_') {
-                    return Err(Error::InvalidArgument(format!(
-                        "{field_name:?}: field names cannot be empty or start with `_` — \
-                         read the column under another name with `from = {field_name:?}`"
-                    )));
-                }
-                FieldSpec::try_from(field)?;
-            }
+            target.validate()?;
         }
-        Ok(Spec { collections })
+        Ok(())
     }
 }

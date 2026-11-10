@@ -1,6 +1,7 @@
-mod codec;
+mod catalog;
 mod duck;
 mod es;
+mod file;
 mod mongo;
 mod topk;
 mod uri;
@@ -8,15 +9,19 @@ mod uri;
 use std::fmt;
 
 use futures::stream::BoxStream;
+use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::Value;
 
-use crate::config::Config;
 use crate::import::error::Error;
-use crate::import::spec::{Field, Target};
+use crate::import::spec::Target;
 
-pub use duck::{aws_process_profile, Duckdb, File};
+pub use catalog::{Catalog, Table};
+pub use duck::aws_process_profile;
+use duck::Duckdb;
 use es::Es;
+pub use file::{File, Format, ObjectStore};
 use mongo::Mongo;
 use topk::Topk;
 use uri::redact;
@@ -33,45 +38,31 @@ pub struct Chunk {
     pub cursor: Option<Cursor>,
 }
 
-pub type ChunkStream = BoxStream<'static, Result<Chunk, Error>>;
-
-pub struct Scan {
-    pub target: Target,
-    pub chunks: ChunkStream,
+pub enum ReadEvent {
+    Chunk(Chunk),
+    Restarted,
 }
+
+pub(crate) type ReadStream = BoxStream<'static, Result<ReadEvent, Error>>;
+
+type ChunkStream = BoxStream<'static, Result<Chunk, Error>>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Cursor {
     Key(String),
+    Mongo(String),
+    Sql { column: String, value: String },
     Offset { part: String, rows: u64 },
     Page { pit: String, sort: Vec<i64> },
 }
 
 impl Cursor {
-    pub fn key(self) -> Result<String, Error> {
+    fn key(self) -> Result<String, Error> {
         match self {
             Cursor::Key(key) => Ok(key),
             other => Err(Error::InvalidArgument(format!(
                 "resume cursor {other} is not a key"
-            ))),
-        }
-    }
-
-    pub fn offset(self) -> Result<(String, u64), Error> {
-        match self {
-            Cursor::Offset { part, rows } => Ok((part, rows)),
-            other => Err(Error::InvalidArgument(format!(
-                "resume cursor {other} is not an offset"
-            ))),
-        }
-    }
-
-    pub fn page(self) -> Result<(String, Vec<i64>), Error> {
-        match self {
-            Cursor::Page { pit, sort } => Ok((pit, sort)),
-            other => Err(Error::InvalidArgument(format!(
-                "resume cursor {other} is not a page"
             ))),
         }
     }
@@ -80,22 +71,29 @@ impl Cursor {
 impl fmt::Display for Cursor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Cursor::Key(value) => f.write_str(value),
+            Cursor::Key(value) | Cursor::Mongo(value) => f.write_str(value),
+            Cursor::Sql { column, value } => write!(f, "{column}={value}"),
             Cursor::Offset { part, rows } => write!(f, "{part} (row {rows})"),
             Cursor::Page { pit, sort } => write!(f, "{pit} {sort:?}"),
         }
     }
 }
 
-#[derive(Clone)]
-pub struct Table {
-    pub from: String,
-    pub collection_hint: Option<String>,
-    pub columns: Vec<(String, Field)>,
-    pub primary_key: Option<String>,
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Checkpoint {
+    #[serde(flatten)]
+    pub cursor: Cursor,
+    #[serde(default)]
+    pub consumed: u64,
 }
 
-pub enum Source {
+pub struct Source {
+    locator: String,
+    backend: Backend,
+    catalog: tokio::sync::OnceCell<Catalog>,
+}
+
+enum Backend {
     Duck(Duckdb),
     Es(Es),
     Mongo(Mongo),
@@ -103,100 +101,219 @@ pub enum Source {
 }
 
 impl Source {
-    pub async fn connect(uri: &Uri, config: &Config) -> Result<Source, Error> {
-        Ok(match uri {
-            Uri::Duck(duck) => Source::Duck(duck.clone()),
-            Uri::Es(url) => Source::Es(Es::new(url.clone())?),
-            Uri::Mongo(url) => Source::Mongo(Mongo::connect(url).await?),
-            Uri::Topk(uri) => Source::Topk(Topk::connect(uri, config)?),
-        })
+    pub fn locator(&self) -> &str {
+        &self.locator
     }
 
-    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
-        match self {
-            Source::Duck(duck) => duck.catalog().await,
-            Source::Es(es) => es.catalog().await,
-            Source::Mongo(mongo) => mongo.catalog().await,
-            Source::Topk(topk) => topk.catalog().await,
+    pub fn topk(
+        client: topk_rs::Client,
+        locator: String,
+        name: String,
+        schema: std::collections::HashMap<String, FieldSpec>,
+    ) -> Self {
+        Self {
+            locator,
+            backend: Backend::Topk(Topk::new(client, name, schema)),
+            catalog: tokio::sync::OnceCell::new(),
         }
     }
 
-    /// Whether the catalog lists every column a scan can yield. True for schema
-    /// sources (files/SQL via `SELECT *`, ES mappings, topk); false for mongodb,
-    /// whose catalog is a document sample — a rare field may not appear in it, so
-    /// a spec column absent from the catalog is not proof the source lacks it.
-    pub fn columns_are_exhaustive(&self) -> bool {
-        !matches!(self, Source::Mongo(_))
+    pub async fn catalog(&self) -> Result<&Catalog, Error> {
+        self.catalog
+            .get_or_try_init(|| async {
+                match &self.backend {
+                    Backend::Es(es) => es.catalog().await,
+                    Backend::Duck(Duckdb::Files(None)) => Ok(Catalog { tables: Vec::new() }),
+                    Backend::Duck(duck) => duck.catalog().await,
+                    Backend::Mongo(mongo) => Ok(Catalog {
+                        tables: mongo.catalog().await?,
+                    }),
+                    Backend::Topk(topk) => topk.catalog().await,
+                }
+            })
+            .await
     }
 
-    pub fn concurrency_limit<'a>(&self, targets: impl IntoIterator<Item = &'a Target>) -> usize {
-        match self {
-            Source::Duck(duck) => duck.concurrency_limit(targets),
+    pub(crate) fn concurrency_limit<'a>(
+        &self,
+        targets: impl IntoIterator<Item = &'a Target>,
+    ) -> usize {
+        match &self.backend {
+            Backend::Duck(duck) => duck.concurrency_limit(targets),
             _ => usize::MAX,
         }
     }
 
-    pub fn scan(&self, target: &Target, after: Option<Cursor>) -> Result<Scan, Error> {
-        let chunks = match self {
-            Source::Duck(duck) => duck.chunks(
-                target,
-                target.parsed_filter()?,
-                after.map(TryInto::try_into).transpose()?,
-            )?,
-            Source::Es(es) => es.chunks(
-                target,
-                target.parsed_filter()?,
-                after.map(TryInto::try_into).transpose()?,
-            ),
-            Source::Mongo(mongo) => mongo.chunks(
-                target,
-                target.parsed_filter()?,
-                after.map(TryInto::try_into).transpose()?,
-            ),
-            Source::Topk(topk) => topk.chunks(
-                target,
-                target.parsed_filter()?,
-                after.map(TryInto::try_into).transpose()?,
-            ),
+    /// A source may push `limit` down, but need not honor it: rows past it are
+    /// cut here, and the source is not polled again once it is reached.
+    pub async fn scan(
+        &self,
+        target: &Target,
+        after: Option<&Checkpoint>,
+    ) -> Result<ReadStream, Error> {
+        let consumed = after.map_or(0, |checkpoint| checkpoint.consumed);
+        let mut remaining = target.clone();
+        remaining.limit = target.limit.map(|limit| limit.saturating_sub(consumed));
+        if remaining.limit == Some(0) {
+            return Ok(Box::pin(futures::stream::empty()));
+        }
+        let remaining_limit = remaining.limit;
+        let cursor = after.map(|checkpoint| checkpoint.cursor.clone());
+        let mut events: ReadStream = match &self.backend {
+            Backend::Duck(duck @ Duckdb::Files(_)) => {
+                Box::pin(duck.files(remaining, cursor)?.map_ok(ReadEvent::Chunk))
+            }
+            Backend::Duck(duck) => {
+                let table = self.catalog().await?.table(&target.from)?;
+                remaining.from = table.from.clone();
+                let key = table.key.clone().ok_or_else(|| {
+                    Error::InvalidArgument(format!(
+                        "{}: SQL imports require a single-column non-null primary or unique key",
+                        target.from
+                    ))
+                })?;
+                Box::pin(duck.table(remaining, key, cursor)?.map_ok(ReadEvent::Chunk))
+            }
+            Backend::Es(es) => es.chunks(target, cursor, consumed)?,
+            Backend::Mongo(mongo) => {
+                Box::pin(mongo.chunks(&remaining, cursor)?.map_ok(ReadEvent::Chunk))
+            }
+            Backend::Topk(topk) => {
+                Box::pin(topk.scan(&remaining, cursor)?.map_ok(ReadEvent::Chunk))
+            }
         };
-        Ok(Scan {
-            target: target.clone(),
-            chunks,
-        })
+        match &self.backend {
+            Backend::Mongo(_) => {}
+            Backend::Es(es) => {
+                if self.catalog.get().is_none_or(|catalog| {
+                    !catalog.tables.iter().any(|table| table.from == target.from)
+                }) {
+                    es.validate(&target.from).await?;
+                }
+            }
+            _ => {
+                let catalog = self.catalog().await?;
+                let files;
+                let catalog = if matches!(&self.backend, Backend::Duck(Duckdb::Files(_)))
+                    && !catalog.tables.iter().any(|table| table.from == target.from)
+                {
+                    files = Duckdb::Files(Some(target.from.parse()?)).catalog().await?;
+                    &files
+                } else {
+                    catalog
+                };
+                let table = if matches!(&self.backend, Backend::Duck(Duckdb::Files(_))) {
+                    catalog.tables.first().ok_or_else(|| {
+                        Error::InvalidArgument(format!("no source object for {:?}", target.from))
+                    })?
+                } else {
+                    catalog.table(&target.from)?
+                };
+                let has = |column: &str| table.columns.iter().any(|(c, _)| c == column);
+                let absent = |what: String| {
+                    let available: Vec<&str> =
+                        table.columns.iter().map(|(c, _)| c.as_str()).collect();
+                    Error::InvalidArgument(format!(
+                        "{what} is not in {:?} — available: {}",
+                        target.from,
+                        available.join(", ")
+                    ))
+                };
+                if !has(&target.id) {
+                    return Err(absent(format!("id column {:?}", target.id)));
+                }
+                if let Some(column) = target.partition.as_deref() {
+                    if !has(column) {
+                        return Err(absent(format!("partition column {column:?}")));
+                    }
+                }
+                for (field, spec) in target.fields.iter() {
+                    let column = spec.source(field);
+                    if !has(column) {
+                        return Err(absent(format!(
+                            "field {field:?} reads column {column:?}, which"
+                        )));
+                    }
+                }
+            }
+        }
+        let limit = target.limit;
+        Ok(Box::pin(async_stream::try_stream! {
+            let mut left = remaining_limit;
+            while left != Some(0) {
+                match events.next().await {
+                    Some(Ok(ReadEvent::Restarted)) => {
+                        left = limit;
+                        yield ReadEvent::Restarted;
+                    }
+                    Some(Ok(ReadEvent::Chunk(mut chunk))) => {
+                        if let Some(left) = &mut left {
+                            chunk.rows.truncate(*left as usize);
+                            *left -= chunk.rows.len() as u64;
+                        }
+                        yield ReadEvent::Chunk(chunk);
+                    }
+                    Some(Err(error)) => Err(error)?,
+                    None => break,
+                }
+            }
+        }))
+    }
+
+    pub async fn documents(
+        &self,
+        target: &Target,
+    ) -> Result<
+        BoxStream<'static, Result<(Option<String>, topk_rs::proto::v1::data::Document), Error>>,
+        Error,
+    > {
+        target.validate()?;
+        let mut events = self.scan(target, None).await?;
+        let target = target.clone();
+        Ok(Box::pin(async_stream::try_stream! {
+            while let Some(event) = events.try_next().await? {
+                match event {
+                    ReadEvent::Chunk(chunk) => {
+                        for row in chunk.rows { yield target.document(row?)?; }
+                    }
+                    ReadEvent::Restarted => Err(Error::InvalidArgument("unexpected restart without a resume cursor".into()))?,
+                }
+            }
+        }))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Cursor, Duckdb, Source};
-    use crate::import::Target;
+    use super::{Cursor, Duckdb};
+    use crate::import::spec::Target;
 
     #[test]
     fn cursor_shape_matches_the_source() {
         let target = Target {
             from: "docs.parquet".to_string(),
-            ..Default::default()
+            id: "_id".into(),
+            fields: Default::default(),
+            filter: None,
+            partition: None,
+            limit: None,
         };
-        let error = Source::Duck(Duckdb::Files(None))
-            .scan(&target, Some(Cursor::Key("42".to_string())))
+        let error = Duckdb::Files(None)
+            .files(target.clone(), Some(Cursor::Key("42".into())))
             .err()
             .expect("files accepted a key cursor");
-        assert_eq!(
-            error.to_string(),
-            "resume cursor Key(\"42\") does not fit docs.parquet"
-        );
-
-        let offset = Cursor::Offset {
-            part: "docs.parquet".to_string(),
-            rows: 7,
-        };
-        let error = Source::Duck(Duckdb::Sqlite("docs.db".to_string()))
-            .scan(&target, Some(offset))
+        assert!(error.to_string().contains("does not fit"));
+        let error = Duckdb::Sqlite("docs.db".into())
+            .table(
+                target,
+                "_id".into(),
+                Some(Cursor::Offset {
+                    part: "docs.parquet".into(),
+                    rows: 7,
+                }),
+            )
             .err()
             .expect("table accepted an offset cursor");
-        assert_eq!(
-            error.to_string(),
-            "resume cursor Offset { part: \"docs.parquet\", rows: 7 } does not fit docs.parquet"
-        );
+        assert!(error.to_string().contains("does not match source key"));
     }
 }

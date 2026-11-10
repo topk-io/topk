@@ -1,30 +1,26 @@
-use std::collections::BTreeMap;
-use std::io::{ErrorKind, IsTerminal};
+use futures::TryStreamExt;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::time::Duration;
 
 use clap::Args;
-use indicatif::{MultiProgress, ProgressDrawTarget};
 
-use crate::client::DataClient;
+use crate::client::{DataClient, ManagementClient};
 use crate::config::Config;
 use crate::endpoint::DataEndpoint;
-use crate::import::{
-    self, render, Error, Import, LoadOutcome, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
-};
+use crate::import::source::{Source, Uri};
+use crate::import::spec::Spec;
+use crate::import::state::{DestinationId, Run, RunId, State};
+use crate::import::{Error, Import, WriteOptions};
+use crate::management::proto::GetCollectionRequest;
 use crate::output::Output;
 use crate::ProjectId;
 
-#[derive(Args, Debug)]
-// Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
-#[command(override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...")]
-pub struct ImportArgs {
-    #[arg(
-        required_unless_present_any = ["spec", "resume"],
-        help = "Source URL, file path, or glob; also required with --spec or --resume, except for files"
-    )]
-    pub source: Option<Uri>,
+mod output;
+
+use output::ImportOutput;
+
+#[derive(clap::Args, Debug)]
+pub struct PlanArgs {
     #[arg(
         conflicts_with = "spec",
         help = "Source objects to import; exact names, globs, or <object>=<collection>"
@@ -38,19 +34,6 @@ pub struct ImportArgs {
         help = "Read a TOML import spec"
     )]
     pub spec: Option<PathBuf>,
-    #[arg(
-        long,
-        value_name = "RUN",
-        conflicts_with_all = ["objects", "to", "id", "filter", "limit"],
-        help = "Continue a run that stopped, by the id in its header; -f swaps in an edited spec"
-    )]
-    pub resume: Option<String>,
-    #[arg(
-        long,
-        help = "Print the spec and a sample of documents, without importing"
-    )]
-    pub dry_run: bool,
-
     #[arg(
         long,
         value_name = "COLLECTION",
@@ -79,38 +62,112 @@ pub struct ImportArgs {
     )]
     pub filter: Option<String>,
     // Broadcasts to every collection like --partition, so it is allowed with a spec.
-    #[arg(long, value_parser = clap::value_parser!(u64).range(1..), help = "Read at most this many rows per object")]
+    #[arg(long, help = "Read at most this many rows per object")]
     pub limit: Option<u64>,
+}
 
-    #[arg(short = 'y', long, help = "Skip confirmation")]
-    pub yes: bool,
+impl PlanArgs {
+    pub async fn build(&self, source: &Source) -> Result<Spec, Error> {
+        let mut spec = match &self.spec {
+            Some(path) => {
+                toml::from_str::<Spec>(&std::fs::read_to_string(path).map_err(|error| {
+                    Error::Setup(
+                        anyhow::Error::new(error)
+                            .context(format!("cannot read spec {}", path.display())),
+                    )
+                })?)?
+            }
+            None => {
+                let catalog = source.catalog().await?;
+                catalog
+                    .discover(&self.objects, self.to.as_deref(), self.id.as_deref())
+                    .map_err(|error| match error {
+                        Error::MissingId(name) => Error::InvalidArgument(format!(
+                            "{} — pass --id <column> (or set `id` in a spec)",
+                            Error::MissingId(name)
+                        )),
+                        error => {
+                            Error::InvalidArgument(format!("source {}: {error}", source.locator()))
+                        }
+                    })?
+            }
+        };
+        if self.filter.is_some() && spec.collections.len() > 1 {
+            return Err(Error::InvalidArgument(format!(
+                "--filter applies to a single object, but {} objects matched — set `filter` per collection in a spec",
+                spec.collections.len()
+            )));
+        }
+        for target in spec.collections.values_mut() {
+            if let Some(filter) = &self.filter {
+                target.filter = Some(filter.clone());
+            }
+            if let Some(limit) = self.limit {
+                target.limit = Some(limit);
+            }
+            if let Some(partition) = &self.partition {
+                target.partition = Some(partition.clone());
+            }
+        }
+        Ok(spec)
+    }
+}
+
+#[derive(clap::Args, Debug)]
+pub struct WriteArgs {
     #[arg(
         long,
-        help = "Skip documents that fail instead of stopping; exits non-zero if any did"
+        help = "Skip row decoding, conversion, and document-validation failures; operational failures still stop the run. Exits nonzero if any rows were skipped"
     )]
     pub continue_on_error: bool,
     #[arg(
         short = 'c',
         long,
-        value_parser = clap::value_parser!(u32).range(1..=4096),
+        value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=1024),
         default_value = "16",
         help = "Concurrent upserts in flight, budgeted across the whole run"
     )]
-    pub concurrency: u32,
+    pub concurrency: usize,
     #[arg(
         long,
         value_name = "SIZE",
         default_value = "1MiB",
-        value_parser = |value: &str| -> Result<bytesize::ByteSize, String> {
-            let size: bytesize::ByteSize = value.parse()?;
-            if size.as_u64() == 0 {
-                return Err("batch size must be greater than zero".to_string());
-            }
-            Ok(size)
-        },
-        help = "Buffered document bytes per collection before flushing all partitions"
+        help = "Target document bytes per partition batch"
     )]
     pub batch_bytes: bytesize::ByteSize,
+}
+
+#[derive(Args, Debug)]
+// Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
+#[command(override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...")]
+pub struct ImportArgs {
+    #[arg(
+        required_unless_present_any = ["spec", "resume"],
+        help = "Source URL, file path, or glob (e.g. topk://<collection> to copy a collection); required with --spec except for files, or with --resume when credentials were in the source URL. \
+                {name} in a glob makes that path segment a column ('data/{lang}/*.parquet'), \
+                as do key=value folders ('data/lang=sw/part-0.parquet')"
+    )]
+    pub source: Option<Uri>,
+    #[arg(
+        long,
+        value_name = "RUN",
+        conflicts_with_all = ["objects", "to", "id", "filter", "limit", "partition", "spec", "dry_run"],
+        help = "Continue the saved plan from its last checkpoint, by the id in its header"
+    )]
+    pub resume: Option<RunId>,
+    #[arg(short = 'y', long, help = "Skip confirmation")]
+    pub yes: bool,
+    #[arg(
+        long,
+        conflicts_with = "resume",
+        help = "Print the spec and a sample of documents, without importing"
+    )]
+    pub dry_run: bool,
+
+    #[command(flatten)]
+    pub plan: PlanArgs,
+    #[command(flatten)]
+    pub write: WriteArgs,
 
     /// Project to import into; defaults to the currently selected project
     #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
@@ -120,236 +177,160 @@ pub struct ImportArgs {
     pub data: DataEndpoint,
 }
 
-async fn plan(
-    source: &Source,
-    args: &ImportArgs,
-    config: &Config,
-    given: Option<Spec>,
-) -> Result<Spec, Error> {
-    // Discovery reads the CLI source's catalog; a spec brings its own collections
-    // but reuses that catalog when a source was named.
-    let (mut spec, shared) = match given {
-        None => {
-            let catalog = source.catalog().await?;
-            let spec = import::discover(
-                &catalog,
-                &args.objects,
-                args.to.as_deref(),
-                args.id.as_deref(),
-            )?;
-            (spec, Some(catalog))
-        }
-        Some(spec) if args.source.is_some() => {
-            let catalog = source.catalog().await?;
-            (spec, Some(catalog))
-        }
-        Some(spec) => (spec, None),
-    };
-    // Validate every column a target reads against the source that will scan it,
-    // before any cluster write. A named source shares one catalog; a bare `-f`
-    // spec has each collection read its own `from`. A sampled source (mongodb)
-    // contributes nothing, since an absent column is not proof it lacks one.
-    let catalog = match shared {
-        Some(catalog) if source.columns_are_exhaustive() => catalog,
-        Some(_) => Vec::new(),
-        None => file_catalogs(&spec, config).await?,
-    };
-    // A filter names one object's columns.
-    if args.filter.is_some() && spec.collections.len() > 1 {
-        return Err(Error::InvalidArgument(format!(
-            "--filter applies to a single object, but {} objects matched — \
-             set `filter` per collection in a spec",
-            spec.collections.len()
-        )));
-    }
-    for target in spec.collections.values_mut() {
-        if let Some(filter) = &args.filter {
-            target.filter = Some(filter.clone());
-        }
-        if let Some(limit) = args.limit {
-            target.limit = Some(limit);
-        }
-        if let Some(partition) = &args.partition {
-            target.partition = Some(partition.clone());
-        }
-    }
-    import::validate_columns(&catalog, &spec)?;
-    Ok(spec)
-}
-
-/// Columns for a bare `-f` spec, where each collection's `from` is its own file
-/// locator. A `from` reached through a sampled source contributes nothing.
-async fn file_catalogs(spec: &Spec, config: &Config) -> Result<Vec<import::Table>, Error> {
-    let mut tables = Vec::new();
-    for target in spec.collections.values() {
-        let uri: Uri = target.from.parse()?;
-        let source = Source::connect(&uri, config).await?;
-        if source.columns_are_exhaustive() {
-            tables.extend(source.catalog().await?);
-        }
-    }
-    Ok(tables)
-}
-
-fn confirm(collections: usize, region: &str) -> Result<bool, Error> {
-    if !std::io::stdin().is_terminal() {
-        return Err(Error::InvalidArgument(
-            "not a terminal: pass --yes to import without confirmation".to_string(),
-        ));
-    }
-    let s = if collections == 1 { "" } else { "s" };
-    match dialoguer::Confirm::new()
-        .with_prompt(format!("Import {collections} collection{s} into {region}?"))
-        .default(false)
-        .interact()
-    {
-        Ok(yes) => Ok(yes),
-        Err(dialoguer::Error::IO(e)) if e.kind() == ErrorKind::Interrupted => Ok(false),
-        Err(dialoguer::Error::IO(e)) => Err(e.into()),
-    }
-}
-
-fn human(elapsed: Duration) -> String {
-    let secs = elapsed.as_secs();
-    match (secs / 3600, secs % 3600 / 60, secs % 60) {
-        (0, 0, s) => format!("{s}s"),
-        (0, m, s) => format!("{m}m{s:02}s"),
-        (h, m, s) => format!("{h}h{m:02}m{s:02}s"),
-    }
-}
-
-fn report(outcomes: &BTreeMap<String, LoadOutcome>, output: Output) -> Result<ExitCode, Error> {
-    if output == Output::Json {
-        println!("{}", serde_json::to_string(outcomes)?);
-    } else {
-        for (name, outcome) in outcomes {
-            let took = human(outcome.elapsed);
-            match outcome.failed {
-                0 => eprintln!("{name}: {} rows written in {took}", outcome.rows),
-                failed => eprintln!(
-                    "{name}: {} rows written, {failed} failed in {took}",
-                    outcome.rows
-                ),
-            }
-        }
-    }
-    Ok(match outcomes.values().all(|o| o.failed == 0) {
-        true => ExitCode::SUCCESS,
-        false => ExitCode::FAILURE,
-    })
-}
-
 pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::Result<ExitCode> {
     tracing::info!(?args, "import");
-    let resumed = args.resume.as_deref().map(State::load).transpose()?;
-    // Credentials never enter a spec: the CLI uri is the source, or every `from`
-    // is its own file locator.
-    let uri = args.source.clone().unwrap_or_default();
-    let given: Option<Spec> = match (&args.spec, &resumed) {
-        (Some(path), _) => {
-            let text = std::fs::read_to_string(path).map_err(|e| {
-                Error::InvalidArgument(format!("cannot read spec {}: {e}", path.display()))
-            })?;
-            Some(toml::from_str(&text)?)
-        }
-        (None, Some(state)) => Some(toml::from_str(&state.spec)?),
-        (None, None) => None,
+    let mut ui = ImportOutput::new(output);
+    let directory = match std::env::var_os("TOPK_IMPORT_STATE_DIR") {
+        Some(path) => PathBuf::from(path),
+        None => Config::dir()?.join("import"),
     };
-    let source = Source::connect(&uri, &config).await?;
-    let mut spec = plan(&source, args, &config, given).await?;
-    let project_id = || match &args.project_id {
-        Some(project_id) => Ok(project_id.clone()),
-        None => config.default_project(),
-    };
-
-    let (resumed, done, after) = match resumed {
-        Some(mut state) => {
-            let (done, after) = state.resume(&uri.to_string(), &project_id()?, &mut spec)?;
-            if spec.collections.is_empty() {
-                eprintln!(
-                    "run {}: all {done} collection(s) already imported",
-                    state.id
-                );
-                State::remove(&state.id);
-                return Ok(ExitCode::SUCCESS);
+    let (source, run) = if let Some(id) = args.resume {
+        let run = Run::load(&directory, id).await?;
+        if run.state().pending().next().is_none() {
+            ui.message(format_args!(
+                "run {}: all {} collection(s) already imported",
+                run.id,
+                run.state().spec.collections.len()
+            ))?;
+            if let Err(error) = run.remove() {
+                tracing::warn!(%error, "cannot remove run state");
             }
-            (Some(state), done, after)
+            return ui.finish();
         }
-        None => (None, 0, BTreeMap::new()),
-    };
-    if args.dry_run {
-        print!("{}", render(&spec, None, &after));
-        for (name, target) in spec.collections.iter() {
-            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
-                eprintln!("# {name}: set `id` above (or pass --id) to preview rows");
-                continue;
+        let uri = run.state().source(args.source.as_ref())?;
+        (args.source(uri, &config).await?, run)
+    } else {
+        let source = args
+            .source(args.source.clone().unwrap_or(Uri::Files(None)), &config)
+            .await?;
+        let spec = args.plan.build(&source).await?;
+        if args.dry_run {
+            ui.spec(&spec)?;
+            for (name, target) in &spec.collections {
+                ui.sample_header(name)?;
+                let target = target.capped(5);
+                let mut rows = source.documents(&target).await?;
+                while let Some((partition, document)) = rows.try_next().await? {
+                    ui.sample(partition.as_deref(), document)?;
+                }
             }
-            import::preview(name, &source, target).await?;
+            return Ok(ExitCode::SUCCESS);
         }
-        return Ok(ExitCode::SUCCESS);
-    }
-
-    for (name, target) in &spec.collections {
-        if target.id.as_deref() == Some(ID_PLACEHOLDER) {
-            return Err(Error::InvalidArgument(format!(
-                "{name}: couldn't detect an id column — pass `--id <column>`, \
-                 or set `id` in a spec (it becomes each document's `{ID}`)"
-            ))
-            .into());
-        }
-    }
-    let region = args.data.region()?;
-    let state = match resumed {
-        Some(state) => state,
-        None => State::new(&uri.to_string(), project_id()?, &spec)?,
+        let destination = DestinationId {
+            project_id: args
+                .project_id
+                .clone()
+                .map(Ok)
+                .unwrap_or_else(|| config.default_project())?,
+            region: args.data.region()?.to_string(),
+        };
+        let run = Run::start(
+            &directory,
+            State::new(source.locator().to_string(), destination, spec),
+        )
+        .await?;
+        (source, run)
     };
-    let client = DataClient::new(&config, state.project_id.clone(), region)?;
-    let import = Import::prepare(client, &source, &spec, &after).await?;
-    let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
-    // Before the run: a killed run prints nothing after.
-    eprintln!(
-        "# run {}{}",
-        state.id,
-        match done {
-            0 => String::new(),
-            n => format!(", resuming: {n} collection(s) done"),
-        }
-    );
-    eprint!("{}", render(&spec, Some(&fresh), &after));
-    if !args.yes && !confirm(spec.collections.len(), region)? {
+    let client = DataClient::new(
+        &config,
+        run.state().destination.project_id.clone(),
+        &run.state().destination.region,
+    )?;
+    let import = Import::prepare(source, (*client).clone(), run).await?;
+    if !ui.confirm(import.run(), args.yes || args.resume.is_some())? {
         return Ok(ExitCode::SUCCESS);
-    }
-
-    let progress = match output {
-        Output::Text => MultiProgress::new(),
-        Output::Json => MultiProgress::with_draw_target(ProgressDrawTarget::hidden()),
-    };
-    if output == Output::Text {
-        import::set_progress(progress.clone());
     }
     let resume_hint = format!(
-        "nothing else was imported; to continue: topk import --region '{region}' --project-id {} {}--resume {}",
-        state.project_id,
-        match args.source.is_none() {
-            true => String::new(),
-            false => format!("'{}' ", state.source),
+        "Continue with: topk import {}--resume {}",
+        if args.source.as_ref().and_then(Uri::password).is_some() {
+            "SOURCE "
+        } else {
+            ""
         },
-        state.id,
+        import.run().id
     );
-    let outcomes = tokio::select! {
-        outcomes = import.execute(
-            state,
-            &progress,
-            args.concurrency as usize,
-            args.batch_bytes.as_u64() as usize,
-            args.continue_on_error,
-        ) => outcomes,
-        _ = tokio::signal::ctrl_c() => {
-            let _ = progress.clear();
-            eprintln!("{resume_hint}");
-            return Ok(ExitCode::from(130));
-        }
+    let options = WriteOptions {
+        continue_on_error: args.write.continue_on_error,
+        concurrency: args.write.concurrency,
+        batch_bytes: args.write.batch_bytes,
     };
-    let outcomes = outcomes.inspect_err(|_| eprintln!("{resume_hint}"))?;
-    Ok(report(&outcomes, output)?)
+    let notice_interval = std::time::Duration::from_secs(10);
+    let mut notice = tokio::time::interval_at(
+        tokio::time::Instant::now() + notice_interval,
+        notice_interval,
+    );
+    let mut notified = false;
+    let execution = import.execute(options);
+    futures::pin_mut!(execution);
+    loop {
+        let event = tokio::select! {
+            event = execution.try_next() => event,
+            _ = notice.tick(), if !notified => {
+                ui.waiting()?;
+                notified = true;
+                continue;
+            }
+            _ = tokio::signal::ctrl_c() => {
+                ui.message(format_args!("stopped; rows written so far stay. {resume_hint}"))?;
+                return Ok(ExitCode::from(130));
+            }
+        };
+        notice.reset();
+        notified = false;
+        match event {
+            Ok(Some(event)) => ui.event(event)?,
+            Ok(None) => break,
+            Err(error) => {
+                if matches!(error, Error::RejectedDocuments(_)) {
+                    let _ = ui.message("Use --continue-on-error to skip rejected documents.");
+                }
+                let _ = ui.message(&resume_hint);
+                return Err(error.into());
+            }
+        }
+    }
+    ui.finish()
+}
+
+impl ImportArgs {
+    async fn source(&self, mut uri: Uri, config: &Config) -> anyhow::Result<Source> {
+        if let Uri::Topk {
+            project,
+            collection: name,
+        } = &mut uri
+        {
+            let resolved = match project.as_ref() {
+                Some(project) => project.clone(),
+                None => self
+                    .project_id
+                    .clone()
+                    .map(Ok)
+                    .unwrap_or_else(|| config.default_project())?,
+            };
+            *project = Some(resolved.clone());
+            let name = name.clone();
+            let collection = ManagementClient::new(config.clone())?
+                .collections
+                .get_collection(GetCollectionRequest {
+                    project_id: resolved.to_string(),
+                    name: name.clone(),
+                })
+                .await?
+                .into_inner()
+                .collection
+                .ok_or_else(|| anyhow::anyhow!("management returned no source collection"))?;
+            anyhow::ensure!(
+                !collection.region.is_empty(),
+                "source collection has no region"
+            );
+            let client = DataClient::new(config, resolved, &collection.region)?;
+            return Ok(Source::topk(
+                (*client).clone(),
+                uri.to_string(),
+                name,
+                collection.schema,
+            ));
+        }
+        Ok(uri.connect().await?)
+    }
 }

@@ -1,17 +1,16 @@
 use std::collections::VecDeque;
 use std::thread::{self, JoinHandle};
 
-use duckdb::arrow::array::ArrayRef;
 use duckdb::Connection;
 use tokio::sync::mpsc;
 
-use crate::import::decode::id_string;
+use crate::import::document::id_string;
 use crate::import::error::Error;
-use crate::import::source::codec::arrow;
-use crate::import::source::{Chunk, Cursor, Record};
+use crate::import::source::file::local_path;
+use crate::import::source::{Chunk, Cursor, File, Record};
 use crate::import::spec::Target;
 
-use super::file::{local_path, reader, File};
+use super::arrow;
 use super::select::Select;
 use super::{lit, read_error, Duckdb};
 
@@ -40,7 +39,10 @@ impl Position {
             Position::Key(column) => {
                 let record = rows.last()?.as_ref().ok()?;
                 let (_, value) = record.iter().find(|(key, _)| key == column)?;
-                Some(Cursor::Key(id_string(column, value.clone()).ok()?))
+                Some(Cursor::Sql {
+                    column: column.clone(),
+                    value: id_string(column, value.clone()).ok()?,
+                })
             }
             Position::Offset(start) => Some(Cursor::Offset {
                 part: from.to_string(),
@@ -63,7 +65,6 @@ pub(super) fn files(
     source: &Duckdb,
     file: &File,
     target: &Target,
-    filter: Option<&str>,
     resume: Option<(String, u64)>,
     tx: &Sender,
 ) -> Result<(), Error> {
@@ -84,21 +85,17 @@ pub(super) fn files(
         }
     };
     // Globs list in byte order, which is how the cursor compares.
-    let planned: Vec<(String, u64)> = files
-        .into_iter()
-        .filter_map(|file| match &resume {
-            Some((done, _)) if file < *done => None,
-            Some((done, rows)) if file == *done => Some((file, *rows)),
-            _ => Some((file, 0)),
-        })
-        .collect();
+    let mut planned = files.into_iter().filter_map(|file| match &resume {
+        Some((done, _)) if file < *done => None,
+        Some((done, rows)) if file == *done => Some((file, *rows)),
+        _ => Some((file, 0)),
+    });
     // A limit is a running budget: the next query depends on the previous count.
     let ahead = match target.limit {
         Some(_) => 0,
         None => READ_AHEAD,
     };
     let mut remaining = target.limit;
-    let mut planned = planned.into_iter();
     let mut readers: VecDeque<(Receiver, JoinHandle<Result<u64, Error>>)> = VecDeque::new();
     loop {
         while readers.len() < ahead + 1 && remaining != Some(0) {
@@ -111,7 +108,7 @@ pub(super) fn files(
                 path,
                 ..file.clone()
             };
-            let plan = Plan::file(&file, target, filter, offset, remaining);
+            let plan = Plan::file(&file, target, offset, remaining);
             readers.push_back((
                 file_rx,
                 thread::spawn(move || {
@@ -141,51 +138,41 @@ pub(super) fn files(
 impl Plan {
     /// An attached table ordered by the id column, so a batch's last id is a
     /// resume point.
-    pub(super) fn table(
-        source: &Duckdb,
-        target: &Target,
-        filter: Option<&str>,
-        after: Option<&str>,
-    ) -> Plan {
-        let id = target.id_column();
-        // The spec is a whitelist, so a column no field reads is never fetched.
+    pub(super) fn table(source: &Duckdb, target: &Target, key: &str, after: Option<&str>) -> Plan {
+        let mut columns = target.source_columns();
+        columns.insert(key);
+        // The resume key is fetched alongside the mapped source columns.
         // A table has one validated schema, and for postgres the list has to be
         // plain anyway: the query runs on the server.
         let sql = source
             .select(&target.from)
-            .columns(target.source_columns())
-            .filter(filter)
-            .after(id, after)
-            .order_by(id)
+            .columns(columns)
+            .filter(target.filter.as_deref())
+            .after(key, after)
+            .order_by(key)
             .limit(target.limit)
             .into_sql();
         Plan {
             sql,
             from: target.from.clone(),
-            filter: filter.map(str::to_string),
-            position: Position::Key(id.to_string()),
+            filter: target.filter.clone(),
+            position: Position::Key(key.to_string()),
         }
     }
 
     /// One file of a glob, resumed at `offset`. A column only some files carry
     /// must stay absent from the rest the way `union_by_name` leaves it, rather
     /// than raise a binder error: `COLUMNS` keeps the names that exist.
-    fn file(
-        file: &File,
-        target: &Target,
-        filter: Option<&str>,
-        offset: u64,
-        limit: Option<u64>,
-    ) -> Plan {
+    fn file(file: &File, target: &Target, offset: u64, limit: Option<u64>) -> Plan {
         Plan {
-            sql: Select::new(reader(file))
+            sql: Select::file(file)
                 .existing_columns(target.source_columns())
-                .filter(filter)
+                .filter(target.filter.as_deref())
                 .limit(limit)
                 .offset(offset)
                 .into_sql(),
             from: file.path.clone(),
-            filter: filter.map(str::to_string),
+            filter: target.filter.clone(),
             position: Position::Offset(offset),
         }
     }
@@ -206,17 +193,13 @@ impl Plan {
         while let Some(array) = stmt.step()? {
             let batch = duckdb::arrow::record_batch::RecordBatch::from(&array);
             let schema = batch.schema();
-            let columns: Vec<(&str, ArrayRef)> = schema
-                .fields()
-                .iter()
-                .zip(batch.columns())
-                .map(|(field, array)| (field.name().as_str(), array.clone()))
-                .collect();
             let rows: Vec<Result<Record, Error>> = (0..batch.num_rows())
                 .map(|row| {
-                    columns
+                    schema
+                        .fields()
                         .iter()
-                        .map(|(name, array)| Ok((name.to_string(), arrow::value(array, row)?)))
+                        .zip(batch.columns())
+                        .map(|(field, array)| Ok((field.name().clone(), arrow::value(array, row)?)))
                         .collect::<Result<Record, Error>>()
                 })
                 .collect();

@@ -60,7 +60,17 @@ pub fn ddl(table: &str, docs: &[Document], dialect: &Dialect) -> String {
     let first = &docs[0].fields;
     let columns = columns(docs)
         .into_iter()
-        .map(|name| format!("{name} {}", column_type(first.get(name), dialect)))
+        .map(|name| {
+            format!(
+                "{name} {}{}",
+                column_type(first.get(name), dialect),
+                if name.as_str() == "_id" {
+                    " NOT NULL PRIMARY KEY"
+                } else {
+                    ""
+                }
+            )
+        })
         .collect::<Vec<_>>()
         .join(", ");
     format!("CREATE TABLE {table} ({columns})")

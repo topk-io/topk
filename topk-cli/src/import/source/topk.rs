@@ -1,132 +1,84 @@
-use std::fmt;
-use std::str::FromStr;
-
-use futures::{future, TryStreamExt};
-use wildmatch::WildMatch;
+use futures::TryStreamExt;
 
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
 
-use crate::client::DataClient;
-use crate::config::Config;
 use crate::import::error::Error;
 use crate::import::source::Record;
-use crate::import::spec::{Field, Target};
+use crate::import::spec::Target;
 use crate::import::ID;
-use crate::ProjectId;
+use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::Client;
 
-use super::{Chunk, ChunkStream, Table};
-
-/// `topk://<project-id>@<region>/<collection>`, read with your login.
-#[derive(Clone, Debug)]
-pub struct Uri {
-    pub project_id: ProjectId,
-    pub region: String,
-    pub collection: String,
-}
-
-impl fmt::Display for Uri {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "topk://{}@{}/{}",
-            self.project_id, self.region, self.collection
-        )
-    }
-}
-
-/// A topk source has no filter language; the type has no values.
-pub enum Filter {}
-
-impl FromStr for Filter {
-    type Err = Error;
-
-    fn from_str(_: &str) -> Result<Filter, Error> {
-        Err(Error::InvalidArgument(
-            "--filter is not supported for topk:// sources".to_string(),
-        ))
-    }
-}
-
-/// The last `_id` read; the default is before every id.
-#[derive(Default)]
-pub struct Cursor(String);
-
-impl TryFrom<super::Cursor> for Cursor {
-    type Error = Error;
-
-    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
-        cursor.key().map(Cursor)
-    }
-}
+use super::{Catalog, Chunk, ChunkStream, Cursor as Checkpoint, Table};
 
 #[derive(Clone)]
 pub struct Topk {
-    client: DataClient,
-    collection: String,
+    client: Client,
+    pub table: Table,
 }
 
 impl Topk {
-    pub fn connect(uri: &Uri, config: &Config) -> Result<Topk, Error> {
-        Ok(Topk {
-            client: DataClient::new(config, uri.project_id.clone(), &uri.region)
-                .map_err(|e| Error::InvalidArgument(e.to_string()))?,
-            collection: uri.collection.clone(),
-        })
+    pub fn new(
+        client: Client,
+        name: String,
+        schema: std::collections::HashMap<String, topk_rs::proto::v1::control::FieldSpec>,
+    ) -> Topk {
+        let table = Table {
+            columns: std::iter::once((ID.to_string(), FieldSpec::text(false)))
+                .chain(schema)
+                .map(|(name, field)| (name, Some(field)))
+                .collect(),
+            collection_hint: Some(name.clone()),
+            from: name,
+            key: Some(ID.to_string()),
+        };
+        Topk { client, table }
     }
 
-    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
-        let collection = &self.collection;
-        // The collection is in the uri, not in OBJECTS, so its glob is matched
-        // here rather than by `discover`.
-        let collections = match collection.contains(['*', '?']) || collection.is_empty() {
-            true => {
-                let pattern =
-                    WildMatch::new(collection.is_empty().then_some("*").unwrap_or(collection));
-                self.client
-                    .collections()
-                    .list(None)
-                    .await?
-                    .try_filter(|c| future::ready(pattern.matches(&c.name)))
-                    .try_collect()
-                    .await?
-            }
-            false => vec![self.client.collections().get(collection).await?],
-        };
-        Ok(collections
-            .into_iter()
-            .map(|collection| Table {
-                columns: std::iter::once((ID.to_string(), Field::default()))
-                    .chain(
-                        collection
-                            .schema
-                            .iter()
-                            .map(|(name, spec)| (name.clone(), Field::from(spec))),
-                    )
-                    .collect(),
-                collection_hint: Some(collection.name.clone()),
-                from: collection.name,
-                primary_key: Some(ID.to_string()),
-            })
-            .collect())
+    pub async fn catalog(&self) -> Result<Catalog, Error> {
+        if self
+            .client
+            .collection(&self.table.from)
+            .list_partitions(None)
+            .await?
+            .try_next()
+            .await?
+            .is_some()
+        {
+            return Err(Error::InvalidArgument(format!(
+                "collection {:?} has named partitions; copying partitioned collections is not supported",
+                self.table.from
+            )));
+        }
+        Ok(Catalog {
+            tables: vec![self.table.clone()],
+        })
     }
 
     /// Keyset pages ordered by `_id`, so a page boundary is a resume point.
     /// `fetch` and not `select`: a select of an indexed vector is refused by the
     /// server, and returns the index's quantized copy where it is not.
-    pub fn chunks(&self, target: &Target, _: Option<Filter>, after: Option<Cursor>) -> ChunkStream {
+    pub fn scan(&self, target: &Target, after: Option<Checkpoint>) -> Result<ChunkStream, Error> {
+        if target.from != self.table.from {
+            return Err(Error::InvalidArgument(format!(
+                "source is collection {:?}, not {:?}",
+                self.table.from, target.from
+            )));
+        }
+        if target.filter.is_some() {
+            return Err(Error::InvalidArgument(
+                "--filter is not supported for topk:// sources".into(),
+            ));
+        }
+        let mut cursor = after.map(Checkpoint::key).transpose()?.unwrap_or_default();
         let collection = self.client.collection(&target.from);
-        let Cursor(mut cursor) = after.unwrap_or_default();
-        let mut remaining = target.limit;
+        // 10k is the server's cap on a sorted `limit`, and the resume granularity.
+        let size = target.limit.map_or(10_000, |limit| limit.min(10_000));
 
-        let stream = async_stream::stream! {
+        let stream = async_stream::try_stream! {
             loop {
-                // 10k is the server's cap on a sorted `limit`, and the resume granularity.
-                let size = remaining.map_or(10_000, |left| left.min(10_000));
-                if size == 0 {
-                    break;
-                }
-                let documents = match collection
+                let documents = collection
                     .query(
                         filter(field(ID).gt(cursor.clone()))
                             .sort((field(ID), SortOrder::Asc))
@@ -135,36 +87,29 @@ impl Topk {
                         None,
                         None,
                     )
-                    .await
-                {
-                    Ok(documents) => documents,
-                    Err(e) => {
-                        yield Err(e.into());
-                        return;
-                    }
-                };
-                let Some(last) = documents
+                    .await?;
+                if documents.is_empty() {
+                    break;
+                }
+                let last = documents
                     .last()
                     .and_then(|document| document.fields.get(ID))
                     .and_then(Value::as_string)
-                else {
-                    break;
-                };
+                    .ok_or_else(|| Error::InvalidArgument("TopK page has no valid continuation id".into()))?;
                 cursor = last.to_string();
-                remaining = remaining.map(|left| left - documents.len() as u64);
                 let full = documents.len() as u64 == size;
-                yield Ok(Chunk {
+                yield Chunk {
                     rows: documents
                         .into_iter()
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
-                    cursor: Some(super::Cursor::Key(cursor.clone())),
-                });
+                    cursor: Some(Checkpoint::Key(cursor.clone())),
+                };
                 if !full {
                     break;
                 }
             }
         };
-        Box::pin(stream)
+        Ok(Box::pin(stream))
     }
 }

@@ -1,51 +1,71 @@
 pub mod es;
 pub mod mongo;
 pub mod mysql;
-pub mod parquet;
 pub mod pg;
 pub mod rustfs;
 pub mod sql;
 pub mod sqlite;
 
-use async_trait::async_trait;
-
-use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
-use super::config;
+use super::Scratch;
 
-#[async_trait(?Send)]
-pub trait Seed {
-    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<Target>;
+#[derive(Clone, Copy, Debug)]
+pub enum Backend {
+    Sqlite,
+    Postgres,
+    Mysql,
+    Mongo,
+    Elasticsearch,
+    Parquet,
+    S3,
+}
 
-    /// Where to connect; `None` when `from` is the whole locator, as for files.
-    fn url(&self) -> Option<String> {
-        None
+impl Backend {
+    /// "published after 1950", in the language this source filters in.
+    pub fn filter(self) -> &'static str {
+        match self {
+            Backend::Mongo => r#"{"published_year": {"$gt": 1950}}"#,
+            Backend::Elasticsearch => r#"{"range": {"published_year": {"gt": 1950}}}"#,
+            _ => "published_year > 1950",
+        }
     }
 }
 
-/// Seeded targets carry the columns discovery would have found: the spec is a
-/// whitelist, so a target without fields imports nothing but ids.
-pub async fn discovered(target: Target, url: Option<String>) -> anyhow::Result<Target> {
-    let uri: topk::import::Uri = match url {
-        Some(url) => url.parse()?,
-        None => target.from.parse()?,
-    };
-    let catalog = topk::import::Source::connect(&uri, &config())
-        .await?
-        .catalog()
-        .await?;
-    let spec = topk::import::discover(&catalog, std::slice::from_ref(&target.from), None, None)?;
-    let found = spec
-        .collections
-        .into_iter()
-        .find(|(_, found)| found.from == target.from);
-    Ok(match found {
-        Some((_, found)) => Target {
-            fields: found.fields,
-            id: target.id.clone().or(found.id),
-            ..target
-        },
-        None => target,
-    })
+pub struct Seeded {
+    pub from: String,
+    pub url: String,
+}
+
+impl Scratch {
+    pub async fn seed(&self, backend: Backend, name: &str, docs: Vec<Document>) -> Seeded {
+        let remote = self.name(name);
+        let (from, url) = match backend {
+            Backend::Sqlite => {
+                let url = format!("sqlite://{}", self.path(&format!("{name}.db")).display());
+                let from = sqlite::seed(&url, name, docs).await.unwrap();
+                (from, url)
+            }
+            Backend::Postgres => (
+                pg::Pg::seed(&remote, docs).await.unwrap(),
+                pg::Pg::URL.into(),
+            ),
+            Backend::Mysql => (mysql::seed(&remote, docs).await.unwrap(), mysql::URL.into()),
+            Backend::Mongo => (mongo::seed(&remote, docs).await.unwrap(), mongo::URL.into()),
+            Backend::Elasticsearch => (
+                es::seed(&remote, docs).await.unwrap(),
+                "es://localhost:19200".into(),
+            ),
+            Backend::Parquet => {
+                let path = self.seed_parquet(name, docs);
+                (path.clone(), path)
+            }
+            Backend::S3 => {
+                let input = self.jsonl(&format!("{name}.jsonl"), &docs);
+                let path = rustfs::seed(&remote, &input).unwrap();
+                (path.clone(), path)
+            }
+        };
+        Seeded { from, url }
+    }
 }

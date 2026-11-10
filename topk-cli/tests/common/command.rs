@@ -1,7 +1,8 @@
 use std::borrow::Borrow;
 use std::ffi::OsStr;
+use std::fmt;
 use std::io::Write;
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, ExitStatus, Output, Stdio};
 
 use serde_json::Value;
 
@@ -35,6 +36,11 @@ impl TestCommand {
         self
     }
 
+    pub fn env_remove(mut self, key: impl AsRef<OsStr>) -> Self {
+        self.command.env_remove(key);
+        self
+    }
+
     pub fn stdin(mut self, input: Option<&str>) -> Self {
         self.stdin = input.map(str::to_owned);
         self
@@ -55,6 +61,31 @@ impl TestCommand {
             .unwrap();
         drop(stdin);
         child.wait_with_output().unwrap()
+    }
+
+    #[track_caller]
+    pub fn success(self) -> CliOutput {
+        let output = self.capture();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        output
+    }
+
+    #[track_caller]
+    pub fn failure(self, code: i32) -> CliOutput {
+        let output = self.capture();
+        assert_eq!(output.status.code(), Some(code), "{output:?}");
+        output
+    }
+
+    fn capture(self) -> CliOutput {
+        let command = self.line();
+        let output = self.output();
+        CliOutput {
+            command,
+            status: output.status,
+            stdout: String::from_utf8(output.stdout).unwrap(),
+            stderr: String::from_utf8(output.stderr).unwrap(),
+        }
     }
 
     /// Stdout and stderr of a run that must succeed.
@@ -92,5 +123,22 @@ impl TestCommand {
             .chain(self.command.get_args().map(|arg| arg.to_string_lossy()))
             .collect::<Vec<_>>()
             .join(" ")
+    }
+}
+
+pub struct CliOutput {
+    command: String,
+    pub status: ExitStatus,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+impl fmt::Debug for CliOutput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+            self.command, self.status, self.stdout, self.stderr
+        )
     }
 }

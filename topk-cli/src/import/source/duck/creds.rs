@@ -4,8 +4,8 @@ use duckdb::Connection;
 
 use crate::import::error::Error;
 
-use super::file::ObjectStore;
 use super::{extension_error, lit};
+use crate::import::source::ObjectStore;
 
 /// A synthetic AWS profile whose `credential_process` is `aws configure
 /// export-credentials`: the aws CLI resolves SSO → assume-role, which duckdb's

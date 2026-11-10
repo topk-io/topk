@@ -1,50 +1,34 @@
+mod output;
+
 pub mod seed;
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::Write as _;
-use std::path::Path;
+use std::collections::{BTreeMap, HashSet};
+use std::path::{Path, PathBuf};
 
 use clap::{Args, Command, FromArgMatches};
-use futures::StreamExt;
-use indexmap::IndexMap;
-use tempfile::{NamedTempFile, TempDir};
+use futures::TryStreamExt;
+use serde_json::Value;
+use tempfile::TempDir;
 use test_context::AsyncTestContext;
-use uuid::Uuid;
 
+pub use crate::common::command::TestCommand;
+use crate::common::session::CliTestContext;
 use topk::auth::OAuthConfig;
 use topk::client::DataClient;
 use topk::config::Config;
 use topk::endpoint::DataEndpoint;
 use topk::host::Host;
-use topk::import::{Field, Spec, Target};
-use topk::ProjectId;
+use topk::import::source::{Source, Uri};
+use topk::import::spec::{Field, Spec, Target};
+use topk::import::state::{DestinationId, State};
+use topk::import::Error;
 use topk_rs::doc;
-use topk_rs::proto::v1::data::{ConsistencyLevel, Document, Value};
-use topk_rs::Client;
+use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::data::{ConsistencyLevel, Document};
 
-pub use crate::common::command::TestCommand;
-use crate::common::session::CliTestContext;
-
-/// A flag group's defaults, ignoring the environment.
-fn defaults<T: Args + FromArgMatches>() -> T {
-    let matches = T::augment_args(Command::new("test"))
-        .mut_args(|arg| arg.env(None::<&str>))
-        .get_matches_from(["test"]);
-    T::from_arg_matches(&matches).expect("default arguments")
-}
-
-/// The production API and issuer; file sources never reach either.
-pub fn config() -> Config {
-    Config::new(
-        defaults::<Host>(),
-        defaults::<OAuthConfig>(),
-        std::env::temp_dir(),
-    )
-}
-
-/// A flag group as the CLI would parse it from the environment.
-fn from_env<T: Args + FromArgMatches>() -> T {
+/// A flag group as the CLI reads it from the environment.
+pub fn from_env<T: Args + FromArgMatches>() -> T {
     let matches = T::augment_args(Command::new("test")).get_matches_from(["test"]);
     T::from_arg_matches(&matches).expect("arguments from the environment")
 }
@@ -84,10 +68,6 @@ pub fn rows(start: u64, count: u64) -> Vec<Document> {
         .collect()
 }
 
-pub fn unique_name(prefix: &str) -> String {
-    format!("{prefix}_{}", &Uuid::new_v4().simple().to_string()[..8])
-}
-
 pub fn json(doc: &Document) -> serde_json::Map<String, serde_json::Value> {
     doc.fields
         .iter()
@@ -100,152 +80,65 @@ pub fn json(doc: &Document) -> serde_json::Map<String, serde_json::Value> {
         .collect()
 }
 
-pub fn jsonl(docs: &[Document]) -> NamedTempFile {
-    let mut file = NamedTempFile::new().unwrap();
-    for doc in docs {
-        writeln!(file, "{}", serde_json::Value::Object(json(doc))).unwrap();
-    }
-    file.flush().unwrap();
-    file
+pub async fn source(locator: &str) -> Result<Source, Error> {
+    locator.parse::<Uri>()?.connect().await
 }
 
-/// Where `topk import` keeps run state for this test process — never the
-/// user's real config dir, which failing-on-purpose runs would litter.
-pub fn state_dir() -> &'static Path {
-    static DIR: std::sync::OnceLock<TempDir> = std::sync::OnceLock::new();
-    DIR.get_or_init(|| tempfile::tempdir().unwrap()).path()
-}
-
-pub fn topk() -> TestCommand {
-    TestCommand::new().envs([("TOPK_IMPORT_STATE_DIR", state_dir())])
-}
-
-pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
-    let uri = locator.parse().expect("source uri parses");
-    let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    let catalog = topk::import::Source::connect(&uri, &config())
-        .await
-        .expect("connect")
-        .catalog()
-        .await
-        .expect("catalog");
-    topk::import::discover(&catalog, &patterns, None, None).expect("discover")
-}
-
-pub async fn stream_docs(
+pub async fn json_documents(
+    source: &Source,
     target: &Target,
-) -> Result<BTreeMap<String, serde_json::Value>, topk::import::Error> {
-    stream_docs_from(None, target).await
+) -> Result<Vec<(Option<String>, Value)>, Error> {
+    source
+        .documents(target)
+        .await?
+        .map_ok(|(partition, doc)| (partition, Value::Object(json(&doc))))
+        .try_collect()
+        .await
 }
 
-pub async fn stream_docs_from(
-    url: Option<&str>,
-    target: &Target,
-) -> Result<BTreeMap<String, serde_json::Value>, topk::import::Error> {
-    let uri = match url {
-        Some(url) => url.parse()?,
-        None => target.from.parse()?,
-    };
-    let source = topk::import::Source::connect(&uri, &config()).await?;
-    let mut rows = Box::pin(topk::import::documents(&source, target)?);
-    let mut out = BTreeMap::new();
-    while let Some(row) = rows.next().await {
-        let (_, doc) = row?;
-        let map = json(&doc);
-        let id = map["_id"].as_str().expect("string id").to_string();
-        out.insert(id, serde_json::Value::Object(map));
+pub fn target<'a>(
+    from: &str,
+    id: &str,
+    fields: impl IntoIterator<Item = (&'a str, FieldSpec)>,
+) -> Target {
+    Target {
+        from: from.into(),
+        id: id.into(),
+        fields: fields
+            .into_iter()
+            .map(|(name, schema)| (name.into(), Field::new(schema)))
+            .collect(),
+        filter: None,
+        partition: None,
+        limit: None,
     }
-    Ok(out)
-}
-
-pub fn fields<const N: usize>(entries: [(&str, Field); N]) -> IndexMap<String, Field> {
-    entries
-        .into_iter()
-        .map(|(name, field)| (name.to_string(), field))
-        .collect()
-}
-
-/// A one-collection spec as TOML; `fields` is the body of `[c.fields]`.
-pub fn spec_toml(from: &str, id: &str, fields: &str) -> String {
-    format!("[c]\nfrom = {from:?}\nid = {id:?}\n\n[c.fields]\n{fields}\n")
-}
-
-/// A target through the real spec parser, so a test cannot build one the TOML
-/// layer would reject.
-#[track_caller]
-pub fn target(from: &str, id: &str, fields: &str) -> Target {
-    let mut spec = toml::from_str::<Spec>(&spec_toml(from, id, fields)).expect("spec parses");
-    spec.collections.shift_remove("c").expect("target c")
-}
-
-/// Declared fields alone, for a target whose `from`/`id` come from a seeded object.
-#[track_caller]
-pub fn fields_toml(fields: &str) -> IndexMap<String, Field> {
-    target("f.parquet", "_id", fields).fields
 }
 
 #[track_caller]
-pub fn refused<T, E: std::fmt::Display>(result: Result<T, E>) -> String {
+pub fn refused<T, E: std::error::Error + Send + Sync + 'static>(result: Result<T, E>) -> String {
     match result {
-        Err(e) => e.to_string(),
+        Err(e) => format!("{:#}", anyhow::Error::new(e)),
         Ok(_) => panic!("expected a refusal"),
     }
 }
 
-/// Books in a fresh object on `backend`, with the url to reach it.
-pub async fn seeded_books(backend: &dyn seed::Seed) -> (Target, Option<String>) {
-    let object = backend
-        .seed(&unique_name("books"), books())
-        .await
-        .expect("seed books");
-    (object, backend.url())
-}
-
-pub fn discover(source: &str, stream: Option<&str>) -> String {
-    let mut args = vec!["import", source, "--dry-run"];
-    if let Some(s) = stream {
-        args.push(s);
-    }
-    topk().args(&args).ok()
-}
-
-/// `topk import [<source>] -f <spec> …`; the source is required for anything
-/// that is not a file, since a spec never carries one.
-pub fn import_args<'a>(url: Option<&'a str>, spec: &'a str, extra: &[&'a str]) -> Vec<&'a str> {
-    let mut args = vec!["import"];
-    args.extend(url);
-    args.extend(["-f", spec]);
-    args.extend(extra.iter().copied());
-    args
-}
-
-pub fn dry_run(spec: &str, extra: &[&str]) -> BTreeMap<String, serde_json::Value> {
-    dry_run_from(None, spec, extra)
-}
-
-/// Dry-run documents land on stderr; the spec is the stdout artifact.
-pub fn dry_run_from(
-    url: Option<&str>,
-    spec: &str,
-    extra: &[&str],
-) -> BTreeMap<String, serde_json::Value> {
-    let mut extra = extra.to_vec();
-    extra.push("--dry-run");
-    let args = import_args(url, spec, &extra);
-    let out = topk().args(&args).output();
-    assert!(out.status.success(), "`topk {}` failed", args.join(" "));
-    String::from_utf8_lossy(&out.stderr)
-        .lines()
-        .filter(|l| l.trim_start().starts_with('{'))
-        .map(|l| {
-            let doc: serde_json::Value = serde_json::from_str(l).expect("dry-run json");
-            (doc["_id"].as_str().unwrap().to_string(), doc)
-        })
-        .collect()
-}
-
 pub struct Scratch {
     dir: TempDir,
+    config_dir: PathBuf,
+}
+
+impl Default for Scratch {
+    fn default() -> Self {
+        let dir = tempfile::Builder::new()
+            .prefix("it")
+            .rand_bytes(16)
+            .tempdir()
+            .unwrap();
+        Self {
+            config_dir: dir.path().join("config"),
+            dir,
+        }
+    }
 }
 
 impl Scratch {
@@ -253,115 +146,144 @@ impl Scratch {
         self.dir.path()
     }
 
-    pub fn spec_file(&self, toml: &str) -> String {
-        let path = self.dir.path().join("spec.toml");
-        std::fs::write(&path, toml).unwrap();
+    pub fn path(&self, name: &str) -> PathBuf {
+        self.dir.path().join(name)
+    }
+
+    pub fn name(&self, name: &str) -> String {
+        format!(
+            "{}_{name}",
+            self.dir
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_ascii_lowercase()
+        )
+    }
+
+    pub fn command(&self) -> TestCommand {
+        TestCommand::new().env_remove("TOPK_API_KEY").envs([
+            ("TOPK_CONFIG_DIR", self.config_dir.clone()),
+            ("TOPK_IMPORT_STATE_DIR", self.dir.path().join("state")),
+        ])
+    }
+
+    pub fn state_path(&self, id: &str) -> PathBuf {
+        self.path(&format!("state/{id}.toml"))
+    }
+
+    pub fn file(&self, name: &str, content: &str) -> String {
+        let path = self.path(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, content).unwrap();
         path.to_str().unwrap().to_string()
     }
 
-    pub fn target_spec(&self, name: &str, target: Target) -> String {
-        self.multi_spec([(name.to_string(), target)])
+    pub fn read(&self, name: &str) -> String {
+        std::fs::read_to_string(self.path(name)).unwrap()
     }
 
-    pub fn multi_spec(&self, targets: impl IntoIterator<Item = (String, Target)>) -> String {
-        let spec = Spec {
-            collections: targets.into_iter().collect(),
-        };
-        self.spec_file(&toml::to_string_pretty(&spec).expect("spec serializes"))
+    pub fn jsonl(&self, name: &str, docs: &[Document]) -> String {
+        let lines = docs
+            .iter()
+            .map(|doc| Value::Object(json(doc)).to_string())
+            .collect::<Vec<_>>();
+        self.file(name, &lines.join("\n"))
     }
 
-    pub fn sql_parquet(&self, stem: &str, select: &str) -> String {
-        let path = self.dir.path().join(format!("{stem}.parquet"));
-        let conn = duckdb::Connection::open_in_memory().unwrap();
-        conn.execute_batch(&format!(
-            "COPY ({select}) TO '{}' (FORMAT parquet);",
-            path.display()
-        ))
-        .unwrap();
+    pub fn parquet(&self, name: &str, select: &str) -> String {
+        let path = self.path(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        duckdb::Connection::open_in_memory()
+            .unwrap()
+            .execute_batch(&format!(
+                "COPY ({select}) TO '{}' (FORMAT parquet);",
+                path.display().to_string().replace('\'', "''")
+            ))
+            .unwrap();
         path.display().to_string()
     }
 
-    pub async fn seed_parquet(&self, name: &str, docs: Vec<Document>) -> Target {
-        seed::parquet::write(self.dir.path(), name, &docs)
-            .await
-            .unwrap()
+    pub fn seed_parquet(&self, name: &str, docs: Vec<Document>) -> String {
+        let input = self.jsonl(&format!("{name}.jsonl"), &docs);
+        self.parquet(
+            &format!("{name}.parquet"),
+            &format!(
+                "SELECT * FROM read_json_auto('{}')",
+                input.replace('\'', "''")
+            ),
+        )
     }
 }
 
 impl AsyncTestContext for Scratch {
     async fn setup() -> Self {
-        Scratch {
-            dir: tempfile::tempdir().unwrap(),
-        }
+        Self::default()
     }
 }
 
 pub struct Ctx {
-    scratch: Scratch,
+    pub cli: Scratch,
     _session: CliTestContext,
-    project_id: ProjectId,
-    client: DataClient,
-    scope: String,
+    pub client: DataClient,
     used: RefCell<HashSet<String>>,
 }
 
-impl std::ops::Deref for Ctx {
-    type Target = Scratch;
-
-    fn deref(&self) -> &Scratch {
-        &self.scratch
-    }
-}
-
 impl Ctx {
-    pub fn client(&self) -> &Client {
-        &self.client
-    }
-
-    pub fn project_id(&self) -> &ProjectId {
-        &self.project_id
+    pub fn state(&self, source: &Source, spec: Spec) -> State {
+        State::new(
+            source.locator().into(),
+            DestinationId {
+                project_id: std::env::var("TOPK_PROJECT_ID").unwrap().parse().unwrap(),
+                region: self.client.config().region().unwrap().into(),
+            },
+            spec,
+        )
     }
 
     pub fn collection(&self, name: &str) -> String {
-        let full = format!("{}-{name}", self.scope);
+        let full = self.cli.name(name);
         self.used.borrow_mut().insert(full.clone());
         full
     }
 
-    pub async fn get(
+    /// The documents with these ids, as JSON in id order.
+    pub async fn docs(
         &self,
         collection: &str,
-        ids: &[&str],
-    ) -> HashMap<String, HashMap<String, Value>> {
-        self.client
+        ids: impl IntoIterator<Item = impl ToString>,
+    ) -> Vec<Value> {
+        let docs: BTreeMap<String, Value> = self
+            .client
             .collection(collection)
             .get(
-                ids.iter().copied(),
+                ids.into_iter().map(|id| id.to_string()),
                 None,
                 None,
                 Some(ConsistencyLevel::Strong),
             )
             .await
             .expect("get documents")
+            .into_iter()
+            .map(|(id, doc)| {
+                let doc = doc
+                    .into_iter()
+                    .map(|(key, value)| (key, value.try_into().expect("json value")))
+                    .collect();
+                (id, Value::Object(doc))
+            })
+            .collect();
+        docs.into_values().collect()
     }
 
-    pub async fn get_in(
-        &self,
-        partition: &str,
-        collection: &str,
-        ids: &[&str],
-    ) -> HashMap<String, HashMap<String, Value>> {
-        self.client
-            .collection(collection)
-            .partition(partition)
-            .get(
-                ids.iter().copied(),
-                None,
-                None,
-                Some(ConsistencyLevel::Strong),
-            )
-            .await
-            .expect("get documents")
+    pub async fn exists(&self, collection: &str) -> bool {
+        match self.client.collections().get(collection).await {
+            Ok(_) => true,
+            Err(topk_rs::Error::CollectionNotFound) => false,
+            Err(e) => panic!("get collection {collection:?}: {e}"),
+        }
     }
 }
 
@@ -370,13 +292,16 @@ impl AsyncTestContext for Ctx {
         let session = CliTestContext::logged_out();
         session.login().await;
         let project_id = session.select_e2e_project();
+        std::env::set_var("TOPK_PROJECT_ID", project_id.as_str());
         let config = Config::new(
             from_env::<Host>(),
             from_env::<OAuthConfig>(),
             Config::dir().expect("config directory"),
         );
+        let mut cli = Scratch::default();
+        cli.config_dir = Config::dir().expect("session config directory");
         Ctx {
-            scratch: Scratch::setup().await,
+            cli,
             _session: session,
             client: DataClient::new(
                 &config,
@@ -384,8 +309,6 @@ impl AsyncTestContext for Ctx {
                 from_env::<DataEndpoint>().region().expect("TOPK_REGION"),
             )
             .expect("data client"),
-            project_id,
-            scope: format!("it-{}", Uuid::new_v4()),
             used: RefCell::new(HashSet::new()),
         }
     }
@@ -398,21 +321,4 @@ impl AsyncTestContext for Ctx {
             }
         }
     }
-}
-
-pub fn field(doc: &HashMap<String, Value>, name: &str) -> serde_json::Value {
-    serde_json::Value::try_from(doc.get(name).expect("field present").clone()).unwrap()
-}
-
-pub fn doc_json(doc: &HashMap<String, Value>) -> serde_json::Value {
-    serde_json::Value::Object(
-        doc.iter()
-            .map(|(key, value)| {
-                (
-                    key.clone(),
-                    serde_json::Value::try_from(value.clone()).expect("json value"),
-                )
-            })
-            .collect(),
-    )
 }

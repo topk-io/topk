@@ -1,3 +1,5 @@
+use crate::import::source::{File, Format};
+
 use super::lit;
 
 /// A SELECT under construction. Every method is one clause; nothing here knows
@@ -27,7 +29,23 @@ impl Select {
 
     /// `schema.table` in the attached catalog, which `connect` makes the default.
     pub(super) fn table(name: &str) -> Self {
-        Select::new(quoted(name))
+        Select::new(name.split('.').map(quoted).collect::<Vec<_>>().join("."))
+    }
+
+    pub(super) fn file(file: &File) -> Self {
+        // Take the union of every file a glob matches, so a column present in only
+        // some files is kept, not dropped to the first file's schema.
+        let (reader, opts) = match file.format {
+            Format::Csv => (
+                "read_csv_auto",
+                ", union_by_name=true, null_padding=true, parallel=false",
+            ),
+            Format::Json => ("read_json_auto", ", union_by_name=true"),
+            Format::Parquet => ("read_parquet", ", union_by_name=true"),
+            Format::Arrow => ("read_arrow", ""),
+            Format::Avro => ("read_avro", ""),
+        };
+        Self::new(format!("{reader}('{}'{opts})", lit(&file.path)))
     }
 
     /// Runs the query on the attached server instead of in duckdb.
@@ -111,12 +129,8 @@ impl Select {
     }
 }
 
-/// Every part of a dotted name, double-quoted.
 fn quoted(name: &str) -> String {
-    name.split('.')
-        .map(|part| format!("\"{}\"", part.replace('"', "\"\"")))
-        .collect::<Vec<_>>()
-        .join(".")
+    format!("\"{}\"", name.replace('"', "\"\""))
 }
 
 #[cfg(test)]
