@@ -11,10 +11,6 @@ use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
 use crate::ProjectId;
 
-pub const MISSING_PROJECT: &str =
-    "--project-id (or TOPK_PROJECT_ID environment variable) is required, \
-     or select a default project with `topk project select`";
-
 #[derive(Clone)]
 pub struct DataClient(Client);
 

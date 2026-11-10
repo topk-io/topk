@@ -187,7 +187,10 @@ fn local_dry_run_requires_no_authentication() {
         String::from_utf8_lossy(&output.stderr)
     );
     for (args, message) in [
-        (vec!["--region", "test"], "--project-id <PROJECT_ID>"),
+        (
+            vec!["--region", "test"],
+            "or select a default project with `topk project select`",
+        ),
         (vec!["--project-id", "p1"], "--region is required"),
     ] {
         let output = command(&dir)

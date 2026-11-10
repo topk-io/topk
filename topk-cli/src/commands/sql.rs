@@ -32,7 +32,7 @@ pub struct SqlArgs {
 
     /// Project to access; defaults to the currently selected project
     #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
-    project_id: ProjectId,
+    project_id: Option<ProjectId>,
 
     #[command(flatten)]
     data: DataEndpoint,
@@ -61,9 +61,13 @@ pub async fn run(
         Some(meta) => (meta.sql, meta.describes),
         None => (sql, None),
     };
+    let project_id = match &args.project_id {
+        Some(project_id) => project_id.clone(),
+        None => config.default_project()?,
+    };
     let mut client = timeout(
         CONNECT_TIMEOUT,
-        SqlClient::connect(&config, args.project_id.clone(), args.data.region()?),
+        SqlClient::connect(&config, project_id, args.data.region()?),
     )
     .await
     .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;

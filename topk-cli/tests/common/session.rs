@@ -189,9 +189,15 @@ impl CliTestContext {
         project
     }
 
+    pub fn select_e2e_project(&self) -> ProjectId {
+        let id = self.e2e_project();
+        self.ok(&["project", "select", id.as_str()]);
+        id
+    }
+
     /// The id of the shared [`E2E_PROJECT`], created on first use. Looked up once
     /// per machine and tenant: nextest runs every test in a process of its own.
-    pub fn e2e_project(&self) -> ProjectId {
+    fn e2e_project(&self) -> ProjectId {
         let dir = machine_dir(&format!(
             "project{}{}{}",
             env::var("TOPK_AUTH_ISSUER").unwrap_or_default(),

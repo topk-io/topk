@@ -19,7 +19,7 @@ impl AsyncTestContext for Books {
     async fn setup() -> Self {
         let session = CliTestContext::logged_out();
         session.login().await;
-        std::env::set_var("TOPK_PROJECT_ID", session.e2e_project().as_str());
+        session.select_e2e_project();
         let table = format!("cli_sql_{}", &Uuid::new_v4().simple().to_string()[..8]);
         TestCommand::new()
             .args([

@@ -369,8 +369,7 @@ impl AsyncTestContext for Ctx {
     async fn setup() -> Self {
         let session = CliTestContext::logged_out();
         session.login().await;
-        let project_id = session.e2e_project();
-        std::env::set_var("TOPK_PROJECT_ID", project_id.as_str());
+        let project_id = session.select_e2e_project();
         let config = Config::new(
             from_env::<Host>(),
             from_env::<OAuthConfig>(),

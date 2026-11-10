@@ -4,11 +4,10 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use anyhow::Context;
 use clap::Args;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 
-use crate::client::{DataClient, MISSING_PROJECT};
+use crate::client::DataClient;
 use crate::config::Config;
 use crate::endpoint::DataEndpoint;
 use crate::import::{
@@ -113,6 +112,7 @@ pub struct ImportArgs {
     )]
     pub batch_bytes: bytesize::ByteSize,
 
+    /// Project to import into; defaults to the currently selected project
     #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
     pub project_id: Option<ProjectId>,
 
@@ -257,12 +257,14 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
     };
     let source = Source::connect(&uri, &config).await?;
     let mut spec = plan(&source, args, &config, given).await?;
-    let project_id = args.project_id.as_ref();
+    let project_id = || match &args.project_id {
+        Some(project_id) => Ok(project_id.clone()),
+        None => config.default_project(),
+    };
 
     let (resumed, done, after) = match resumed {
         Some(mut state) => {
-            let project_id = project_id.context(MISSING_PROJECT)?;
-            let (done, after) = state.resume(&uri.to_string(), project_id, &mut spec)?;
+            let (done, after) = state.resume(&uri.to_string(), &project_id()?, &mut spec)?;
             if spec.collections.is_empty() {
                 eprintln!(
                     "run {}: all {done} collection(s) already imported",
@@ -297,12 +299,11 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         }
     }
     let region = args.data.region()?;
-    let project_id = project_id.cloned().context(MISSING_PROJECT)?;
-    let client = DataClient::new(&config, project_id.clone(), region)?;
     let state = match resumed {
         Some(state) => state,
-        None => State::new(&uri.to_string(), project_id, &spec)?,
+        None => State::new(&uri.to_string(), project_id()?, &spec)?,
     };
+    let client = DataClient::new(&config, state.project_id.clone(), region)?;
     let import = Import::prepare(client, &source, &spec, &after).await?;
     let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
     // Before the run: a killed run prints nothing after.
