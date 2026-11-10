@@ -96,4 +96,3 @@ sqlx = { version = "0.8", features = ["mysql", "sqlite"] }
 test-macros = { path = "../utils/test-macros" }
 test-context = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }
-
