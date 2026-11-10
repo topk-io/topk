@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use tempfile::TempDir;
-use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
 use crate::import::common::jsonl;
@@ -18,7 +17,7 @@ impl File {
     }
 }
 
-pub async fn write(dir: &Path, name: &str, docs: &[Document]) -> anyhow::Result<Target> {
+pub async fn write(dir: &Path, name: &str, docs: &[Document]) -> anyhow::Result<String> {
     let file = jsonl(docs);
     let path = dir.join(format!("{name}.parquet"));
     let conn = duckdb::Connection::open_in_memory()?;
@@ -27,19 +26,12 @@ pub async fn write(dir: &Path, name: &str, docs: &[Document]) -> anyhow::Result<
         file.path().display(),
         path.display()
     ))?;
-    super::discovered(
-        Target {
-            from: path.display().to_string(),
-            ..Default::default()
-        },
-        None,
-    )
-    .await
+    Ok(path.display().to_string())
 }
 
 #[async_trait::async_trait(?Send)]
 impl super::Seed for File {
-    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<Target> {
+    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<String> {
         write(self.dir.path(), name, &docs).await
     }
 }

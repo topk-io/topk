@@ -1,90 +1,18 @@
+use crate::import::common::{refused, spec_toml};
 use rstest::rstest;
-use topk::import::{Error, Spec, Uri};
+use topk::import::{Field, Spec};
+use topk_rs::proto::v1::control::field_type_list::ListValueType;
+use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
+use topk_rs::proto::v1::control::{
+    FieldIndex, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
+    VectorDistanceMetric,
+};
 
 fn parse_error(toml: &str) -> String {
     match toml::from_str::<Spec>(toml) {
         Err(error) => error.to_string(),
         Ok(_) => panic!("expected the spec to be rejected:\n{toml}"),
     }
-}
-
-#[rstest]
-#[case::postgres("postgres://u:p@localhost/db", "Postgres")]
-#[case::postgresql("postgresql://localhost/db", "Postgres")]
-#[case::bare_postgres("postgres://", "Postgres")]
-#[case::mysql("mysql://root@localhost:3307/demo", "Mysql")]
-#[case::mariadb("mariadb://localhost/demo", "Mysql")]
-#[case::sqlite_slashes("sqlite:///tmp/books.db", "Sqlite")]
-#[case::sqlite_colon("sqlite:books.db", "Sqlite")]
-#[case::mongo("mongodb://localhost:27017/demo", "Mongo")]
-#[case::mongo_srv("mongodb+srv://cluster.example.com/demo", "Mongo")]
-#[case::elasticsearch("elasticsearch://localhost:19200", "Es")]
-#[case::elasticsearch_https("elasticsearch+https://es.example.com", "Es")]
-#[case::es_short("es://localhost:19200", "Es")]
-#[case::es_short_https("es+https://es.example.com", "Es")]
-#[case::es_short_http("es+http://localhost:19200", "Es")]
-#[case::elastic_cloud("https://demo.es.us-east-1.aws.cloud.es.io", "Es")]
-#[case::elastic_cloud_serverless("https://demo.es.us-east-1.aws.elastic.cloud", "Es")]
-#[case::http_file("http://example.com/data/books.parquet", "Http")]
-#[case::https_presigned("https://example.com/books.csv?X-Amz-Signature=abc", "Csv")]
-#[case::s3("s3://bucket/books.parquet", "S3")]
-#[case::r2("r2://bucket/books.parquet", "S3")]
-#[case::gs("gs://bucket/books.parquet", "Gcs")]
-#[case::gcs("gcs://bucket/books.parquet", "Gcs")]
-#[case::azure_short("az://container/books.parquet", "Azure")]
-#[case::azure("azure://container/books.parquet", "Azure")]
-#[case::huggingface(
-    "hf://datasets/org/name/default/train-00000-of-00001.parquet",
-    "HuggingFace"
-)]
-#[case::huggingface_converted(
-    "hf://datasets/org/name@~parquet/default/train/*.parquet",
-    "HuggingFace"
-)]
-#[case::relative_file("./books.parquet", "store: None")]
-#[case::absolute_glob("/data/part_*.csv", "store: None")]
-#[case::avro("books.avro", "Avro")]
-#[case::surrounding_space("  postgres://localhost/db  ", "Postgres")]
-fn uris(#[case] input: &str, #[case] expected: &str) {
-    let uri: Uri = input.parse().expect("uri parses");
-    assert!(format!("{uri:?}").contains(expected), "{uri:?}");
-}
-
-#[rstest]
-#[case::file("~/data/books.parquet")]
-#[case::glob("~/data/*.parquet")]
-#[case::sqlite("sqlite:~/books.db")]
-fn tilde_expands(#[case] input: &str) {
-    let uri: Uri = input.parse().expect("uri parses");
-    assert!(!format!("{uri:?}").contains('~'), "{uri:?}");
-}
-
-#[rstest]
-#[case::s3("s3://bucket/~/books.parquet")]
-#[case::http("https://example.com/~books/data.csv")]
-fn tilde_survives_remote_paths(#[case] input: &str) {
-    let uri: Uri = input.parse().expect("uri parses");
-    assert!(format!("{uri:?}").contains('~'), "{uri:?}");
-}
-
-#[rstest]
-#[case::empty("", "empty source uri")]
-#[case::only_space("   ", "empty source uri")]
-#[case::mongo_without_a_database("mongodb://localhost:27017", "must include a database")]
-#[case::malformed("postgres://[oops", "bad source uri")]
-#[case::unknown_file_type("data.txt", "cannot tell the file type")]
-#[case::no_extension("data/books", "cannot tell the file type")]
-#[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
-#[case::topk_without_a_project("topk://aws-us-east-1-elastica/books", "needs a project")]
-#[case::topk_without_a_region("topk://p1@/books", "needs a region")]
-#[case::topk_with_a_bad_project("topk://p.1@aws-us-east-1-elastica/books", "invalid project ID")]
-fn bad_uris(#[case] input: &str, #[case] fragment: &str) {
-    let message = match input.parse::<Uri>() {
-        Err(Error::InvalidArgument(message)) => message,
-        Err(other) => panic!("expected InvalidArgument, got {other:?}"),
-        Ok(uri) => panic!("expected a refusal, got {uri:?}"),
-    };
-    assert!(message.contains(fragment), "got: {message}");
 }
 
 #[rstest]
@@ -193,47 +121,28 @@ fn invalid_targets(#[case] toml: &str, #[case] fragment: &str) {
 
 #[rstest]
 #[case::missing_from(
-    r#"
-[c]
-id = "_id"
-"#
+    "[c]\nid = '_id'\n[c.fields]\nt = { type = 'text' }",
+    "missing field `from`"
 )]
 #[case::unknown_target_key(
-    r#"
-[c]
-from = "f.parquet"
-bogus = 1
-"#
+    "[c]\nfrom = 'f.parquet'\nbogus = 1\n[c.fields]\nt = { type = 'text' }",
+    "unknown field `bogus`"
 )]
 #[case::unknown_field_key(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-v = { type = "text", bogus = 1 }
-"#
+    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'text', bogus = 1 }",
+    "unknown field `bogus`"
 )]
 #[case::unknown_type(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-v = { type = "quaternion" }
-"#
+    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'quaternion' }",
+    "quaternion"
 )]
 #[case::unknown_index(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-v = { type = "text", index = "fuzzy" }
-"#
+    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'text', index = 'fuzzy' }",
+    "fuzzy"
 )]
-fn unknown_keys(#[case] toml: &str) {
-    parse_error(toml);
+fn unknown_keys(#[case] toml: &str, #[case] fragment: &str) {
+    let message = parse_error(toml);
+    assert!(message.contains(fragment), "got: {message}");
 }
 
 #[test]
@@ -348,4 +257,46 @@ page_counts = { type = "int_list" }
         printed,
         "printing is not idempotent"
     );
+}
+
+#[rstest]
+#[case::exact_text(FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Exact)))]
+#[case::image(FieldSpec::image(false))]
+#[case::dense_binary(FieldSpec::binary_vector(16, false).with_index(FieldIndex::vector(VectorDistanceMetric::Hamming)))]
+#[case::sparse_f16(FieldSpec::f16_sparse_vector(false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)))]
+#[case::matrix_u8(FieldSpec::matrix(true, 3, MatrixValueType::U8).with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, Some(MultiVectorQuantization::Binary2bit), None, None).skip_smve()))]
+fn schema_conversion_round_trip(#[case] spec: FieldSpec) {
+    let field = Field::try_from(&spec).unwrap();
+    assert_eq!(FieldSpec::try_from(&field).unwrap(), spec);
+}
+
+#[rstest]
+#[case::vector_without_dim(r#"{ type = "f32_vector" }"#, "requires `dim`")]
+#[case::matrix_without_cols(r#"{ type = "f32_matrix" }"#, "requires `cols`")]
+#[case::dim_on_a_scalar(r#"{ type = "text", dim = 3 }"#, "does not take `dim`")]
+#[case::dim_on_a_sparse_vector(r#"{ type = "f32_sparse_vector", dim = 3 }"#, "does not take `dim`")]
+#[case::cols_on_a_vector(
+    r#"{ type = "f32_vector", dim = 3, cols = 3 }"#,
+    "does not take `cols`"
+)]
+#[case::keyword_needs_text(
+    r#"{ type = "int", index = "keyword" }"#,
+    "a keyword index needs a `text` field"
+)]
+#[case::semantic_needs_text(
+    r#"{ type = "int", index = "semantic" }"#,
+    "a semantic index needs a `text` or `image` field"
+)]
+#[case::vector_index_needs_a_vector(
+    r#"{ type = "text", index = { vector = { metric = "cosine" } } }"#,
+    "a vector index needs a vector or sparse vector field"
+)]
+#[case::multi_vector_needs_a_matrix(
+    r#"{ type = "text", index = { multi_vector = {} } }"#,
+    "a multi_vector index needs a matrix field"
+)]
+fn field_validation(#[case] field: &str, #[case] fragment: &str) {
+    let toml = spec_toml("f.parquet", "_id", &format!("v = {field}"));
+    let message = refused(toml::from_str::<Spec>(&toml));
+    assert!(message.contains(fragment), "got: {message}");
 }

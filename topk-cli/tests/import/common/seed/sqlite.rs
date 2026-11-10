@@ -1,6 +1,5 @@
 use sqlx::{Executor, SqlitePool};
 use tempfile::TempDir;
-use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
 use super::sql;
@@ -23,19 +22,12 @@ impl Db {
 
 #[async_trait::async_trait(?Send)]
 impl super::Seed for Db {
-    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<Target> {
+    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<String> {
         let pool = SqlitePool::connect(&format!("sqlite://{}?mode=rwc", self.path())).await?;
         pool.execute(sql::ddl(name, &docs, &sql::SQLITE).as_str())
             .await?;
         pool.execute(sql::insert(name, &docs).as_str()).await?;
-        Ok(super::discovered(
-            Target {
-                from: format!("main.{name}"),
-                ..Default::default()
-            },
-            self.url(),
-        )
-        .await?)
+        Ok(format!("main.{name}"))
     }
 
     fn url(&self) -> Option<String> {

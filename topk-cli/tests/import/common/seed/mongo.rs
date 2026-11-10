@@ -2,7 +2,6 @@ use std::ops::Deref;
 
 use async_trait::async_trait;
 use mongodb::bson;
-use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
 use crate::import::common::json;
@@ -32,7 +31,7 @@ impl Mongo {
 
 #[async_trait(?Send)]
 impl super::Seed for Mongo {
-    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<Target> {
+    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<String> {
         let docs: Vec<bson::Document> = docs
             .iter()
             .map(|doc| bson::to_document(&serde_json::Value::Object(json(doc))))
@@ -43,14 +42,7 @@ impl super::Seed for Mongo {
             .insert_many(docs)
             .await?;
 
-        Ok(super::discovered(
-            Target {
-                from: name.to_string(),
-                ..Default::default()
-            },
-            self.url(),
-        )
-        .await?)
+        Ok(name.to_string())
     }
 
     fn url(&self) -> Option<String> {

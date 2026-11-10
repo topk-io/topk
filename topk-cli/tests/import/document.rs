@@ -1,5 +1,6 @@
 use rstest::rstest;
-use topk::import::{build_row, Error, Spec, Target};
+use serde::Deserialize;
+use topk::import::{build_row, Error, Field, Spec, Target};
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::common::{json, refused, spec_toml};
@@ -10,13 +11,8 @@ fn target(fields: &str) -> Target {
 }
 
 fn coerce(field: &str, value: Value) -> Result<Value, Error> {
-    let target = target(&format!("v = {field}"));
-    let record = vec![
-        ("_id".to_string(), Value::string("1")),
-        ("v".to_string(), value),
-    ];
-    let (_, mut doc) = build_row(&target, record)?;
-    Ok(doc.fields.remove("v").expect("field v"))
+    let field = Field::deserialize(toml::de::ValueDeserializer::new(field)).unwrap();
+    field.coerce(value)
 }
 
 #[track_caller]
@@ -25,7 +21,7 @@ fn coerced(field: &str, value: Value) -> Value {
 }
 
 /// One column may feed several fields — the id column included.
-#[rstest]
+#[test]
 fn fields_share_columns_and_the_id() {
     let target = target(
         "sku = { from = \"_id\", type = \"text\" }\n\
@@ -136,8 +132,41 @@ fn fields_share_columns_and_the_id() {
 #[case::sparse_f32_from_parallel_lists(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("indices", Value::list(vec![3_i64, 1])), ("values", Value::list(vec![1.5_f64, 0.5]))]), Value::sparse_vector(vec![1, 3], vec![0.5, 1.5]))]
 #[case::sparse_u8_from_parallel_lists(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("indices", Value::list(vec![7_i64])), ("values", Value::list(vec![3_i64]))]), Value::sparse_vector(vec![7], vec![3u8]))]
 #[case::sparse_from_empty_parallel_lists(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("indices", Value::list(Vec::<i64>::new())), ("values", Value::list(Vec::<f64>::new()))]), Value::sparse_vector(Vec::<u32>::new(), Vec::<f32>::new()))]
+#[case::image_from_jpeg_bytes(r#"{ type = "image" }"#, Value::bytes(JPEG.to_vec()), Value::jpeg(JPEG))]
+#[case::image_from_png_bytes(r#"{ type = "image" }"#, Value::bytes(PNG.to_vec()), Value::png(PNG))]
+#[case::image_from_data_uri(
+    r#"{ type = "image" }"#,
+    Value::string("data:image/png;base64,iVBORw0KGgo="),
+    Value::png(PNG)
+)]
+#[case::image_stays_image(r#"{ type = "image" }"#, Value::jpeg(JPEG), Value::jpeg(JPEG))]
+#[case::image_from_hf_struct(
+    r#"{ type = "image" }"#,
+    Value::r#struct([("bytes", Value::bytes(PNG.to_vec())), ("path", Value::string("p.png"))]),
+    Value::png(PNG)
+)]
 fn coerces(#[case] field: &str, #[case] input: Value, #[case] expected: Value) {
     assert_eq!(coerced(field, input), expected);
+}
+
+const JPEG: &[u8] = b"\xFF\xD8\xFF\xE0";
+const PNG: &[u8] = b"\x89PNG\r\n\x1A\n";
+
+/// A rendered page with its text, over the old 200 KB precheck.
+#[test]
+fn image_page_fits() {
+    let target = target(
+        r#"image = { type = "image", index = "semantic" }
+        abstract = { type = "text", index = "semantic" }"#,
+    );
+    let page = [JPEG, &[0; 400 * 1024]].concat();
+    let record = vec![
+        ("_id".to_string(), Value::string("2609.00001:1")),
+        ("image".to_string(), Value::bytes(page.clone())),
+        ("abstract".to_string(), Value::string("x".repeat(2_000))),
+    ];
+    let (_, doc) = build_row(&target, record).expect("page fits");
+    assert_eq!(doc.fields["image"], Value::jpeg(page));
 }
 
 fn le_f16(ns: &[f32]) -> Value {
@@ -172,9 +201,48 @@ fn imprecise_double_id_is_refused() {
     assert!(message.contains("lost integer precision"), "got: {message}");
 }
 
+#[rstest]
+#[case::large_digits("999999999999999999999999")]
+#[case::looks_like_scientific("1e999")]
+fn numeric_looking_string_id_is_preserved(#[case] id: &str) {
+    let (_, doc) = build_row(
+        &target(r#"v = { type = "int" }"#),
+        vec![
+            ("_id".to_string(), Value::string(id)),
+            ("v".to_string(), Value::i64(1)),
+        ],
+    )
+    .unwrap();
+    assert_eq!(doc.fields.get("_id"), Some(&Value::string(id)));
+}
+
+#[test]
+fn oversized_error_is_not_repeated() {
+    let error = build_row(
+        &target(r#"body = { type = "text" }"#),
+        vec![
+            ("_id".to_string(), Value::string("1")),
+            ("body".to_string(), Value::string("x".repeat(2_000_000))),
+        ],
+    )
+    .unwrap_err();
+    let message = format!("{:#}", anyhow::Error::from(error));
+    assert_eq!(
+        message.matches("exceeds the 2.0 MB document limit").count(),
+        1,
+        "{message}"
+    );
+}
+
 #[test]
 fn struct_invalid_json() {
-    let message = refused(coerce(r#"{ type = "struct" }"#, Value::string("not json")));
+    let message = refused(build_row(
+        &target(r#"v = { type = "struct" }"#),
+        vec![
+            ("_id".into(), Value::string("1")),
+            ("v".into(), Value::string("not json")),
+        ],
+    ));
     assert!(message.contains(r#"doc "1""#), "got: {message}");
     assert!(message.contains(r#"field "v""#), "got: {message}");
 }
@@ -193,47 +261,31 @@ fn nulls(
 
 #[rstest]
 #[case::text_from_non_utf8_bytes(r#"{ type = "text" }"#, Value::bytes(vec![0xff, 0xfe]), "not valid UTF-8")]
-#[case::int_from_words(r#"{ type = "int" }"#, Value::string("x"), "cannot coerce to int")]
-#[case::int_from_a_list(r#"{ type = "int" }"#, Value::list(vec![1_i64]), "cannot coerce to int")]
-#[case::int_from_fractional_float(r#"{ type = "int" }"#, Value::f64(4.9), "cannot coerce to int")]
-#[case::int_from_fractional_string(
-    r#"{ type = "int" }"#,
-    Value::string("3.7"),
-    "cannot coerce to int"
-)]
-#[case::int_from_huge_u64(r#"{ type = "int" }"#, Value::u64(u64::MAX), "cannot coerce to int")]
-#[case::int_list_from_fractional_floats(r#"{ type = "int_list" }"#, Value::list(vec![1.9_f64, 2.1]), "cannot coerce to int_list")]
-#[case::int_list_from_huge_u64s(r#"{ type = "int_list" }"#, Value::list(vec![u64::MAX]), "cannot coerce to int_list")]
-#[case::u8_vector_from_fractional_floats(r#"{ type = "u8_vector", dim = 3 }"#, Value::list(vec![1.9_f64, 2.9, 3.9]), "cannot coerce to u8_vector")]
-#[case::u8_vector_from_negative(r#"{ type = "u8_vector", dim = 3 }"#, Value::list(vec![-1.0_f64, 2.0, 3.0]), "cannot coerce to u8_vector")]
-#[case::u8_sparse_from_fraction(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("7", Value::f64(3.5))]), "cannot coerce to u8_sparse_vector")]
-#[case::float_from_words(r#"{ type = "float" }"#, Value::string("x"), "cannot coerce to float")]
-#[case::bool_from_maybe(
-    r#"{ type = "bool" }"#,
-    Value::string("maybe"),
-    "cannot coerce to bool"
-)]
-#[case::bool_from_a_float(r#"{ type = "bool" }"#, Value::f64(1.0), "cannot coerce to bool")]
-#[case::bytes_from_a_string(
-    r#"{ type = "bytes" }"#,
-    Value::string("hello"),
-    "cannot coerce to bytes"
-)]
-#[case::struct_from_a_json_array(
-    r#"{ type = "struct" }"#,
-    Value::string("[1, 2]"),
-    "cannot coerce to struct"
-)]
-#[case::struct_from_an_int(r#"{ type = "struct" }"#, Value::i64(1), "cannot coerce to struct")]
-#[case::int_list_from_strings(r#"{ type = "int_list" }"#, Value::list(vec!["a"]), "cannot coerce to int_list")]
-#[case::float_list_from_strings(r#"{ type = "float_list" }"#, Value::list(vec!["a"]), "cannot coerce to float_list")]
-#[case::text_list_from_ints(r#"{ type = "text_list" }"#, Value::list(vec![1_i64]), "cannot coerce to text_list")]
+#[case::int_from_words(r#"{ type = "int" }"#, Value::string("x"), " to int")]
+#[case::int_from_a_list(r#"{ type = "int" }"#, Value::list(vec![1_i64]), " to int")]
+#[case::int_from_fractional_float(r#"{ type = "int" }"#, Value::f64(4.9), " to int")]
+#[case::int_from_fractional_string(r#"{ type = "int" }"#, Value::string("3.7"), " to int")]
+#[case::int_from_huge_u64(r#"{ type = "int" }"#, Value::u64(u64::MAX), " to int")]
+#[case::int_list_from_fractional_floats(r#"{ type = "int_list" }"#, Value::list(vec![1.9_f64, 2.1]), " to int_list")]
+#[case::int_list_from_huge_u64s(r#"{ type = "int_list" }"#, Value::list(vec![u64::MAX]), " to int_list")]
+#[case::u8_vector_from_fractional_floats(r#"{ type = "u8_vector", dim = 3 }"#, Value::list(vec![1.9_f64, 2.9, 3.9]), " to u8_vector")]
+#[case::u8_vector_from_negative(r#"{ type = "u8_vector", dim = 3 }"#, Value::list(vec![-1.0_f64, 2.0, 3.0]), " to u8_vector")]
+#[case::u8_sparse_from_fraction(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("7", Value::f64(3.5))]), " to u8_sparse_vector")]
+#[case::float_from_words(r#"{ type = "float" }"#, Value::string("x"), " to float")]
+#[case::bool_from_maybe(r#"{ type = "bool" }"#, Value::string("maybe"), " to bool")]
+#[case::bool_from_a_float(r#"{ type = "bool" }"#, Value::f64(1.0), " to bool")]
+#[case::bytes_from_a_string(r#"{ type = "bytes" }"#, Value::string("hello"), " to bytes")]
+#[case::struct_from_a_json_array(r#"{ type = "struct" }"#, Value::string("[1, 2]"), " to struct")]
+#[case::struct_from_an_int(r#"{ type = "struct" }"#, Value::i64(1), " to struct")]
+#[case::int_list_from_strings(r#"{ type = "int_list" }"#, Value::list(vec!["a"]), " to int_list")]
+#[case::float_list_from_strings(r#"{ type = "float_list" }"#, Value::list(vec!["a"]), " to float_list")]
+#[case::text_list_from_ints(r#"{ type = "text_list" }"#, Value::list(vec![1_i64]), " to text_list")]
 #[case::sparse_from_a_word_key(
     r#"{ type = "f32_sparse_vector" }"#,
     Value::string(r#"{"a": 1}"#),
-    "cannot coerce to f32_sparse_vector"
+    " to f32_sparse_vector"
 )]
-#[case::sparse_from_a_list(r#"{ type = "f32_sparse_vector" }"#, Value::list(vec![1.0_f32]), "cannot coerce to f32_sparse_vector")]
+#[case::sparse_from_a_list(r#"{ type = "f32_sparse_vector" }"#, Value::list(vec![1.0_f32]), " to f32_sparse_vector")]
 #[case::sparse_from_ragged_parallel_lists(
     r#"{ type = "f32_sparse_vector" }"#,
     Value::r#struct([("indices", Value::list(vec![1_i64, 2])), ("values", Value::list(vec![0.5_f64]))]),
@@ -242,14 +294,14 @@ fn nulls(
 #[case::sparse_from_a_negative_index(
     r#"{ type = "f32_sparse_vector" }"#,
     Value::r#struct([("indices", Value::list(vec![-1_i64])), ("values", Value::list(vec![0.5_f64]))]),
-    "cannot coerce to f32_sparse_vector"
+    " to f32_sparse_vector"
 )]
 #[case::vector_too_short(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1.0_f32, 2.0]), "vector has 2 values, declared dim=3")]
 #[case::vector_too_long(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0]), "vector has 4 values, declared dim=3")]
 #[case::vector_from_a_json_string(
     r#"{ type = "f32_vector", dim = 3 }"#,
     Value::string("\"abc\""),
-    "cannot coerce to f32_vector"
+    " to f32_vector"
 )]
 #[case::vector_from_garbage_text(
     r#"{ type = "f32_vector", dim = 3 }"#,
@@ -276,9 +328,9 @@ fn nulls(
     le_f32(&[f32::INFINITY]),
     "non-finite float"
 )]
-#[case::vector_f32_overflows(r#"{ type = "f32_vector", dim = 1 }"#, Value::list(vec![1.0e300_f64]), "cannot coerce to f32_vector")]
-#[case::vector_f16_overflows(r#"{ type = "f16_vector", dim = 1 }"#, Value::list(vec![1.0e6_f64]), "cannot coerce to f16_vector")]
-#[case::vector_f8_overflows(r#"{ type = "f8_vector", dim = 1 }"#, Value::list(vec![1000.0_f64]), "cannot coerce to f8_vector")]
+#[case::vector_f32_overflows(r#"{ type = "f32_vector", dim = 1 }"#, Value::list(vec![1.0e300_f64]), " to f32_vector")]
+#[case::vector_f16_overflows(r#"{ type = "f16_vector", dim = 1 }"#, Value::list(vec![1.0e6_f64]), " to f16_vector")]
+#[case::vector_f8_overflows(r#"{ type = "f8_vector", dim = 1 }"#, Value::list(vec![1000.0_f64]), " to f8_vector")]
 #[case::matrix_cols_mismatch(r#"{ type = "f32_matrix", cols = 3 }"#, Value::matrix(2, vec![1.0_f32, 2.0]), "matrix has 2 columns, declared cols=3")]
 #[case::matrix_uneven(r#"{ type = "f32_matrix", cols = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0]), "4 values do not divide into cols=3")]
 #[case::matrix_from_text(
@@ -286,14 +338,27 @@ fn nulls(
     Value::string("abc"),
     "expected value"
 )]
+#[case::image_from_other_bytes(r#"{ type = "image" }"#, Value::bytes(b"GIF89a".to_vec()), "not a JPEG or PNG")]
+#[case::image_mislabelled_uri(
+    r#"{ type = "image" }"#,
+    Value::string("data:image/jpeg;base64,R0lGODlh"),
+    "not a JPEG or PNG"
+)]
+#[case::image_from_plain_text(
+    r#"{ type = "image" }"#,
+    Value::string("page.jpg"),
+    "Cannot parse provided string as image data"
+)]
+#[case::image_from_an_int(r#"{ type = "image" }"#, Value::i64(1), " to image")]
+#[case::image_over_512kib(r#"{ type = "image" }"#, Value::bytes([JPEG, &[0; 512 * 1024]].concat()), "over the 524288 byte limit")]
 fn refusals(#[case] field: &str, #[case] input: Value, #[case] fragment: &str) {
     let message = refused(coerce(field, input));
     assert!(message.contains(fragment), "got: {message}");
 }
 
 #[rstest]
-#[case::vector_without_dim(r#"{ type = "f32_vector" }"#, "requires `dim`")]
-#[case::matrix_without_cols(r#"{ type = "f32_matrix" }"#, "requires `cols`")]
+#[case::vector_without_dim(r#"{ type = "f32_vector" }"#, "f32_vector requires `dim`")]
+#[case::matrix_without_cols(r#"{ type = "f32_matrix" }"#, "f32_matrix requires `cols`")]
 #[case::dim_on_a_scalar(r#"{ type = "text", dim = 3 }"#, "does not take `dim`")]
 #[case::dim_on_a_sparse_vector(r#"{ type = "f32_sparse_vector", dim = 3 }"#, "does not take `dim`")]
 #[case::cols_on_a_vector(
@@ -306,7 +371,15 @@ fn refusals(#[case] field: &str, #[case] input: Value, #[case] fragment: &str) {
 )]
 #[case::semantic_needs_text(
     r#"{ type = "int", index = "semantic" }"#,
-    "a semantic index needs a `text` field"
+    "a semantic index needs a `text` or `image` field"
+)]
+#[case::semantic_needs_image_not_bytes(
+    r#"{ type = "bytes", index = "semantic" }"#,
+    "a semantic index needs a `text` or `image` field"
+)]
+#[case::keyword_on_an_image(
+    r#"{ type = "image", index = "keyword" }"#,
+    "a keyword index needs a `text` field"
 )]
 #[case::vector_index_needs_a_vector(
     r#"{ type = "text", index = { vector = { metric = "cosine" } } }"#,
@@ -367,19 +440,20 @@ fn oversized_document() {
     let oversized = target(r#"body = { type = "text" }"#);
     let record = vec![
         ("_id".to_string(), Value::string("1")),
-        ("body".to_string(), Value::string("x".repeat(200 * 1024))),
+        ("body".to_string(), Value::string("x".repeat(2_000_000))),
     ];
     let message = refused(build_row(&oversized, record));
     assert!(
-        message.contains("exceeds the 200.0 KB document limit"),
+        message.contains("exceeds the 2.0 MB document limit"),
         "got: {message}"
     );
+    assert!(message.contains("largest field \"body\""), "got: {message}");
 
     // The fix the message suggests.
     let truncated = target(r#"body = { type = "text", truncate = 100 }"#);
     let record = vec![
         ("_id".to_string(), Value::string("1")),
-        ("body".to_string(), Value::string("x".repeat(200 * 1024))),
+        ("body".to_string(), Value::string("x".repeat(2_000_000))),
     ];
     let (_, doc) = build_row(&truncated, record).expect("truncated document fits");
     assert_eq!(doc.fields["body"], Value::string("x".repeat(100)));

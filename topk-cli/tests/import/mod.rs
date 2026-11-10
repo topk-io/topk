@@ -1,10 +1,11 @@
+// One test target, not seven: every top-level tests/*.rs is its own crate and
+// links bundled duckdb all over again.
+#[macro_use]
 mod common;
 
-mod catalog;
-mod coerce;
-mod discover;
-mod dry_run;
-mod e2e;
+mod cli;
+mod document;
+mod plan;
 mod sources;
 mod spec;
-mod state;
+mod uri;

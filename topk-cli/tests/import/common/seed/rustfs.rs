@@ -1,4 +1,3 @@
-use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
 use crate::import::common::jsonl;
@@ -30,7 +29,7 @@ impl S3 {
 
 #[async_trait::async_trait(?Send)]
 impl super::Seed for S3 {
-    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<Target> {
+    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<String> {
         std::process::Command::new("curl")
             .args([
                 "-s",
@@ -50,18 +49,6 @@ impl super::Seed for S3 {
             file.path().display()
         ))?;
 
-        // In-process discovery reads the object through duckdb's httpfs, which
-        // takes its credentials from the environment.
-        for (key, value) in Self::ENV {
-            std::env::set_var(key, value);
-        }
-        Ok(super::discovered(
-            Target {
-                from: format!("s3://topk-it/{name}.parquet"),
-                ..Default::default()
-            },
-            None,
-        )
-        .await?)
+        Ok(format!("s3://topk-it/{name}.parquet"))
     }
 }

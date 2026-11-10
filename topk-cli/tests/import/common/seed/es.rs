@@ -7,7 +7,6 @@ use elasticsearch::indices::IndicesDeleteParts;
 use elasticsearch::params::Refresh;
 use elasticsearch::{BulkParts, Elasticsearch};
 use serde_json::json;
-use topk::import::Target;
 use topk_rs::proto::v1::data::Document;
 
 use crate::import::common::json as doc_json;
@@ -34,7 +33,7 @@ impl Es {
 
 #[async_trait(?Send)]
 impl super::Seed for Es {
-    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<Target> {
+    async fn seed(&self, name: &str, docs: Vec<Document>) -> anyhow::Result<String> {
         let _ = self
             .indices()
             .delete(IndicesDeleteParts::Index(&[name]))
@@ -57,14 +56,7 @@ impl super::Seed for Es {
             .await?
             .error_for_status_code()?;
 
-        Ok(super::discovered(
-            Target {
-                from: name.to_string(),
-                ..Default::default()
-            },
-            self.url(),
-        )
-        .await?)
+        Ok(name.to_string())
     }
 
     fn url(&self) -> Option<String> {

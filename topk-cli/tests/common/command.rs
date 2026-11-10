@@ -35,6 +35,11 @@ impl TestCommand {
         self
     }
 
+    pub fn env_remove(mut self, key: impl AsRef<OsStr>) -> Self {
+        self.command.env_remove(key);
+        self
+    }
+
     pub fn stdin(mut self, input: Option<&str>) -> Self {
         self.stdin = input.map(str::to_owned);
         self
