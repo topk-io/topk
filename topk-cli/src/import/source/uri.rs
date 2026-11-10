@@ -3,10 +3,15 @@ use std::str::FromStr;
 
 use url::Url;
 
+use crate::config::Config;
 use crate::import::error::Error;
+use crate::ProjectId;
 
 use super::duck::Duckdb;
+use super::es::Es;
+use super::mongo::Mongo;
 use super::topk;
+use super::{Backend, Source};
 
 /// A source as named on the command line, parsed but not connected.
 #[derive(Clone)]
@@ -15,6 +20,33 @@ pub enum Uri {
     Es(Url),
     Mongo(Url),
     Topk(topk::Uri),
+}
+
+impl Uri {
+    pub async fn build(mut self, config: &Config) -> Result<Source, Error> {
+        if let Uri::Topk(uri) = &mut self {
+            if uri.project_id.is_none() {
+                uri.project_id = Some(config.project_id()?);
+            }
+        }
+        let locator = self.to_string();
+        let backend = match self {
+            Uri::Duck(duck) => Backend::Duck(duck),
+            Uri::Es(url) => Backend::Es(Es::new(url)?),
+            Uri::Mongo(url) => Backend::Mongo(Mongo::connect(&url).await?),
+            Uri::Topk(uri) => Backend::Topk(topk::Topk::connect(&uri, config).await?),
+        };
+        Ok(Source { locator, backend })
+    }
+
+    pub fn password(&self) -> Option<&str> {
+        match self {
+            Uri::Duck(Duckdb::Postgres(url) | Duckdb::Mysql(url))
+            | Uri::Es(url)
+            | Uri::Mongo(url) => url.password(),
+            _ => None,
+        }
+    }
 }
 
 /// No source: every spec `from` is its own file locator.
@@ -33,24 +65,31 @@ impl FromStr for Uri {
             return Err(Error::InvalidArgument("empty source uri".into()));
         }
         if let Some(rest) = s.strip_prefix("topk://") {
-            let (authority, collection) = rest.split_once('/').unwrap_or((rest, ""));
-            let Some((project_id, region)) = authority.split_once('@') else {
+            if rest.contains('@') {
                 return Err(Error::InvalidArgument(
-                    "topk:// needs a project, e.g. topk://<project-id>@aws-us-east-1-elastica/books".into(),
-                ));
-            };
-            if region.is_empty() {
-                return Err(Error::InvalidArgument(
-                    "topk:// needs a region, e.g. topk://<project-id>@aws-us-east-1-elastica/books"
-                        .into(),
+                    "topk:// does not take an API key; use --project-id".into(),
                 ));
             }
+            let (collection, project_id) = match rest.split_once('/') {
+                Some((project, collection)) => (
+                    collection,
+                    Some(project.parse::<ProjectId>().map_err(|_| {
+                        Error::InvalidArgument(format!("invalid project ID: {project:?}"))
+                    })?),
+                ),
+                None => (rest, None),
+            };
+            if collection.contains('/') {
+                return Err(Error::InvalidArgument(
+                    "topk:// collection names cannot contain '/'".into(),
+                ));
+            }
+            if collection.is_empty() || collection.contains(['*', '?']) {
+                return Err(Error::InvalidArgument("topk:// needs an exact collection name, e.g. topk://books or topk://project/books".into()));
+            }
             return Ok(Uri::Topk(topk::Uri {
-                project_id: project_id
-                    .parse()
-                    .map_err(|e| Error::InvalidArgument(format!("topk://: {e}")))?,
-                region: region.to_string(),
                 collection: collection.to_string(),
+                project_id,
             }));
         }
         if s.starts_with("mongodb://") || s.starts_with("mongodb+srv://") {
@@ -110,7 +149,9 @@ impl FromStr for Uri {
             .or_else(|| s.strip_prefix("sqlite:"))
         {
             return Ok(Uri::Duck(Duckdb::Sqlite(
-                shellexpand::tilde(path).into_owned(),
+                std::path::absolute(&*shellexpand::tilde(path))?
+                    .display()
+                    .to_string(),
             )));
         }
         Ok(Uri::Duck(Duckdb::Files(Some(s.parse()?))))
@@ -122,7 +163,8 @@ impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Uri::Duck(duck) => duck.fmt(f),
-            Uri::Es(url) | Uri::Mongo(url) => f.write_str(&redact(url)),
+            Uri::Es(url) => write!(f, "es+{}", redact(url)),
+            Uri::Mongo(url) => f.write_str(&redact(url)),
             Uri::Topk(uri) => uri.fmt(f),
         }
     }
@@ -140,7 +182,12 @@ impl fmt::Debug for Uri {
 }
 
 fn url(s: &str) -> Result<Url, Error> {
-    Url::parse(s).map_err(|e| Error::InvalidArgument(format!("bad source uri {s:?}: {e}")))
+    Url::parse(s).map_err(|error| {
+        Error::Setup(anyhow::Error::new(error).context(format!(
+            "bad source uri {:?}",
+            if s.contains('@') { "<redacted>" } else { s }
+        )))
+    })
 }
 
 pub(super) fn redact(url: &Url) -> String {

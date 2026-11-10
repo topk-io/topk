@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::fmt;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -12,22 +14,48 @@ use topk_rs::proto::v1::data::{Document, Value};
 use topk_rs::Client;
 
 use crate::client::DataClient;
+use crate::config::Config;
 use crate::import::ddl::{self, Schema};
 use crate::import::decode::{self, id_string};
 use crate::import::error::{Error, MAX_DOC_BYTES};
-use crate::import::source::{Record, Scan, Source};
+use crate::import::source::{ChunkStream, Record, Source, Uri};
 use crate::import::spec::{Spec, Target};
-use crate::import::state::{Checkpoint, Mark, State};
-use crate::import::ID;
+use crate::import::state::{Checkpoint, Destination, Mark, Run};
+use crate::import::{ID, ID_PLACEHOLDER};
 
-/// A batch tool rides out `SlowDown`: an hour of continuous throttling fails the batch, and
-/// `--resume` picks up.
 const SLOW_DOWN_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const SLOW_DOWN_INIT_BACKOFF: Duration = Duration::from_millis(250);
 const SLOW_DOWN_MAX_BACKOFF: Duration = Duration::from_secs(10);
 const OBJECT_CONCURRENCY: usize = 8;
+/// Skipped rows named one by one before the rest are only counted.
+const SKIP_NOTES: usize = 3;
 /// Batches buffered across partitions before a full drain, which is what a checkpoint rides on.
 const BUFFER_BATCHES: usize = 32;
+struct Bar {
+    bar: ProgressBar,
+}
+
+impl Bar {
+    fn new(progress: &MultiProgress, name: &str, position: u64) -> Self {
+        let bar = progress.add(
+            ProgressBar::new_spinner()
+                .with_style(
+                    ProgressStyle::with_template("{spinner:.cyan} {msg}: {pos} rows [{elapsed}]")
+                        .expect("valid spinner template"),
+                )
+                .with_message(name.to_string())
+                .with_position(position),
+        );
+        bar.enable_steady_tick(Duration::from_millis(100));
+        Self { bar }
+    }
+}
+
+impl Drop for Bar {
+    fn drop(&mut self) {
+        self.bar.finish_and_clear();
+    }
+}
 
 #[derive(Default, serde::Serialize)]
 pub struct LoadOutcome {
@@ -37,6 +65,24 @@ pub struct LoadOutcome {
     pub failed: usize,
     #[serde(skip)]
     pub elapsed: Duration,
+}
+
+struct Skipped {
+    name: String,
+    failed: AtomicUsize,
+}
+
+impl Skipped {
+    fn skip(&self, error: impl fmt::Display) {
+        match self.failed.fetch_add(1, Ordering::Relaxed) {
+            0..SKIP_NOTES => crate::import::note(format!("{}: skipped {error}", self.name)),
+            SKIP_NOTES => crate::import::note(format!(
+                "{}: skipping more failing rows; the summary counts them",
+                self.name
+            )),
+            _ => {}
+        }
+    }
 }
 
 /// This row's partition, from the value of the `partition` column, and its document.
@@ -131,7 +177,8 @@ pub fn documents(
     source: &Source,
     target: &Target,
 ) -> Result<impl Stream<Item = Result<(Option<String>, Document), Error>>, Error> {
-    let Scan { target, chunks } = source.scan(target, None)?;
+    let chunks = source.scan(target, None)?;
+    let target = target.clone();
     Ok(chunks
         .flat_map(|chunk| {
             stream::iter(match chunk {
@@ -142,67 +189,90 @@ pub fn documents(
         .map(move |row| build_row(&target, row?)))
 }
 
-/// Batches in flush order, each with the source cursor it completes.
-type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<Checkpoint>)>;
+#[derive(clap::Args, Debug)]
+pub struct WriteOptions {
+    #[arg(
+        long,
+        help = "Skip documents that fail instead of stopping; exits non-zero if any did"
+    )]
+    pub continue_on_error: bool,
+    #[arg(
+        short = 'c',
+        long,
+        value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=1024),
+        default_value = "16",
+        help = "Concurrent upserts in flight, budgeted across the whole run"
+    )]
+    pub concurrency: usize,
+    #[arg(
+        long,
+        value_name = "SIZE",
+        default_value = "1MiB",
+        help = "Buffered document bytes per collection before flushing all partitions"
+    )]
+    pub batch_bytes: bytesize::ByteSize,
+}
 
 pub struct Import {
-    pub client: DataClient,
-    pub scans: IndexMap<String, Scan>,
-    pub pending: HashMap<String, Schema>,
-    pub readers: usize,
-}
-
-/// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
-struct Spinner(ProgressBar);
-
-impl Spinner {
-    fn add(progress: &MultiProgress, name: &str) -> Spinner {
-        let bar = progress.add(
-            ProgressBar::new_spinner()
-                .with_style(
-                    ProgressStyle::with_template("{spinner:.cyan} {msg}: {pos} rows [{elapsed}]")
-                        .expect("valid spinner template"),
-                )
-                .with_message(name.to_string()),
-        );
-        bar.enable_steady_tick(Duration::from_millis(100));
-        Spinner(bar)
-    }
-}
-
-impl Drop for Spinner {
-    fn drop(&mut self) {
-        self.0.finish_and_clear();
-    }
+    pub run: Run,
+    client: DataClient,
+    source: Source,
+    scans: Vec<(String, Target, ChunkStream, Option<Checkpoint>)>,
+    pending: HashMap<String, Schema>,
 }
 
 impl Import {
-    pub async fn prepare(
-        client: DataClient,
-        source: &Source,
-        spec: &Spec,
-        after: &BTreeMap<String, Checkpoint>,
+    pub async fn new(
+        config: &Config,
+        source: Source,
+        spec: Spec,
+        destination: Destination,
     ) -> Result<Import, Error> {
-        let scans = spec
-            .collections
-            .iter()
+        for (name, target) in &spec.collections {
+            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
+                return Err(Error::MissingId(name.clone()));
+            }
+        }
+        let run = Run::start(&source.locator, destination, spec).await?;
+        Self::prepare(config, source, run).await
+    }
+
+    pub async fn resume(
+        config: &Config,
+        run: Run,
+        supplied: Option<&Uri>,
+    ) -> Result<Import, Error> {
+        let source = run.source(supplied)?.build(config).await?;
+        source.validate(run.pending(), None).await?;
+        Self::prepare(config, source, run).await
+    }
+
+    async fn prepare(config: &Config, source: Source, run: Run) -> Result<Import, Error> {
+        let client = DataClient::new(
+            config,
+            run.destination.project_id.clone(),
+            &run.destination.region,
+        )?;
+        let scans = run
+            .pending()
             .map(|(name, target)| {
                 let mut target = target.clone();
-                let cursor = after.get(name).map(|checkpoint| {
-                    target.limit = target.limit.map(|limit| limit - checkpoint.consumed);
-                    checkpoint.cursor.clone()
-                });
-                Ok((name.clone(), source.scan(&target, cursor)?))
+                let resumed = match run.cursors.get(name) {
+                    Some(Mark::After(checkpoint)) => {
+                        target.limit = target.limit.map(|limit| limit - checkpoint.consumed);
+                        Some(checkpoint.clone())
+                    }
+                    _ => None,
+                };
+                let chunks = source.scan(&target, resumed.as_ref().map(|c| c.cursor.clone()))?;
+                Ok((name.clone(), target, chunks, resumed))
             })
-            .collect::<Result<IndexMap<_, _>, Error>>()?;
-        let pending = ddl::absent(&client, spec).await?;
+            .collect::<Result<Vec<_>, Error>>()?;
+        let pending = ddl::absent(&client, run.pending()).await?;
         Ok(Import {
+            run,
             client,
-            readers: scans
-                .len()
-                .min(OBJECT_CONCURRENCY)
-                .min(source.concurrency_limit(spec.collections.values()))
-                .max(1),
+            source,
             scans,
             pending,
         })
@@ -210,100 +280,106 @@ impl Import {
 
     pub async fn execute(
         self,
-        state: State,
         progress: &MultiProgress,
-        concurrency: usize,
-        batch_bytes: usize,
-        continue_on_error: bool,
+        options: &WriteOptions,
     ) -> Result<BTreeMap<String, LoadOutcome>, Error> {
         // An unwritable config dir costs the ability to resume, not the import.
-        if let Err(e) = state.save() {
+        if let Err(e) = self.run.save() {
             crate::import::note(format!(
                 "cannot save run state ({e}) — this run cannot be resumed"
             ));
         }
-        let state = Mutex::new(state);
-        let budget = Arc::new(Semaphore::new(concurrency));
+        let source = &self.source;
+        let readers = self
+            .scans
+            .len()
+            .min(OBJECT_CONCURRENCY)
+            .min(source.concurrency_limit(self.run.pending().map(|(_, target)| target)))
+            .max(1);
+        let state = Arc::new(Mutex::new(self.run));
+        let budget = Arc::new(Semaphore::new(options.concurrency));
         let client = &self.client;
         for (name, schema) in self.pending {
-            ddl::create(&self.client, &name, schema).await?;
+            match client.collections().create(&name, schema, None).await {
+                Ok(_) | Err(topk_rs::Error::CollectionAlreadyExists) => {}
+                Err(e) => return Err(e.into()),
+            }
         }
         let outcomes = stream::iter(self.scans)
-            .map(|(name, mut scan)| {
+            .map(|(name, target, mut chunks, resumed)| {
                 let state = &state;
                 let budget = &budget;
                 async move {
                     let started = Instant::now();
-                    let bar = Spinner::add(progress, &name);
+                    let mut consumed = resumed.as_ref().map_or(0, |c| c.consumed);
+                    let first = consumed;
+                    let skipped = options.continue_on_error.then(|| {
+                        Arc::new(Skipped {
+                            name: name.clone(),
+                            failed: AtomicUsize::new(0),
+                        })
+                    });
+                    let bar = Bar::new(progress, &name, consumed);
                     let mut writer = BatchWriter {
                         client,
                         budget,
-                        batch_bytes,
+                        batch_bytes: options.batch_bytes.as_u64() as usize,
                         state,
                         name: &name,
+                        bar,
                         batches: IndexMap::new(),
                         bytes: 0,
                         cursor: None,
                         inflight: VecDeque::new(),
                     };
-                    let mut consumed = match state
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .cursors
-                        .get(&name)
-                    {
-                        Some(Mark::After(checkpoint)) => checkpoint.consumed,
-                        _ => 0,
-                    };
-                    let mut outcome = LoadOutcome::default();
-                    while let Some(chunk) = scan.chunks.next().await {
+                    while let Some(chunk) = chunks.next().await {
                         let chunk = chunk?;
                         consumed += chunk.rows.len() as u64;
                         for row in chunk.rows {
-                            match row.and_then(|record| build_row(&scan.target, record)) {
+                            match row.and_then(|record| build_row(&target, record)) {
                                 Ok((partition, doc)) => {
-                                    outcome.rows += 1;
-                                    bar.0.inc(1);
                                     writer.push(partition, doc).await?;
+                                    writer.bar.bar.inc(1);
                                 }
-                                Err(e) if continue_on_error && matches!(e, Error::Doc { .. }) => {
-                                    crate::import::note(format!("{name}: skipped {e}"));
-                                    outcome.failed += 1;
+                                Err(e)
+                                    if options.continue_on_error
+                                        && matches!(e, Error::Doc { .. }) =>
+                                {
+                                    if let Some(skipped) = &skipped {
+                                        skipped.skip(format!("{:#}", anyhow::Error::new(e)));
+                                    }
+                                    writer.bar.bar.inc(1);
                                 }
                                 Err(e) => return Err(e),
                             }
                         }
                         if let Some(cursor) = chunk.cursor {
-                            let checkpoint = Checkpoint { cursor, consumed };
-                            if !writer.batches.is_empty() {
-                                writer.cursor = Some(checkpoint);
-                            } else if let Some((_, after)) = writer.inflight.back_mut() {
-                                *after = Some(checkpoint);
-                            } else {
-                                save_mark(state, &name, Mark::After(checkpoint));
-                            }
+                            writer.checkpoint(Checkpoint { cursor, consumed });
                         }
                     }
                     writer.finish().await?;
-                    save_mark(state, &name, Mark::Done);
-                    outcome.elapsed = started.elapsed();
-                    Ok::<_, Error>((name, outcome))
+                    let failed = skipped
+                        .as_ref()
+                        .map_or(0, |s| s.failed.load(Ordering::Relaxed));
+                    state
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .mark(&name, Mark::Done);
+                    Ok::<_, Error>((
+                        name,
+                        LoadOutcome {
+                            rows: (consumed - first) as usize - failed,
+                            failed,
+                            elapsed: started.elapsed(),
+                        },
+                    ))
                 }
             })
-            .buffer_unordered(self.readers)
+            .buffer_unordered(readers)
             .try_collect()
             .await?;
-        State::remove(&state.into_inner().unwrap_or_else(|e| e.into_inner()).id);
+        state.lock().unwrap_or_else(|e| e.into_inner()).remove();
         Ok(outcomes)
-    }
-}
-
-fn save_mark(state: &Mutex<State>, name: &str, mark: Mark) {
-    let mut state = state.lock().unwrap_or_else(|e| e.into_inner());
-    state.cursors.insert(name.to_string(), mark);
-    // A lost checkpoint costs a redo, never a skip.
-    if let Err(e) = state.save() {
-        tracing::warn!(%e, "cannot save run state");
     }
 }
 
@@ -313,18 +389,32 @@ struct BatchWriter<'a> {
     client: &'a Client,
     budget: &'a Arc<Semaphore>,
     batch_bytes: usize,
-    state: &'a Mutex<State>,
+    state: &'a Arc<Mutex<Run>>,
     name: &'a str,
+    bar: Bar,
     batches: IndexMap<Option<String>, (usize, Vec<Document>)>,
     /// Buffered across every partition.
     bytes: usize,
     /// A source prefix is covered only by the last request of a full buffer drain.
     cursor: Option<Checkpoint>,
     /// A cursor is checkpointed once every preceding batch has completed.
-    inflight: InflightBatches,
+    inflight: VecDeque<(JoinHandle<Result<(), Error>>, Option<Checkpoint>)>,
 }
 
 impl BatchWriter<'_> {
+    fn checkpoint(&mut self, checkpoint: Checkpoint) {
+        if !self.batches.is_empty() {
+            self.cursor = Some(checkpoint);
+        } else if let Some((_, after)) = self.inflight.back_mut() {
+            *after = Some(checkpoint);
+        } else {
+            self.state
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .mark(self.name, Mark::After(checkpoint));
+        }
+    }
+
     async fn push(&mut self, partition: Option<String>, doc: Document) -> Result<(), Error> {
         let size = doc.encoded_len();
         self.bytes += size;
@@ -366,14 +456,16 @@ impl BatchWriter<'_> {
         if let Some(partition) = partition {
             collection = collection.partition(partition);
         }
+        let run = Arc::clone(self.state);
         self.inflight.push_back((
             tokio::spawn(async move {
+                let _run = run;
                 let _permit = permit;
                 let started = Instant::now();
                 let mut backoff = SLOW_DOWN_INIT_BACKOFF;
                 loop {
                     match collection.upsert(docs.clone()).await {
-                        Ok(_) => return Ok::<(), Error>(()),
+                        Ok(_) => break,
                         Err(topk_rs::Error::SlowDown(_))
                             if started.elapsed() < SLOW_DOWN_TIMEOUT =>
                         {
@@ -383,6 +475,7 @@ impl BatchWriter<'_> {
                         Err(e) => return Err(e.into()),
                     }
                 }
+                Ok::<(), Error>(())
             }),
             if self.batches.is_empty() {
                 self.cursor.take()
@@ -394,11 +487,15 @@ impl BatchWriter<'_> {
     }
 
     async fn complete_next(&mut self) -> Result<(), Error> {
-        if let Some((handle, cursor)) = self.inflight.pop_front() {
+        if let Some((handle, cursor)) = self.inflight.front_mut() {
             handle.await??;
-            if let Some(cursor) = cursor {
-                save_mark(self.state, self.name, Mark::After(cursor));
+            if let Some(cursor) = cursor.take() {
+                self.state
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .mark(self.name, Mark::After(cursor));
             }
+            self.inflight.pop_front();
         }
         Ok(())
     }
@@ -411,5 +508,71 @@ impl BatchWriter<'_> {
             self.complete_next().await?;
         }
         Ok(())
+    }
+}
+
+impl Drop for BatchWriter<'_> {
+    fn drop(&mut self) {
+        for (handle, _) in &self.inflight {
+            handle.abort();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::{File, TryLockError};
+
+    use topk_rs::ClientConfig;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn cancelled_writes_hold_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("TOPK_IMPORT_STATE_DIR", dir.path());
+        let run = Run::start(
+            "",
+            Destination {
+                project_id: "p1".parse().unwrap(),
+                region: "unused".into(),
+            },
+            toml::from_str("[c]\nfrom = 'unused'\n[c.fields]\ntitle = { type = 'text' }").unwrap(),
+        )
+        .await
+        .unwrap();
+        let lock = File::open(dir.path().join(format!("{}.lock", run.id))).unwrap();
+        let state = Arc::new(Mutex::new(run));
+        let client = Client::new(ClientConfig::new("unused", "unused"));
+        let budget = Arc::new(Semaphore::new(1));
+        let mut writer = BatchWriter {
+            client: &client,
+            budget: &budget,
+            batch_bytes: 1024,
+            state: &state,
+            name: "c",
+            bar: Bar::new(
+                &MultiProgress::with_draw_target(indicatif::ProgressDrawTarget::hidden()),
+                "c",
+                0,
+            ),
+            batches: IndexMap::new(),
+            bytes: 0,
+            cursor: None,
+            inflight: VecDeque::new(),
+        };
+        writer
+            .flush(None, vec![topk_rs::doc!("_id" => "one", "title" => "book")])
+            .await
+            .unwrap();
+        let task = writer.inflight[0].0.abort_handle();
+        drop(writer);
+        drop(state);
+        assert!(!task.is_finished());
+        assert!(matches!(lock.try_lock(), Err(TryLockError::WouldBlock)));
+        while !task.is_finished() {
+            tokio::task::yield_now().await;
+        }
+        lock.try_lock().unwrap();
     }
 }

@@ -5,14 +5,17 @@ use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::Client;
 
 use crate::import::error::Error;
-use crate::import::spec::{inline, Field, Spec};
+use crate::import::spec::{inline, Field, Target};
 
 pub type Schema = HashMap<String, FieldSpec>;
 
 /// Collections in the spec that do not exist yet; refuses on schema drift.
-pub async fn absent(client: &Client, spec: &Spec) -> Result<HashMap<String, Schema>, Error> {
-    let mut schemas: Vec<(&str, Schema)> = Vec::with_capacity(spec.collections.len());
-    for (name, target) in spec.collections.iter() {
+pub async fn absent<'a>(
+    client: &Client,
+    targets: impl Iterator<Item = (&'a String, &'a Target)>,
+) -> Result<HashMap<String, Schema>, Error> {
+    let mut schemas: Vec<(&str, Schema)> = Vec::new();
+    for (name, target) in targets {
         let schema: Schema = target
             .fields
             .iter()
@@ -78,11 +81,4 @@ pub async fn absent(client: &Client, spec: &Spec) -> Result<HashMap<String, Sche
         return Err(Error::SchemaMismatch(drift.join("\n  ")));
     }
     Ok(absent)
-}
-
-pub async fn create(client: &Client, name: &str, schema: Schema) -> Result<(), Error> {
-    match client.collections().create(name, schema, None).await {
-        Ok(_) | Err(topk_rs::Error::CollectionAlreadyExists) => Ok(()),
-        Err(e) => Err(e.into()),
-    }
 }

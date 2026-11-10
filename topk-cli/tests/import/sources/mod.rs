@@ -47,10 +47,8 @@ async fn resumes_from_saved_cursor(_ctx: &mut Scratch, #[case] backend: Backend)
         .unwrap_or(&source.from)
         .parse::<Uri>()
         .unwrap();
-    let reader = ::topk::import::Source::connect(&uri, &config())
-        .await
-        .unwrap();
-    let mut scan = reader.scan(&target, None).unwrap().chunks;
+    let reader = uri.build(&config()).await.unwrap();
+    let mut scan = reader.scan(&target, None).unwrap();
     let first = scan.next().await.unwrap().unwrap();
     let consumed = first.rows.len() as u64;
     assert!(
@@ -75,8 +73,7 @@ async fn resumes_from_saved_cursor(_ctx: &mut Scratch, #[case] backend: Backend)
         _ => panic!("wrong cursor for {backend:?}: {cursor:?}"),
     }
     drop(scan);
-    let mut chunks =
-        stream::iter([Ok(first)]).chain(reader.scan(&target, Some(cursor)).unwrap().chunks);
+    let mut chunks = stream::iter([Ok(first)]).chain(reader.scan(&target, Some(cursor)).unwrap());
     let mut ids = Vec::new();
     while let Some(chunk) = chunks.next().await {
         let chunk = chunk.unwrap();

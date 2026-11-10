@@ -1,39 +1,19 @@
 use std::fmt;
 use std::str::FromStr;
 
-use futures::{future, TryStreamExt};
-use wildmatch::WildMatch;
-
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
 
-use crate::client::DataClient;
+use crate::client::{DataClient, ManagementClient};
 use crate::config::Config;
 use crate::import::error::Error;
 use crate::import::source::Record;
 use crate::import::spec::{Field, Target};
 use crate::import::ID;
+use crate::management::proto::GetCollectionRequest;
 use crate::ProjectId;
 
-use super::{Chunk, ChunkStream, Table};
-
-/// `topk://<project-id>@<region>/<collection>`, read with your login.
-#[derive(Clone, Debug)]
-pub struct Uri {
-    pub project_id: ProjectId,
-    pub region: String,
-    pub collection: String,
-}
-
-impl fmt::Display for Uri {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "topk://{}@{}/{}",
-            self.project_id, self.region, self.collection
-        )
-    }
-}
+use super::{Chunk, ChunkStream, Cursor as Checkpoint, Table};
 
 /// A topk source has no filter language; the type has no values.
 pub enum Filter {}
@@ -43,7 +23,7 @@ impl FromStr for Filter {
 
     fn from_str(_: &str) -> Result<Filter, Error> {
         Err(Error::InvalidArgument(
-            "--filter is not supported for topk:// sources".to_string(),
+            "--filter is not supported for topk:// sources".into(),
         ))
     }
 }
@@ -52,81 +32,101 @@ impl FromStr for Filter {
 #[derive(Default)]
 pub struct Cursor(String);
 
-impl TryFrom<super::Cursor> for Cursor {
+impl TryFrom<Checkpoint> for Cursor {
     type Error = Error;
 
-    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
-        cursor.key().map(Cursor)
+    fn try_from(cursor: Checkpoint) -> Result<Cursor, Error> {
+        Ok(Cursor(cursor.key()?))
+    }
+}
+
+#[derive(Clone)]
+pub struct Uri {
+    pub collection: String,
+    pub project_id: Option<ProjectId>,
+}
+
+impl fmt::Display for Uri {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.project_id {
+            Some(project_id) => write!(f, "topk://{project_id}/{}", self.collection),
+            None => write!(f, "topk://{}", self.collection),
+        }
+    }
+}
+
+impl fmt::Debug for Uri {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Topk")
+            .field("collection", &self.collection)
+            .field("project_id", &self.project_id)
+            .finish()
     }
 }
 
 #[derive(Clone)]
 pub struct Topk {
     client: DataClient,
-    collection: String,
+    pub table: Table,
 }
 
 impl Topk {
-    pub fn connect(uri: &Uri, config: &Config) -> Result<Topk, Error> {
-        Ok(Topk {
-            client: DataClient::new(config, uri.project_id.clone(), &uri.region)
-                .map_err(|e| Error::InvalidArgument(e.to_string()))?,
-            collection: uri.collection.clone(),
-        })
-    }
-
-    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
-        let collection = &self.collection;
-        // The collection is in the uri, not in OBJECTS, so its glob is matched
-        // here rather than by `discover`.
-        let collections = match collection.contains(['*', '?']) || collection.is_empty() {
-            true => {
-                let pattern =
-                    WildMatch::new(collection.is_empty().then_some("*").unwrap_or(collection));
-                self.client
-                    .collections()
-                    .list(None)
-                    .await?
-                    .try_filter(|c| future::ready(pattern.matches(&c.name)))
-                    .try_collect()
-                    .await?
-            }
-            false => vec![self.client.collections().get(collection).await?],
-        };
-        Ok(collections
-            .into_iter()
-            .map(|collection| Table {
-                columns: std::iter::once((ID.to_string(), Field::default()))
-                    .chain(
-                        collection
-                            .schema
-                            .iter()
-                            .map(|(name, spec)| (name.clone(), Field::from(spec))),
-                    )
-                    .collect(),
-                collection_hint: Some(collection.name.clone()),
-                from: collection.name,
-                primary_key: Some(ID.to_string()),
+    pub async fn connect(uri: &Uri, config: &Config) -> Result<Topk, Error> {
+        let project_id = uri
+            .project_id
+            .clone()
+            .ok_or_else(|| Error::InvalidArgument("topk:// sources require a project".into()))?;
+        let collection = ManagementClient::new(config.clone())?
+            .collections
+            .get_collection(GetCollectionRequest {
+                project_id: project_id.to_string(),
+                name: uri.collection.clone(),
             })
-            .collect())
+            .await?
+            .into_inner()
+            .collection
+            .ok_or_else(|| {
+                Error::InvalidArgument("management returned no source collection".into())
+            })?;
+        if collection.region.is_empty() {
+            return Err(Error::InvalidArgument(
+                "source collection has no region".into(),
+            ));
+        }
+        let client = DataClient::new(config, project_id, &collection.region)?;
+        let table = Table {
+            columns: std::iter::once(Ok((ID.to_string(), Field::default())))
+                .chain(
+                    collection
+                        .schema
+                        .iter()
+                        .map(|(name, spec)| Ok((name.clone(), Field::from(spec)))),
+                )
+                .collect::<Result<_, Error>>()?,
+            collection_hint: Some(collection.name.clone()),
+            from: collection.name.clone(),
+            primary_key: Some(ID.to_string()),
+        };
+        Ok(Topk { client, table })
     }
 
     /// Keyset pages ordered by `_id`, so a page boundary is a resume point.
     /// `fetch` and not `select`: a select of an indexed vector is refused by the
     /// server, and returns the index's quantized copy where it is not.
-    pub fn chunks(&self, target: &Target, _: Option<Filter>, after: Option<Cursor>) -> ChunkStream {
+    pub fn scan(&self, target: &Target, after: Option<Checkpoint>) -> Result<ChunkStream, Error> {
+        let _ = target
+            .filter
+            .as_deref()
+            .map(str::parse::<Filter>)
+            .transpose()?;
+        let Cursor(mut cursor) = after.map(Cursor::try_from).transpose()?.unwrap_or_default();
         let collection = self.client.collection(&target.from);
-        let Cursor(mut cursor) = after.unwrap_or_default();
-        let mut remaining = target.limit;
+        // 10k is the server's cap on a sorted `limit`, and the resume granularity.
+        let size = target.limit.map_or(10_000, |limit| limit.min(10_000));
 
-        let stream = async_stream::stream! {
+        let stream = async_stream::try_stream! {
             loop {
-                // 10k is the server's cap on a sorted `limit`, and the resume granularity.
-                let size = remaining.map_or(10_000, |left| left.min(10_000));
-                if size == 0 {
-                    break;
-                }
-                let documents = match collection
+                let documents = collection
                     .query(
                         filter(field(ID).gt(cursor.clone()))
                             .sort((field(ID), SortOrder::Asc))
@@ -135,14 +135,7 @@ impl Topk {
                         None,
                         None,
                     )
-                    .await
-                {
-                    Ok(documents) => documents,
-                    Err(e) => {
-                        yield Err(e.into());
-                        return;
-                    }
-                };
+                    .await?;
                 let Some(last) = documents
                     .last()
                     .and_then(|document| document.fields.get(ID))
@@ -151,20 +144,19 @@ impl Topk {
                     break;
                 };
                 cursor = last.to_string();
-                remaining = remaining.map(|left| left - documents.len() as u64);
                 let full = documents.len() as u64 == size;
-                yield Ok(Chunk {
+                yield Chunk {
                     rows: documents
                         .into_iter()
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
-                    cursor: Some(super::Cursor::Key(cursor.clone())),
-                });
+                    cursor: Some(Checkpoint::Key(cursor.clone())),
+                };
                 if !full {
                     break;
                 }
             }
         };
-        Box::pin(stream)
+        Ok(Box::pin(stream))
     }
 }

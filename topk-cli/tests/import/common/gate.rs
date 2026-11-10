@@ -86,7 +86,8 @@ impl Gate {
                 },
                 ctx.config.oauth().clone(),
                 topk::config::Config::dir().unwrap(),
-            ),
+            )
+            .with_project(Some(ctx.destination.project_id.clone())),
             peak,
             requests: received,
             server,

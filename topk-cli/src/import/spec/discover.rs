@@ -8,49 +8,6 @@ use crate::import::source::Table;
 use crate::import::spec::{collection_key, Field, Spec, Target};
 use crate::import::ID_PLACEHOLDER;
 
-/// Every column a target reads — its id, and each field's source — must be one
-/// the catalog lists, or the run sinks one row in (after the collection exists),
-/// and a non-required field imports silent nulls. Caught here before any cluster
-/// write, for a spec however it was assembled: discovered, `-f`, or resumed. The
-/// caller skips this for a non-exhaustive catalog (a sampled source), where an
-/// absent column is not proof the source lacks it.
-pub fn validate_columns(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
-    for (name, target) in spec.collections.iter() {
-        let Some(table) = catalog.iter().find(|table| table.from == target.from) else {
-            continue;
-        };
-        let has = |column: &str| table.columns.iter().any(|(c, _)| c == column);
-        let absent = |what: String| {
-            let available: Vec<&str> = table.columns.iter().map(|(c, _)| c.as_str()).collect();
-            Error::InvalidArgument(format!(
-                "{name}: {what} is not in {:?} — available: {}",
-                target.from,
-                available.join(", ")
-            ))
-        };
-        // A placeholder id is "not detected", tolerated so --dry-run can show it.
-        if let Some(id) = target.id.as_deref() {
-            if id != ID_PLACEHOLDER && !has(id) {
-                return Err(absent(format!("id column {id:?}")));
-            }
-        }
-        if let Some(column) = target.partition.as_deref() {
-            if !has(column) {
-                return Err(absent(format!("partition column {column:?}")));
-            }
-        }
-        for (field, spec) in target.fields.iter() {
-            let column = spec.source(field);
-            if !has(column) {
-                return Err(absent(format!(
-                    "field {field:?} reads column {column:?}, which"
-                )));
-            }
-        }
-    }
-    Ok(())
-}
-
 pub fn discover(
     available: &[Table],
     patterns: &[String],

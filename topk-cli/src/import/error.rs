@@ -8,6 +8,13 @@ pub const MAX_DOC_BYTES: usize = 200_000;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
+    #[error("{0}: couldn't detect an id column")]
+    MissingId(String),
+    #[error(transparent)]
+    Setup(#[from] anyhow::Error),
+    #[error(transparent)]
+    Management(#[from] tonic::Status),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
 

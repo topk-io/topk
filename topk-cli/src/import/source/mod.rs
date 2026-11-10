@@ -8,12 +8,13 @@ mod uri;
 use std::fmt;
 
 use futures::stream::BoxStream;
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::data::Value;
 
-use crate::config::Config;
 use crate::import::error::Error;
 use crate::import::spec::{Field, Target};
+use crate::import::ID_PLACEHOLDER;
 
 pub use duck::{aws_process_profile, Duckdb, File};
 use es::Es;
@@ -34,11 +35,6 @@ pub struct Chunk {
 }
 
 pub type ChunkStream = BoxStream<'static, Result<Chunk, Error>>;
-
-pub struct Scan {
-    pub target: Target,
-    pub chunks: ChunkStream,
-}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -95,7 +91,12 @@ pub struct Table {
     pub primary_key: Option<String>,
 }
 
-pub enum Source {
+pub struct Source {
+    pub locator: String,
+    backend: Backend,
+}
+
+enum Backend {
     Duck(Duckdb),
     Es(Es),
     Mongo(Mongo),
@@ -103,72 +104,118 @@ pub enum Source {
 }
 
 impl Source {
-    pub async fn connect(uri: &Uri, config: &Config) -> Result<Source, Error> {
-        Ok(match uri {
-            Uri::Duck(duck) => Source::Duck(duck.clone()),
-            Uri::Es(url) => Source::Es(Es::new(url.clone())?),
-            Uri::Mongo(url) => Source::Mongo(Mongo::connect(url).await?),
-            Uri::Topk(uri) => Source::Topk(Topk::connect(uri, config)?),
-        })
-    }
-
     pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
-        match self {
-            Source::Duck(duck) => duck.catalog().await,
-            Source::Es(es) => es.catalog().await,
-            Source::Mongo(mongo) => mongo.catalog().await,
-            Source::Topk(topk) => topk.catalog().await,
+        match &self.backend {
+            Backend::Duck(duck) => duck.catalog().await,
+            Backend::Es(es) => es.catalog().await,
+            Backend::Mongo(mongo) => mongo.catalog().await,
+            Backend::Topk(topk) => Ok(vec![topk.table.clone()]),
         }
     }
 
-    /// Whether the catalog lists every column a scan can yield. True for schema
-    /// sources (files/SQL via `SELECT *`, ES mappings, topk); false for mongodb,
-    /// whose catalog is a document sample — a rare field may not appear in it, so
-    /// a spec column absent from the catalog is not proof the source lacks it.
-    pub fn columns_are_exhaustive(&self) -> bool {
-        !matches!(self, Source::Mongo(_))
+    pub async fn validate<'a>(
+        &self,
+        targets: impl Iterator<Item = (&'a String, &'a Target)>,
+        catalog: Option<&[Table]>,
+    ) -> Result<(), Error> {
+        if matches!(&self.backend, Backend::Mongo(_)) {
+            return Ok(());
+        }
+        let fetched;
+        let catalog = match catalog {
+            Some(catalog) => catalog,
+            None => {
+                fetched = self.catalog().await?;
+                &fetched
+            }
+        };
+
+        for (name, target) in targets {
+            let table = match catalog.iter().find(|table| table.from == target.from) {
+                Some(table) => table,
+                None => continue,
+            };
+            let has = |column: &str| table.columns.iter().any(|(c, _)| c == column);
+            let absent = |what: String| {
+                let available: Vec<&str> = table.columns.iter().map(|(c, _)| c.as_str()).collect();
+                Error::InvalidArgument(format!(
+                    "{name}: {what} is not in {:?} — available: {}",
+                    target.from,
+                    available.join(", ")
+                ))
+            };
+            // A placeholder id is "not detected", tolerated so --dry-run can show it.
+            if let Some(id) = target.id.as_deref() {
+                if id != ID_PLACEHOLDER && !has(id) {
+                    return Err(absent(format!("id column {id:?}")));
+                }
+            }
+            if let Some(column) = target.partition.as_deref() {
+                if !has(column) {
+                    return Err(absent(format!("partition column {column:?}")));
+                }
+            }
+            for (field, spec) in target.fields.iter() {
+                let column = spec.source(field);
+                if !has(column) {
+                    return Err(absent(format!(
+                        "field {field:?} reads column {column:?}, which"
+                    )));
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn concurrency_limit<'a>(&self, targets: impl IntoIterator<Item = &'a Target>) -> usize {
-        match self {
-            Source::Duck(duck) => duck.concurrency_limit(targets),
+        match &self.backend {
+            Backend::Duck(duck) => duck.concurrency_limit(targets),
             _ => usize::MAX,
         }
     }
 
-    pub fn scan(&self, target: &Target, after: Option<Cursor>) -> Result<Scan, Error> {
-        let chunks = match self {
-            Source::Duck(duck) => duck.chunks(
+    /// A source may push `limit` down, but need not honor it: rows past it are
+    /// cut here, and the source is not polled again once it is reached.
+    pub fn scan(&self, target: &Target, after: Option<Cursor>) -> Result<ChunkStream, Error> {
+        let mut chunks = match &self.backend {
+            Backend::Duck(duck) => duck.chunks(
                 target,
-                target.parsed_filter()?,
+                target.filter.as_deref().map(str::parse).transpose()?,
                 after.map(TryInto::try_into).transpose()?,
             )?,
-            Source::Es(es) => es.chunks(
+            Backend::Es(es) => es.chunks(
                 target,
-                target.parsed_filter()?,
+                target.filter.as_deref().map(str::parse).transpose()?,
                 after.map(TryInto::try_into).transpose()?,
             ),
-            Source::Mongo(mongo) => mongo.chunks(
+            Backend::Mongo(mongo) => mongo.chunks(
                 target,
-                target.parsed_filter()?,
+                target.filter.as_deref().map(str::parse).transpose()?,
                 after.map(TryInto::try_into).transpose()?,
             ),
-            Source::Topk(topk) => topk.chunks(
-                target,
-                target.parsed_filter()?,
-                after.map(TryInto::try_into).transpose()?,
-            ),
+            Backend::Topk(topk) => topk.scan(target, after)?,
         };
-        Ok(Scan {
-            target: target.clone(),
-            chunks,
-        })
+        let mut left = match target.limit {
+            Some(limit) => limit,
+            None => return Ok(chunks),
+        };
+        Ok(Box::pin(async_stream::try_stream! {
+            while left > 0 {
+                let mut chunk = match chunks.next().await {
+                    Some(chunk) => chunk?,
+                    None => break,
+                };
+                chunk.rows.truncate(left as usize);
+                left -= chunk.rows.len() as u64;
+                yield chunk;
+            }
+        }))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Cursor, Duckdb, Source};
+    use super::{Backend, Cursor, Duckdb, Source};
     use crate::import::Target;
 
     #[test]
@@ -177,10 +224,13 @@ mod tests {
             from: "docs.parquet".to_string(),
             ..Default::default()
         };
-        let error = Source::Duck(Duckdb::Files(None))
-            .scan(&target, Some(Cursor::Key("42".to_string())))
-            .err()
-            .expect("files accepted a key cursor");
+        let error = Source {
+            locator: String::new(),
+            backend: Backend::Duck(Duckdb::Files(None)),
+        }
+        .scan(&target, Some(Cursor::Key("42".to_string())))
+        .err()
+        .expect("files accepted a key cursor");
         assert_eq!(
             error.to_string(),
             "resume cursor Key(\"42\") does not fit docs.parquet"
@@ -190,10 +240,13 @@ mod tests {
             part: "docs.parquet".to_string(),
             rows: 7,
         };
-        let error = Source::Duck(Duckdb::Sqlite("docs.db".to_string()))
-            .scan(&target, Some(offset))
-            .err()
-            .expect("table accepted an offset cursor");
+        let error = Source {
+            locator: String::new(),
+            backend: Backend::Duck(Duckdb::Sqlite("docs.db".to_string())),
+        }
+        .scan(&target, Some(offset))
+        .err()
+        .expect("table accepted an offset cursor");
         assert_eq!(
             error.to_string(),
             "resume cursor Offset { part: \"docs.parquet\", rows: 7 } does not fit docs.parquet"

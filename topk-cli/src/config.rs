@@ -8,9 +8,11 @@ use std::io::{ErrorKind, Write};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::{ensure, Context, Result};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tempfile::{NamedTempFile, TempPath};
@@ -30,6 +32,7 @@ pub struct Config {
     dir: PathBuf,
     host: Host,
     oauth: OAuthConfig,
+    project_id: OnceLock<ProjectId>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -39,7 +42,27 @@ pub struct Defaults {
 
 impl Config {
     pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
-        Self { dir, host, oauth }
+        Self {
+            dir,
+            host,
+            oauth,
+            project_id: OnceLock::new(),
+        }
+    }
+
+    pub fn with_project(mut self, project_id: Option<ProjectId>) -> Self {
+        self.project_id = project_id.map(OnceLock::from).unwrap_or_default();
+        self
+    }
+
+    pub fn project_id(&self) -> Result<ProjectId> {
+        if let Some(id) = self.project_id.get() {
+            return Ok(id.clone());
+        }
+        let id = self.defaults()?.project_id.context(
+            "--project-id (or TOPK_PROJECT_ID) is required, or select a default project with `topk project select`",
+        )?;
+        Ok(self.project_id.get_or_init(|| id).clone())
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -89,10 +112,9 @@ impl Config {
     }
 
     pub fn defaults(&self) -> Result<Defaults> {
-        match read(&self.defaults_file())? {
-            Some(raw) => toml::from_str(&raw).context("invalid saved defaults"),
-            None => Ok(Defaults::default()),
-        }
+        Ok(read_toml(&self.defaults_file())
+            .context("invalid saved defaults")?
+            .unwrap_or_default())
     }
 
     pub fn default_project(&self) -> Result<ProjectId> {
@@ -138,19 +160,17 @@ pub struct LockedSession<'a> {
 
 impl LockedSession<'_> {
     pub fn load(&self) -> Result<Option<Session>> {
-        let Some(raw) = read(&self.config.credentials_file())? else {
-            return Ok(None);
-        };
-        let credentials: Credentials =
-            toml::from_str(&raw).context("stored credentials are corrupt")?;
-        Ok(Some(credentials.session(&self.config.oauth)?))
+        let credentials: Option<Credentials> =
+            read_toml(&self.config.credentials_file()).context("stored credentials are corrupt")?;
+        credentials
+            .map(|credentials| credentials.session(&self.config.oauth))
+            .transpose()
     }
 
     pub fn save(&self, session: Session) -> Result<()> {
-        let mut config: Table = match read(&self.config.config_file())? {
-            Some(raw) => toml::from_str(&raw).context("invalid config.toml")?,
-            None => Table::new(),
-        };
+        let mut config: Table = read_toml(&self.config.config_file())
+            .context("invalid config.toml")?
+            .unwrap_or_default();
         write_toml(
             &self.config.credentials_file(),
             &Credentials::new(&self.config.oauth, session),
@@ -273,7 +293,13 @@ fn remove(path: &Path) -> Result<()> {
     }
 }
 
-fn write_toml<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+pub fn read_toml<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
+    read(path)?
+        .map(|raw| toml::from_str(&raw).with_context(|| format!("parsing {}", path.display())))
+        .transpose()
+}
+
+pub fn write_toml<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     write_secret_file(path, &toml::to_string_pretty(value)?)
 }
 

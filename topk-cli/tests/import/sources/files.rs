@@ -16,13 +16,14 @@ async fn glob_resume_preserves_order(ctx: &mut Scratch) {
         from: format!("{}/*.parquet", ctx.scratch().display()),
         ..Default::default()
     };
-    let source = topk::import::Source::connect(
-        &target.from.parse::<topk::import::Uri>().unwrap(),
-        &config(),
-    )
-    .await
-    .unwrap();
-    let mut scan = source.scan(&target, None).unwrap().chunks;
+    let source = target
+        .from
+        .parse::<topk::import::Uri>()
+        .unwrap()
+        .build(&config())
+        .await
+        .unwrap();
+    let mut scan = source.scan(&target, None).unwrap();
     let first = scan.next().await.unwrap().unwrap();
     assert_eq!(first.rows.len(), 3);
     let cursor = first.cursor.unwrap();
@@ -32,7 +33,7 @@ async fn glob_resume_preserves_order(ctx: &mut Scratch) {
     );
     drop(scan);
 
-    let mut resumed = source.scan(&target, Some(cursor)).unwrap().chunks;
+    let mut resumed = source.scan(&target, Some(cursor)).unwrap();
     let mut ids = Vec::new();
     while let Some(chunk) = resumed.next().await {
         for row in chunk.unwrap().rows {
@@ -62,13 +63,14 @@ async fn glob_error_follows_prior_rows(ctx: &mut Scratch, #[case] limit: Option<
         limit,
         ..Default::default()
     };
-    let source = topk::import::Source::connect(
-        &target.from.parse::<topk::import::Uri>().unwrap(),
-        &config(),
-    )
-    .await
-    .unwrap();
-    let mut scan = source.scan(&target, None).unwrap().chunks;
+    let source = target
+        .from
+        .parse::<topk::import::Uri>()
+        .unwrap()
+        .build(&config())
+        .await
+        .unwrap();
+    let mut scan = source.scan(&target, None).unwrap();
     let mut count = 0;
     let mut chunks = 0;
     let mut error = None;

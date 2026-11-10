@@ -27,7 +27,9 @@ use topk::client::DataClient;
 use topk::config::Config;
 use topk::endpoint::DataEndpoint;
 use topk::host::Host;
-use topk::import::{Error, Spec, State, Target, Uri};
+use topk::import::{
+    Checkpoint, Cursor, Destination, Error, Import, Mark, RunId, Spec, State, Target, Uri,
+};
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document};
@@ -138,7 +140,7 @@ pub async fn stream(
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let source = topk::import::Source::connect(&uri, &config()).await?;
+    let source = uri.build(&config()).await?;
     let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = Vec::new();
     while let Some(row) = rows.next().await {
@@ -176,6 +178,17 @@ pub fn refused<T, E: std::error::Error + Send + Sync + 'static>(result: Result<T
     }
 }
 
+/// Where the test environment imports to.
+pub fn destination() -> Destination {
+    Destination {
+        project_id: std::env::var("TOPK_PROJECT_ID")
+            .expect("TOPK_PROJECT_ID not set")
+            .parse()
+            .expect("project id"),
+        region: std::env::var("TOPK_REGION").expect("TOPK_REGION not set"),
+    }
+}
+
 pub struct Scratch {
     dir: TempDir,
 }
@@ -200,10 +213,26 @@ impl Scratch {
 
     pub fn save(&self, state: &State) {
         std::fs::write(
-            self.state_path(&state.id),
+            self.state_path(state.id),
             toml::to_string_pretty(state).expect("state serializes"),
         )
         .unwrap();
+    }
+
+    /// Saves `state` as a run that stopped after `cursor`; returns its id.
+    pub fn save_stopped(
+        &self,
+        mut state: State,
+        collection: &str,
+        cursor: Cursor,
+        consumed: u64,
+    ) -> RunId {
+        state.cursors.insert(
+            collection.to_string(),
+            Mark::After(Checkpoint { cursor, consumed }),
+        );
+        self.save(&state);
+        state.id
     }
 
     pub fn spec_file(&self, toml: &str) -> String {
@@ -269,6 +298,7 @@ impl AsyncTestContext for Scratch {
 
 pub struct Ctx {
     pub config: Config,
+    pub destination: Destination,
     pub progress: MultiProgress,
     scratch: Scratch,
     _session: CliTestContext,
@@ -286,6 +316,20 @@ impl std::ops::Deref for Ctx {
 }
 
 impl Ctx {
+    pub async fn prepare(&self, uri: &Uri, spec: Spec) -> Result<Import, Error> {
+        let source = uri.clone().build(&self.config).await?;
+        Import::new(
+            &self.config,
+            source,
+            spec,
+            Destination {
+                project_id: self.destination.project_id.clone(),
+                region: self.destination.region.clone(),
+            },
+        )
+        .await
+    }
+
     pub fn client(&self) -> &Client {
         &self.client
     }
@@ -369,7 +413,11 @@ impl AsyncTestContext for Ctx {
             Config::dir().expect("config directory"),
         );
         Ctx {
-            config: config.clone(),
+            config: config.clone().with_project(Some(project_id.clone())),
+            destination: Destination {
+                project_id: project_id.clone(),
+                region: from_env::<DataEndpoint>().region().unwrap().to_string(),
+            },
             progress: MultiProgress::with_draw_target(ProgressDrawTarget::hidden()),
             scratch: Scratch::setup().await,
             _session: session,
@@ -396,10 +444,7 @@ impl AsyncTestContext for Ctx {
 
 pub async fn catalog_of(locator: &str) -> Result<Vec<topk::import::Table>, Error> {
     let uri: Uri = locator.parse()?;
-    topk::import::Source::connect(&uri, &config())
-        .await?
-        .catalog()
-        .await
+    uri.build(&config()).await?.catalog().await
 }
 
 pub async fn discover_err(locator: &str, pattern: &str) -> String {

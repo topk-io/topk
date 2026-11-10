@@ -38,13 +38,15 @@ async fn elasticsearch_url_index_is_a_selector() {
     let target = target(&source.from, "_id", "title = { type = 'text' }");
     let url = format!("es://localhost:19200/{}", target.from);
 
-    let catalog =
-        topk::import::Source::connect(&url.parse::<topk::import::Uri>().unwrap(), &config())
-            .await
-            .unwrap()
-            .catalog()
-            .await
-            .unwrap();
+    let catalog = url
+        .parse::<topk::import::Uri>()
+        .unwrap()
+        .build(&config())
+        .await
+        .unwrap()
+        .catalog()
+        .await
+        .unwrap();
     let docs = stream(Some(&url), &target).await.unwrap();
 
     assert_eq!(catalog.len(), 1);
@@ -73,9 +75,7 @@ async fn expired_es_cursor_does_not_restart() {
     let addr = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let uri = format!("es://{addr}").parse::<topk::import::Uri>().unwrap();
-    let source = topk::import::Source::connect(&uri, &config())
-        .await
-        .unwrap();
+    let source = uri.build(&config()).await.unwrap();
     let target = Target {
         limit: Some(2),
         ..target("books", "_id", "title = { type = 'text' }")
@@ -90,7 +90,7 @@ async fn expired_es_cursor_does_not_restart() {
             }),
         )
         .unwrap();
-    let mut scan = scan.chunks;
+    let mut scan = scan;
     let error = scan.next().await.unwrap().err().unwrap().to_string();
     server.abort();
 
@@ -109,9 +109,7 @@ async fn es_filter_requires_object(#[case] filter: &str) {
     let uri = "es+http://127.0.0.1:1"
         .parse::<topk::import::Uri>()
         .unwrap();
-    let source = topk::import::Source::connect(&uri, &config())
-        .await
-        .unwrap();
+    let source = uri.build(&config()).await.unwrap();
     let target = Target {
         filter: Some(filter.to_string()),
         ..target("books", "_id", "title = { type = 'text' }")

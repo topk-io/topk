@@ -57,13 +57,15 @@ async fn mongo_resume_crosses_id_types() {
         ])
         .await
         .unwrap();
-    let source =
-        topk::import::Source::connect(&mongo::Mongo::URL.parse::<Uri>().unwrap(), &config())
-            .await
-            .unwrap();
+    let source = mongo::Mongo::URL
+        .parse::<Uri>()
+        .unwrap()
+        .build(&config())
+        .await
+        .unwrap();
     let target = target(&name, "_id", "n = { type = 'int' }");
     let ids = |after: Option<Cursor>| {
-        let mut scan = source.scan(&target, after).unwrap().chunks;
+        let mut scan = source.scan(&target, after).unwrap();
         let target = &target;
         async move {
             let mut ids = Vec::new();
