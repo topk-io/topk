@@ -4,7 +4,7 @@ use crate::{sql_invalid, sql_unsupported, Error, SqlExprExt, SqlStatementExt, St
 
 pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
     let SqlStatement::ShowObjects(show) = &stmt else {
-        sql_unsupported!("statement: {stmt:?}");
+        sql_unsupported!("statement: {stmt}");
     };
 
     let prefix = match &show.show_options.starts_with {

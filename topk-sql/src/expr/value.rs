@@ -19,7 +19,7 @@ impl FromSql<SqlExpr> for Value {
                 }
                 SqlValue::Boolean(b) => Ok(Value::bool(b)),
                 SqlValue::Null => Ok(Value::null()),
-                other => Err(Error::InvalidLiteral(format!("{other:?}"))),
+                other => Err(Error::InvalidLiteral(format!("{other}"))),
             },
             SqlExpr::UnaryOp {
                 op: UnaryOperator::Minus,
@@ -36,7 +36,7 @@ impl FromSql<SqlExpr> for Value {
                     op: UnaryOperator::Minus,
                     expr: inner,
                 }),
-                other => sql_unsupported!("expression as value: {other:?}"),
+                other => sql_unsupported!("expression as value: {other}"),
             },
             SqlExpr::Array(arr) => Value::from_sql(arr.elem),
             SqlExpr::Function(func) => Value::from_sql(func),
@@ -48,7 +48,7 @@ impl FromSql<SqlExpr> for Value {
                     parse_timestamp(&s)
                 }
                 DataType::Timestamp(_, _) => sql_unsupported!("TIMESTAMPTZ"),
-                other => sql_unsupported!("typed string literal: {other:?}"),
+                other => sql_unsupported!("typed string literal: {other}"),
             },
             SqlExpr::Cast {
                 expr, data_type, ..
@@ -57,22 +57,22 @@ impl FromSql<SqlExpr> for Value {
                     SqlExpr::Value(v) => match v.value {
                         SqlValue::SingleQuotedString(s) | SqlValue::DoubleQuotedString(s) => s,
                         other => {
-                            sql_unsupported!("cast source must be a string literal, got: {other:?}")
+                            sql_unsupported!("cast source must be a string literal, got: {other}")
                         }
                     },
                     other => {
-                        sql_unsupported!("cast source must be a string literal, got: {other:?}")
+                        sql_unsupported!("cast source must be a string literal, got: {other}")
                     }
                 };
                 let type_name = match data_type {
                     DataType::Custom(ref name, _) => name.to_string().to_ascii_lowercase(),
                     DataType::Timestamp(_, TimezoneInfo::None) => return parse_timestamp(&s),
                     DataType::Timestamp(_, _) => sql_unsupported!("TIMESTAMPTZ"),
-                    other => return Err(Error::Unsupported(format!("cast to {other:?}"))),
+                    other => return Err(Error::Unsupported(format!("cast to {other}"))),
                 };
                 parse_cast(&type_name, &s)
             }
-            other => sql_unsupported!("expression as value: {other:?}"),
+            other => sql_unsupported!("expression as value: {other}"),
         }
     }
 }

@@ -459,7 +459,7 @@ fn matrix_ctor(args: Vec<SqlExpr>, name: &str, elem_type: ElemType) -> Result<Va
             SqlExpr::Array(arr) => arr.elem,
             other => {
                 return Err(Error::Invalid(format!(
-                    "{name}: expected ARRAY of ARRAY, got {other:?}"
+                    "{name}: expected ARRAY of ARRAY, got {other}"
                 )));
             }
         };
@@ -507,7 +507,7 @@ fn array_elems(expr: SqlExpr, sig: &str) -> Result<Vec<SqlExpr>, Error> {
     match expr {
         SqlExpr::Array(a) => Ok(a.elem),
         other => Err(Error::Invalid(format!(
-            "{sig}: expected an ARRAY[…] literal, got {other:?}"
+            "{sig}: expected an ARRAY[…] literal, got {other}"
         ))),
     }
 }

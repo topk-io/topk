@@ -25,7 +25,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     Ok(LogicalExpr::literal(Value::i64(0)).sub(LogicalExpr::from_sql(*expr)?))
                 }
                 UnaryOperator::Plus => LogicalExpr::from_sql(*expr),
-                other => sql_unsupported!("unary operator {other:?}"),
+                other => sql_unsupported!("unary operator {other}"),
             },
 
             SqlExpr::BinaryOp { left, op, right } => {
@@ -69,7 +69,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     BinaryOperator::GtEq => l.gte(r),
                     BinaryOperator::And => l.and(r),
                     BinaryOperator::Or => l.or(r),
-                    other => sql_unsupported!("binary operator {other:?}"),
+                    other => sql_unsupported!("binary operator {other}"),
                 })
             }
 
@@ -238,7 +238,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                 Ok(LogicalExpr::from_sql(*right)?.contains(Value::from_sql(*left)?))
             }
 
-            other => sql_unsupported!("expression: {other:?}"),
+            other => sql_unsupported!("expression: {other}"),
         }
     }
 }

@@ -1156,7 +1156,7 @@ async fn semantic_similarity_search() {
 )]
 #[case::distinct(
     "SELECT DISTINCT genre FROM {{table}} LIMIT 5",
-    "Unsupported: SELECT DISTINCT"
+    "Unsupported: SELECT DISTINCT; use GROUP BY with an aggregate"
 )]
 #[case::join(
     "SELECT _id FROM {{table}} a JOIN {{table}} b ON a._id = b._id LIMIT 5",

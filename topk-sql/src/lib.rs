@@ -182,6 +182,8 @@ mod tests {
     }
 }
 
+// Messages read `<what's wrong>; <how to fix it>`, the fix as an imperative or as
+// `did you mean <exact SQL>?` when the user's statement can be rebuilt.
 #[macro_export]
 macro_rules! sql_unsupported {
     ($cond:expr, $($arg:tt)+) => {

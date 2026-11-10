@@ -45,6 +45,10 @@ impl Table {
             .ok_or_else(|| Error::Invalid("table name must be an identifier".to_string()))?
             .value
             .as_str();
+        sql_invalid!(
+            value.contains('/'),
+            "invalid table name '{value}'; write a partition as <collection>$<partition>"
+        );
 
         if let Some((collection, partition)) = value.split_once('$') {
             sql_invalid!(
@@ -158,7 +162,11 @@ mod tests {
         "invalid table reference '$part'; expected collection$partition"
     )]
     #[case("\"$\"", "invalid table reference '$'; expected collection$partition")]
-    fn new_rejects_empty_name(#[case] table: &str, #[case] message: &str) {
+    #[case(
+        "\"events/hooli\"",
+        "invalid table name 'events/hooli'; write a partition as <collection>$<partition>"
+    )]
+    fn new_rejects_invalid_name(#[case] table: &str, #[case] message: &str) {
         match Table::new(name(table)).unwrap_err() {
             Error::Invalid(msg) => assert_eq!(msg, message),
             other => panic!("expected Invalid, got {other:?}"),

@@ -65,7 +65,7 @@ impl FromSql<ColumnDef> for FieldSpec {
                 ColumnOption::Default(_) => sql_unsupported!("DEFAULT constraint"),
                 ColumnOption::Unique { .. } => sql_unsupported!("UNIQUE constraint"),
                 ColumnOption::ForeignKey { .. } => sql_unsupported!("FOREIGN KEY constraint"),
-                other => sql_unsupported!("column constraint: {other:?}"),
+                other => sql_unsupported!("column constraint: {other}"),
             }
         }
 
@@ -205,12 +205,12 @@ impl FromSql<Function> for FieldIndex {
                         Ok((key, value))
                     }
                     other => {
-                        sql_invalid!("expected key = 'value' in INDEX options, got {other:?}")
+                        sql_invalid!("expected key = 'value' in INDEX options, got {other}")
                     }
                 })
                 .collect::<Result<_, Error>>()?,
             other => {
-                sql_invalid!("expected function argument list for index options, got {other:?}")
+                sql_invalid!("expected function argument list for index options, got {other}")
             }
         };
 
