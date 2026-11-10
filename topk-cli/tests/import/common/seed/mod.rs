@@ -31,7 +31,7 @@ pub async fn discovered(target: Target, url: Option<String>) -> anyhow::Result<T
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let catalog = topk::import::Source::connect(&uri, &config(), None)
+    let catalog = topk::import::Source::connect(&uri, &config())
         .await?
         .catalog()
         .await?;

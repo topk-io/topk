@@ -128,7 +128,7 @@ async fn a_limit_caps_rows(#[case] backend: Box<dyn Seed>) {
 #[tokio::test]
 async fn es_filter_requires_object(#[case] filter: &str) {
     let uri = "es+http://127.0.0.1:1".parse().unwrap();
-    let source = topk::import::Source::connect(&uri, &config(), None)
+    let source = topk::import::Source::connect(&uri, &config())
         .await
         .unwrap();
     let target = Target {

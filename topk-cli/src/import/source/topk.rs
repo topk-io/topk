@@ -17,16 +17,21 @@ use crate::ProjectId;
 
 use super::{Chunk, ChunkStream, Table};
 
-/// `topk://<region>/<collection>`
+/// `topk://<project-id>@<region>/<collection>`, read with your login.
 #[derive(Clone, Debug)]
 pub struct Uri {
+    pub project_id: ProjectId,
     pub region: String,
     pub collection: String,
 }
 
 impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "topk://{}/{}", self.region, self.collection)
+        write!(
+            f,
+            "topk://{}@{}/{}",
+            self.project_id, self.region, self.collection
+        )
     }
 }
 
@@ -62,9 +67,9 @@ pub struct Topk {
 }
 
 impl Topk {
-    pub fn connect(uri: &Uri, config: &Config, project_id: ProjectId) -> Result<Topk, Error> {
+    pub fn connect(uri: &Uri, config: &Config) -> Result<Topk, Error> {
         Ok(Topk {
-            client: DataClient::new(config, project_id, &uri.region)
+            client: DataClient::new(config, uri.project_id.clone(), &uri.region)
                 .map_err(|e| Error::InvalidArgument(e.to_string()))?,
             collection: uri.collection.clone(),
         })

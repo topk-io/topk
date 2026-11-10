@@ -123,7 +123,7 @@ pub fn topk() -> TestCommand {
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     let uri = locator.parse().expect("source uri parses");
     let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    let catalog = topk::import::Source::connect(&uri, &config(), None)
+    let catalog = topk::import::Source::connect(&uri, &config())
         .await
         .expect("connect")
         .catalog()
@@ -146,7 +146,7 @@ pub async fn stream_docs_from(
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let source = topk::import::Source::connect(&uri, &config(), None).await?;
+    let source = topk::import::Source::connect(&uri, &config()).await?;
     let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = BTreeMap::new();
     while let Some(row) = rows.next().await {

@@ -5824,7 +5824,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
-| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none, except from a `topk://` source |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none |
 
 ###### Authenticate
 
@@ -5870,8 +5870,9 @@ A single file names its collection.
 ###### Copy a TopK collection
 
 ```bash
-topk import topk://aws-us-east-1-elastica/books --to books-v2                        # reindex under a new schema
-topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monstera   # copy us → eu
+topk import topk://<project-id>@aws-us-east-1-elastica/books --to books-v2                        # reindex under a new schema
+topk import topk://<project-id>@aws-us-east-1-elastica/books --region aws-eu-central-1-monstera   # copy across regions
+topk import topk://<project-id>@aws-us-east-1-elastica/books --project-id <other-project-id>      # copy to another project
 ```
 
 Schema and indexes copy as-is; the copy is additive.
@@ -5924,7 +5925,7 @@ Resume skips finished collections and continues unfinished ones from their sourc
 | files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
-| topk | `topk://<region>/<collection>` | — | your login session|
+| topk | `topk://<project-id>@<region>/<collection>` | — | your login |
 
 ###### Spec
 

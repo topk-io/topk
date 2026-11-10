@@ -11,11 +11,9 @@ use futures::stream::BoxStream;
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::data::Value;
 
-use crate::client::MISSING_PROJECT;
 use crate::config::Config;
 use crate::import::error::Error;
 use crate::import::spec::{Field, Target};
-use crate::ProjectId;
 
 pub use duck::{aws_process_profile, Duckdb, File};
 use es::Es;
@@ -105,21 +103,12 @@ pub enum Source {
 }
 
 impl Source {
-    pub async fn connect(
-        uri: &Uri,
-        config: &Config,
-        project_id: Option<&ProjectId>,
-    ) -> Result<Source, Error> {
+    pub async fn connect(uri: &Uri, config: &Config) -> Result<Source, Error> {
         Ok(match uri {
             Uri::Duck(duck) => Source::Duck(duck.clone()),
             Uri::Es(url) => Source::Es(Es::new(url.clone())?),
             Uri::Mongo(url) => Source::Mongo(Mongo::connect(url).await?),
-            Uri::Topk(uri) => {
-                let project_id = project_id
-                    .cloned()
-                    .ok_or_else(|| Error::InvalidArgument(MISSING_PROJECT.to_string()))?;
-                Source::Topk(Topk::connect(uri, config, project_id)?)
-            }
+            Uri::Topk(uri) => Source::Topk(Topk::connect(uri, config)?),
         })
     }
 

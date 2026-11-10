@@ -124,7 +124,6 @@ async fn plan(
     source: &Source,
     args: &ImportArgs,
     config: &Config,
-    project_id: Option<&ProjectId>,
     given: Option<Spec>,
 ) -> Result<Spec, Error> {
     // Discovery reads the CLI source's catalog; a spec brings its own collections
@@ -153,7 +152,7 @@ async fn plan(
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => file_catalogs(&spec, config, project_id).await?,
+        None => file_catalogs(&spec, config).await?,
     };
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
@@ -180,15 +179,11 @@ async fn plan(
 
 /// Columns for a bare `-f` spec, where each collection's `from` is its own file
 /// locator. A `from` reached through a sampled source contributes nothing.
-async fn file_catalogs(
-    spec: &Spec,
-    config: &Config,
-    project_id: Option<&ProjectId>,
-) -> Result<Vec<import::Table>, Error> {
+async fn file_catalogs(spec: &Spec, config: &Config) -> Result<Vec<import::Table>, Error> {
     let mut tables = Vec::new();
     for target in spec.collections.values() {
         let uri: Uri = target.from.parse()?;
-        let source = Source::connect(&uri, config, project_id).await?;
+        let source = Source::connect(&uri, config).await?;
         if source.columns_are_exhaustive() {
             tables.extend(source.catalog().await?);
         }
@@ -260,9 +255,9 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         (None, Some(state)) => Some(toml::from_str(&state.spec)?),
         (None, None) => None,
     };
+    let source = Source::connect(&uri, &config).await?;
+    let mut spec = plan(&source, args, &config, given).await?;
     let project_id = args.project_id.as_ref();
-    let source = Source::connect(&uri, &config, project_id).await?;
-    let mut spec = plan(&source, args, &config, project_id, given).await?;
 
     let (resumed, done, after) = match resumed {
         Some(mut state) => {
