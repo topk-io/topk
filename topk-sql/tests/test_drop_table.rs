@@ -8,6 +8,10 @@ use common::{Scope, TableScope};
     "CREATE TABLE {{table}} (name TEXT NOT NULL, score FLOAT)",
     "DROP TABLE {{table}}"
 )]
+#[case::collection(
+    "CREATE COLLECTION {{table}} (name TEXT NOT NULL, score FLOAT)",
+    "DROP COLLECTION {{table}}"
+)]
 #[tokio::test]
 async fn drop_table(#[case] create_sql: &str, #[case] drop_sql: &str) {
     TableScope::with_scope(async |ctx| -> anyhow::Result<()> {
@@ -31,6 +35,7 @@ async fn drop_table(#[case] create_sql: &str, #[case] drop_sql: &str) {
 
 #[rstest]
 #[case::missing(None, "DROP TABLE IF EXISTS {{table}}")]
+#[case::collection_missing(None, "DROP COLLECTION IF EXISTS {{table}}")]
 #[case::after_drop(
     Some("CREATE TABLE {{table}} (name TEXT NOT NULL)"),
     "DROP TABLE IF EXISTS {{table}}"

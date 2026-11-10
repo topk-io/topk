@@ -19,12 +19,12 @@ pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
             sql_unsupported!(cascade, "DROP TABLE … CASCADE");
             sql_unsupported!(restrict, "DROP TABLE … RESTRICT");
             sql_unsupported!(purge, "DROP TABLE … PURGE");
-            sql_invalid!(names.len() != 1, "DROP TABLE must name exactly one table");
+            sql_invalid!(names.len() != 1, "DROP must name exactly one collection");
 
             let table = Table::new(names.remove(0))?;
             sql_invalid!(
                 !matches!(table, Table::Collection(_)),
-                "DROP TABLE requires a collection name"
+                "DROP requires a collection name"
             );
 
             Ok(Statement::DropTable { table, if_exists })

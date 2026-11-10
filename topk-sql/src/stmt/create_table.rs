@@ -20,12 +20,12 @@ impl TryFrom<SqlCreateTable> for Statement {
     type Error = Error;
 
     fn try_from(ct: SqlCreateTable) -> Result<Statement, Error> {
-        sql_unsupported!(ct.query.is_some(), "CREATE TABLE … AS SELECT");
+        sql_unsupported!(ct.query.is_some(), "CREATE … AS SELECT");
 
         let table = Table::new(ct.name)?;
         sql_invalid!(
             !matches!(table, Table::Collection(_)),
-            "CREATE TABLE requires a collection name"
+            "CREATE requires a collection name"
         );
 
         let schema = ct

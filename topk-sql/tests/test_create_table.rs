@@ -17,6 +17,12 @@ use common::{ids, Scope, TableScope};
     "SELECT name FROM {{table}} WHERE _id = 'a'",
     vec![doc!("name" => "Alice")],
 )]
+#[case::collection(
+    "CREATE COLLECTION {{table}} (name TEXT NOT NULL, score FLOAT)",
+    "INSERT INTO {{table}} (_id, name, score) VALUES ('a', 'Alice', 9.5)",
+    "SELECT name FROM {{table}} WHERE _id = 'a'",
+    vec![doc!("name" => "Alice")],
+)]
 #[case::scalar_types(
     "CREATE TABLE {{table}} (
         label    TEXT     NOT NULL,

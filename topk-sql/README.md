@@ -89,6 +89,16 @@ Statements use `<table>` as either a collection name or a collection plus partit
 > [!NOTE]
 > The `schema` prefix is accepted but ignored — all collections live in a single namespace per project.
 
+> [!NOTE]
+> Every `TABLE` keyword has a `COLLECTION` alias:
+>
+> | Statement | Alias |
+> | --- | --- |
+> | `CREATE TABLE` | `CREATE COLLECTION` |
+> | `DROP TABLE` | `DROP COLLECTION` |
+> | `SHOW TABLES` | `SHOW COLLECTIONS` |
+> | `SHOW PARTITIONS FROM TABLE` | `SHOW PARTITIONS FROM COLLECTION` |
+
 #### Partitions
 
 Partitions can be specified with `$` or the `PARTITION` keyword:
