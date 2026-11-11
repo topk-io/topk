@@ -358,13 +358,12 @@ async fn yes_required_without_tty(ctx: &Ctx) {
         .args(["-o", "json", "import", &from, "--to", &collection])
         .failure(1);
     assert!(run.stderr.contains("pass --yes"), "{run:?}");
-    assert_eq!(
-        std::fs::read_dir(&state)
-            .unwrap()
-            .map(|entry| entry.unwrap().path())
-            .collect::<Vec<_>>(),
-        [state.join(format!("{}.lock", run.id()))]
-    );
+    let files: Vec<_> = std::fs::read_dir(&state)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].extension().unwrap(), "lock");
     assert!(!ctx.exists(&collection).await);
 }
 
@@ -399,11 +398,8 @@ ghost = {{ type = 'text', from = 'nonexistent_col' }}
     assert!(!ctx.exists(&collection).await);
 }
 
-/// An upsert replaces the document, so a spec that drops a field clears it on
-/// every row it rewrites — and the drift refusal advises dropping fields. Say so
-/// before the prompt.
 #[rstest_ctx(Ctx)]
-async fn reimport_replaces_fields_and_warns(ctx: &Ctx) {
+async fn reimport_replaces_fields(ctx: &Ctx) {
     let from = ctx.cli.seed_parquet("books", books());
     let collection = ctx.collection("reimport");
     let first = ctx
@@ -428,12 +424,6 @@ title = {{ type = 'text' }}
         .command()
         .args(["-o", "json", "import", "-f", &spec, "--yes"])
         .success();
-    assert!(
-        narrowed.stderr.contains(
-            "Matching document IDs are replaced, including fields omitted from this spec."
-        ),
-        "{narrowed:?}"
-    );
     let docs = ctx.docs(&collection, BOOK_IDS).await;
     assert_eq!(docs.len(), 3);
     assert!(docs.iter().all(|doc| doc.as_object().unwrap().len() == 2));
@@ -445,10 +435,6 @@ title = {{ type = 'text' }}
     assert_eq!(first.summary()[&collection].rows, 3);
     assert_eq!(narrowed.summary()[&collection].rows, 3);
     assert_eq!(full.summary()[&collection].rows, 3);
-    assert!(
-        full.stderr.contains("Matching document IDs are replaced"),
-        "{full:?}"
-    );
     let expected: Vec<_> = books().iter().map(|doc| json!(json(doc))).collect();
     assert_eq!(ctx.docs(&collection, BOOK_IDS).await, expected);
 }
@@ -784,4 +770,30 @@ async fn partition_failure_resumes_saved_prefix(
         );
     }
     assert!(!ctx.cli.state_path(stopped.id()).exists());
+}
+
+#[rstest_ctx(Scratch)]
+#[case::positional_file(false)]
+#[case::spec_file(true)]
+async fn missing_file_is_readable(ctx: &Scratch, #[case] spec: bool) {
+    let path = ctx.scratch().join("missing.parquet");
+    let path = path.to_str().unwrap();
+    let command = ctx.command().args(["import", "--dry-run"]);
+    let output = if spec {
+        let spec = ctx.file(
+            "missing.toml",
+            &format!("[docs]\nfrom = {path:?}\nid = 'id'\n[docs.fields.text]\ntype = 'text'\n"),
+        );
+        command.args(["--spec", &spec]).failure(1)
+    } else {
+        command.args([path]).failure(1)
+    };
+    assert!(
+        output
+            .stderr
+            .contains(&format!("error: file not found: {path}")),
+        "{}",
+        output.stderr
+    );
+    assert!(!output.stderr.contains("SELECT"), "{}", output.stderr);
 }

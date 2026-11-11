@@ -38,7 +38,6 @@ impl ImportOutput {
 
     pub fn confirm(&self, run: &Run, yes: bool) -> Result<bool> {
         let pending: IndexMap<_, _> = run.state().pending().collect();
-        self.message(format_args!("# run {}", run.id))?;
         for name in pending.keys() {
             if let Some(Progress::After(checkpoint)) = run.state().progress.get(*name) {
                 self.message(format_args!(
@@ -48,9 +47,6 @@ impl ImportOutput {
             }
         }
         self.message(toml::to_string_pretty(&pending)?)?;
-        self.message(
-            "Matching document IDs are replaced, including fields omitted from this spec.",
-        )?;
         crate::util::confirm(
             format!(
                 "Import {} collection(s) into {}?",

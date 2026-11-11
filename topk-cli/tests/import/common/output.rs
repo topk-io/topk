@@ -20,9 +20,9 @@ impl CliOutput {
     pub fn id(&self) -> &str {
         self.stderr
             .lines()
-            .find_map(|line| line.strip_prefix("# run "))
-            .and_then(|rest| rest.split(',').next())
-            .unwrap_or_else(|| panic!("missing run header\n{self:?}"))
+            .find_map(|line| line.split_once("--resume "))
+            .and_then(|(_, rest)| rest.split_whitespace().next())
+            .unwrap_or_else(|| panic!("missing resume command\n{self:?}"))
     }
 
     #[track_caller]

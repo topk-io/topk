@@ -152,7 +152,7 @@ pub struct ImportArgs {
         long,
         value_name = "RUN",
         conflicts_with_all = ["objects", "to", "id", "filter", "limit", "partition", "spec", "dry_run"],
-        help = "Continue the saved plan from its last checkpoint, by the id in its header"
+        help = "Continue the saved plan from its last checkpoint, using the printed resume command"
     )]
     pub resume: Option<RunId>,
     #[arg(short = 'y', long, help = "Skip confirmation")]

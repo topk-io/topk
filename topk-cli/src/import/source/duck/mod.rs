@@ -282,23 +282,14 @@ impl Duckdb {
                 Duckdb::Files(file) => file.clone(),
                 _ => None,
             };
+            if let Some(file) = &file {
+                file.validate()?;
+            }
             let conn = source.connect(file.as_ref())?;
             // (object, collection hint, what to SELECT from)
             let objects: Vec<(String, Option<String>, Select)> = match &file {
                 // A file source's one object is the uri it was given.
-                Some(file) => {
-                    // An empty file reads as a synthetic `column0`.
-                    if local_path(&file.path)
-                        .and_then(|path| std::fs::metadata(path).ok())
-                        .is_some_and(|meta| meta.len() == 0)
-                    {
-                        return Err(Error::InvalidArgument(format!(
-                            "{} is empty — nothing to import",
-                            file.path
-                        )));
-                    }
-                    vec![(file.path.clone(), stem(&file.path), Select::file(file))]
-                }
+                Some(file) => vec![(file.path.clone(), stem(&file.path), Select::file(file))],
                 None => source
                     .list(&conn)?
                     .into_iter()
