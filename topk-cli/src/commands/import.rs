@@ -254,29 +254,16 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         concurrency: args.write.concurrency,
         batch_bytes: args.write.batch_bytes,
     };
-    let notice_interval = std::time::Duration::from_secs(10);
-    let mut notice = tokio::time::interval_at(
-        tokio::time::Instant::now() + notice_interval,
-        notice_interval,
-    );
-    let mut notified = false;
     let execution = import.execute(options);
     futures::pin_mut!(execution);
     loop {
         let event = tokio::select! {
             event = execution.try_next() => event,
-            _ = notice.tick(), if !notified => {
-                ui.waiting()?;
-                notified = true;
-                continue;
-            }
             _ = tokio::signal::ctrl_c() => {
                 ui.message(format_args!("stopped; rows written so far stay. {resume_hint}"))?;
                 return Ok(ExitCode::from(130));
             }
         };
-        notice.reset();
-        notified = false;
         match event {
             Ok(Some(event)) => ui.event(event)?,
             Ok(None) => break,
