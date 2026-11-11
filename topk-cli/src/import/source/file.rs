@@ -30,6 +30,32 @@ pub struct File {
     pub format: Format,
 }
 
+impl File {
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.store.is_some() {
+            return Ok(());
+        }
+        let path = match local_path(&self.path) {
+            Some(path) => path,
+            None => return Ok(()),
+        };
+        let meta = std::fs::metadata(path).map_err(|error| match error.kind() {
+            std::io::ErrorKind::NotFound => {
+                Error::InvalidArgument(format!("file not found: {path}"))
+            }
+            _ => error.into(),
+        })?;
+        // An empty file reads as a synthetic `column0`.
+        if meta.len() == 0 {
+            return Err(Error::InvalidArgument(format!(
+                "{} is empty — nothing to import",
+                self.path
+            )));
+        }
+        Ok(())
+    }
+}
+
 impl FromStr for File {
     type Err = Error;
 
