@@ -43,6 +43,19 @@ pub fn ty(input: &DataType) -> Option<FieldSpec> {
             }
         }
         DataType::Struct(fields) if is_sparse_struct(fields) => FieldSpec::f32_sparse_vector(false),
+        DataType::Struct(fields)
+            if fields.len() == 2
+                && fields.iter().any(|f| {
+                    f.name() == "bytes"
+                        && matches!(f.data_type(), DataType::Binary | DataType::LargeBinary)
+                })
+                && fields.iter().any(|f| {
+                    f.name() == "path"
+                        && matches!(f.data_type(), DataType::Utf8 | DataType::LargeUtf8)
+                }) =>
+        {
+            FieldSpec::image(false)
+        }
         DataType::Struct(_) => FieldSpec::r#struct(false, Vec::<(String, FieldSpec)>::new()),
         // value() renders these to RFC 3339 / a bare date, which the Timestamp
         // coercion reads back to epoch millis.

@@ -274,3 +274,33 @@ async fn blank_csv_id(ctx: &Scratch) {
     let target = target(&from, "id", [("name", FieldSpec::text(false))]);
     assert!(refused(json_documents(&source, &target).await).contains(r#"field "id""#));
 }
+
+#[rstest_ctx(Scratch)]
+async fn huggingface_image_column(ctx: &Scratch) {
+    let from = ctx.parquet(
+        "images.parquet",
+        "SELECT 1 AS id, {'bytes': from_hex('89504e470d0a1a0a'), 'path': 'page.png'} AS image",
+    );
+    let connected = source(&from).await.unwrap();
+    let spec = connected
+        .catalog()
+        .await
+        .unwrap()
+        .discover(&[], Some("images"), Some("id"))
+        .unwrap();
+    assert_eq!(
+        spec.collections["images"].fields["image"].schema,
+        FieldSpec::image(false)
+    );
+    let docs = connected
+        .documents(&spec.collections["images"])
+        .await
+        .unwrap()
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
+    assert_eq!(
+        docs[0].1.fields["image"],
+        topk_rs::proto::v1::data::Value::png(b"\x89PNG\r\n\x1A\n")
+    );
+}

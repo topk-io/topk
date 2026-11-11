@@ -1,6 +1,7 @@
 use thiserror::Error as ThisError;
 
 pub const MAX_DOC_BYTES: usize = 2_000_000;
+pub const MAX_IMAGE_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, ThisError)]
 pub enum Error {

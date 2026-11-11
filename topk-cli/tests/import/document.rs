@@ -137,6 +137,19 @@ fn fields_share_columns_and_the_id() {
 #[case::sparse_f32_from_parallel_lists(FieldSpec::f32_sparse_vector(false), Value::r#struct([("indices", Value::list(vec![3_i64, 1])), ("values", Value::list(vec![1.5_f64, 0.5]))]), Value::sparse_vector(vec![1, 3], vec![0.5, 1.5]))]
 #[case::sparse_u8_from_parallel_lists(FieldSpec::u8_sparse_vector(false), Value::r#struct([("indices", Value::list(vec![7_i64])), ("values", Value::list(vec![3_i64]))]), Value::sparse_vector(vec![7], vec![3u8]))]
 #[case::sparse_from_empty_parallel_lists(FieldSpec::f32_sparse_vector(false), Value::r#struct([("indices", Value::list(Vec::<i64>::new())), ("values", Value::list(Vec::<f64>::new()))]), Value::sparse_vector(Vec::<u32>::new(), Vec::<f32>::new()))]
+#[case::image_from_jpeg_bytes(FieldSpec::image(false), Value::bytes(JPEG.to_vec()), Value::jpeg(JPEG))]
+#[case::image_from_png_bytes(FieldSpec::image(false), Value::bytes(PNG.to_vec()), Value::png(PNG))]
+#[case::image_from_data_uri(
+    FieldSpec::image(false),
+    Value::string("data:image/png;base64,iVBORw0KGgo="),
+    Value::png(PNG)
+)]
+#[case::image_stays_image(FieldSpec::image(false), Value::jpeg(JPEG), Value::jpeg(JPEG))]
+#[case::image_from_hf_struct(
+    FieldSpec::image(false),
+    Value::r#struct([("bytes", Value::bytes(PNG.to_vec())), ("path", Value::string("p.png"))]),
+    Value::png(PNG)
+)]
 fn coerces(#[case] schema: FieldSpec, #[case] input: Value, #[case] expected: Value) {
     assert_eq!(Field::new(schema).coerce(input).expect("coerces"), expected);
 }
@@ -281,6 +294,19 @@ fn nulls(
     Value::string("abc"),
     "expected value"
 )]
+#[case::image_from_other_bytes(FieldSpec::image(false), Value::bytes(b"GIF89a".to_vec()), "not a JPEG or PNG")]
+#[case::image_mislabelled_uri(
+    FieldSpec::image(false),
+    Value::string("data:image/jpeg;base64,R0lGODlh"),
+    "not a JPEG or PNG"
+)]
+#[case::image_from_plain_text(
+    FieldSpec::image(false),
+    Value::string("page.jpg"),
+    "Cannot parse provided string as image data"
+)]
+#[case::image_from_an_int(FieldSpec::image(false), Value::i64(1), " to image")]
+#[case::image_over_512kib(FieldSpec::image(false), Value::bytes([JPEG, &[0; 512 * 1024]].concat()), "over the 524288 byte limit")]
 fn refusals(#[case] schema: FieldSpec, #[case] input: Value, #[case] fragment: &str) {
     let message = refused(Field::new(schema).coerce(input));
     assert!(message.contains(fragment), "got: {message}");
@@ -407,3 +433,6 @@ fn truncates(#[case] limit: usize, #[case] input: &str, #[case] expected: &str) 
         Value::string(expected)
     );
 }
+
+const JPEG: &[u8] = b"\xFF\xD8\xFF\xE0";
+const PNG: &[u8] = b"\x89PNG\r\n\x1A\n";

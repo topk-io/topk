@@ -329,7 +329,7 @@ embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cos
 
 | field key | |
 | --- | --- |
-| `type` | `text` `int` `float` `bool` `bytes` `timestamp` `struct` `*_list` `*_vector` `*_matrix` `*_sparse_vector` |
+| `type` | `text` `int` `float` `bool` `bytes` `image` `timestamp` `struct` `*_list` `*_vector` `*_matrix` `*_sparse_vector` |
 | `from` | source column, when the name differs |
 | `required` | fail the document if missing |
 | `truncate` | max chars, text only |
@@ -337,6 +337,10 @@ embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cos
 | `index` | `"keyword"` `"exact"` `"semantic"` `"ngram"` `{ vector = { metric = "cosine" \| "euclidean" \| "dot_product" \| "hamming" } }` `{ multi_vector = {} }` |
 
 Discovery takes the source's types; declaring a different `type` converts. Embeddings that arrive as float lists, text (`"[1,2,3]"`) or packed bytes become vectors by declaring `f32_vector` and `dim` (`f32_matrix` and `cols` for multi-vectors); a sparse vector reads numeric keys or parallel `indices`/`values` lists; epoch numbers or date text become `timestamp`. Conversions are exact or the document fails; a narrower declaration (`truncate` included) is how loss is accepted.
+
+Image fields accept JPEG/PNG bytes, data URIs, and Hugging Face `{bytes, path}` structs. Each image must fit within 512 KiB.
+
+Declare an image field with `page = { type = "image", index = "semantic" }` in the spec.
 
 #### Failures and limits
 
