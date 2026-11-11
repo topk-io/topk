@@ -123,12 +123,7 @@ pub async fn seed(auth: &Auth) {
         .append_pair("state", &params["state"]);
     let (result, page) = tokio::join!(login.finish(), reqwest::get(callback));
     result.unwrap();
-    assert!(page
-        .unwrap()
-        .text()
-        .await
-        .unwrap()
-        .contains("You're logged in"));
+    assert!(page.unwrap().text().await.unwrap().contains("Logged in"));
 }
 
 pub fn response(expires_in: u64, refresh: Option<&str>) -> Value {

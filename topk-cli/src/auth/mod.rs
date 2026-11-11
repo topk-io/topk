@@ -9,7 +9,7 @@ mod login;
 mod oauth;
 mod session;
 
-pub use crate::auth::login::Login;
+pub use crate::auth::login::{BrowserLogin, CodeLogin};
 pub use crate::auth::oauth::{AccessTokenClaims, OAuthConfig};
 pub use crate::auth::session::Session;
 
@@ -28,8 +28,12 @@ impl Auth {
         })
     }
 
-    pub async fn login(&self, ports: &[u16]) -> Result<Login<'_>> {
-        Login::new(self, ports).await
+    pub async fn login(&self, ports: &[u16]) -> Result<BrowserLogin<'_>> {
+        BrowserLogin::new(self, ports).await
+    }
+
+    pub fn login_no_browser(&self) -> Result<CodeLogin<'_>> {
+        CodeLogin::new(self)
     }
 
     pub async fn logout(&self) -> Result<()> {

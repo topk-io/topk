@@ -6,22 +6,167 @@
 <title>TopK CLI</title>
 <link rel="icon" type="image/png" href="data:image/png;base64,{{favicon}}">
 <style>
-  :root { color-scheme: light dark; --fg: #474747; --muted: #6b6b6b; --bg: #fafafa; --card: #fff; --line: #e6e6e6; --err: #b42318; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #ededed; --muted: #9a9a9a; --bg: #0f0f0f; --card: #171717; --line: #2a2a2a; --err: #f0655a; } }
-  html, body { height: 100%; margin: 0; }
-  body { display: grid; place-items: center; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { width: min(420px, calc(100% - 2rem)); padding: 3rem 2rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; text-align: center; }
-  .logo { display: block; height: 26px; width: auto; margin: 0 auto 2rem; color: var(--fg); }
-  h1 { margin: 0 0 .5rem; font-size: 1.25rem; font-weight: 600; color: var(--{{tone}}); }
-  p { margin: 0; color: var(--muted); }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  /* Shared by topk-cli/assets/callback.html and ddb-management-plane/assets/auth_code.html;
+     keep the two in sync. The palette follows topk.io, and background.webp is the site's
+     blog artwork (apricot palette) faded into --bg. */
+  :root {
+    --bg: #fffdfa;
+    --fg: #29231f;
+    --muted: #70665f;
+    --line: #eadfd5;
+    --accent: #fe4f02;
+    --accent-hover: #ff6b2a;
+    --danger: #b23e35;
+    --surface: color-mix(in srgb, var(--bg) 55%, transparent);
+    --radius: 3px;
+    --sans: Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --art: url(data:image/webp;base64,{{background}});
+    --grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .16 0 0 0 0 .14 0 0 0 0 .12 0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.18'/></svg>");
+  }
+
+  *, ::before, ::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-block-size: 100dvh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    color: var(--fg);
+    font: 16px/1.5 var(--sans);
+    background: var(--grain), var(--art) center / cover no-repeat fixed, var(--bg);
+  }
+
+  header, main { inline-size: min(1184px, 100% - 32px); margin-inline: auto; }
+  header { block-size: 87px; display: flex; align-items: center; }
+  .logo { display: block; block-size: 28px; inline-size: auto; }
+  main { display: grid; align-content: center; justify-items: start; padding-block: 64px 120px; }
+
+  .content {
+    --tone: var(--accent);
+    max-inline-size: 720px;
+    min-inline-size: 0;
+    &.err { --tone: var(--danger); }
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-block-end: 28px;
+    font: 500 12px var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    &::before { content: ""; inline-size: 5px; block-size: 5px; background: var(--tone); }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(40px, 4vw + 24px, 56px);
+    font-weight: 430;
+    line-height: 1.07;
+    letter-spacing: -.045em;
+    text-wrap: balance;
+    &::after { content: "."; color: var(--tone); }
+  }
+
+  p { margin-block: 22px 0; line-height: 1.8; color: var(--muted); text-wrap: pretty; }
+
+  code { font-family: var(--mono); }
+  p code {
+    padding: 2px 6px;
+    font-size: 14px;
+    color: var(--fg);
+    white-space: nowrap;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .panel, .detail { background: var(--surface); border: 1px solid var(--line); }
+  .panel { margin-block-start: 36px; padding: 24px; }
+  .detail {
+    margin-block-start: 28px;
+    padding: 14px 16px;
+    border-inline-start: 2px solid var(--danger);
+    font: 13px var(--mono);
+    overflow-wrap: anywhere;
+  }
+
+  .label { margin-block-end: 10px; font-size: 14px; font-weight: 500; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+  .field {
+    /* Takes the spare room while the button sits beside it; the button fills its own line once wrapped. */
+    flex: 999 1 auto;
+    min-inline-size: 0;
+    display: flex;
+    align-items: center;
+    min-block-size: 50px;
+    padding-inline: 16px;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow-x: auto;
+    user-select: all;
+    background: var(--bg);
+    border: 1px solid var(--line);
+  }
+
+  .copy { position: relative; flex: 1 0 auto; display: flex; }
+
+  button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    min-block-size: 50px;
+    padding-inline: 20px;
+    font: 500 15px var(--sans);
+    color: #fff;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+    &:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); }
+  }
+
+  .tooltip {
+    position: absolute;
+    inset-block-end: calc(100% + 10px);
+    inset-inline-end: 0;
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    color: var(--bg);
+    background: var(--fg);
+    border-radius: var(--radius);
+    pointer-events: none;
+    opacity: 0;
+    translate: 0 4px;
+    transition: opacity .2s, translate .2s;
+    &::after {
+      content: "";
+      position: absolute;
+      inset-block-start: 100%;
+      inset-inline-end: 50px;
+      border: 6px solid transparent;
+      border-block-start-color: var(--fg);
+    }
+    &.shown { opacity: 1; translate: none; }
+  }
 </style>
 </head>
 <body>
+<header>{{logo}}</header>
 <main>
-  {{logo}}
-  <h1>{{title}}</h1>
-  <p>{{body}}</p>
+  <section class="content {{tone}}">
+    <div class="eyebrow">CLI login</div>
+    <h1>{{title}}</h1>
+    <p>{{body}}</p>
+  </section>
 </main>
 </body>
 </html>

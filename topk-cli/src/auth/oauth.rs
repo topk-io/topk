@@ -117,18 +117,26 @@ impl OAuthClient {
         &self,
         authorization: Authorization,
         code: String,
-    ) -> Result<(Session, Option<AccessTokenClaims>)> {
-        let res = self
+    ) -> Result<Option<(Session, Option<AccessTokenClaims>)>> {
+        let res = match self
             .client
             .exchange_code(AuthorizationCode::new(code))
             .set_pkce_verifier(authorization.verifier)
             .set_redirect_uri(Cow::Owned(authorization.redirect_uri))
             .request_async(&self.http)
             .await
-            .context("exchanging the authorization code")?;
+        {
+            Ok(res) => res,
+            Err(RequestTokenError::ServerResponse(error))
+                if *error.error() == BasicErrorResponseType::InvalidGrant =>
+            {
+                return Ok(None)
+            }
+            Err(e) => return Err(e).context("exchanging the authorization code"),
+        };
         let session = session_from_response(res)?;
         let claims = AccessTokenClaims::parse(&session.access_token, &self.audience);
-        Ok((session, claims))
+        Ok(Some((session, claims)))
     }
 
     pub async fn refresh(&self, refresh_token: String) -> Result<Option<Session>> {

@@ -134,16 +134,16 @@ fn page(ok: bool) -> Response {
     let (status, title, tone, body) = if ok {
         (
             StatusCode::OK,
-            "You're logged in",
-            "fg",
-            "You can close this tab and return to the terminal.",
+            "Logged in",
+            "",
+            "You’re signed in to TopK. Return to your terminal to continue.<br>You can close this tab.",
         )
     } else {
         (
             StatusCode::BAD_REQUEST,
             "Login failed",
             "err",
-            "Could not complete login. Return to the terminal for more information.",
+            "Return to your terminal for details, then run <code>topk login</code> again.",
         )
     };
 
@@ -151,6 +151,10 @@ fn page(ok: bool) -> Response {
         .replace(
             "{{favicon}}",
             &STANDARD.encode(include_bytes!("../../assets/favicon.png")),
+        )
+        .replace(
+            "{{background}}",
+            &STANDARD.encode(include_bytes!("../../assets/background.webp")),
         )
         .replace(
             "{{logo}}",

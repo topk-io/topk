@@ -90,7 +90,7 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
             ctx.server.reply(200, response(3600, Some("refresh"))).await;
         };
         let (page, ()) = tokio::join!(callback, exchange);
-        assert!(page.contains("You're logged in"));
+        assert!(page.contains("Logged in"));
         assert_eq!(auth.access_token().await.unwrap(), "access");
     };
     let (result, ()) = tokio::join!(login.finish(), browser);
@@ -134,11 +134,31 @@ async fn failed_exchange_and_failed_save_never_send_success(ctx: &mut AuthTestCo
             };
             let (page, ()) = tokio::join!(request(port, "GET", &path), exchange);
             assert!(page.contains("Login failed"));
-            assert!(!page.contains("You're logged in"));
+            assert!(!page.contains("Logged in"));
         };
         let (result, ()) = tokio::join!(login.finish(), browser);
         assert!(result.is_err());
     }
+}
+
+#[test_context(AuthTestContext)]
+#[tokio::test]
+async fn rejected_pasted_code_leaves_no_session(ctx: &mut AuthTestContext) {
+    let auth = ctx.server.auth(ctx.dir.path());
+    let login = auth.login_no_browser().unwrap();
+    let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
+    assert_eq!(params["redirect_uri"], "https://api.topk.test/auth/code");
+    ctx.server
+        .reply(400, serde_json::json!({"error":"invalid_grant"}))
+        .await;
+    let error = login.finish("not-a-code".into()).await.err().unwrap();
+    assert_eq!(
+        error.to_string(),
+        "login rejected or expired. Run `topk login` again."
+    );
+    assert!(!tenant_dir(ctx.dir.path(), &ctx.server.url)
+        .join("credentials.toml")
+        .exists());
 }
 
 #[test_context(AuthTestContext)]

@@ -1,6 +1,7 @@
+use std::io::stdin;
 use std::process::ExitCode;
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use clap::Args;
 use colored::Colorize;
 
@@ -12,7 +13,7 @@ const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
 
 #[derive(Args, Debug)]
 pub struct LoginArgs {
-    /// Print the login URL instead of opening a browser.
+    /// Print the login URL and prompt for the login code.
     #[arg(long)]
     pub no_browser: bool,
 
@@ -22,21 +23,29 @@ pub struct LoginArgs {
 
 pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
     let auth = Auth::new(config)?;
-    let login = auth.login(&args.callback_ports).await?;
-    if args.no_browser {
+    let claims = if args.no_browser {
+        let login = auth.login_no_browser()?;
         eprintln!(
-            "Open this URL in your browser to log in:\n\n{}\n",
+            "Open this URL in any browser to log in:\n\n{}\n",
             login.url()
         );
+        eprint!("Paste the code shown in the browser: ");
+        let mut code = String::new();
+        stdin().read_line(&mut code)?;
+        let code = code.trim();
+        ensure!(!code.is_empty(), "no code entered");
+        login.finish(code.to_string()).await?
     } else {
+        let login = auth.login(&args.callback_ports).await?;
         eprintln!(
             "Opening your browser to log in. If it doesn't open, visit:\n\n{}\n",
             login.url()
         );
         let _ = open::that_detached(login.url().as_str());
-    }
-    eprintln!("Waiting for login...");
-    match login.finish().await? {
+        eprintln!("Waiting for login...");
+        login.finish().await?
+    };
+    match claims {
         Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
         None => eprintln!("{} Logged in.", "✓".green()),
     }
