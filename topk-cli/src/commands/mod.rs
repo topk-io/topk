@@ -5,3 +5,4 @@ pub mod logout;
 pub mod project;
 pub mod region;
 pub mod sql;
+pub mod usage;

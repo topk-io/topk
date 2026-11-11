@@ -8,6 +8,7 @@ use crate::management::proto::collection_service_client::CollectionServiceClient
 use crate::management::proto::data_plane_service_client::DataPlaneServiceClient;
 use crate::management::proto::project_service_client::ProjectServiceClient;
 use crate::management::proto::region_service_client::RegionServiceClient;
+use crate::management::proto::usage_service_client::UsageServiceClient;
 
 #[derive(Clone)]
 pub struct ManagementClient {
@@ -15,6 +16,7 @@ pub struct ManagementClient {
     pub collections: CollectionServiceClient<Transport>,
     pub regions: RegionServiceClient<Transport>,
     pub tokens: DataPlaneServiceClient<Transport>,
+    pub usage: UsageServiceClient<Transport>,
 }
 
 impl ManagementClient {
@@ -33,7 +35,8 @@ impl ManagementClient {
             projects: ProjectServiceClient::new(transport.clone()),
             collections: CollectionServiceClient::new(transport.clone()),
             regions: RegionServiceClient::new(transport.clone()),
-            tokens: DataPlaneServiceClient::new(transport),
+            tokens: DataPlaneServiceClient::new(transport.clone()),
+            usage: UsageServiceClient::new(transport),
         }
     }
 }

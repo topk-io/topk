@@ -5799,6 +5799,63 @@ topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica         
 
 Results print as one table per statement by default, with row counts on stderr. Use `-o json` to stream one JSON object per row as it arrives, for example `topk sql … -o json | jq`. Pipe long output to a pager yourself, for example `| less`.
 
+##### usage
+
+Show usage of your organization, projects and collections over a time range.
+
+```bash
+topk usage --since <TIME> [--until <TIME>] [OPTIONS]
+```
+
+| argument | description |
+| --- | --- |
+| `--since <TIME>` | Start of the range, at most 90 days before the end: a duration ago (`<n>m`, `<n>h`, `<n>d` or `<n>w`), a date (`YYYY-MM-DD`) or an RFC 3339 time; required |
+| `--until <TIME>` | End of the range: a duration ago, a date or an RFC 3339 time; defaults to now |
+| `--project-id <PROJECT_ID>` | Limit to this project (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`, or the whole organization if none is selected |
+| `--collection <NAME>` | Limit to this collection in the project |
+
+###### Choose a time range
+
+Durations count back from now.
+
+```bash
+topk usage --since 24h                              # last 24 hours
+topk usage --since 7d --until 1d                    # a week, ending a day ago
+topk usage --since 2026-10-01 --until 2026-11-01    # October
+```
+
+<Info>
+
+When a date is passed, it starts at midnight UTC: `2026-10-01` is `2026-10-01T00:00:00Z`.
+
+</Info>
+
+###### Choose a scope
+
+```bash
+topk usage --since 7d --project-id <project-id>                      # a project
+topk usage --since 7d --project-id <project-id> --collection books   # a collection
+```
+
+<Info>
+
+Without `--project-id`, usage covers the project selected with `topk project select`, or your whole organization if none is selected.
+
+</Info>
+
+###### Metrics
+
+| metric | unit | description |
+| --- | --- | --- |
+| Writes | count | Write requests |
+| Written Data | bytes | Data written |
+| Storage | byte-hours | Data stored, over the range |
+| Query Requests | count | Query requests |
+| Query Memory | byte-hours | Memory used to cache data for queries, over the range |
+| Query Compute | bytes | Data scanned by queries |
+| Data Egress | bytes | Data returned by queries and GETs |
+| GETs | count | GET requests |
+
 ##### import
 
 Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
