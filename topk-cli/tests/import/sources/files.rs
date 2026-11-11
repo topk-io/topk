@@ -301,6 +301,6 @@ async fn huggingface_image_column(ctx: &Scratch) {
         .unwrap();
     assert_eq!(
         docs[0].1.fields["image"],
-        topk_rs::proto::v1::data::Value::png(b"\x89PNG\r\n\x1A\n")
+        topk_rs::proto::v1::data::Value::png(b"\x89PNG\r\n\x1A\n".as_slice())
     );
 }
