@@ -1,38 +1,13 @@
-use std::sync::OnceLock;
-
-use indicatif::MultiProgress;
-
 mod coerce;
 mod ddl;
-mod decode;
+mod document;
 mod error;
-mod preview;
-mod sink;
+mod execution;
 pub mod source;
-mod spec;
-mod state;
+pub mod spec;
+pub mod state;
 
 pub const ID: &str = "_id";
-pub const ID_PLACEHOLDER: &str = "<column>";
-
-static PROGRESS: OnceLock<MultiProgress> = OnceLock::new();
-
-pub fn set_progress(progress: MultiProgress) {
-    let _ = PROGRESS.set(progress);
-}
-
-pub fn note(message: String) {
-    match PROGRESS.get() {
-        Some(progress) => {
-            let _ = progress.println(message);
-        }
-        None => eprintln!("{message}"),
-    }
-}
 
 pub use error::Error;
-pub use preview::preview;
-pub use sink::{build_row, documents, Import, LoadOutcome};
-pub use source::{Cursor, File, Scan, Source, Table, Uri};
-pub use spec::{discover, render, validate_columns, Element, Field, Index, Spec, Target, Type};
-pub use state::{Checkpoint, Mark, State};
+pub use execution::{Event, Import, Outcome, WriteOptions};

@@ -215,6 +215,8 @@ test-cli:
               docker inspect --format '{{json .State.Health}}' default-mysql-1; \
               docker compose -f docker-compose.import.yaml logs --tail 50; exit 1)) && \
             TOPK_API_KEY=$TOPK_API_KEY TOPK_TEST_USER=$TOPK_TEST_USER TOPK_TEST_PASSWORD=$TOPK_TEST_PASSWORD \
+            AWS_ENDPOINT_URL=http://localhost:9100 AWS_ACCESS_KEY_ID=rustfsadmin \
+            AWS_SECRET_ACCESS_KEY=rustfsadmin AWS_REGION=us-east-1 \
             topk-test-sandbox cargo nextest run -p topk-cli --all-features --no-fail-fast $args
     END
 

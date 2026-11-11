@@ -1,91 +1,12 @@
+use crate::import::common::{refused, target};
 use rstest::rstest;
-use topk::import::{Error, Spec, Uri};
-
-fn parse_error(toml: &str) -> String {
-    match toml::from_str::<Spec>(toml) {
-        Err(error) => error.to_string(),
-        Ok(_) => panic!("expected the spec to be rejected:\n{toml}"),
-    }
-}
-
-#[rstest]
-#[case::postgres("postgres://u:p@localhost/db", "Postgres")]
-#[case::postgresql("postgresql://localhost/db", "Postgres")]
-#[case::bare_postgres("postgres://", "Postgres")]
-#[case::mysql("mysql://root@localhost:3307/demo", "Mysql")]
-#[case::mariadb("mariadb://localhost/demo", "Mysql")]
-#[case::sqlite_slashes("sqlite:///tmp/books.db", "Sqlite")]
-#[case::sqlite_colon("sqlite:books.db", "Sqlite")]
-#[case::mongo("mongodb://localhost:27017/demo", "Mongo")]
-#[case::mongo_srv("mongodb+srv://cluster.example.com/demo", "Mongo")]
-#[case::elasticsearch("elasticsearch://localhost:19200", "Es")]
-#[case::elasticsearch_https("elasticsearch+https://es.example.com", "Es")]
-#[case::es_short("es://localhost:19200", "Es")]
-#[case::es_short_https("es+https://es.example.com", "Es")]
-#[case::es_short_http("es+http://localhost:19200", "Es")]
-#[case::elastic_cloud("https://demo.es.us-east-1.aws.cloud.es.io", "Es")]
-#[case::elastic_cloud_serverless("https://demo.es.us-east-1.aws.elastic.cloud", "Es")]
-#[case::http_file("http://example.com/data/books.parquet", "Http")]
-#[case::https_presigned("https://example.com/books.csv?X-Amz-Signature=abc", "Csv")]
-#[case::s3("s3://bucket/books.parquet", "S3")]
-#[case::r2("r2://bucket/books.parquet", "S3")]
-#[case::gs("gs://bucket/books.parquet", "Gcs")]
-#[case::gcs("gcs://bucket/books.parquet", "Gcs")]
-#[case::azure_short("az://container/books.parquet", "Azure")]
-#[case::azure("azure://container/books.parquet", "Azure")]
-#[case::huggingface(
-    "hf://datasets/org/name/default/train-00000-of-00001.parquet",
-    "HuggingFace"
-)]
-#[case::huggingface_converted(
-    "hf://datasets/org/name@~parquet/default/train/*.parquet",
-    "HuggingFace"
-)]
-#[case::relative_file("./books.parquet", "store: None")]
-#[case::absolute_glob("/data/part_*.csv", "store: None")]
-#[case::avro("books.avro", "Avro")]
-#[case::surrounding_space("  postgres://localhost/db  ", "Postgres")]
-fn uris(#[case] input: &str, #[case] expected: &str) {
-    let uri: Uri = input.parse().expect("uri parses");
-    assert!(format!("{uri:?}").contains(expected), "{uri:?}");
-}
-
-#[rstest]
-#[case::file("~/data/books.parquet")]
-#[case::glob("~/data/*.parquet")]
-#[case::sqlite("sqlite:~/books.db")]
-fn tilde_expands(#[case] input: &str) {
-    let uri: Uri = input.parse().expect("uri parses");
-    assert!(!format!("{uri:?}").contains('~'), "{uri:?}");
-}
-
-#[rstest]
-#[case::s3("s3://bucket/~/books.parquet")]
-#[case::http("https://example.com/~books/data.csv")]
-fn tilde_survives_remote_paths(#[case] input: &str) {
-    let uri: Uri = input.parse().expect("uri parses");
-    assert!(format!("{uri:?}").contains('~'), "{uri:?}");
-}
-
-#[rstest]
-#[case::empty("", "empty source uri")]
-#[case::only_space("   ", "empty source uri")]
-#[case::mongo_without_a_database("mongodb://localhost:27017", "must include a database")]
-#[case::malformed("postgres://[oops", "bad source uri")]
-#[case::unknown_file_type("data.txt", "cannot tell the file type")]
-#[case::no_extension("data/books", "cannot tell the file type")]
-#[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
-#[case::topk_without_a_project("topk://aws-us-east-1-elastica/books", "needs a project")]
-#[case::topk_without_a_region("topk://p1@/books", "needs a region")]
-#[case::topk_with_a_bad_project("topk://p.1@aws-us-east-1-elastica/books", "invalid project ID")]
-fn bad_uris(#[case] input: &str, #[case] fragment: &str) {
-    let message = match input.parse::<Uri>() {
-        Err(Error::InvalidArgument(message)) => message,
-        Err(other) => panic!("expected InvalidArgument, got {other:?}"),
-        Ok(uri) => panic!("expected a refusal, got {uri:?}"),
-    };
-    assert!(message.contains(fragment), "got: {message}");
-}
+use topk::import::source::Uri;
+use topk::import::spec::{Field, Spec, Target};
+use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
+use topk_rs::proto::v1::control::{
+    field_index, FieldIndex, FieldSpec, FieldType, KeywordIndexType, MultiVectorDistanceMetric,
+    MultiVectorIndex, MultiVectorQuantization, SemanticIndex, VectorDistanceMetric, VectorIndex,
+};
 
 #[rstest]
 #[case::leading_underscore("_books", "collection names start with a letter or digit")]
@@ -93,10 +14,10 @@ fn bad_uris(#[case] input: &str, #[case] fragment: &str) {
 #[case::leading_dot(".books", "collection names start with a letter or digit")]
 #[case::inner_space("my books", "collection names start with a letter or digit")]
 fn invalid_collection_names(#[case] name: &str, #[case] fragment: &str) {
-    let toml = format!(
-        "[{name:?}]\nfrom = \"f.parquet\"\n\n[{name:?}.fields]\nt = {{ type = \"text\" }}\n"
-    );
-    let message = parse_error(&toml);
+    let message = refused(Spec::try_from(indexmap::IndexMap::from([(
+        name.into(),
+        target("f.parquet", "_id", [("t", FieldSpec::text(false))]),
+    )])));
     assert!(message.contains(fragment), "got: {message}");
 }
 
@@ -106,134 +27,44 @@ fn invalid_collection_names(#[case] name: &str, #[case] fragment: &str) {
 #[case::dotted("logs-2026.07.29")]
 #[case::digits_and_separators("b9_books-v2")]
 fn valid_collection_names(#[case] name: &str) {
-    let toml = format!(
-        "[{name:?}]\nfrom = \"f.parquet\"\n\n[{name:?}.fields]\nt = {{ type = \"text\" }}\n"
-    );
-    let spec = toml::from_str::<Spec>(&toml).expect("spec parses");
+    let spec = Spec::try_from(indexmap::IndexMap::from([(
+        name.into(),
+        target("f.parquet", "_id", [("t", FieldSpec::text(false))]),
+    )]))
+    .unwrap();
     assert!(spec.collections.contains_key(name), "{name}");
 }
 
 #[rstest]
-#[case::empty_from(
-    r#"
-[c]
-from = ""
-
-[c.fields]
-t = { type = "text" }
-"#,
-    "`from` is empty"
-)]
-#[case::blank_from(
-    r#"
-[c]
-from = "   "
-
-[c.fields]
-t = { type = "text" }
-"#,
-    "`from` is empty"
-)]
-#[case::truncate_on_a_non_text_field(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-n = { type = "int", truncate = 5 }
-"#,
-    "does not take `truncate`"
-)]
-#[case::truncate_to_zero(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-t = { type = "text", truncate = 0 }
-"#,
-    "at least 1 character"
-)]
-#[case::a_field_named_underscore_id(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-_id = { type = "text" }
-"#,
-    "cannot be empty or start with `_`"
-)]
-#[case::a_field_with_reserved_prefix(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-_score = { type = "float" }
-"#,
-    "cannot be empty or start with `_`"
-)]
-#[case::zero_limit(
-    "[c]\nfrom = 'f.parquet'\nlimit = 0\n[c.fields]\nt = { type = 'text' }",
-    "limit must be greater than zero"
-)]
-#[case::zero_vector_dimension(
-    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'f32_vector', dim = 0 }",
-    "`dim` must be greater than zero"
-)]
-#[case::zero_matrix_columns(
-    "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'f32_matrix', cols = 0 }",
-    "`cols` must be greater than zero"
-)]
-fn invalid_targets(#[case] toml: &str, #[case] fragment: &str) {
-    let message = parse_error(toml);
+#[case::empty_from("", "t", "`from` is empty")]
+#[case::blank_from("   ", "t", "`from` is empty")]
+#[case::reserved_id("f.parquet", "_id", "cannot be empty or start with `_`")]
+#[case::reserved_prefix("f.parquet", "_score", "cannot be empty or start with `_`")]
+fn invalid_targets(#[case] from: &str, #[case] field: &str, #[case] fragment: &str) {
+    let message = refused(target(from, "_id", [(field, FieldSpec::text(false))]).validate());
     assert!(message.contains(fragment), "got: {message}");
+}
+
+#[test]
+fn toml_invokes_field_validation() {
+    let message = refused(toml::from_str::<Spec>(
+        "[c]\nfrom = 'f.parquet'\n[c.fields]\nv = { type = 'text', index = { vector = { metric = 'cosine' } } }",
+    ));
+    assert!(message.contains("incompatible index"), "got: {message}");
 }
 
 #[rstest]
 #[case::missing_from(
-    r#"
-[c]
-id = "_id"
-"#
+    "[c]\nid = '_id'\n[c.fields]\nt = { type = 'text' }",
+    "missing field `from`"
 )]
 #[case::unknown_target_key(
-    r#"
-[c]
-from = "f.parquet"
-bogus = 1
-"#
+    "[c]\nfrom = 'f.parquet'\nbogus = 1\n[c.fields]\nt = { type = 'text' }",
+    "unknown field `bogus`"
 )]
-#[case::unknown_field_key(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-v = { type = "text", bogus = 1 }
-"#
-)]
-#[case::unknown_type(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-v = { type = "quaternion" }
-"#
-)]
-#[case::unknown_index(
-    r#"
-[c]
-from = "f.parquet"
-
-[c.fields]
-v = { type = "text", index = "fuzzy" }
-"#
-)]
-fn unknown_keys(#[case] toml: &str) {
-    parse_error(toml);
+fn unknown_keys(#[case] toml: &str, #[case] fragment: &str) {
+    let message = refused(toml::from_str::<Spec>(toml));
+    assert!(message.contains(fragment), "got: {message}");
 }
 
 #[test]
@@ -250,78 +81,32 @@ title = { type = "text" }
     .expect("spec parses");
     let target = &spec.collections["c"];
     assert_eq!(target.from, "books.parquet");
-    assert_eq!(target.id, None);
+    assert_eq!(target.id, "_id");
     assert_eq!(target.fields.len(), 1);
 }
 
-#[test]
-fn no_fields_is_rejected() {
-    let message = parse_error("[c]\nfrom = \"books.parquet\"\n");
-    assert!(
-        message.contains("declare at least one field"),
-        "got: {message}"
-    );
-}
-
-#[test]
-fn selection_options() {
-    let spec = toml::from_str::<Spec>(
-        r#"
-[c]
-from = "public.books"
-id = "sku"
-filter = "published_year > 1950"
-limit = 25
-
-[c.fields]
-t = { type = "text" }
-"#,
-    )
-    .expect("spec parses");
-    let target = &spec.collections["c"];
-    assert_eq!(target.filter.as_deref(), Some("published_year > 1950"));
-    assert_eq!(target.limit, Some(25));
-}
-
-#[test]
-fn declared_order() {
-    let spec = toml::from_str::<Spec>(
-        r#"
-[zebra]
-from = "z.parquet"
-
-[zebra.fields]
-t = { type = "text" }
-
-[apple]
-from = "a.parquet"
-
-[apple.fields]
-t = { type = "text" }
-
-[mango]
-from = "m.parquet"
-
-[mango.fields]
-t = { type = "text" }
-"#,
-    )
-    .expect("spec parses");
-    assert_eq!(
-        spec.collections
-            .keys()
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
-        ["zebra", "apple", "mango"]
-    );
+#[rstest]
+#[case::missing_fields("", "missing field `fields`")]
+#[case::empty_fields("[c.fields]", "declare at least one field")]
+fn no_fields_is_rejected(#[case] fields: &str, #[case] expected: &str) {
+    let message = refused(toml::from_str::<Spec>(&format!(
+        "[c]\nfrom = 'books.parquet'\n{fields}"
+    )));
+    assert!(message.contains(expected), "{message}");
 }
 
 #[test]
 fn serialize_round_trip() {
     let toml = r#"
+[zebra]
+from = "z.parquet"
+[zebra.fields]
+t = { type = "text" }
+
 [books]
 from = "public.books"
 id = "sku"
+filter = "published_year > 1950"
 limit = 10
 
 [books.fields]
@@ -329,13 +114,31 @@ title = { type = "text", required = true, index = "keyword" }
 embedding = { from = "vec", type = "f32_vector", dim = 3, index = { vector = { metric = "cosine" } } }
 page_counts = { type = "int_list" }
 "#;
-    let printed = toml::to_string_pretty(&toml::from_str::<Spec>(toml).expect("spec parses"))
-        .expect("prints");
-    let reparsed = toml::from_str::<Spec>(&printed).expect("printed spec reads back");
-    assert_eq!(reparsed.collections["books"].from, "public.books");
-    assert_eq!(reparsed.collections["books"].id.as_deref(), Some("sku"));
-    assert!(reparsed.collections["books"].fields["title"].required);
-    assert_eq!(reparsed.collections["books"].limit, Some(10));
+    let spec = toml::from_str::<Spec>(toml).unwrap();
+    assert_eq!(
+        spec.collections
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["zebra", "books"]
+    );
+    assert_eq!(spec.collections["books"].id, "sku");
+    assert_eq!(
+        spec.collections["books"].filter.as_deref(),
+        Some("published_year > 1950")
+    );
+    assert_eq!(spec.collections["books"].limit, Some(10));
+    let printed = toml::to_string_pretty(&spec).unwrap();
+    let reparsed = toml::from_str::<Spec>(&printed).unwrap();
+    assert!(reparsed.collections == spec.collections);
+    assert_eq!(
+        reparsed
+            .collections
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["zebra", "books"]
+    );
     assert_eq!(
         reparsed.collections["books"]
             .fields
@@ -343,9 +146,187 @@ page_counts = { type = "int_list" }
             .collect::<Vec<_>>(),
         ["title", "embedding", "page_counts"]
     );
+    assert_eq!(toml::to_string_pretty(&reparsed).unwrap(), printed);
+}
+
+#[rstest]
+#[case::exact_text(FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Exact)))]
+#[case::dense_binary(FieldSpec::binary_vector(16, false).with_index(FieldIndex::vector(VectorDistanceMetric::Hamming)))]
+#[case::sparse_f16(FieldSpec::f16_sparse_vector(false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)))]
+#[case::matrix_u8(FieldSpec::matrix(true, 3, MatrixValueType::U8).with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, Some(MultiVectorQuantization::Binary2bit), None, None).skip_smve()))]
+#[case::nested_schema(FieldSpec::r#struct(true, [("child", FieldSpec::integer(true)), ("nested", FieldSpec::r#struct(false, [("text", FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact)))]))]))]
+#[case::vector_exact(FieldSpec::f32_vector(3, false).with_index(FieldIndex { index: Some(field_index::Index::VectorIndex(VectorIndex { metric: VectorDistanceMetric::Cosine as i32, exact: Some(true) })) }))]
+#[case::matrix_metadata(FieldSpec::matrix(false, 3, MatrixValueType::F32).with_index(FieldIndex { index: Some(field_index::Index::MultiVectorIndex(MultiVectorIndex { metric: MultiVectorDistanceMetric::Maxsim as i32, quantization: Some(MultiVectorQuantization::Scalar as i32), width: Some(4096), top_k: Some(16), encoding_version: 2, ..Default::default() })) }))]
+#[case::semantic_metadata(FieldSpec::text(false).with_index(FieldIndex { index: Some(field_index::Index::SemanticIndex(SemanticIndex { model: Some("preserved-model".into()), embedding_type: Some(1) })) }))]
+#[allow(deprecated)]
+fn schema_conversion_round_trip(#[case] spec: FieldSpec) {
+    let field = Field::new(spec.clone());
+    let encoded = toml::to_string(&field).unwrap();
+    let parsed: Field = toml::from_str(&encoded).unwrap();
+    assert!(field == parsed);
+}
+
+#[rstest]
+#[case::missing_type(FieldSpec::default())]
+#[case::scalar_index(FieldSpec::integer(false).with_index(FieldIndex::semantic()))]
+#[case::vector_text_index(FieldSpec::f32_vector(3, false).with_index(FieldIndex::semantic()))]
+#[case::image_unsupported(FieldSpec::image(false))]
+#[case::invalid_nested(FieldSpec::r#struct(false, [("child", FieldSpec::default())]))]
+#[case::missing_inner_type(FieldSpec { data_type: Some(FieldType::default()), ..Default::default() })]
+#[case::unknown_matrix_element(FieldSpec::matrix(false, 3, MatrixValueType::Unspecified))]
+fn invalid_source_fields(#[case] spec: FieldSpec) {
+    assert!(Field::new(spec).validate().is_err());
+}
+
+#[rstest]
+#[case::unknown_key("text", "bogus = 1", "unknown field `bogus`")]
+#[case::unknown_type("quaternion", "", "quaternion")]
+#[case::unknown_index("text", "index = 'fuzzy'", "fuzzy")]
+#[case::vector_without_dim("f32_vector", "", "missing field `dim`")]
+#[case::matrix_without_cols("f32_matrix", "", "missing field `cols`")]
+#[case::scalar_dimension("text", "dim = 3", "unknown field `dim`")]
+#[case::sparse_dimension("f32_sparse_vector", "dim = 3", "unknown field `dim`")]
+#[case::vector_columns("f32_vector", "dim = 3\ncols = 3", "unknown field `cols`")]
+#[case::truncate_on_int("int", "truncate = 5", "unknown field `truncate`")]
+#[case::semantic_rejects_bytes("bytes", "index = 'semantic'", "incompatible index")]
+#[case::keyword_needs_text("int", "index = 'keyword'", "incompatible index")]
+#[case::semantic_needs_text("int", "index = 'semantic'", "incompatible index")]
+#[case::vector_needs_vector(
+    "text",
+    "index = { vector = { metric = 'cosine' } }",
+    "incompatible index"
+)]
+#[case::multi_vector_needs_matrix("text", "index = { multi_vector = {} }", "incompatible index")]
+fn field_validation(#[case] ty: &str, #[case] options: &str, #[case] fragment: &str) {
+    let message = refused(toml::from_str::<Field>(&format!(
+        "type = {ty:?}\n{options}"
+    )));
+    assert!(message.contains(fragment), "got: {message}");
+}
+
+#[test]
+fn zero_values_parse() {
+    let spec: Spec = toml::from_str("[c]\nfrom = 'f.parquet'\nlimit = 0\n[c.fields]\nt = { type = 'text', truncate = 0 }\nv = { type = 'f32_vector', dim = 0 }\nm = { type = 'f32_matrix', cols = 0 }").unwrap();
+    assert_eq!(spec.collections["c"].limit, Some(0));
+    assert_eq!(spec.collections["c"].fields["t"].truncate, Some(0));
     assert_eq!(
-        toml::to_string_pretty(&reparsed).expect("prints"),
-        printed,
-        "printing is not idempotent"
+        spec.collections["c"].fields["v"].schema,
+        FieldSpec::f32_vector(0, false)
     );
+    assert_eq!(
+        spec.collections["c"].fields["m"].schema,
+        FieldSpec::matrix(false, 0, MatrixValueType::F32)
+    );
+}
+
+#[rstest]
+#[case::binary_matrix("binary_matrix", "cols = 8")]
+#[case::binary_sparse("binary_sparse_vector", "")]
+fn unsupported_shapes(#[case] name: &str, #[case] options: &str) {
+    assert!(toml::from_str::<Field>(&format!("type = {name:?}\n{options}")).is_err());
+}
+
+#[test]
+fn element_is_not_a_wire_key() {
+    assert!(toml::from_str::<Field>("type = 'f32_vector'\ndim = 3\nelement = 'f16'").is_err());
+}
+
+#[rstest]
+#[case::text("text", "", FieldSpec::text(false))]
+#[case::f32_vector("f32_vector", "dim = 3", FieldSpec::f32_vector(3, false))]
+#[case::f16_vector("f16_vector", "dim = 3", FieldSpec::f16_vector(3, false))]
+#[case::f8_vector("f8_vector", "dim = 3", FieldSpec::f8_vector(3, false))]
+#[case::u8_vector("u8_vector", "dim = 3", FieldSpec::u8_vector(3, false))]
+#[case::i8_vector("i8_vector", "dim = 3", FieldSpec::i8_vector(3, false))]
+#[case::f32_sparse_vector("f32_sparse_vector", "", FieldSpec::f32_sparse_vector(false))]
+#[case::f16_sparse_vector("f16_sparse_vector", "", FieldSpec::f16_sparse_vector(false))]
+#[case::f8_sparse_vector("f8_sparse_vector", "", FieldSpec::f8_sparse_vector(false))]
+#[case::u8_sparse_vector("u8_sparse_vector", "", FieldSpec::u8_sparse_vector(false))]
+#[case::i8_sparse_vector("i8_sparse_vector", "", FieldSpec::i8_sparse_vector(false))]
+#[case::f32_matrix(
+    "f32_matrix",
+    "cols = 3",
+    FieldSpec::matrix(false, 3, MatrixValueType::F32)
+)]
+#[case::f16_matrix(
+    "f16_matrix",
+    "cols = 3",
+    FieldSpec::matrix(false, 3, MatrixValueType::F16)
+)]
+#[case::f8_matrix(
+    "f8_matrix",
+    "cols = 3",
+    FieldSpec::matrix(false, 3, MatrixValueType::F8)
+)]
+#[case::u8_matrix(
+    "u8_matrix",
+    "cols = 3",
+    FieldSpec::matrix(false, 3, MatrixValueType::U8)
+)]
+#[case::i8_matrix(
+    "i8_matrix",
+    "cols = 3",
+    FieldSpec::matrix(false, 3, MatrixValueType::I8)
+)]
+#[case::binary_vector("binary_vector", "dim = 3", FieldSpec::binary_vector(3, false))]
+fn field_wire_shapes(#[case] name: &str, #[case] options: &str, #[case] schema: FieldSpec) {
+    let field: Field = toml::from_str(&format!("type = {name:?}\n{options}")).unwrap();
+    assert_eq!(field.schema, schema);
+    let encoded = toml::to_string(&Field::new(schema)).unwrap();
+    let printed: toml::Value = toml::from_str(&encoded).unwrap();
+    assert_eq!(printed["type"].as_str(), Some(name));
+    assert!(printed.get("element").is_none());
+    assert!(toml::from_str::<Field>(&encoded).unwrap() == field);
+    let json = serde_json::to_value(&field).unwrap();
+    assert_eq!(json["type"], name);
+    assert!(serde_json::from_value::<Field>(json).unwrap() == field);
+}
+
+#[rstest]
+#[case::nan_truncate("truncate = nan")]
+#[case::infinite_truncate("truncate = inf")]
+#[case::nan_index("index = nan")]
+#[case::nan_source("from = nan")]
+fn nonfinite_options_are_rejected(#[case] option: &str) {
+    assert!(toml::from_str::<Field>(&format!("type = 'text'\n{option}")).is_err());
+}
+
+#[rstest]
+#[case::nested_rename("type = 'struct'\nfields = { child = { type = 'text', from = 'other' } }")]
+#[case::nested_truncate("type = 'struct'\nfields = { child = { type = 'text', truncate = 5 } }")]
+#[case::semantic_unknown("type = 'text'\nindex = { semantic = { bogus = 1 } }")]
+#[case::vector_unknown(
+    "type = 'f32_vector'\ndim = 3\nindex = { vector = { metric = 'cosine', bogus = 1 } }"
+)]
+fn unsupported_options(#[case] input: &str) {
+    assert!(toml::from_str::<Field>(input).is_err());
+}
+
+#[rstest]
+#[case::missing_schema(Field::new(FieldSpec::default()), "has no data type")]
+#[case::scalar_truncate(Field { truncate: Some(5), ..Field::new(FieldSpec::integer(false)) }, "unknown field `truncate`")]
+#[tokio::test]
+async fn documents_validate_target(#[case] field: Field, #[case] fragment: &str) {
+    let source = Uri::Files(None).connect().await.unwrap();
+    let target = Target {
+        from: "unused.parquet".into(),
+        limit: Some(0),
+        fields: [("value".into(), field)].into(),
+        id: "_id".into(),
+        filter: None,
+        partition: None,
+    };
+    assert!(source.scan(&target, None).await.is_ok());
+    let error = refused(source.documents(&target).await);
+    assert!(error.contains(fragment), "{error}");
+    assert!(Spec::try_from(indexmap::IndexMap::from([("c".into(), target)])).is_err());
+}
+
+#[rstest]
+#[case::empty_id("")]
+#[case::blank_id(" ")]
+fn empty_id_rejected(#[case] id: &str) {
+    let input =
+        format!("[c]\nfrom = 'rows.parquet'\nid = {id:?}\n[c.fields]\ntitle = {{ type = 'text' }}");
+    assert!(refused(toml::from_str::<Spec>(&input)).contains("`id` cannot be empty"));
 }

@@ -3,9 +3,7 @@ use std::str::FromStr;
 
 use crate::import::error::Error;
 
-use super::lit;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ObjectStore {
     S3,
     Gcs,
@@ -15,7 +13,7 @@ pub enum ObjectStore {
     Http,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     Csv,
     Json,
@@ -25,7 +23,7 @@ pub enum Format {
 }
 
 /// A file or glob, local or in a bucket, typed by its extension.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct File {
     pub path: String,
     pub store: Option<ObjectStore>,
@@ -129,17 +127,4 @@ pub(super) fn stem(path: &str) -> Option<String> {
         .file_stem()
         .and_then(|s| s.to_str())
         .map(str::to_string)
-}
-
-pub(super) fn reader(file: &File) -> String {
-    // Take the union of every file a glob matches, so a column present in only
-    // some files is kept, not dropped to the first file's schema.
-    let (reader, opts) = match file.format {
-        Format::Csv => ("read_csv_auto", ", union_by_name=true"),
-        Format::Json => ("read_json_auto", ", union_by_name=true"),
-        Format::Parquet => ("read_parquet", ", union_by_name=true"),
-        Format::Arrow => ("read_arrow", ""),
-        Format::Avro => ("read_avro", ""),
-    };
-    format!("{reader}('{}'{opts})", lit(&file.path))
 }

@@ -4,7 +4,7 @@ use std::str::FromStr;
 use elasticsearch::auth::Credentials;
 use elasticsearch::http::response::Response;
 use elasticsearch::http::transport::{SingleNodeConnectionPool, TransportBuilder};
-use elasticsearch::indices::IndicesGetMappingParts;
+use elasticsearch::indices::{IndicesExistsParts, IndicesGetMappingParts};
 use elasticsearch::{Elasticsearch, OpenPointInTimeParts, SearchParts};
 use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
@@ -12,10 +12,10 @@ use serde_json::{json, Map, Value as JsonValue};
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::error::Error;
-use crate::import::spec::{Field, Target, Type};
+use crate::import::spec::Target;
 use crate::import::ID;
 
-use super::{Chunk, ChunkStream, Table};
+use super::{Catalog, Chunk, ReadEvent, ReadStream, Table};
 
 // Renewed per page; also how long a stopped run's cursor stays resumable (ES's ceiling).
 const KEEP_ALIVE: &str = "24h";
@@ -23,6 +23,7 @@ const KEEP_ALIVE: &str = "24h";
 #[derive(Clone)]
 pub struct Es {
     client: Elasticsearch,
+    index: String,
 }
 
 /// A query DSL object; the default matches everything.
@@ -57,13 +58,19 @@ impl TryFrom<super::Cursor> for Cursor {
     type Error = Error;
 
     fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
-        let (pit, sort) = cursor.page()?;
-        Ok(Cursor { pit, sort })
+        match cursor {
+            super::Cursor::Page { pit, sort } => Ok(Cursor { pit, sort }),
+            other => Err(Error::InvalidArgument(format!(
+                "resume cursor {other} is not a page"
+            ))),
+        }
     }
 }
 
 impl Es {
     pub fn new(mut endpoint: url::Url) -> Result<Es, Error> {
+        let index = endpoint.path().trim_matches('/').to_string();
+        endpoint.set_path("/");
         let user = endpoint.username().to_string();
         let pass = endpoint.password().map(str::to_string);
         let _ = endpoint.set_username("");
@@ -89,16 +96,22 @@ impl Es {
 
         Ok(Es {
             client: Elasticsearch::new(transport),
+            index,
         })
     }
 
-    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
+    pub async fn catalog(&self) -> Result<Catalog, Error> {
         // Bare GET /_mapping: naming indices in the URL overflows the 4KB request
         // line. Deserialized per index so one unreadable mapping skips one index.
+        let index = [self.index.as_str()];
         let mappings: HashMap<String, JsonValue> = self
             .client
             .indices()
-            .get_mapping(IndicesGetMappingParts::None)
+            .get_mapping(if self.index.is_empty() {
+                IndicesGetMappingParts::None
+            } else {
+                IndicesGetMappingParts::Index(&index)
+            })
             .send()
             .await?
             .error_for_status_code()?
@@ -111,7 +124,7 @@ impl Es {
             .collect();
         indices.sort_by(|(a, _), (b, _)| a.cmp(b));
 
-        Ok(indices
+        let tables = indices
             .into_iter()
             .filter_map(|(from, raw)| {
                 let fields: BTreeMap<String, FieldSpec> =
@@ -122,51 +135,65 @@ impl Es {
                         }) {
                         Ok(fields) => fields.into_iter().collect(),
                         Err(error) => {
-                            crate::import::note(format!(
-                                "skipping index {from:?}: unreadable mapping: {error}"
-                            ));
+                            tracing::warn!("skipping index {from:?}: unreadable mapping: {error}");
                             return None;
                         }
                     };
-                let columns = std::iter::once((
-                    ID.to_string(),
-                    Field {
-                        ty: Type::Text,
-                        ..Default::default()
-                    },
-                ))
-                .chain(
-                    fields
-                        .iter()
-                        .map(|(name, spec)| (name.clone(), Field::from(spec))),
-                )
-                .collect();
+                let columns = std::iter::once((ID.to_string(), FieldSpec::text(false)))
+                    .chain(fields)
+                    .map(|(name, field)| (name, Some(field)))
+                    .collect();
                 Some(Table {
                     collection_hint: Some(from.clone()),
                     from,
                     columns,
-                    primary_key: None,
+                    key: Some(ID.to_string()),
                 })
             })
-            .collect())
+            .collect();
+        Ok(Catalog { tables })
+    }
+
+    pub async fn validate(&self, from: &str) -> Result<(), Error> {
+        let response = self
+            .client
+            .indices()
+            .exists(IndicesExistsParts::Index(&[from]))
+            .send()
+            .await?;
+        if response.status_code().as_u16() == 404 {
+            return Err(Error::InvalidArgument(format!(
+                "source index {from:?} was not found"
+            )));
+        }
+        response.error_for_status_code()?;
+        Ok(())
     }
 
     pub fn chunks(
         &self,
         target: &Target,
-        filter: Option<Filter>,
-        after: Option<Cursor>,
-    ) -> ChunkStream {
-        let Filter(query) = filter.unwrap_or_default();
+        after: Option<super::Cursor>,
+        consumed: u64,
+    ) -> Result<ReadStream, Error> {
+        let Filter(query) = target
+            .filter
+            .as_deref()
+            .map(str::parse)
+            .transpose()?
+            .unwrap_or_default();
+        let after = after.map(Cursor::try_from).transpose()?;
         let client = self.client.clone();
-        let target = target.clone();
+        let from = target.from.clone();
+        let limit = target.limit;
+        let unfiltered = target.filter.is_none();
 
         let stream = async_stream::stream! {
-            let size = target.limit.map_or(1000, |l| (l as i64).min(1000));
-            let mut resumed = after.is_some();
+            let size = limit.map_or(1000, |l| l.min(1000)) as i64;
+            let mut can_restart = after.is_some();
             let (mut pit, mut cursor) = match after {
                 Some(Cursor { pit, sort }) => (pit, Some(sort)),
-                None => match open_pit(&client, &target.from).await {
+                None => match open_pit(&client, &from).await {
                     Ok(pit) => (pit, None),
                     Err(e) => {
                         yield Err(e);
@@ -174,7 +201,7 @@ impl Es {
                     }
                 },
             };
-            let mut yielded: u64 = 0;
+            let mut yielded = consumed;
 
             loop {
                 let mut body = json!({
@@ -190,19 +217,17 @@ impl Es {
                     Ok(page) => page,
                     // A PIT ES no longer knows: 404 expired, 400 unparseable. A 400
                     // with a filter present may be the filter's; pass it through.
-                    Err(Error::EsStatus { status, .. }) if resumed && yielded == 0
-                        && (status == 404 || (status == 400 && target.filter.is_none())) =>
+                    Err(Error::EsStatus { status, .. }) if can_restart
+                        && (status == 404 || (status == 400 && unfiltered)) =>
                     {
                         close_pit(&client, &pit).await;
-                        crate::import::note(format!(
-                            "# {}: resume cursor expired, restarting from the beginning",
-                            target.from
-                        ));
-                        match open_pit(&client, &target.from).await {
+                        match open_pit(&client, &from).await {
                             Ok(fresh) => {
                                 pit = fresh;
                                 cursor = None;
-                                resumed = false;
+                                can_restart = false;
+                                yielded = 0;
+                                yield Ok(ReadEvent::Restarted);
                                 continue;
                             }
                             Err(e) => {
@@ -222,8 +247,7 @@ impl Es {
                 }
 
                 let full = page.hits.hits.len() as i64 == size;
-                let remaining = target
-                    .limit
+                let remaining = limit
                     .map(|l| (l - yielded) as usize)
                     .unwrap_or(usize::MAX);
                 let mut rows = Vec::with_capacity(page.hits.hits.len());
@@ -240,17 +264,21 @@ impl Es {
                         },
                     );
                     yielded += 1;
+                    can_restart = false;
                     rows.push(row.map_err(Error::from));
                 }
                 let mark = cursor.clone().map(|sort| super::Cursor::Page { pit: pit.clone(), sort });
-                yield Ok(Chunk { rows, cursor: mark });
-                if !full || target.limit.is_some_and(|l| yielded >= l) {
+                let done = !full || limit.is_some_and(|l| yielded >= l);
+                if done {
+                    close_pit(&client, &pit).await;
+                }
+                yield Ok(ReadEvent::Chunk(Chunk { rows, cursor: mark }));
+                if done {
                     break;
                 }
             }
-            close_pit(&client, &pit).await;
         };
-        Box::pin(stream)
+        Ok(Box::pin(stream))
     }
 }
 

@@ -1,115 +1,147 @@
 use std::collections::BTreeMap;
+use std::fmt;
+use std::fs::File;
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
 use crate::import::error::Error;
-use crate::import::source::Cursor;
-use crate::import::spec::Spec;
+use crate::import::source::{Checkpoint, Uri};
+use crate::import::spec::{Spec, Target};
+use crate::storage;
 use crate::ProjectId;
+
+/// Names a run in its header, its state file and `--resume`: eight lowercase hex digits.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RunId(u32);
+
+impl FromStr for RunId {
+    type Err = Error;
+
+    fn from_str(id: &str) -> Result<Self, Self::Err> {
+        if id.len() != 8
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        {
+            return Err(Error::InvalidArgument(
+                "run id must be eight lowercase hex digits".into(),
+            ));
+        }
+        u32::from_str_radix(id, 16)
+            .map(RunId)
+            .map_err(|_| Error::InvalidArgument("run id must be eight lowercase hex digits".into()))
+    }
+}
+
+impl fmt::Display for RunId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:08x}", self.0)
+    }
+}
 
 /// Where a collection's import stands.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Mark {
+pub enum Progress {
     Done,
     After(Checkpoint),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Checkpoint {
-    #[serde(flatten)]
-    pub cursor: Cursor,
-    #[serde(default)]
-    pub consumed: u64,
+#[derive(Serialize, Deserialize)]
+pub struct DestinationId {
+    pub project_id: ProjectId,
+    pub region: String,
 }
 
 /// Created at confirmation, rewritten at every checkpoint, deleted on success:
 /// a file exists only for a run that stopped.
 #[derive(Serialize, Deserialize)]
 pub struct State {
-    #[serde(skip)]
-    pub id: String,
-    /// Redacted; never used to connect.
+    /// Passwords are redacted.
     pub source: String,
-    pub started: DateTime<Utc>,
-    /// The whole plan as TOML, done collections included.
-    pub spec: String,
-    /// The project the run writes to.
-    pub project_id: ProjectId,
-    #[serde(default)]
-    pub cursors: BTreeMap<String, Mark>,
+    /// The whole plan, done collections included.
+    pub spec: Spec,
+    #[serde(flatten)]
+    pub destination: DestinationId,
+    #[serde(default, rename = "cursors")]
+    pub progress: BTreeMap<String, Progress>,
 }
 
 impl State {
-    /// A fresh run of the whole `spec`.
-    pub fn new(source: &str, project_id: ProjectId, spec: &Spec) -> Result<State, Error> {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or_default();
-        Ok(State {
-            id: format!("{:08x}", nanos as u32 ^ std::process::id()),
-            source: source.to_string(),
-            started: Utc::now(),
-            spec: toml::to_string_pretty(spec)
-                .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?,
-            project_id,
-            cursors: BTreeMap::new(),
-        })
+    pub fn new(source: String, destination: DestinationId, spec: Spec) -> State {
+        State {
+            source,
+            spec,
+            destination,
+            progress: BTreeMap::new(),
+        }
     }
 
-    /// Checks that this invocation continues the stopped run, drops its done
-    /// collections from `spec`, and returns how many were done and where the
-    /// rest stopped.
-    pub fn resume(
-        &mut self,
-        source: &str,
-        project_id: &ProjectId,
-        spec: &mut Spec,
-    ) -> Result<(usize, BTreeMap<String, Checkpoint>), Error> {
-        let plan = toml::to_string_pretty(spec)
-            .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
-        if self.source != source {
-            return Err(Error::InvalidArgument(format!(
-                "run {} reads {}, not {source:?}",
-                self.id,
-                match self.source.is_empty() {
-                    true => "files".to_string(),
-                    false => format!("{:?}", self.source),
+    pub fn pending(&self) -> impl Iterator<Item = (&String, &Target)> {
+        self.spec
+            .collections
+            .iter()
+            .filter(|(name, target)| match self.progress.get(*name) {
+                Some(Progress::Done) => false,
+                Some(Progress::After(checkpoint)) => target.limit != Some(checkpoint.consumed),
+                None => true,
+            })
+    }
+
+    pub fn source(&self, supplied: Option<&Uri>) -> Result<Uri, Error> {
+        let mut uri = match supplied {
+            Some(uri) => {
+                if uri.to_string() == self.source {
+                    uri.clone()
+                } else {
+                    let saved: Uri = self.source.parse()?;
+                    match (&saved, uri) {
+                        (Uri::Files(Some(a)), Uri::Files(Some(b)))
+                            if a.store.is_none()
+                                && b.store.is_none()
+                                && matches!((std::fs::canonicalize(&a.path), std::fs::canonicalize(&b.path)),
+                                (Ok(a), Ok(b)) if a == b) =>
+                        {
+                            saved
+                        }
+                        _ => {
+                            return Err(Error::InvalidArgument(format!(
+                                "saved run reads {:?}, not {}",
+                                self.source, uri
+                            )))
+                        }
+                    }
                 }
-            )));
-        }
-        if *project_id != self.project_id {
-            return Err(Error::InvalidArgument(format!(
-                "run {} was started for project {started}; resume it with --project-id {started}",
-                self.id,
-                started = self.project_id,
-            )));
-        }
-        let mut after: BTreeMap<String, Checkpoint> = BTreeMap::new();
-        // A cursor only holds for an unchanged target.
-        let stored: Spec = toml::from_str(&self.spec)?;
-        self.cursors.retain(|name, cursor| {
-            let (target, was) = match (spec.collections.get(name), stored.collections.get(name)) {
-                (Some(target), Some(was)) => (target, was),
-                _ => return false,
-            };
-            if target != was {
-                crate::import::note(format!("# {name}: spec changed, starting over"));
-                return false;
             }
-            if let Mark::After(cursor) = cursor {
-                after.insert(name.clone(), cursor.clone());
+            None if self.source.is_empty() => Uri::Files(None),
+            None => self.source.parse()?,
+        };
+        if uri.password() == Some("***") {
+            return Err(Error::InvalidArgument(
+                "saved run needs source credentials again; its saved URL omits the password".into(),
+            ));
+        }
+        if let Uri::Topk { project, .. } = &mut uri {
+            if project.is_none() {
+                *project = Some(self.destination.project_id.clone());
             }
-            true
-        });
-        for (name, checkpoint) in &after {
-            if let Some(limit) = spec.collections[name].limit {
+        }
+        Ok(uri)
+    }
+
+    pub fn validate(&self) -> Result<(), Error> {
+        self.spec.validate()?;
+        for (name, mark) in &self.progress {
+            let target = self.spec.collections.get(name).ok_or_else(|| {
+                Error::InvalidArgument(format!(
+                    "saved run has a checkpoint for unknown collection {name:?}"
+                ))
+            })?;
+            if let (Progress::After(checkpoint), Some(limit)) = (mark, target.limit) {
                 if checkpoint.consumed > limit {
                     return Err(Error::InvalidArgument(format!(
                         "{name}: checkpoint consumed {} rows, exceeding limit {limit}",
@@ -118,67 +150,74 @@ impl State {
                 }
             }
         }
-        let done = self
-            .cursors
-            .values()
-            .filter(|c| matches!(c, Mark::Done))
-            .count();
-        spec.collections
-            .retain(|name, _| !matches!(self.cursors.get(name), Some(Mark::Done)));
-        self.spec = plan;
-        Ok((done, after))
+        Ok(())
+    }
+}
+
+pub struct Run {
+    pub id: RunId,
+    state: State,
+    path: PathBuf,
+    _lock: File,
+}
+
+impl Run {
+    pub async fn start(directory: &Path, state: State) -> Result<Run, Error> {
+        state.validate()?;
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or_default();
+        let id = RunId(nanos as u32 ^ std::process::id());
+        let path = directory.join(format!("{id}.toml"));
+        Ok(Run {
+            id,
+            _lock: storage::lock(path.with_extension("lock")).await?,
+            path,
+            state,
+        })
     }
 
-    fn path(id: &str) -> Result<PathBuf, Error> {
-        // Tests that fail on purpose must not litter the real one.
-        let dir = match std::env::var_os("TOPK_IMPORT_STATE_DIR") {
-            Some(dir) => PathBuf::from(dir),
-            None => Config::dir()
-                .map_err(|e| Error::InvalidArgument(e.to_string()))?
-                .join("import"),
-        };
-        Ok(dir.join(format!("{id}.toml")))
+    pub async fn load(directory: &Path, id: RunId) -> Result<Run, Error> {
+        let path = directory.join(format!("{id}.toml"));
+        let lock = storage::lock(path.with_extension("lock")).await?;
+        let state: State = storage::read_toml(&path)
+            .map_err(|error| {
+                Error::Setup(error.context(format!(
+                    "run {id} cannot be resumed: invalid or older saved state; start a new import"
+                )))
+            })?
+            .ok_or_else(|| {
+                Error::InvalidArgument(format!("no run {id} to resume ({})", path.display()))
+            })?;
+        state.validate()?;
+        Ok(Run {
+            id,
+            state,
+            path,
+            _lock: lock,
+        })
     }
 
-    pub fn load(id: &str) -> Result<State, Error> {
-        let path = Self::path(id)?;
-        let text = std::fs::read_to_string(&path).map_err(|_| {
-            Error::InvalidArgument(format!(
-                "no run {id} to resume ({}) — the id is in the header of the run that stopped",
-                path.display()
-            ))
-        })?;
-        let mut state: State = toml::from_str(&text).map_err(|e| {
-            Error::InvalidArgument(format!(
-                "run {id} cannot be resumed ({}): saved by an older topk? \
-                 Start the import again; upserts are idempotent",
-                e.message()
-            ))
-        })?;
-        state.id = id.to_string();
-        Ok(state)
+    pub fn state(&self) -> &State {
+        &self.state
     }
 
     pub fn save(&self) -> Result<(), Error> {
-        let path = Self::path(&self.id)?;
-        std::fs::create_dir_all(path.parent().expect("state path has a parent"))?;
-        let text = toml::to_string_pretty(self)
-            .map_err(|e| Error::InvalidArgument(format!("cannot serialize run state: {e}")))?;
-        // Rename is atomic: a crash mid-write leaves the previous checkpoint.
-        let tmp = path.with_extension("tmp");
-        std::fs::write(&tmp, text)?;
-        std::fs::rename(tmp, path)?;
+        storage::write_toml(&self.path, &self.state)?;
         Ok(())
     }
 
-    /// Best effort: a leftover file is a stale `--resume` target, not a failed import.
-    pub fn remove(id: &str) {
-        if let Ok(path) = Self::path(id) {
-            if let Err(e) = std::fs::remove_file(&path) {
-                if e.kind() != ErrorKind::NotFound {
-                    tracing::warn!(%e, path = %path.display(), "cannot remove run state");
-                }
-            }
+    pub(super) fn mark(&mut self, name: &str, mark: Progress) -> Result<(), Error> {
+        self.state.progress.insert(name.to_string(), mark);
+        self.save()
+    }
+
+    pub fn remove(&self) -> Result<(), Error> {
+        match std::fs::remove_file(&self.path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
         }
     }
 }

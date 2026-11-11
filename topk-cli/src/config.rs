@@ -1,20 +1,13 @@
 //! The CLI's configuration: which API to talk to, the login session, and the
 //! access tokens minted with it.
 
-#[cfg(unix)]
-use std::fs::Permissions;
-use std::fs::{create_dir_all, File, OpenOptions, TryLockError};
-use std::io::{ErrorKind, Write};
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::fs::File;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tempfile::{NamedTempFile, TempPath};
-use tokio::time::{sleep, timeout};
 use toml::Table;
 
 use crate::auth::{OAuthConfig, Session};
@@ -22,8 +15,7 @@ use crate::client::AccessToken;
 use crate::host::Host;
 use crate::ProjectId;
 
-const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
-const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
+pub use crate::storage::{lock, read, read_toml, write_secret_file, write_toml};
 
 #[derive(Clone)]
 pub struct Config {
@@ -89,10 +81,9 @@ impl Config {
     }
 
     pub fn defaults(&self) -> Result<Defaults> {
-        match read(&self.defaults_file())? {
-            Some(raw) => toml::from_str(&raw).context("invalid saved defaults"),
-            None => Ok(Defaults::default()),
-        }
+        Ok(read_toml(&self.defaults_file())
+            .context("invalid saved defaults")?
+            .unwrap_or_default())
     }
 
     pub fn default_project(&self) -> Result<ProjectId> {
@@ -103,7 +94,13 @@ impl Config {
     }
 
     pub fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
-        write_toml(&self.defaults_file(), &Defaults { project_id })
+        write_toml(
+            &self.defaults_file(),
+            &Defaults {
+                project_id,
+                ..self.defaults()?
+            },
+        )
     }
 
     fn config_file(&self) -> PathBuf {
@@ -138,19 +135,17 @@ pub struct LockedSession<'a> {
 
 impl LockedSession<'_> {
     pub fn load(&self) -> Result<Option<Session>> {
-        let Some(raw) = read(&self.config.credentials_file())? else {
-            return Ok(None);
-        };
-        let credentials: Credentials =
-            toml::from_str(&raw).context("stored credentials are corrupt")?;
-        Ok(Some(credentials.session(&self.config.oauth)?))
+        let credentials: Option<Credentials> =
+            read_toml(&self.config.credentials_file()).context("stored credentials are corrupt")?;
+        credentials
+            .map(|credentials| credentials.session(&self.config.oauth))
+            .transpose()
     }
 
     pub fn save(&self, session: Session) -> Result<()> {
-        let mut config: Table = match read(&self.config.config_file())? {
-            Some(raw) => toml::from_str(&raw).context("invalid config.toml")?,
-            None => Table::new(),
-        };
+        let mut config: Table = read_toml(&self.config.config_file())
+            .context("invalid config.toml")?
+            .unwrap_or_default();
         write_toml(
             &self.config.credentials_file(),
             &Credentials::new(&self.config.oauth, session),
@@ -235,64 +230,10 @@ impl Credentials {
     }
 }
 
-/// Poll the OS lock so cancellation never leaves a blocking worker behind.
-pub async fn lock(path: PathBuf) -> Result<File> {
-    create_dir_all(path.parent().context("lock has no parent directory")?)?;
-    let file = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .open(path)?;
-    timeout(LOCK_TIMEOUT, async {
-        loop {
-            match file.try_lock() {
-                Ok(()) => return Ok(file),
-                Err(TryLockError::WouldBlock) => sleep(LOCK_POLL_INTERVAL).await,
-                Err(TryLockError::Error(e)) => return Err(e.into()),
-            }
-        }
-    })
-    .await
-    .context("timed out waiting for the lock")?
-}
-
-pub fn read(path: &Path) -> Result<Option<String>> {
-    match std::fs::read_to_string(path) {
-        Ok(raw) => Ok(Some(raw)),
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(e).with_context(|| format!("reading {}", path.display())),
-    }
-}
-
 fn remove(path: &Path) -> Result<()> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e).with_context(|| format!("removing {}", path.display())),
     }
-}
-
-fn write_toml<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    write_secret_file(path, &toml::to_string_pretty(value)?)
-}
-
-/// Replace a file atomically so readers cannot observe partial data.
-pub fn write_secret_file(path: &Path, content: &str) -> Result<()> {
-    let parent = path.parent().context("file has no parent")?;
-    create_dir_all(parent)?;
-    let mut file = NamedTempFile::new_in(parent)?;
-    #[cfg(unix)]
-    {
-        file.as_file()
-            .set_permissions(Permissions::from_mode(0o600))?;
-    }
-    file.write_all(content.as_bytes())?;
-    file.as_file().sync_all()?;
-    // Clear the Windows temporary attribute, then restore cleanup on failure.
-    let (_, temp_path) = file.keep()?;
-    let temp_path = TempPath::try_from_path(temp_path)?;
-    // Unlike tempfile::persist, std supports replacing open files on Windows.
-    std::fs::rename(&temp_path, path)?;
-    Ok(())
 }

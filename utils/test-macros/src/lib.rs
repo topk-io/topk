@@ -9,7 +9,7 @@ use syn::{parse_macro_input, Attribute, FnArg, ItemFn, Pat, PatType, Type};
 // are attribute macros that each try to own the test function (its argument list and
 // the `#[test]`/`#[tokio::test]` harness). This macro lets `rstest` be the sole harness
 // (it is the only one that can fan out one fn into N cases) and re-implements what
-// `#[test_context]` does — setup, then run the body, then async teardown that survives
+// `#[test_context]` does — setup, then run the body, then teardown that survives
 // a panicking `assert!` (via `catch_unwind` + `resume_unwind`).
 //
 // The first parameter is the context (a `&Ctx` or `&mut Ctx`); the rest are handed to
@@ -20,7 +20,7 @@ use syn::{parse_macro_input, Attribute, FnArg, ItemFn, Pat, PatType, Type};
 //   #[case(2, "b")]
 //   async fn t(ctx: &mut MyCtx, #[case] n: u32, #[case] s: &str) { ... }
 //
-// `#[rstest]` and `#[tokio::test]` are added automatically unless you write them
+// `#[rstest]` and, for async functions, `#[tokio::test]` are added unless you write them
 // yourself (write your own to pass options, e.g. `#[tokio::test(flavor = "multi_thread")]`).
 #[proc_macro_attribute]
 pub fn rstest_ctx(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -40,13 +40,6 @@ fn expand(ctx_ty: Type, func: ItemFn) -> syn::Result<TokenStream2> {
         sig,
         block,
     } = func;
-
-    if sig.asyncness.is_none() {
-        return Err(syn::Error::new(
-            sig.span(),
-            "#[rstest_ctx] requires an `async fn`",
-        ));
-    }
 
     // The context is the first argument. Split it off; everything after it belongs to rstest.
     let mut inputs = sig.inputs.iter().cloned();
@@ -113,14 +106,13 @@ fn expand(ctx_ty: Type, func: ItemFn) -> syn::Result<TokenStream2> {
         }))
         .collect();
 
-    // Ensure exactly one #[rstest] (outermost, so it fans out first) and one
-    // #[tokio::test] (innermost, applied to each generated case).
+    // Ensure exactly one #[rstest] and, for async functions, one #[tokio::test].
     let rstest_attr = if attrs.iter().any(is_rstest) {
         quote!()
     } else {
         quote!(#[::rstest::rstest])
     };
-    let tokio_attr = if attrs.iter().any(is_tokio_test) {
+    let tokio_attr = if sig.asyncness.is_none() || attrs.iter().any(is_tokio_test) {
         quote!()
     } else {
         quote!(#[::tokio::test])
@@ -137,6 +129,24 @@ fn expand(ctx_ty: Type, func: ItemFn) -> syn::Result<TokenStream2> {
         quote!(&__rstest_ctx)
     };
 
+    let lifecycle = if sig.asyncness.is_some() {
+        quote! {
+            #ctx_binding = <#ctx_ty as ::test_context::AsyncTestContext>::setup().await;
+            let __rstest_ctx_result = ::futures::future::FutureExt::catch_unwind(
+                ::std::panic::AssertUnwindSafe(__rstest_ctx_body(#ctx_pass, #(#forward),*))
+            ).await;
+            <#ctx_ty as ::test_context::AsyncTestContext>::teardown(__rstest_ctx).await;
+        }
+    } else {
+        quote! {
+            #ctx_binding = <#ctx_ty as ::test_context::TestContext>::setup();
+            let __rstest_ctx_result = ::std::panic::catch_unwind(
+                ::std::panic::AssertUnwindSafe(|| __rstest_ctx_body(#ctx_pass, #(#forward),*))
+            );
+            <#ctx_ty as ::test_context::TestContext>::teardown(__rstest_ctx);
+        }
+    };
+
     Ok(quote! {
         #rstest_attr
         #(#attrs)*
@@ -144,11 +154,7 @@ fn expand(ctx_ty: Type, func: ItemFn) -> syn::Result<TokenStream2> {
         #vis #outer_sig {
             #inner_sig #block
 
-            #ctx_binding = <#ctx_ty as ::test_context::AsyncTestContext>::setup().await;
-            let __rstest_ctx_result = ::futures::future::FutureExt::catch_unwind(
-                ::std::panic::AssertUnwindSafe(__rstest_ctx_body(#ctx_pass, #(#forward),*))
-            ).await;
-            <#ctx_ty as ::test_context::AsyncTestContext>::teardown(__rstest_ctx).await;
+            #lifecycle
             match __rstest_ctx_result {
                 ::std::result::Result::Ok(__v) => __v,
                 ::std::result::Result::Err(__e) => ::std::panic::resume_unwind(__e),

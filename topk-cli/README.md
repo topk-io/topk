@@ -207,13 +207,13 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--dry-run` | Print the spec and a sample of documents, without importing |
 | `-f`, `--spec <SPEC>` | Read a TOML import spec |
 | `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
-| `--resume <RUN>` | Continue a run that stopped, by the id in its header; `-f` swaps in an edited spec |
+| `--resume <RUN>` | Continue the saved plan by its run ID; cannot be combined with `--spec` |
 | `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
 | `--limit <LIMIT>` | Read at most this many rows per object |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
-| `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `8MiB`) |
+| `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none |
 
 #### Authenticate
@@ -257,12 +257,12 @@ A single file names its collection.
 #### Copy a TopK collection
 
 ```bash
-topk import topk://<project-id>@aws-us-east-1-elastica/books --to books-v2                        # reindex under a new schema
-topk import topk://<project-id>@aws-us-east-1-elastica/books --region aws-eu-central-1-monstera   # copy across regions
-topk import topk://<project-id>@aws-us-east-1-elastica/books --project-id <other-project-id>      # copy to another project
+topk import topk://<project-id>/books --to books-v2                        # reindex under a new schema
+topk import topk://<project-id>/books --region aws-eu-central-1-monstera   # copy across regions
+topk import topk://<project-id>/books --project-id <other-project-id>      # copy to another project
 ```
 
-Schema and indexes copy as-is; the copy is additive.
+The source region is resolved from the source collection. `--region` selects the destination region. Schema and indexes copy as-is; the copy is additive. Sources with named partitions are rejected before the destination is created; partitioned collection copies are not supported.
 
 #### Split rows across partitions
 
@@ -291,10 +291,12 @@ topk import "$DB_URL" -f spec.toml --yes                      # run
 Stop a run — `^C`, a lost connection — and pick it up where it left off:
 
 ```bash
-topk import postgres://host/db --resume 01J9...               # run id printed at start
+topk import postgres://host/db --resume 1234abcd               # run id printed at start
 ```
 
 Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+
+MongoDB checkpoints use the source `_id`, independently of the destination ID mapping. Legacy checkpoints made with a custom ID column require a new import. Elasticsearch retains its point-in-time snapshot for interrupted scans and closes it before returning a final page.
 
 #### Sources
 
@@ -306,7 +308,9 @@ Resume skips finished collections and continues unfinished ones from their sourc
 | files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
-| topk | `topk://<project-id>@<region>/<collection>` | — | your login |
+| topk | `topk://<project-id>/<collection>` | — | your login |
+
+SQL column names are literal, including dots. Dots inside schema or table names are not supported; source discovery rejects them explicitly.
 
 #### Spec
 
@@ -336,7 +340,13 @@ Discovery takes the source's types; declaring a different `type` converts. Embed
 
 #### Failures and limits
 
-A document fails when a value does not convert exactly, its id is missing or empty, or it is over 200 KB. A failure stops the run, ready to `--resume`; `--continue-on-error` skips them instead.
+Pending document buffers are bounded per active collection by `--batch-bytes × --concurrency`, independently of in-flight writes and source read-ahead. Under pressure, the importer sends individual partial batches to free space.
+
+Progress counts acknowledged writes. After 10 seconds without progress, the CLI prints a waiting notice.
+
+By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
+
+Summaries count acknowledged writes and skipped rows for the current invocation. Any skipped rows or fatal error produce a nonzero exit. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
 
 - there is no schema migration: an existing collection whose schema differs is rejected
 - an upsert replaces the whole document, so a spec that omits an existing field clears it

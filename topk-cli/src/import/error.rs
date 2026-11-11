@@ -1,13 +1,14 @@
 use thiserror::Error as ThisError;
 
-use crate::import::spec::Type;
-
-/// The documented per-document limit (docs/limits.mdx: 200KB), decimal on
-/// purpose: a little strict yields our error, not the server's.
-pub const MAX_DOC_BYTES: usize = 200_000;
+pub const MAX_DOC_BYTES: usize = 2_000_000;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
+    #[error("{0}: couldn't detect an id column")]
+    MissingId(String),
+    #[error(transparent)]
+    Setup(#[from] anyhow::Error),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
@@ -33,18 +34,25 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 
     #[error(transparent)]
-    Topk(#[from] topk_rs::Error),
+    Topk(topk_rs::Error),
+
+    #[error("{0}")]
+    RejectedDocuments(String),
 
     #[error("{0}")]
     InvalidArgument(String),
 
     #[error("cannot coerce to {0}")]
-    CannotCoerce(Type),
+    CannotCoerce(&'static str),
 
-    #[error("{} exceeds the {} document limit",
-        bytesize::ByteSize(*.0 as u64).to_string_as(false),
+    #[error("doc {id:?}: {} exceeds the {} document limit; largest field {field:?}",
+        bytesize::ByteSize(*size as u64).to_string_as(false),
         bytesize::ByteSize(MAX_DOC_BYTES as u64).to_string_as(false))]
-    Oversized(usize),
+    Oversized {
+        id: String,
+        size: usize,
+        field: String,
+    },
 
     #[error("{}{}: {source}",
         id.as_deref().map(|i| format!("doc {i:?}")).unwrap_or_else(|| "row".to_string()),
@@ -60,4 +68,20 @@ pub enum Error {
          use a new collection name, or delete the collection and re-run:\n  {0}"
     )]
     SchemaMismatch(String),
+}
+
+impl From<topk_rs::Error> for Error {
+    fn from(error: topk_rs::Error) -> Self {
+        match error {
+            topk_rs::Error::DocumentValidationError(errors) => Error::RejectedDocuments(
+                errors.into_iter().map(|error| match error {
+                    topk_rs::error::DocumentValidationError::TextTooLong { doc_id, field, max_length, got_length } => format!(
+                        "doc {doc_id:?}, field {field:?}: text length {got_length} exceeds {max_length}; set truncate in the spec or use --continue-on-error"
+                    ),
+                    error => format!("{error:?}"),
+                }).collect::<Vec<_>>().join("\n")
+            ),
+            error => Error::Topk(error),
+        }
+    }
 }

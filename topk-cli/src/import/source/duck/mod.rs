@@ -1,11 +1,10 @@
+mod arrow;
 mod creds;
-mod file;
 mod read;
 mod select;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::str::FromStr;
 
 use duckdb::Connection;
 use tokio::sync::mpsc;
@@ -13,47 +12,14 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::import::error::Error;
-use crate::import::source::codec::arrow;
-use crate::import::spec::{Field, Target};
+use crate::import::spec::Target;
 
-use super::{redact, ChunkStream, Table};
+use super::{redact, ChunkStream, Cursor, Table};
 
-/// A SQL `WHERE` clause, passed to duckdb as written.
-pub struct Filter(String);
-
-impl FromStr for Filter {
-    type Err = Error;
-
-    fn from_str(filter: &str) -> Result<Filter, Error> {
-        Ok(Filter(filter.to_string()))
-    }
-}
-
-/// The last id read from a table, or a row count into one file of a glob.
-#[derive(Debug)]
-pub enum Cursor {
-    Key(String),
-    Offset { part: String, rows: u64 },
-}
-
-impl TryFrom<super::Cursor> for Cursor {
-    type Error = Error;
-
-    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
-        match cursor {
-            super::Cursor::Key(key) => Ok(Cursor::Key(key)),
-            super::Cursor::Offset { part, rows } => Ok(Cursor::Offset { part, rows }),
-            other => Err(Error::InvalidArgument(format!(
-                "resume cursor {other} is not a key or an offset"
-            ))),
-        }
-    }
-}
-
+use super::file::{local_path, stem};
+use super::{File, Format};
 pub use creds::aws_process_profile;
 use creds::secret;
-pub use file::File;
-use file::{local_path, reader, stem, Format};
 use read::{Plan, Sender, READ_AHEAD};
 use select::Select;
 
@@ -234,52 +200,84 @@ impl Duckdb {
             Duckdb::Sqlite(_) | Duckdb::Files(_) => "''",
         };
         let mut stmt = conn.prepare(&format!(
-            "SELECT schema_name || '.' || table_name, table_name FROM duckdb_tables() \
+            "SELECT schema_name, table_name FROM duckdb_tables() \
              WHERE database_name = 'src' AND schema_name NOT IN ({hidden}) \
-             ORDER BY 1",
+             ORDER BY 1, 2",
         ))?;
         let names = stmt
-            .query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, Some(r.get::<_, String>(1)?)))
-            })?
-            .collect::<Result<Vec<(String, Option<String>)>, _>>()?;
-        Ok(names)
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        names.into_iter().map(|(schema, table)| {
+            if schema.contains('.') || table.contains('.') {
+                return Err(Error::InvalidArgument(format!(
+                    "schema {schema:?}, table {table:?}: dots inside schema or table names are not supported"
+                )));
+            }
+            Ok((format!("{schema}.{table}"), Some(table)))
+        }).collect()
     }
 
-    /// Single-column primary keys by qualified name, in one query: asked per
-    /// table it cost 5ms each, for every table in the database.
-    fn primary_keys(&self, conn: &Connection) -> Result<HashMap<String, String>, Error> {
-        // duckdb_constraints() materializes every attached table's constraints
-        // (seconds on a real database) and sees no mysql PKs at all; ask the
-        // source's information_schema. sqlite has none but is small.
+    fn keys(&self, conn: &Connection) -> Result<HashMap<String, String>, Error> {
         let sql = match self {
             Duckdb::Files(_) => return Ok(HashMap::new()),
-            Duckdb::Sqlite(_) => {
-                "SELECT schema_name || '.' || table_name, constraint_column_names[1] \
-                 FROM duckdb_constraints() \
-                 WHERE constraint_type = 'PRIMARY KEY' AND database_name = 'src' \
-                   AND len(constraint_column_names) = 1"
-            }
-            Duckdb::Postgres(_) | Duckdb::Mysql(_) => {
-                "SELECT tc.table_schema || '.' || tc.table_name, min(kcu.column_name) \
-                 FROM src.information_schema.table_constraints tc \
-                 JOIN src.information_schema.key_column_usage kcu \
-                   ON tc.constraint_name = kcu.constraint_name \
-                  AND tc.table_schema = kcu.table_schema \
-                  AND tc.table_name = kcu.table_name \
-                 WHERE tc.constraint_type = 'PRIMARY KEY' \
-                 GROUP BY 1 HAVING count(*) = 1"
-            }
+            Duckdb::Sqlite(_) => format!(
+                "SELECT * FROM sqlite_query('src', '{}')",
+                lit(r#"
+                SELECT 'main.' || t.name AS object, c.name AS column_name, 0 AS priority
+                FROM sqlite_master t JOIN pragma_table_info(t.name) c
+                WHERE t.type = 'table' AND c.pk > 0
+                  AND (SELECT count(*) FROM pragma_table_info(t.name) WHERE pk > 0) = 1
+                  AND (c."notnull" = 1 OR (upper(c.type) = 'INTEGER'
+                       AND NOT EXISTS (SELECT 1 FROM pragma_index_list(t.name) WHERE origin = 'pk')))
+                UNION ALL
+                SELECT 'main.' || t.name, min(c.name), 1
+                FROM sqlite_master t JOIN pragma_index_list(t.name) i
+                JOIN pragma_index_info(i.name) k JOIN pragma_table_info(t.name) c ON c.cid = k.cid
+                WHERE t.type = 'table' AND i."unique" = 1 AND i.partial = 0
+                GROUP BY t.name, i.name
+                HAVING count(*) = 1 AND min(c."notnull") = 1
+                   AND (SELECT count(*) FROM pragma_index_info(i.name)) = 1
+                ORDER BY priority, column_name
+            "#)
+            ),
+            Duckdb::Postgres(_) => format!(
+                "SELECT * FROM postgres_query('src', '{}')",
+                lit("SELECT n.nspname || '.' || t.relname, a.attname \
+                 FROM pg_catalog.pg_index i \
+                 JOIN pg_catalog.pg_class t ON t.oid = i.indrelid \
+                 JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace \
+                 JOIN pg_catalog.pg_attribute a ON a.attrelid = t.oid AND a.attnum = i.indkey[0] \
+                 WHERE i.indisunique AND i.indisvalid AND i.indnkeyatts = 1 \
+                   AND i.indpred IS NULL AND i.indexprs IS NULL AND a.attnotnull \
+                 ORDER BY i.indisprimary DESC, a.attname")
+            ),
+            Duckdb::Mysql(_) => String::from(
+                "SELECT s.table_schema || '.' || s.table_name, min(s.column_name) AS column_name \
+                 FROM src.information_schema.statistics s \
+                 LEFT JOIN src.information_schema.columns c \
+                   ON c.table_schema = s.table_schema AND c.table_name = s.table_name \
+                  AND c.column_name = s.column_name \
+                 WHERE s.non_unique = 0 \
+                 GROUP BY s.table_schema, s.table_name, s.index_name \
+                 HAVING count(*) = 1 AND min(c.is_nullable) = 'NO' \
+                 ORDER BY CASE WHEN s.index_name = 'PRIMARY' THEN 0 ELSE 1 END, column_name",
+            ),
         };
-        let mut stmt = conn.prepare(sql)?;
-        Ok(stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<Result<_, _>>()?)
+        let transaction = conn.unchecked_transaction()?;
+        let mut stmt = transaction.prepare(&sql)?;
+        let mut keys = HashMap::new();
+        for key in stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })? {
+            let (table, column) = key?;
+            keys.entry(table).or_insert(column);
+        }
+        Ok(keys)
     }
 
-    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
+    pub async fn catalog(&self) -> Result<super::Catalog, Error> {
         let source = self.clone();
-        spawn_blocking(move || -> Result<Vec<Table>, Error> {
+        spawn_blocking(move || -> Result<super::Catalog, Error> {
             let file = match &source {
                 Duckdb::Files(file) => file.clone(),
                 _ => None,
@@ -299,11 +297,7 @@ impl Duckdb {
                             file.path
                         )));
                     }
-                    vec![(
-                        file.path.clone(),
-                        stem(&file.path),
-                        Select::new(reader(file)),
-                    )]
+                    vec![(file.path.clone(), stem(&file.path), Select::file(file))]
                 }
                 None => source
                     .list(&conn)?
@@ -314,7 +308,7 @@ impl Duckdb {
                     })
                     .collect(),
             };
-            let mut keys = source.primary_keys(&conn)?;
+            let mut keys = source.keys(&conn)?;
             let mut tables = Vec::with_capacity(objects.len());
             for (from, collection_hint, select) in objects {
                 let mut stmt = conn
@@ -324,17 +318,19 @@ impl Duckdb {
                     .query_arrow([])
                     .map_err(|e| read_error(&from, None, e))?
                     .get_schema();
-                let columns: Vec<(String, Field)> = schema
+                let columns: Vec<_> = schema
                     .fields()
                     .iter()
-                    .map(|field| {
-                        (
-                            field.name().clone(),
-                            Field {
-                                ty: arrow::ty(field.data_type()),
-                                ..Default::default()
-                            },
-                        )
+                    .map(|column| {
+                        let field = arrow::ty(column.data_type());
+                        if field.is_none() {
+                            tracing::warn!(
+                                "{from}: skipping column {:?}: {} has no equivalent in TopK",
+                                column.name(),
+                                column.data_type()
+                            );
+                        }
+                        (column.name().clone(), field)
                     })
                     .collect();
 
@@ -343,63 +339,54 @@ impl Duckdb {
                         "no columns discovered for {from}"
                     )));
                 }
-                let primary_key = keys.remove(&from);
+                let key = keys.remove(&from);
                 tables.push(Table {
                     from,
                     collection_hint,
                     columns,
-                    primary_key,
+                    key,
                 });
             }
-            Ok(tables)
+            Ok(super::Catalog { tables })
         })
         .await?
     }
 
-    pub fn chunks(
-        &self,
-        target: &Target,
-        filter: Option<Filter>,
-        after: Option<Cursor>,
-    ) -> Result<ChunkStream, Error> {
-        let target = target.clone();
-        let filter = filter.map(|filter| filter.0);
-        match (self, after) {
-            (Duckdb::Files(_), None) => self.files(target, filter, None),
-            (Duckdb::Files(_), Some(Cursor::Offset { part, rows })) => {
-                self.files(target, filter, Some((part, rows)))
-            }
-            (Duckdb::Postgres(_) | Duckdb::Mysql(_) | Duckdb::Sqlite(_), None) => {
-                Ok(self.table(target, filter, None))
-            }
-            (
-                Duckdb::Postgres(_) | Duckdb::Mysql(_) | Duckdb::Sqlite(_),
-                Some(Cursor::Key(key)),
-            ) => Ok(self.table(target, filter, Some(key))),
-            (_, Some(cursor)) => Err(Error::InvalidArgument(format!(
-                "resume cursor {cursor:?} does not fit {}",
-                target.from
-            ))),
-        }
-    }
-
-    fn table(&self, target: Target, filter: Option<String>, after: Option<String>) -> ChunkStream {
-        self.stream(move |source, tx| {
-            let conn = source.connect(None)?;
-            Plan::table(source, &target, filter.as_deref(), after.as_deref()).read(&conn, tx)
-        })
-    }
-
-    fn files(
+    pub fn table(
         &self,
         target: Target,
-        filter: Option<String>,
-        resume: Option<(String, u64)>,
+        key: String,
+        after: Option<Cursor>,
     ) -> Result<ChunkStream, Error> {
-        let file: File = target.from.parse()?;
+        let after = match after {
+            None => None,
+            Some(Cursor::Sql { column, value }) if column == key => Some(value),
+            Some(Cursor::Key(value)) if target.id == key => Some(value),
+            Some(cursor) => {
+                return Err(Error::InvalidArgument(format!(
+                "resume cursor {cursor:?} does not match source key {key:?}; start a new import"
+            )))
+            }
+        };
         Ok(self.stream(move |source, tx| {
-            read::files(source, &file, &target, filter.as_deref(), resume, tx)
+            let conn = source.connect(None)?;
+            Plan::table(source, &target, &key, after.as_deref()).read(&conn, tx)
         }))
+    }
+
+    pub fn files(&self, target: Target, after: Option<Cursor>) -> Result<ChunkStream, Error> {
+        let resume = match after {
+            None => None,
+            Some(Cursor::Offset { part, rows }) => Some((part, rows)),
+            Some(cursor) => {
+                return Err(Error::InvalidArgument(format!(
+                    "resume cursor {cursor:?} does not fit {}",
+                    target.from
+                )))
+            }
+        };
+        let file: File = target.from.parse()?;
+        Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, tx)))
     }
 
     fn stream<T: Send + 'static>(

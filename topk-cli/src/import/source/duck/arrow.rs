@@ -2,13 +2,15 @@ use duckdb::arrow::array::{self, Array, ArrayRef, AsArray};
 use duckdb::arrow::datatypes::{DataType, Fields, Float64Type, Int64Type, TimeUnit, UInt64Type};
 use topk_rs::proto::v1::data::Value;
 
-use crate::import::decode::floats;
+use crate::import::coerce::floats;
 use crate::import::error::Error;
-use crate::import::spec::{Element, Type};
+use topk_rs::proto::v1::control::{
+    field_type::DataType as SchemaType, field_type_list::ListValueType, FieldSpec,
+};
 
-pub fn ty(input: &DataType) -> Type {
-    match input {
-        DataType::Boolean => Type::Bool,
+pub fn ty(input: &DataType) -> Option<FieldSpec> {
+    Some(match input {
+        DataType::Boolean => FieldSpec::boolean(false),
         DataType::Int8
         | DataType::Int16
         | DataType::Int32
@@ -16,32 +18,39 @@ pub fn ty(input: &DataType) -> Type {
         | DataType::UInt8
         | DataType::UInt16
         | DataType::UInt32
-        | DataType::UInt64 => Type::Int,
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => Type::Float,
+        | DataType::UInt64 => FieldSpec::integer(false),
+        DataType::Float16 | DataType::Float32 | DataType::Float64 => FieldSpec::float(false),
         // A decimal wider than f64 can hold (~15 digits) keeps its exact value
         // only as text.
         DataType::Decimal128(p, _) | DataType::Decimal256(p, _) => {
             if *p > 15 {
-                Type::Text
+                FieldSpec::text(false)
             } else {
-                Type::Float
+                FieldSpec::float(false)
             }
         }
-        DataType::Binary | DataType::LargeBinary | DataType::FixedSizeBinary(_) => Type::Bytes,
+        DataType::Binary | DataType::LargeBinary | DataType::FixedSizeBinary(_) => {
+            FieldSpec::bytes(false)
+        }
         DataType::List(f) | DataType::LargeList(f) | DataType::FixedSizeList(f, _) => {
-            match ty(f.data_type()) {
-                Type::Int => Type::IntList,
-                Type::Float => Type::FloatList,
-                _ => Type::TextList,
+            match ty(f.data_type())?.data_type.and_then(|ty| ty.data_type) {
+                Some(SchemaType::Integer(_)) => FieldSpec::list(false, ListValueType::Integer),
+                Some(SchemaType::Float(_)) => FieldSpec::list(false, ListValueType::Float),
+                Some(
+                    SchemaType::Boolean(_) | SchemaType::Struct(_) | SchemaType::F32SparseVector(_),
+                ) => return None,
+                _ => FieldSpec::list(false, ListValueType::String),
             }
         }
-        DataType::Struct(fields) if is_sparse_struct(fields) => Type::Sparse(Element::F32),
-        DataType::Struct(_) => Type::Struct,
+        DataType::Struct(fields) if is_sparse_struct(fields) => FieldSpec::f32_sparse_vector(false),
+        DataType::Struct(_) => FieldSpec::r#struct(false, Vec::<(String, FieldSpec)>::new()),
         // value() renders these to RFC 3339 / a bare date, which the Timestamp
         // coercion reads back to epoch millis.
-        DataType::Timestamp(_, _) | DataType::Date32 | DataType::Date64 => Type::Timestamp,
-        _ => Type::Text,
-    }
+        DataType::Timestamp(_, _) | DataType::Date32 | DataType::Date64 => {
+            FieldSpec::timestamp(false)
+        }
+        _ => FieldSpec::text(false),
+    })
 }
 
 pub fn value(array: &ArrayRef, row: usize) -> Result<Value, Error> {
@@ -158,29 +167,27 @@ fn list(elements: &ArrayRef) -> Result<Value, Error> {
             "list contains a null element, which TopK lists cannot hold".to_string(),
         ));
     }
-    if elements.is_empty() {
-        return Ok(Value::list(Vec::<f32>::new()));
-    }
     let dtype = elements.data_type();
     Ok(match dtype {
+        DataType::Null if elements.is_empty() => Value::list(Vec::<String>::new()),
         ty if is_list(ty) => return matrix(elements),
         // A u64 past i64::MAX has no wider integer to read as.
         DataType::UInt64 => Value::list(cast(elements, &DataType::UInt64)?.as_primitive::<UInt64Type>().values().to_vec()),
         // `ty` picks the family; the elements are then read as its widest member.
-        _ => match ty(dtype) {
-            Type::Int => Value::list(
+        _ => match ty(dtype).and_then(|ty| ty.data_type).and_then(|ty| ty.data_type) {
+            Some(SchemaType::Integer(_)) => Value::list(
                 cast(elements, &DataType::Int64)?
                     .as_primitive::<Int64Type>()
                     .values()
                     .to_vec(),
             ),
-            Type::Float => Value::list(
+            Some(SchemaType::Float(_)) => Value::list(
                 cast(elements, &DataType::Float64)?
                     .as_primitive::<Float64Type>()
                     .values()
                     .to_vec(),
             ),
-            Type::Text
+            Some(SchemaType::Text(_))
                 if matches!(
                     dtype,
                     DataType::Utf8
@@ -223,16 +230,12 @@ fn cast(elements: &ArrayRef, to: &DataType) -> Result<ArrayRef, Error> {
 }
 
 fn matrix(rows: &ArrayRef) -> Result<Value, Error> {
-    let rows: Vec<ArrayRef> = (0..rows.len()).map(|i| elements_at(rows, i)).collect();
-
     let mut values: Vec<f32> = Vec::new();
     let mut cols = 0usize;
-    for (i, row) in rows.iter().enumerate() {
-        let row: Vec<f32> = floats(&list(row)?)
-            .map(|v| v.into_iter().map(|n| n as f32).collect())
-            .ok_or_else(|| {
-                Error::InvalidArgument("matrix rows must be numeric lists".to_string())
-            })?;
+    for i in 0..rows.len() {
+        let row = floats(&list(&elements_at(rows, i))?).ok_or_else(|| {
+            Error::InvalidArgument("matrix rows must be numeric lists".to_string())
+        })?;
         if i == 0 {
             cols = row.len();
         } else if row.len() != cols {
@@ -241,7 +244,7 @@ fn matrix(rows: &ArrayRef) -> Result<Value, Error> {
                 row.len()
             )));
         }
-        values.extend(row);
+        values.extend(row.into_iter().map(|n| n as f32));
     }
     if cols == 0 {
         return Err(Error::InvalidArgument(
