@@ -111,6 +111,9 @@ Partitions can be specified with `$` or the `PARTITION` keyword:
 | `schema.collection$partition` | `public.books$2024` |
 | `collection PARTITION name` | `books PARTITION 2024` |
 
+> [!WARNING]
+> A `/` in a table name is not a partition separator.
+
 Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE`, `DROP TABLE` and `SHOW PARTITIONS` name collections without partitions; partitions are created implicitly on first write.
 
 
