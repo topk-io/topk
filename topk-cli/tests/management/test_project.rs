@@ -53,12 +53,20 @@ async fn create_get_list_delete(ctx: &mut CliTestContext) {
 
 #[test_context(CliTestContext)]
 #[tokio::test]
-async fn delete_prints_nothing_in_text_mode(ctx: &mut CliTestContext) {
+async fn delete_clears_the_selected_project(ctx: &mut CliTestContext) {
     let id = ctx.create_project(&unique_name("project"))["project_id"]
         .as_str()
         .unwrap()
         .to_string();
-    assert_eq!(ctx.ok(&["project", "delete", "-y", &id]), "");
+    ctx.ok(&["project", "select", &id]);
+    let text = ctx.ok(&["project", "delete", "-y", &id]);
+    assert!(
+        text.contains(&format!("Project {id} has been deleted.")),
+        "{text}"
+    );
+    assert!(ctx
+        .fails(&["project", "current"])
+        .contains("no project selected"));
 }
 
 #[test_context(CliTestContext)]

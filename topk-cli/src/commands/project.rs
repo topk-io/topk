@@ -208,8 +208,21 @@ pub async fn run(
                         project_id: project_id.clone(),
                     })
                     .await?;
-                if output == Output::Json {
-                    json_line(out, &json!({"deleted": true}))?;
+                // Clear the default project if it was deleted.
+                if config
+                    .defaults()?
+                    .project_id
+                    .is_some_and(|id| id.as_str() == project_id)
+                {
+                    config.set_project_id(None)?;
+                }
+                match output {
+                    Output::Json => json_line(out, &json!({"deleted": true}))?,
+                    Output::Text => writeln!(
+                        out,
+                        "{} Project {project_id} has been deleted.",
+                        "✓".green()
+                    )?,
                 }
             }
         }
