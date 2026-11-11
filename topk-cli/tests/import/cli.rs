@@ -785,3 +785,29 @@ async fn partition_failure_resumes_saved_prefix(
     }
     assert!(!ctx.cli.state_path(stopped.id()).exists());
 }
+
+#[rstest_ctx(Scratch)]
+#[case::positional_file(false)]
+#[case::spec_file(true)]
+async fn missing_file_is_readable(ctx: &Scratch, #[case] spec: bool) {
+    let path = ctx.scratch().join("missing.parquet");
+    let path = path.to_str().unwrap();
+    let command = ctx.command().args(["import", "--dry-run"]);
+    let output = if spec {
+        let spec = ctx.file(
+            "missing.toml",
+            &format!("[docs]\nfrom = {path:?}\nid = 'id'\n[docs.fields.text]\ntype = 'text'\n"),
+        );
+        command.args(["--spec", &spec]).failure(1)
+    } else {
+        command.args([path]).failure(1)
+    };
+    assert!(
+        output
+            .stderr
+            .contains(&format!("error: file not found: {path}")),
+        "{}",
+        output.stderr
+    );
+    assert!(!output.stderr.contains("SELECT"), "{}", output.stderr);
+}

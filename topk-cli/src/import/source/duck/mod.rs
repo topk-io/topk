@@ -288,14 +288,19 @@ impl Duckdb {
                 // A file source's one object is the uri it was given.
                 Some(file) => {
                     // An empty file reads as a synthetic `column0`.
-                    if local_path(&file.path)
-                        .and_then(|path| std::fs::metadata(path).ok())
-                        .is_some_and(|meta| meta.len() == 0)
-                    {
-                        return Err(Error::InvalidArgument(format!(
-                            "{} is empty — nothing to import",
-                            file.path
-                        )));
+                    if let Some(path) = local_path(&file.path).filter(|_| file.store.is_none()) {
+                        let meta = std::fs::metadata(path).map_err(|error| match error.kind() {
+                            std::io::ErrorKind::NotFound => {
+                                Error::InvalidArgument(format!("file not found: {path}"))
+                            }
+                            _ => error.into(),
+                        })?;
+                        if meta.len() == 0 {
+                            return Err(Error::InvalidArgument(format!(
+                                "{} is empty — nothing to import",
+                                file.path
+                            )));
+                        }
                     }
                     vec![(file.path.clone(), stem(&file.path), Select::file(file))]
                 }

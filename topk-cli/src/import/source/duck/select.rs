@@ -73,7 +73,7 @@ impl Select {
             .map(|column| format!("'{}'", lit(column)))
             .collect::<Vec<_>>()
             .join(", ");
-        self.projection = format!("COLUMNS(c -> c IN [{names}])");
+        self.projection = format!("COLUMNS(lambda c: c IN [{names}])");
         self
     }
 
@@ -163,7 +163,7 @@ mod tests {
 
         assert_eq!(
             sql,
-            "SELECT COLUMNS(c -> c IN ['id', 'author''s note']) \
+            "SELECT COLUMNS(lambda c: c IN ['id', 'author''s note']) \
              FROM read_parquet('docs.parquet') OFFSET 4"
         );
     }
