@@ -159,12 +159,12 @@ async fn ragged_float_lists_stay_lists(ctx: &Scratch) {
 
 #[rstest_ctx(Scratch)]
 async fn read_errors_name_the_source(ctx: &Scratch) {
-    let missing = format!("{}/missing.parquet", ctx.scratch().display());
+    let missing = format!("{}/missing-*.parquet", ctx.scratch().display());
 
     let connected = source(&missing).await.unwrap();
     let message = refused(connected.catalog().await);
     assert!(
-        message.contains("reading") && message.contains("missing.parquet"),
+        message.contains("reading") && message.contains("missing-*.parquet"),
         "got: {message}"
     );
     assert!(message.contains("No files found"), "got: {message}");
