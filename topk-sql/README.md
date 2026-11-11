@@ -111,6 +111,9 @@ Partitions can be specified with `$` or the `PARTITION` keyword:
 | `schema.collection$partition` | `public.books$2024` |
 | `collection PARTITION name` | `books PARTITION 2024` |
 
+> [!WARNING]
+> A `/` in a table name is not a partition separator.
+
 Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE`, `DROP TABLE` and `SHOW PARTITIONS` name collections without partitions; partitions are created implicitly on first write.
 
 
@@ -155,6 +158,7 @@ Wire-type casts (`::int4`, `::float8`, `::text`, …) control how the column is 
 | Arithmetic | `rating * 10 > 40` |
 | `CASE WHEN … THEN … ELSE … END` | `CASE WHEN rating > 4.0 THEN 'top' ELSE 'other' END AS tier` |
 | `contains(field, scalar)` | `contains(tags, 'classic')` |
+| `scalar = ANY(field)` | `'classic' = ANY(tags)` |
 | `match(query [, field [, weight [, all]]])` | `match('hobbit rings', title)` |
 | `match_tokens(tokens [, field [, all]])` | `match_tokens(ARRAY['love', 'classic'], tags)` |
 | `should(query [, field [, weight]])` | `should('rings', title)` |
@@ -295,6 +299,9 @@ LIMIT 10;
 | `match_all(field, query)` | Boolean predicate — all terms must match |
 | `match_any(field, query)` | Boolean predicate — any term must match |
 | `contains(field, scalar)` | List membership or string substring |
+
+> [!NOTE]
+> List membership can also be written `scalar = ANY(field)` or `array_contains(field, scalar)`.
 
 `should(...)` adds an optional BM25 scoring term without filtering documents from the result set — documents containing the term score higher, while documents that do not contain it remain eligible. On its own it matches the entire collection; combine it with `match(...)` using `AND` when some terms are required and others should only influence ranking:
 

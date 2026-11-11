@@ -188,7 +188,10 @@ impl TryFrom<SqlQuery> for Statement {
             SetExpr::Merge(_) => sql_unsupported!("SELECT ... MERGE ..."),
         };
 
-        sql_unsupported!(select.distinct.is_some(), "SELECT DISTINCT");
+        sql_unsupported!(
+            select.distinct.is_some(),
+            "SELECT DISTINCT; use GROUP BY with an aggregate"
+        );
 
         let group_by_exprs: Vec<SqlExpr> = match select.group_by {
             GroupByExpr::Expressions(exprs, modifiers) if modifiers.is_empty() => exprs,
@@ -224,7 +227,7 @@ impl TryFrom<SqlQuery> for Statement {
                 sql_unsupported!(args.is_some(), "table-valued function in FROM");
                 (Table::new(name)?, read_options(with_hints)?)
             }
-            other => sql_unsupported!("FROM clause: {other:?}"),
+            other => sql_unsupported!("FROM clause: {other}"),
         };
 
         // parse WHERE

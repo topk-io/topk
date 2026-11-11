@@ -281,6 +281,22 @@ async fn where_in(#[case] query: &str, #[case] expected: HashSet<&str>) {
     "SELECT _id FROM {{table}} WHERE match_any(tags, ARRAY['adventure', 'epic'])",
     ids!["hobbit", "lotr", "moby"],
 )]
+#[case::contains(
+    "SELECT _id FROM {{table}} WHERE contains(tags, 'classic')",
+    ids!["mockingbird", "nineteen_eighty_four", "pride", "gatsby", "moby"],
+)]
+#[case::any(
+    "SELECT _id FROM {{table}} WHERE 'classic' = ANY(tags)",
+    ids!["mockingbird", "nineteen_eighty_four", "pride", "gatsby", "moby"],
+)]
+#[case::some(
+    "SELECT _id FROM {{table}} WHERE 'classic' = SOME(tags)",
+    ids!["mockingbird", "nineteen_eighty_four", "pride", "gatsby", "moby"],
+)]
+#[case::array_contains(
+    "SELECT _id FROM {{table}} WHERE array_contains(tags, 'classic')",
+    ids!["mockingbird", "nineteen_eighty_four", "pride", "gatsby", "moby"],
+)]
 #[case::boost_score(
     "SELECT _id, BOOST(rating, in_print = true, 1.5) AS score FROM {{table}} ORDER BY score DESC LIMIT 2",
     ids!["lotr", "harry"],
@@ -1140,7 +1156,7 @@ async fn semantic_similarity_search() {
 )]
 #[case::distinct(
     "SELECT DISTINCT genre FROM {{table}} LIMIT 5",
-    "Unsupported: SELECT DISTINCT"
+    "Unsupported: SELECT DISTINCT; use GROUP BY with an aggregate"
 )]
 #[case::join(
     "SELECT _id FROM {{table}} a JOIN {{table}} b ON a._id = b._id LIMIT 5",

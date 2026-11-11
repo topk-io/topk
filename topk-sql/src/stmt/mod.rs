@@ -159,7 +159,7 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::CreateTable(ct) => Statement::try_from(ct),
             SqlStatement::Drop { .. } => drop::try_from_sql(stmt),
             SqlStatement::ShowObjects(_) => show::try_from_sql(stmt),
-            other => Err(Error::Unsupported(format!("statement: {other:?}"))),
+            other => Err(Error::Unsupported(format!("statement: {other}"))),
         }
     }
 }
@@ -192,7 +192,7 @@ impl FromSql<SqlExpr> for RowFilter {
             } if left.as_id().is_some() || right.as_id().is_some() => {
                 let lit = if left.as_id().is_some() { right } else { left };
                 let id = lit.as_string().ok_or_else(|| {
-                    Error::Invalid(format!("expected a string for `_id`, got {lit:?}"))
+                    Error::Invalid(format!("expected a string for `_id`, got {lit}"))
                 })?;
                 Ok(RowFilter::Ids(vec![id]))
             }
