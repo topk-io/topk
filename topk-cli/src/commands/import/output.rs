@@ -85,22 +85,11 @@ impl ImportOutput {
         Ok(())
     }
 
-    pub fn waiting(&self) -> io::Result<()> {
-        let message = "waiting for source or server; transient failures retry automatically";
-        if self.status.is_disabled() {
-            self.message(message)
-        } else {
-            self.status.pb_set_message(message);
-            Ok(())
-        }
-    }
-
     pub fn event(&mut self, event: Event) -> Result<()> {
         if self.status.is_disabled() && self.format == Output::Text && io::stderr().is_terminal() {
             self.status = tracing::info_span!(parent: None, "import_progress", indicatif.pb_show = tracing::field::Empty);
             self.status.pb_start();
         }
-        self.status.pb_set_message("importing");
         match event {
             Event::Progress {
                 collection,
