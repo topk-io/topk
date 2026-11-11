@@ -291,7 +291,7 @@ topk import "$DB_URL" -f spec.toml --yes                      # run
 Stop a run — `^C`, a lost connection — and pick it up where it left off:
 
 ```bash
-topk import postgres://host/db --resume 1234abcd               # run id printed at start
+topk import postgres://host/db --resume 1234abcd               # run id from the resume command
 ```
 
 Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
