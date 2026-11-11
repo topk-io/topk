@@ -112,6 +112,7 @@ impl TryFrom<FieldInput> for Field {
             "float" => FieldSpec::float(input.required),
             "bool" => FieldSpec::boolean(input.required),
             "bytes" => FieldSpec::bytes(input.required),
+            "image" => FieldSpec::image(input.required),
             "timestamp" => FieldSpec::timestamp(input.required),
             "struct" => FieldSpec::r#struct(
                 input.required,
@@ -268,9 +269,7 @@ impl TryFrom<&Field> for FieldInput {
                 }
                 "struct".into()
             }
-            DataType::Image(_) => {
-                return Err(Error::InvalidArgument("unsupported image field".into()))
-            }
+            DataType::Image(_) => "image".into(),
         };
         Ok(Self {
             ty,
@@ -463,7 +462,6 @@ fn validate_field(schema: &FieldSpec, truncate: Option<usize>) -> Result<(), Err
         .and_then(|ty| ty.data_type.as_ref())
         .ok_or_else(|| Error::InvalidArgument("source field has no data type".into()))?;
     match ty {
-        DataType::Image(_) => return Err(Error::InvalidArgument("unsupported image field".into())),
         DataType::List(list)
             if !matches!(
                 ListValueType::try_from(list.value_type),
@@ -508,7 +506,10 @@ fn validate_field(schema: &FieldSpec, truncate: Option<usize>) -> Result<(), Err
                     Ok(KeywordIndexType::Text | KeywordIndexType::Exact)
                 ) && matches!(ty, DataType::Text(_))
             }
-            Some(field_index::Index::SemanticIndex(_) | field_index::Index::NgramIndex(_)) => {
+            Some(field_index::Index::SemanticIndex(_)) => {
+                matches!(ty, DataType::Text(_) | DataType::Image(_))
+            }
+            Some(field_index::Index::NgramIndex(_)) => {
                 matches!(ty, DataType::Text(_))
             }
             Some(field_index::Index::VectorIndex(index)) => {

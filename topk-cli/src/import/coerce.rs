@@ -1,9 +1,9 @@
 use topk_rs::proto::v1::data::{
-    list, matrix, sparse_vector, value::Value as Inner, IntoListValues, IntoMatrixValues,
+    image, list, matrix, sparse_vector, value::Value as Inner, IntoListValues, IntoMatrixValues,
     IntoSparseValues, Value,
 };
 
-use crate::import::error::Error;
+use crate::import::error::{Error, MAX_IMAGE_BYTES};
 use crate::import::spec::Field;
 use topk_rs::proto::v1::control::{
     field_type::DataType, field_type_list::ListValueType, field_type_matrix::MatrixValueType,
@@ -28,6 +28,7 @@ impl Field {
                     | DataType::Integer(_)
                     | DataType::Float(_)
                     | DataType::Boolean(_)
+                    | DataType::Image(_)
                     | DataType::Bytes(_)
                     | DataType::Timestamp(_)
             )
@@ -88,6 +89,32 @@ impl Field {
                     .or_else(|| int(&value))
                     .ok_or(Error::CannotCoerce("timestamp"))?,
             ),
+            DataType::Image(_) => {
+                let value = match value.as_struct().and_then(|s| s.get("bytes")) {
+                    Some(bytes) => bytes.clone(),
+                    None => value,
+                };
+                let bytes = match value.value {
+                    Some(Inner::Image(image)) => image
+                        .data
+                        .ok_or(Error::CannotCoerce("image"))?
+                        .bytes()
+                        .clone(),
+                    Some(Inner::Binary(bytes)) => bytes,
+                    Some(Inner::String(uri)) => image::Data::try_from(uri)?.bytes().clone(),
+                    _ => return Err(Error::CannotCoerce("image")),
+                };
+                let data = image::Data::from_bytes(bytes).ok_or_else(|| {
+                    Error::InvalidArgument("image bytes are not a JPEG or PNG".into())
+                })?;
+                if data.bytes().len() > MAX_IMAGE_BYTES {
+                    return Err(Error::InvalidArgument(format!(
+                        "image is {} bytes, over the {MAX_IMAGE_BYTES} byte limit",
+                        data.bytes().len()
+                    )));
+                }
+                Value::image(data)
+            }
             DataType::Bytes(_) if value.as_binary().is_some() => value,
             DataType::Struct(_) if value.as_struct().is_some() => value,
             DataType::Bytes(_) => return Err(Error::CannotCoerce("bytes")),

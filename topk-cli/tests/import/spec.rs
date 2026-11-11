@@ -159,6 +159,7 @@ page_counts = { type = "int_list" }
 #[case::matrix_metadata(FieldSpec::matrix(false, 3, MatrixValueType::F32).with_index(FieldIndex { index: Some(field_index::Index::MultiVectorIndex(MultiVectorIndex { metric: MultiVectorDistanceMetric::Maxsim as i32, quantization: Some(MultiVectorQuantization::Scalar as i32), width: Some(4096), top_k: Some(16), encoding_version: 2, ..Default::default() })) }))]
 #[case::semantic_metadata(FieldSpec::text(false).with_index(FieldIndex { index: Some(field_index::Index::SemanticIndex(SemanticIndex { model: Some("preserved-model".into()), embedding_type: Some(1) })) }))]
 #[allow(deprecated)]
+#[case::image_schema(FieldSpec::image(false))]
 fn schema_conversion_round_trip(#[case] spec: FieldSpec) {
     let field = Field::new(spec.clone());
     let encoded = toml::to_string(&field).unwrap();
@@ -170,7 +171,6 @@ fn schema_conversion_round_trip(#[case] spec: FieldSpec) {
 #[case::missing_type(FieldSpec::default())]
 #[case::scalar_index(FieldSpec::integer(false).with_index(FieldIndex::semantic()))]
 #[case::vector_text_index(FieldSpec::f32_vector(3, false).with_index(FieldIndex::semantic()))]
-#[case::image_unsupported(FieldSpec::image(false))]
 #[case::invalid_nested(FieldSpec::r#struct(false, [("child", FieldSpec::default())]))]
 #[case::missing_inner_type(FieldSpec { data_type: Some(FieldType::default()), ..Default::default() })]
 #[case::unknown_matrix_element(FieldSpec::matrix(false, 3, MatrixValueType::Unspecified))]
