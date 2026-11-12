@@ -2,6 +2,7 @@ use std::io::{stdin, IsTerminal};
 
 use anyhow::{ensure, Result};
 use clap::builder::NonEmptyStringValueParser;
+use serde::{Deserialize, Serialize};
 
 use crate::client::ManagementClient;
 use crate::config::Config;
@@ -25,6 +26,7 @@ pub struct ScopeArgs {
     region: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Scope {
     pub project_id: ProjectId,
     pub region: String,

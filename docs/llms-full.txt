@@ -5858,12 +5858,10 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 
 ###### Authenticate
 
-Log in and select a project and a region, then import:
+Log in, then import:
 
 ```bash
 topk login
-topk project select
-topk region select
 topk import ./books.parquet
 ```
 
