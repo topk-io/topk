@@ -10,6 +10,9 @@ impl TryFrom<Delete> for Statement {
     fn try_from(delete: Delete) -> Result<Statement, Error> {
         sql_unsupported!(!delete.tables.is_empty(), "multi-table DELETE");
         sql_unsupported!(delete.using.is_some(), "DELETE … USING");
+        sql_unsupported!(delete.limit.is_some(), "DELETE … LIMIT");
+        sql_unsupported!(!delete.order_by.is_empty(), "DELETE … ORDER BY");
+        sql_unsupported!(delete.optimizer_hint.is_some(), "DELETE optimizer hint");
         let returning_lsn = returning_lsn(delete.returning)?;
 
         // Parse table
