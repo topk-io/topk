@@ -240,7 +240,7 @@ async fn endpoint_authenticates_with_the_project() {
         .resolve(&config)
         .await
         .unwrap();
-    let client = DataClient::new(&config, scope.project_id, &scope.region).unwrap();
+    let client = DataClient::new(&config, scope).unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
 }

@@ -20,8 +20,9 @@ use topk::config::Config;
 use topk::host::Host;
 use topk::import::source::{Source, Uri};
 use topk::import::spec::{Field, Spec, Target};
-use topk::import::state::{DestinationId, State};
+use topk::import::state::State;
 use topk::import::Error;
+use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document};
@@ -234,7 +235,7 @@ impl Ctx {
     pub fn state(&self, source: &Source, spec: Spec) -> State {
         State::new(
             source.locator().into(),
-            DestinationId {
+            Scope {
                 project_id: std::env::var("TOPK_PROJECT_ID").unwrap().parse().unwrap(),
                 region: self.client.config().region().unwrap().into(),
             },
@@ -304,8 +305,10 @@ impl AsyncTestContext for Ctx {
             _session: session,
             client: DataClient::new(
                 &config,
-                project_id.clone(),
-                &std::env::var("TOPK_REGION").expect("TOPK_REGION"),
+                Scope {
+                    project_id: project_id.clone(),
+                    region: std::env::var("TOPK_REGION").expect("TOPK_REGION"),
+                },
             )
             .expect("data client"),
             used: RefCell::new(HashSet::new()),

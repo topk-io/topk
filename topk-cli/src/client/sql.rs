@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
-use crate::ProjectId;
+use crate::scope::Scope;
 
 const PORT: u16 = 5432;
 const USER: &str = "topk";
@@ -20,13 +20,13 @@ pub struct SqlClient {
 }
 
 impl SqlClient {
-    pub async fn connect(config: &Config, project_id: ProjectId, region: &str) -> Result<Self> {
-        let host = format!("{region}.sql.{}", config.hostname());
+    pub async fn connect(config: &Config, scope: Scope) -> Result<Self> {
+        let host = format!("{}.sql.{}", scope.region, config.hostname());
         let port = config.port().unwrap_or(PORT);
         let password = AccessTokenProvider::new(
             ManagementClient::new(config.clone())?,
             config.clone(),
-            project_id,
+            scope.project_id,
         )
         .token()
         .await?

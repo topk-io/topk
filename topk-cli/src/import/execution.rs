@@ -445,7 +445,7 @@ mod tests {
             dir.path(),
             crate::import::state::State::new(
                 String::new(),
-                crate::import::state::DestinationId {
+                crate::scope::Scope {
                     project_id: "p1".parse().unwrap(),
                     region: "unused".into(),
                 },
@@ -507,7 +507,7 @@ mod tests {
             dir.path(),
             crate::import::state::State::new(
                 String::new(),
-                crate::import::state::DestinationId {
+                crate::scope::Scope {
                     project_id: "p1".parse().unwrap(),
                     region: "unused".into(),
                 },

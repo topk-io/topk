@@ -8,11 +8,11 @@ use crate::client::{DataClient, ManagementClient};
 use crate::config::Config;
 use crate::import::source::{Source, Uri};
 use crate::import::spec::Spec;
-use crate::import::state::{DestinationId, Run, RunId, State};
+use crate::import::state::{Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
 use crate::management::proto::GetCollectionRequest;
 use crate::output::Output;
-use crate::scope::ScopeArgs;
+use crate::scope::{Scope, ScopeArgs};
 use crate::util::Interrupted;
 
 mod output;
@@ -212,11 +212,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             return Ok(ExitCode::SUCCESS);
         }
-        let scope = args.scope.resolve(&config).await?;
-        let destination = DestinationId {
-            project_id: scope.project_id,
-            region: scope.region,
-        };
+        let destination = args.scope.resolve(&config).await?;
         let run = Run::start(
             &directory,
             State::new(source.locator().to_string(), destination, spec),
@@ -224,11 +220,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         .await?;
         (source, run)
     };
-    let client = DataClient::new(
-        &config,
-        run.state().destination.project_id.clone(),
-        &run.state().destination.region,
-    )?;
+    let client = DataClient::new(&config, run.state().destination.clone())?;
     let import = Import::prepare(source, (*client).clone(), run).await?;
     if !ui.confirm(import.run(), args.yes || args.resume.is_some())? {
         return Ok(ExitCode::SUCCESS);
@@ -299,7 +291,13 @@ impl ImportArgs {
                 !collection.region.is_empty(),
                 "source collection has no region"
             );
-            let client = DataClient::new(config, resolved, &collection.region)?;
+            let client = DataClient::new(
+                config,
+                Scope {
+                    project_id: resolved,
+                    region: collection.region,
+                },
+            )?;
             return Ok(Source::topk(
                 (*client).clone(),
                 uri.to_string(),

@@ -56,10 +56,9 @@ pub async fn run(
         Some(meta) => (meta.sql, meta.describes),
         None => (sql, None),
     };
-    let scope = args.scope.resolve(&config).await?;
     let mut client = timeout(
         CONNECT_TIMEOUT,
-        SqlClient::connect(&config, scope.project_id, &scope.region),
+        SqlClient::connect(&config, args.scope.resolve(&config).await?),
     )
     .await
     .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;

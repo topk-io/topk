@@ -1,7 +1,8 @@
 use test_macros::rstest_ctx;
 use topk::import::source::{Checkpoint, Cursor};
 use topk::import::spec::Spec;
-use topk::import::state::{DestinationId, Progress, Run, State};
+use topk::import::state::{Progress, Run, State};
+use topk::scope::Scope;
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::common::{refused, target, Scratch};
@@ -25,7 +26,7 @@ fn state() -> State {
     .unwrap();
     State::new(
         "books.parquet".into(),
-        DestinationId {
+        Scope {
             project_id: "p1".parse().unwrap(),
             region: "dev".into(),
         },
