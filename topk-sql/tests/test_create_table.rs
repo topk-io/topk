@@ -211,3 +211,21 @@ fn integer_types(#[case] data_type: &str) {
         Some(FieldType::list(ListValueType::Integer))
     );
 }
+
+#[rstest]
+#[case::unique(
+    "CREATE TABLE books (name TEXT, UNIQUE (name))",
+    "Unsupported: table constraint"
+)]
+#[case::check(
+    "CREATE TABLE books (score FLOAT, CHECK (score > 0))",
+    "Unsupported: table constraint"
+)]
+#[case::duplicate(
+    "CREATE TABLE books (name TEXT, name INTEGER)",
+    "Invalid: duplicate column `name`"
+)]
+fn create_table_ignored_clause(#[case] sql: &str, #[case] expected: &str) {
+    let err = topk_sql::convert_sql(parse_sql(sql).unwrap()).unwrap_err();
+    assert_eq!(err.to_string(), expected);
+}

@@ -21,6 +21,7 @@ impl TryFrom<SqlCreateTable> for Statement {
 
     fn try_from(ct: SqlCreateTable) -> Result<Statement, Error> {
         sql_unsupported!(ct.query.is_some(), "CREATE … AS SELECT");
+        sql_unsupported!(!ct.constraints.is_empty(), "table constraint");
 
         let table = Table::new(ct.name)?;
         sql_invalid!(
@@ -28,14 +29,15 @@ impl TryFrom<SqlCreateTable> for Statement {
             "CREATE requires a collection name"
         );
 
-        let schema = ct
-            .columns
-            .into_iter()
-            .map(|column| {
-                let name = column.name.to_string();
-                FieldSpec::from_sql(column).map(|spec| (name, spec))
-            })
-            .collect::<Result<_, Error>>()?;
+        let mut schema = HashMap::new();
+        for column in ct.columns {
+            let name = column.name.to_string();
+            let spec = FieldSpec::from_sql(column)?;
+            sql_invalid!(
+                schema.insert(name.clone(), spec).is_some(),
+                "duplicate column `{name}`"
+            );
+        }
 
         Ok(Statement::CreateTable {
             table,
