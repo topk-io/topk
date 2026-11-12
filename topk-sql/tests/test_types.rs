@@ -1,8 +1,8 @@
 use rstest::rstest;
-use topk_rs::proto::v1::data::Value;
+use topk_rs::{doc, proto::v1::data::Value};
 
 mod common;
-use common::{BooksContext, Scope};
+use common::{BooksContext, Scope, SqlClient};
 
 #[rstest]
 #[case::text("SELECT title FROM {{table}} LIMIT 1", "title", "text")]
@@ -81,4 +81,45 @@ async fn extended_query_column_types(
             .await
             .unwrap();
     assert_eq!(col_type, expected_type, "column `{column}` type mismatch");
+}
+
+#[rstest]
+#[case::ordinary_query(false, false)]
+#[case::batch_query(true, false)]
+#[case::prepared_query(false, true)]
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run test_types with --ignored and PG connection variables"]
+async fn decoding_errors(#[case] batch: bool, #[case] prepared: bool) {
+    let client = SqlClient::from_env().await.unwrap();
+    let sql = "SELECT 1::bigint AS good, 1::numeric AS bad";
+    let result = if batch {
+        client.batch(&[sql]).await
+    } else if prepared {
+        client.prepared(sql, vec![]).await
+    } else {
+        client.query(sql).await
+    };
+    let error = format!("{:#}", result.unwrap_err());
+    assert!(
+        error.contains("decoding column \"bad\" (numeric)"),
+        "{error}"
+    );
+    assert!(error.contains("mismatched types"), "{error}");
+}
+
+#[tokio::test]
+#[ignore = "requires PostgreSQL; run test_types with --ignored and PG connection variables"]
+async fn decoded_values() {
+    let client = SqlClient::from_env().await.unwrap();
+    let sql = "SELECT 1::smallint AS small, 2::integer AS medium, 9223372036854775807::bigint AS big, 1.5::real AS single, 1.25::double precision AS double, true AS boolean, 'hello'::text AS text, decode('00ff', 'hex') AS bytes, NULL::bigint AS missing, 'null'::json AS json_null, '42'::jsonb AS json_number, '[1,2]'::json AS json_list";
+    let expected = vec![doc!(
+        "small" => 1_i64, "medium" => 2_i64, "big" => i64::MAX,
+        "single" => 1.5_f32, "double" => 1.25_f64, "boolean" => true,
+        "text" => "hello", "bytes" => Value::bytes(vec![0, 255]),
+        "missing" => Value::null(), "json_null" => Value::null(),
+        "json_number" => 42_i64, "json_list" => "[1,2]"
+    )];
+    assert_eq!(client.query(sql).await.unwrap(), expected);
+    assert_eq!(client.batch(&[sql]).await.unwrap(), expected);
+    assert_eq!(client.prepared(sql, vec![]).await.unwrap(), expected);
 }
