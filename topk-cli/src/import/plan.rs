@@ -127,7 +127,11 @@ impl Field {
                     matches!(
                         KeywordIndexType::try_from(index.index_type),
                         Ok(KeywordIndexType::Text | KeywordIndexType::Exact)
-                    ) && matches!(ty, DataType::Text(_))
+                    ) && match ty {
+                        DataType::Text(_) => true,
+                        DataType::List(list) => list.value_type == ListValueType::String as i32,
+                        _ => false,
+                    }
                 }
                 Some(field_index::Index::SemanticIndex(_)) => {
                     matches!(ty, DataType::Text(_) | DataType::Image(_))
@@ -302,7 +306,7 @@ impl Target {
         for (field_name, field) in &self.fields {
             field.validate()?;
             if field_name.is_empty() || field_name.starts_with('_') {
-                return Err(Error::InvalidArgument(format!("{field_name:?}: field names cannot be empty or start with `_` — read the column under another name with `from = {field_name:?}`")));
+                return Err(Error::InvalidArgument(format!("{field_name:?}: field names cannot be empty or start with `_` — rename the column with `--rename {field_name}=<name>` or leave it out of `-f`")));
             }
         }
         Ok(())

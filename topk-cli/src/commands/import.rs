@@ -12,7 +12,7 @@ use crate::import::source::{Source, Uri};
 use crate::import::state::{Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
 use crate::output::Output;
-use crate::scope::{Scope, ScopeArgs};
+use crate::scope::ScopeArgs;
 use crate::util::Interrupted;
 
 mod field;
@@ -121,6 +121,7 @@ pub struct WriteArgs {
     )]
     pub concurrency: usize,
     #[arg(
+        short = 'b',
         long,
         value_name = "SIZE",
         default_value = "1MiB",
@@ -192,20 +193,28 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         )?;
         Import::resume(source, client, run).await?
     } else {
-        let source = args
-            .source(args.source.clone().unwrap_or(Uri::Files(None)), &config)
-            .await?;
-        let mut plan = args.plan.build(&source).await?;
-        let destination = Destination {
-            project_id: args.project.resolve(&config).await?,
-            region: args.region.resolve(&config).await?,
+        let mut uri = args.source.clone().unwrap_or(Uri::Files(None));
+        // A topk:// source without a project reads from the destination's project.
+        let scope = match &mut uri {
+            Uri::Topk { project, .. } if project.is_none() => {
+                let scope = args.scope.resolve(&config).await?;
+                *project = Some(scope.project_id.clone());
+                Some(scope)
+            }
+            _ => None,
         };
-        let client = config.data_client(destination.project_id.clone(), &destination.region)?;
+        let source = args.source(uri, &config).await?;
+        let mut plan = args.plan.build(&source).await?;
+        let scope = match scope {
+            Some(scope) => scope,
+            None => args.scope.resolve(&config).await?,
+        };
+        let client = config.data_client(scope.project_id.clone(), &scope.region)?;
         let to_create = plan
             .resolve(&source, &client, &args.plan.fields, &args.plan.renames)
             .await?;
         if args.dry_run {
-            ui.plan(&plan)?;
+            ui.plan(&plan, &scope)?;
             for (name, target) in &plan.collections {
                 ui.sample_header(name)?;
                 let target = target.capped(5);
@@ -216,10 +225,6 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             return Ok(ExitCode::SUCCESS);
         }
-        let scope = match scope {
-            Some(scope) => scope,
-            None => args.scope.resolve(&config).await?,
-        };
         let run = Run::start(
             &directory,
             State::new(source.locator().to_string(), scope, plan),
@@ -286,7 +291,7 @@ impl ImportArgs {
                 !collection.region.is_empty(),
                 "source collection has no region"
             );
-            let client = config.data_client(resolved, &collection.region)?;
+            let client = config.data_client(project_id, &collection.region)?;
             return Ok(Source::topk(
                 client,
                 uri.to_string(),

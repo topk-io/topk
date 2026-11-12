@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::import::error::Error;
 use crate::import::plan::{Plan, Target};
 use crate::import::source::{Checkpoint, Uri};
+use crate::scope::Scope;
 use crate::storage;
 
 /// Names a run in its header, its state file and `--resume`: eight lowercase hex digits.

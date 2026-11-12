@@ -8,12 +8,12 @@ use topk_rs::{Client, ClientConfig};
 
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
-use crate::scope::Scope;
+use crate::ProjectId;
 
 impl Config {
     pub fn data_client(&self, project_id: ProjectId, region: &str) -> Result<Client> {
         let client = ClientConfig::default()
-            .with_region(scope.region)
+            .with_region(region)
             .with_interceptor(Arc::new(AccessTokenProvider::new(
                 ManagementClient::new(self.clone())?,
                 self.clone(),

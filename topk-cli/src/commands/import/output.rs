@@ -6,7 +6,8 @@ use std::process::ExitCode;
 use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use topk_rs::proto::v1::control::{
-    field_index, field_type::DataType, KeywordIndexType, VectorDistanceMetric,
+    field_index, field_type::DataType, field_type_list::ListValueType, KeywordIndexType,
+    VectorDistanceMetric,
 };
 use topk_rs::proto::v1::data::Document;
 use tracing::Span;
@@ -17,6 +18,7 @@ use crate::import::plan::Plan;
 use crate::import::state::{Progress, Run};
 use crate::import::{Event, Outcome, SEMANTIC_TEXT_LIMIT};
 use crate::output::{json_line, Output};
+use crate::scope::Scope;
 
 pub struct ImportOutput {
     format: Output,
@@ -42,6 +44,11 @@ impl ImportOutput {
     pub fn confirm(&self, run: &Run, yes: bool) -> Result<bool> {
         let pending: IndexMap<_, _> = run.state().pending().collect();
         let count = pending.len();
+        let destination = &run.state().destination;
+        self.message(format_args!(
+            "# destination: project {}, region {}",
+            destination.project_id, destination.region
+        ))?;
         for name in pending.keys() {
             if let Some(Progress::After(checkpoint)) = run.state().progress.get(*name) {
                 self.message(format_args!(
@@ -59,18 +66,15 @@ impl ImportOutput {
                     .collect()
             }
         ))?;
-        crate::prompt::Prompt::confirm(
-            format!(
-                "Import {} collection(s) into {}?",
-                count,
-                run.state().destination.region
-            ),
-            yes,
-        )
-        .context("pass --yes to import without confirmation")
+        crate::prompt::Prompt::confirm(format!("Import {count} collection(s)?"), yes)
+            .context("pass --yes to import without confirmation")
     }
 
-    pub fn plan(&self, plan: &Plan) -> Result<()> {
+    pub fn plan(&self, plan: &Plan, scope: &Scope) -> Result<()> {
+        self.message(format_args!(
+            "# destination: project {}, region {}",
+            scope.project_id, scope.region
+        ))?;
         match self.format {
             Output::Json => {
                 json_line(&mut io::stdout().lock(), plan)?;
@@ -188,7 +192,13 @@ impl Display for Plan {
                     Some(DataType::Image(_)) => "image".to_string(),
                     Some(DataType::Timestamp(_)) => "timestamp".to_string(),
                     Some(DataType::Struct(_)) => "struct".to_string(),
-                    Some(DataType::List(_)) => "list".to_string(),
+                    Some(DataType::List(list)) => match list.value_type() {
+                        ListValueType::String => "text_list",
+                        ListValueType::Integer => "int_list",
+                        ListValueType::Float => "float_list",
+                        _ => "list",
+                    }
+                    .to_string(),
                     Some(DataType::F32Vector(v)) => format!("vector:{}", v.dimension),
                     Some(DataType::F16Vector(v)) => format!("f16_vector:{}", v.dimension),
                     Some(DataType::F8Vector(v)) => format!("f8_vector:{}", v.dimension),
@@ -227,7 +237,12 @@ impl Display for Plan {
                 };
                 writeln!(
                     f,
-                    "  {name}: {ty}{}{}",
+                    "  {name}{}: {ty}{}{}",
+                    field
+                        .from
+                        .as_ref()
+                        .map(|from| format!(" ← {from}"))
+                        .unwrap_or_default(),
                     if index.is_empty() { "" } else { ", " },
                     index
                 )?;

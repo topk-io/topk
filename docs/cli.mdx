@@ -313,7 +313,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
-| `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
+| `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 
 #### Authenticate

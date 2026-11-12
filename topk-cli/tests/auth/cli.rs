@@ -161,8 +161,9 @@ fn import_accepts_project_option() {
         .args(["--dry-run", "--to", "books", "--project-id", "p1"])
         .output()
         .unwrap();
-    assert!(
-        output.status.success(),
+    assert_eq!(
+        output.status.code(),
+        Some(1),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
@@ -170,21 +171,10 @@ fn import_accepts_project_option() {
 
 #[cfg(feature = "import")]
 #[test]
-fn local_dry_run_requires_no_authentication() {
+fn import_requires_project_and_region() {
     let dir = TempDir::new().unwrap();
     let source = dir.path().join("books.jsonl");
     std::fs::write(&source, "{\"_id\":\"one\",\"title\":\"Book\"}\n").unwrap();
-    let output = command(&dir)
-        .arg("import")
-        .arg(&source)
-        .args(["--to", "books", "--dry-run"])
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
     for (args, message) in [
         (
             vec!["--region", "test"],
@@ -195,19 +185,21 @@ fn local_dry_run_requires_no_authentication() {
             "or select a default region with `topk region select`",
         ),
     ] {
-        let output = command(&dir)
-            .arg("import")
-            .arg(&source)
-            .args(["--to", "books", "--yes"])
-            .args(args)
-            .output()
-            .unwrap();
-        assert!(!output.status.success());
-        assert!(
-            String::from_utf8_lossy(&output.stderr).contains(message),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        for mode in ["--yes", "--dry-run"] {
+            let output = command(&dir)
+                .arg("import")
+                .arg(&source)
+                .args(["--to", "books", mode])
+                .args(&args)
+                .output()
+                .unwrap();
+            assert!(!output.status.success());
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains(message),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
     }
 }
 
@@ -235,16 +227,11 @@ async fn endpoint_authenticates_with_the_project() {
         .unwrap()
         .to_string()
         .contains("unexpected argument '--api-key'"));
-    let client = config
-        .data_client(
-            "p1".parse().unwrap(),
-            parse(&["test", "--region", "test"])
-                .resolve(&config)
-                .await
-                .unwrap()
-                .as_str(),
-        )
+    let scope = parse(&["test", "--project-id", "p1", "--region", "test"])
+        .resolve(&config)
+        .await
         .unwrap();
+    let client = config.data_client(scope.project_id, &scope.region).unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
 }
@@ -286,7 +273,10 @@ fn project_environment_is_validated_and_overridden_by_flag() {
             .output()
             .unwrap()
     };
-    assert!(run("p1", &[]).status.success());
+    assert_eq!(run("p1", &[]).status.code(), Some(1));
     assert_eq!(run("../invalid", &[]).status.code(), Some(2));
-    assert!(run("../invalid", &["--project-id", "p2"]).status.success());
+    assert_eq!(
+        run("../invalid", &["--project-id", "p2"]).status.code(),
+        Some(1)
+    );
 }

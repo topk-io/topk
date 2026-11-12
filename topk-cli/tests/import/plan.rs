@@ -1,8 +1,10 @@
 use crate::import::common::refused;
 use rstest::rstest;
+use topk::import::plan::{Field, FieldSelection};
 use topk::import::source::Catalog;
 use topk::import::source::Table;
-use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::control::field_type_list::ListValueType;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType};
 
 fn catalog(tables: impl IntoIterator<Item = Table>) -> Catalog {
     Catalog {
@@ -20,6 +22,15 @@ fn table(columns: &[&str]) -> Table {
             .map(|name| ((*name).into(), Some(FieldSpec::text(false))))
             .collect(),
     }
+}
+
+#[test]
+fn explicit_type_clears_source_index() {
+    let selection: FieldSelection = "title=text".parse().unwrap();
+    let mut field =
+        Field::new(FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)));
+    selection.apply(&mut field, None).unwrap();
+    assert_eq!(field.schema, FieldSpec::text(true));
 }
 
 /// Field names may not start with `_`, but sources use that for their own
@@ -46,9 +57,25 @@ fn underscore_rename_yields_to_a_collision() {
     let error = refused(catalog.discover(&[], None, None).unwrap().validate());
 
     assert!(
-        error.contains("\"_lang\": field names cannot be empty or start with `_`"),
+        error.contains("\"_lang\": field names cannot be empty or start with `_` — rename the column with `--rename _lang=<name>`"),
         "{error}"
     );
+}
+
+#[test]
+fn plan_names_list_types_and_source_columns() {
+    let mut table = table(&["_id", "_lang"]);
+    table.columns.push((
+        "tags".into(),
+        Some(FieldSpec::list(false, ListValueType::String)),
+    ));
+    let plan = catalog([table])
+        .discover(&[], None, None)
+        .unwrap()
+        .to_string();
+
+    assert!(plan.contains("\n  lang ← _lang: text\n"), "{plan}");
+    assert!(plan.contains("\n  tags: text_list\n"), "{plan}");
 }
 
 #[test]

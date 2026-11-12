@@ -15,7 +15,7 @@ impl FromStr for FieldSelection {
             Some((name, value)) => (name, Some(value)),
             None => (raw, None),
         };
-        if name.is_empty() || name.starts_with('_') || name.contains('=') {
+        if name.is_empty() || name.starts_with('_') {
             return Err(Error::InvalidArgument(format!(
                 "invalid field name {name:?}"
             )));

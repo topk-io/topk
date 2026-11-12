@@ -230,6 +230,17 @@ async fn fields_rename_and_inferred_vector(ctx: &Ctx, #[case] ty: &str) {
 #[case::vector("[1,2]", "value=vector:2", FieldSpec::f32_vector(2, false), json!([1.0, 2.0]))]
 #[case::matrix("'[1,2,3,4]'", "value=matrix:2", FieldSpec::matrix(false, 2, MatrixValueType::F32), json!([[1.0, 2.0], [3.0, 4.0]]))]
 #[case::sparse("'{\"1\":1.5}'", "value=sparse", FieldSpec::f32_sparse_vector(false), json!({"1": 1.5}))]
+#[case::keyword("'hello'", "value=keyword", FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Text)), json!("hello"))]
+#[case::text_list_keyword("['a','b']", "value=text_list:keyword", FieldSpec::list(false, ListValueType::String).with_index(FieldIndex::keyword(KeywordIndexType::Text)), json!(["a", "b"]))]
+#[case::typed_semantic("'hello'", "value=text:semantic", FieldSpec::text(false).with_index(FieldIndex::semantic()), json!("hello"))]
+#[case::semantic("'hello'", "value=semantic", FieldSpec::text(false).with_index(FieldIndex::semantic()), json!("hello"))]
+#[case::ngram("'hello'", "value=ngram", FieldSpec::text(false).with_index(FieldIndex::ngram()), json!("hello"))]
+#[case::vector_cosine("[1.0,2.0]", "value=vector:cosine", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)), json!([1.0, 2.0]))]
+#[case::vector_euclidean("[1.0,2.0]", "value=vector:2:euclidean", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)), json!([1.0, 2.0]))]
+#[case::vector_dot_product("[1.0,2.0]", "value=vector:2:dot_product", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)), json!([1.0, 2.0]))]
+#[case::vector_hamming("[1.0,2.0]", "value=vector:2:hamming", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Hamming)), json!([1.0, 2.0]))]
+#[case::matrix_maxsim("'[1,2,3,4]'", "value=matrix:2:maxsim", FieldSpec::matrix(false, 2, MatrixValueType::F32).with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, None, None, None)), json!([[1.0, 2.0], [3.0, 4.0]]))]
+#[case::sparse_dot_product("'{\"1\":1.5}'", "value=sparse:dot_product", FieldSpec::f32_sparse_vector(false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)), json!({"1": 1.5}))]
 async fn field_choices_import(
     ctx: &Ctx,
     #[case] expression: &str,
@@ -259,6 +270,7 @@ async fn field_choices_import(
         .success();
     let target = &run.plan().collections[&collection];
     assert_eq!(target.fields.len(), 1);
+    assert!(!target.fields["value"].schema.required);
     assert_eq!(target.fields["value"].schema.data_type, expected.data_type);
     assert_eq!(target.fields["value"].schema.index, expected.index);
     assert_eq!(run.preview()[0]["value"], expected_value);
@@ -285,8 +297,11 @@ async fn field_choices_import(
         .await
         .unwrap()
         .schema;
-    assert_eq!(schema["value"].data_type, expected.data_type);
-    assert_eq!(schema["value"].index, expected.index);
+    assert!(
+        topk::import::plan::Field::new(expected).matches(&schema["value"]),
+        "{choice}: {:?}",
+        schema["value"]
+    );
     assert_eq!(
         ctx.docs(&collection, ["one"]).await[0]["value"],
         expected_value
@@ -294,59 +309,24 @@ async fn field_choices_import(
 }
 
 #[rstest_ctx(Ctx)]
-#[case::keyword("'hello'", "keyword", FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Text)), json!("hello"))]
-#[case::typed_semantic("'hello'", "text:semantic", FieldSpec::text(false).with_index(FieldIndex::semantic()), json!("hello"))]
-#[case::semantic("'hello'", "semantic", FieldSpec::text(false).with_index(FieldIndex::semantic()), json!("hello"))]
-#[case::ngram("'hello'", "ngram", FieldSpec::text(false).with_index(FieldIndex::ngram()), json!("hello"))]
-#[case::vector_cosine("[1.0,2.0]", "vector:cosine", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)), json!([1.0, 2.0]))]
-#[case::vector_euclidean("[1.0,2.0]", "vector:2:euclidean", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)), json!([1.0, 2.0]))]
-#[case::vector_dot_product("[1.0,2.0]", "vector:2:dot_product", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)), json!([1.0, 2.0]))]
-#[case::vector_hamming("[1.0,2.0]", "vector:2:hamming", FieldSpec::f32_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Hamming)), json!([1.0, 2.0]))]
-#[case::matrix_maxsim("'[1,2,3,4]'", "matrix:2:maxsim", FieldSpec::matrix(false, 2, MatrixValueType::F32).with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, None, None, None)), json!([[1.0, 2.0], [3.0, 4.0]]))]
-#[case::sparse_dot_product("'{\"1\":1.5}'", "sparse:dot_product", FieldSpec::f32_sparse_vector(false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)), json!({"1": 1.5}))]
-async fn field_indexes_import(
-    ctx: &Ctx,
-    #[case] expression: &str,
-    #[case] choice: &str,
-    #[case] expected: FieldSpec,
-    #[case] expected_value: JsonValue,
-) {
-    let from = ctx.cli.parquet(
-        "index.parquet",
-        &format!("SELECT 'one' AS id, {expression} AS value"),
-    );
-    let collection = ctx.collection("index");
-    let done = ctx
+async fn keyword_list_reimports(ctx: &Ctx) {
+    let from = ctx
         .cli
-        .command()
-        .args([
-            "-o",
-            "json",
-            "import",
-            &from,
-            "--to",
-            &collection,
-            "-f",
-            &format!("value={choice}"),
-            "--yes",
-        ])
-        .success();
-    assert_eq!(done.summary()[&collection].rows, 1);
-    let actual = ctx
-        .client
-        .collections()
-        .get(&collection)
-        .await
-        .unwrap()
-        .schema;
-    assert!(
-        topk::import::plan::Field::new(expected).matches(&actual["value"]),
-        "{choice}: {:?}",
-        actual["value"]
-    );
+        .parquet("tags.parquet", "SELECT 'one' AS id, ['a', 'b'] AS tags");
+    let collection = ctx.collection("tags");
+    let runs: [&[&str]; 2] = [&["-f", "tags=keyword"], &[]];
+    for fields in runs {
+        let run = ctx
+            .cli
+            .command()
+            .args(["-o", "json", "import", &from, "--to", &collection, "--yes"])
+            .args(fields)
+            .success();
+        assert_eq!(run.summary()[&collection].rows, 1);
+    }
     assert_eq!(
-        ctx.docs(&collection, ["one"]).await[0]["value"],
-        expected_value
+        ctx.docs(&collection, ["one"]).await[0]["tags"],
+        json!(["a", "b"])
     );
 }
 
@@ -564,6 +544,12 @@ async fn dry_run_requires_destination(ctx: &Ctx) {
         .args(["import", &from, "--dry-run"])
         .failure(1);
     with_key.plan();
+    let destination = format!(
+        "# destination: project {}, region {}",
+        std::env::var("TOPK_PROJECT_ID").unwrap(),
+        std::env::var("TOPK_REGION").unwrap()
+    );
+    assert!(with_key.stderr.contains(&destination), "{with_key:?}");
     assert!(
         without_credentials.stderr.contains("--project-id"),
         "{without_credentials:?}"
@@ -575,6 +561,7 @@ async fn dry_run_requires_destination(ctx: &Ctx) {
 #[case::continue_on_error(&["--continue-on-error"])]
 #[case::concurrency(&["--concurrency", "2"])]
 #[case::batch_bytes(&["--batch-bytes", "1MiB"])]
+#[case::batch_bytes_short(&["-b", "1MiB"])]
 async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
     let ctx = &ctx.cli;
     let from = ctx.seed_parquet("books", books());
@@ -741,31 +728,29 @@ async fn yes_required_without_tty(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-async fn unknown_field_column_fails_before_creating(ctx: &Ctx) {
-    let from = ctx.cli.file("books.csv", "id,title\n1,dune");
+#[case::missing_field(&["-f", "ghost"], "field \"ghost\" was not found")]
+#[case::duplicate_field(&["-f", "value,value"], "field \"value\" selected twice")]
+#[case::missing_rename_source(&["--rename", "nonexistent_col=ghost", "-f", "title,ghost"], "source field \"nonexistent_col\" was not found")]
+#[case::rename_collision(&["--rename", "title=value"], "field \"value\" already exists")]
+#[case::inferred_index_mismatch(&["-f", "value=semantic"], "incompatible index for field type")]
+async fn invalid_fields_fail_before_creating(
+    ctx: &Ctx,
+    #[case] args: &[&str],
+    #[case] expected: &str,
+) {
+    let from = ctx.cli.parquet(
+        "bad-field.parquet",
+        "SELECT 1 AS id, 'dune' AS title, 42 AS value",
+    );
     let collection = ctx.collection("bad-field");
     let done = ctx
         .cli
         .command()
-        .args([
-            "-o",
-            "json",
-            "import",
-            &from,
-            "--to",
-            &collection,
-            "--rename",
-            "nonexistent_col=ghost",
-            "-f",
-            "title,ghost",
-            "--yes",
-        ])
+        .args(["-o", "json", "import", &from, "--to", &collection])
+        .args(args)
+        .args(["--yes"])
         .failure(1);
-    assert!(
-        done.stderr
-            .contains("source field \"nonexistent_col\" was not found"),
-        "{done:?}"
-    );
+    assert!(done.stderr.contains(expected), "{done:?}");
     assert!(!ctx.exists(&collection).await);
 }
 
@@ -801,6 +786,12 @@ async fn reimport_replaces_fields(ctx: &Ctx) {
         .command()
         .args(["-o", "json", "import", &from, "--to", &collection, "--yes"])
         .success();
+    let destination = format!(
+        "# destination: project {}, region {}",
+        std::env::var("TOPK_PROJECT_ID").unwrap(),
+        std::env::var("TOPK_REGION").unwrap()
+    );
+    assert!(first.stderr.contains(&destination), "{first:?}");
     assert_eq!(first.summary()[&collection].rows, 3);
     assert_eq!(narrowed.summary()[&collection].rows, 3);
     assert_eq!(full.summary()[&collection].rows, 3);
