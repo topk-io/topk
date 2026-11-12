@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use chrono::Utc;
@@ -117,7 +117,7 @@ impl OAuthClient {
         &self,
         authorization: Authorization,
         code: String,
-    ) -> Result<Option<(Session, Option<AccessTokenClaims>)>> {
+    ) -> Result<(Session, Option<AccessTokenClaims>)> {
         let res = match self
             .client
             .exchange_code(AuthorizationCode::new(code))
@@ -130,13 +130,13 @@ impl OAuthClient {
             Err(RequestTokenError::ServerResponse(error))
                 if *error.error() == BasicErrorResponseType::InvalidGrant =>
             {
-                return Ok(None)
+                bail!("login rejected or expired. Run `topk login` again.")
             }
             Err(e) => return Err(e).context("exchanging the authorization code"),
         };
         let session = session_from_response(res)?;
         let claims = AccessTokenClaims::parse(&session.access_token, &self.audience);
-        Ok(Some((session, claims)))
+        Ok((session, claims))
     }
 
     pub async fn refresh(&self, refresh_token: String) -> Result<Option<Session>> {

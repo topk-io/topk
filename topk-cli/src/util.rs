@@ -1,8 +1,8 @@
-use std::io::{ErrorKind, IsTerminal};
+use std::io::{stdin, ErrorKind, IsTerminal};
 
 use anyhow::{bail, ensure, Result};
 use chrono::DateTime;
-use dialoguer::{Confirm, Select};
+use dialoguer::{Confirm, Password, Select};
 
 pub fn select(
     prompt: &str,
@@ -20,6 +20,18 @@ pub fn select(
         Err(dialoguer::Error::IO(error)) if error.kind() == ErrorKind::Interrupted => Ok(None),
         Err(error) => Err(error.into()),
     }
+}
+
+pub fn password(prompt: &str) -> Result<String> {
+    let value = if stdin().is_terminal() {
+        Password::new().with_prompt(prompt).interact()?
+    } else {
+        eprint!("{prompt}: ");
+        let mut line = String::new();
+        stdin().read_line(&mut line)?;
+        line
+    };
+    Ok(value.trim().to_string())
 }
 
 pub fn confirm(prompt: String, yes: bool) -> Result<bool> {

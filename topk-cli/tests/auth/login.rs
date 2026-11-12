@@ -33,7 +33,7 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
     ctx: &mut AuthTestContext,
 ) {
     let auth = ctx.server.auth(ctx.dir.path());
-    let login = auth.login(&[0]).await.unwrap();
+    let login = auth.browser_login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     assert_eq!(params["response_type"], "code");
@@ -109,7 +109,7 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
 async fn failed_exchange_and_failed_save_never_send_success(ctx: &mut AuthTestContext) {
     for fail_save in [false, true] {
         let auth = ctx.server.auth(ctx.dir.path());
-        let login = auth.login(&[0]).await.unwrap();
+        let login = auth.browser_login(&[0]).await.unwrap();
         let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
         let callback = Url::parse(&params["redirect_uri"]).unwrap();
         let port = callback.port().unwrap();
@@ -145,7 +145,7 @@ async fn failed_exchange_and_failed_save_never_send_success(ctx: &mut AuthTestCo
 #[tokio::test]
 async fn rejected_pasted_code_leaves_no_session(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
-    let login = auth.login_no_browser().unwrap();
+    let login = auth.browserless_login().unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     assert_eq!(params["redirect_uri"], "https://api.topk.test/auth/code");
     ctx.server
@@ -177,7 +177,7 @@ async fn login_replaces_unreadable_credentials(ctx: &mut AuthTestContext) {
 #[tokio::test]
 async fn cancelling_login_drops_listener(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
-    let login = auth.login(&[0]).await.unwrap();
+    let login = auth.browser_login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     let addr = ("127.0.0.1", callback.port().unwrap());
@@ -192,7 +192,7 @@ async fn cancelling_login_drops_listener(ctx: &mut AuthTestContext) {
 #[tokio::test]
 async fn authenticated_denial_finishes_without_exchanging_a_token(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
-    let login = auth.login(&[0]).await.unwrap();
+    let login = auth.browser_login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     let port = callback.port().unwrap();
@@ -213,7 +213,7 @@ async fn authenticated_denial_finishes_without_exchanging_a_token(ctx: &mut Auth
 #[tokio::test]
 async fn concurrent_logins_use_distinct_callback_ports(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
-    let logins = futures::future::join_all((0..8).map(|_| auth.login(&[0]))).await;
+    let logins = futures::future::join_all((0..8).map(|_| auth.browser_login(&[0]))).await;
     let ports: HashSet<_> = logins
         .iter()
         .map(|login| {
@@ -238,7 +238,7 @@ async fn login_uses_the_next_port_when_one_is_occupied(ctx: &mut AuthTestContext
     let occupied = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let auth = ctx.server.auth(ctx.dir.path());
     let login = auth
-        .login(&[occupied.local_addr().unwrap().port(), 0])
+        .browser_login(&[occupied.local_addr().unwrap().port(), 0])
         .await
         .unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();

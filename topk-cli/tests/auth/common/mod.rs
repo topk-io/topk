@@ -114,7 +114,7 @@ impl Server {
 }
 
 pub async fn seed(auth: &Auth) {
-    let login = auth.login(&[0]).await.unwrap();
+    let login = auth.browser_login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let mut callback = Url::parse(&params["redirect_uri"]).unwrap();
     callback

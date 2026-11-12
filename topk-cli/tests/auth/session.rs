@@ -165,7 +165,7 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
             .unwrap_err()
             .to_string()
             .contains("authentication configuration mismatch"));
-        drop(other.login(&[0]).await.unwrap());
+        drop(other.browser_login(&[0]).await.unwrap());
         assert_eq!(auth.access_token().await.unwrap(), "access");
     }
 }

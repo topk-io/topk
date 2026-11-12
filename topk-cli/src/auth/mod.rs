@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use tracing::info;
 
-use crate::auth::oauth::OAuthClient;
+use crate::auth::oauth::{Authorization, OAuthClient};
 use crate::config::Config;
 
 mod callback;
@@ -28,12 +28,24 @@ impl Auth {
         })
     }
 
-    pub async fn login(&self, ports: &[u16]) -> Result<BrowserLogin<'_>> {
+    pub async fn browser_login(&self, ports: &[u16]) -> Result<BrowserLogin<'_>> {
         BrowserLogin::new(self, ports).await
     }
 
-    pub fn login_no_browser(&self) -> Result<CodeLogin<'_>> {
+    pub fn browserless_login(&self) -> Result<CodeLogin<'_>> {
         CodeLogin::new(self)
+    }
+
+    async fn exchange_code(
+        &self,
+        authorization: Authorization,
+        code: String,
+    ) -> Result<Option<AccessTokenClaims>> {
+        let (session, claims) = self.client.exchange_code(authorization, code).await?;
+        self.config.session().await?.save(session)?;
+        // Clear cached access tokens
+        self.config.access_tokens().clear()?;
+        Ok(claims)
     }
 
     pub async fn logout(&self) -> Result<()> {
