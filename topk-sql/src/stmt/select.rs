@@ -253,6 +253,9 @@ impl TryFrom<SqlQuery> for Statement {
                     ),
                     "non-COUNT(*) aggregate functions without GROUP BY"
                 );
+                if let Some(SqlExpr::Function(func)) = select.projection[0].expr() {
+                    AggregateExpr::from_sql(func.clone())?;
+                }
                 sql_unsupported!(query.order_by.is_some(), "SELECT COUNT(*) ... ORDER BY ...");
                 sql_unsupported!(
                     query.limit_clause.is_some(),
