@@ -5,7 +5,7 @@ use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::{
     field_index, field_type::DataType, field_type_list::ListValueType,
-    field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, KeywordIndexType,
+    field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, FieldType, KeywordIndexType,
     MultiVectorDistanceMetric, MultiVectorQuantization, VectorDistanceMetric,
 };
 
@@ -27,6 +27,9 @@ impl Plan {
         fields: &[FieldSelection],
         renames: &[Rename],
     ) -> Result<Vec<String>, Error> {
+        for name in self.collections.keys() {
+            collection_name(name)?;
+        }
         let to_create: Vec<String> = futures::stream::iter(self.collections.iter_mut().map(
             |(name, target)| async move {
                 let existing = match client.collections().get(name).await {
@@ -47,7 +50,6 @@ impl Plan {
         .try_filter_map(|name| async { Ok(name) })
         .try_collect()
         .await?;
-        self.validate()?;
         Ok(to_create)
     }
 
@@ -397,18 +399,18 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn field_spec(&self, required: bool) -> Option<FieldSpec> {
+    pub fn field_type(&self) -> Option<FieldType> {
         Some(match self {
-            Self::Text => FieldSpec::text(required),
-            Self::Int => FieldSpec::integer(required),
-            Self::Float => FieldSpec::float(required),
-            Self::Bool => FieldSpec::boolean(required),
-            Self::Bytes => FieldSpec::bytes(required),
-            Self::Image => FieldSpec::image(required),
-            Self::Timestamp => FieldSpec::timestamp(required),
-            Self::TextList => FieldSpec::list(required, ListValueType::String),
-            Self::IntList => FieldSpec::list(required, ListValueType::Integer),
-            Self::FloatList => FieldSpec::list(required, ListValueType::Float),
+            Self::Text => FieldType::text(),
+            Self::Int => FieldType::integer(),
+            Self::Float => FieldType::float(),
+            Self::Bool => FieldType::boolean(),
+            Self::Bytes => FieldType::bytes(),
+            Self::Image => FieldType::image(),
+            Self::Timestamp => FieldType::timestamp(),
+            Self::TextList => FieldType::list(ListValueType::String),
+            Self::IntList => FieldType::list(ListValueType::Integer),
+            Self::FloatList => FieldType::list(ListValueType::Float),
             Self::Vector(_) | Self::Matrix(_) | Self::Sparse => return None,
         })
     }
@@ -435,12 +437,8 @@ impl FieldSelection {
     }
 
     pub fn apply(&self, field: &mut Field, sampled_dimension: Option<u32>) -> Result<(), Error> {
-        if let Some(schema) = self
-            .ty
-            .as_ref()
-            .and_then(|ty| ty.field_spec(field.schema.required))
-        {
-            field.schema = schema;
+        if let Some(ty) = self.ty.as_ref().and_then(Type::field_type) {
+            field.schema.data_type = Some(ty);
         }
         match &self.ty {
             Some(Type::Vector(dim)) => {
@@ -471,7 +469,7 @@ impl FieldSelection {
                     )));
                 }
                 if native_dim.is_none() {
-                    field.schema = FieldSpec::f32_vector(dim, field.schema.required);
+                    field.schema.data_type = Some(FieldType::f32_vector(dim));
                 }
             }
             Some(Type::Matrix(cols)) => {
@@ -497,8 +495,7 @@ impl FieldSelection {
                     )));
                 }
                 if native_cols.is_none() {
-                    field.schema =
-                        FieldSpec::matrix(field.schema.required, cols, MatrixValueType::F32);
+                    field.schema.data_type = Some(FieldType::matrix(cols, MatrixValueType::F32));
                 }
             }
             Some(Type::Sparse) => {
@@ -516,7 +513,7 @@ impl FieldSelection {
                             | DataType::I8SparseVector(_)
                     )
                 ) {
-                    field.schema = FieldSpec::f32_sparse_vector(field.schema.required);
+                    field.schema.data_type = Some(FieldType::f32_sparse_vector());
                 }
             }
             _ => {}
@@ -524,7 +521,7 @@ impl FieldSelection {
         if self.ty.is_some() || self.index.is_some() {
             field.schema.index = self.index.clone();
         }
-        field.validate()
+        Ok(())
     }
 }
 

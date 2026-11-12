@@ -97,7 +97,6 @@ impl Import {
     }
 
     fn validate(source: &Source, client: &Client, run: &Run) -> Result<(), Error> {
-        run.state().validate()?;
         if source.locator() != run.state().source {
             return Err(Error::InvalidArgument(
                 "source does not match the saved run".into(),

@@ -23,7 +23,7 @@ async fn copies_native_values(ctx: &Ctx) {
     for (name, ty, value) in [
         (
             "f32",
-            FieldSpec::f32_vector(2, false)
+            FieldSpec::f32_vector(2, true)
                 .with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
             Value::list(vec![0.125_f32, -2.75]),
         ),

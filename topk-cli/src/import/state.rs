@@ -196,10 +196,6 @@ impl Run {
         &self.state
     }
 
-    pub fn state_mut(&mut self) -> &mut State {
-        &mut self.state
-    }
-
     pub fn save(&self) -> Result<(), Error> {
         storage::write_toml(&self.path, &self.state)?;
         Ok(())

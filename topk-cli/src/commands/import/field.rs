@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use topk_rs::proto::v1::control::{
-    FieldIndex, KeywordIndexType, MultiVectorDistanceMetric, VectorDistanceMetric,
+    FieldIndex, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric, VectorDistanceMetric,
 };
 
 use crate::import::plan::{Field, FieldSelection, Rename, Type};
@@ -91,10 +91,13 @@ impl FromStr for FieldSelection {
             ty,
             index,
         };
-        if let Some(schema) = selection.ty.as_ref().and_then(|ty| ty.field_spec(false)) {
-            let mut field = Field::new(schema);
-            field.schema.index = selection.index.clone();
-            field.validate()?;
+        if let Some(ty) = selection.ty.as_ref().and_then(Type::field_type) {
+            Field::new(FieldSpec {
+                data_type: Some(ty),
+                index: selection.index.clone(),
+                required: false,
+            })
+            .validate()?;
         }
         Ok(selection)
     }

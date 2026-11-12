@@ -1163,7 +1163,9 @@ async fn missing_file_is_readable(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-async fn dry_run_uses_destination(ctx: &Ctx) {
+#[case::bare("embedding")]
+#[case::explicit("embedding=vector:cosine")]
+async fn dry_run_uses_destination(ctx: &Ctx, #[case] field: &str) {
     let collection = ctx.collection("resolved-vector");
     let schema =
         FieldSpec::f32_vector(3, true).with_index(FieldIndex::vector(VectorDistanceMetric::Cosine));
@@ -1187,12 +1189,15 @@ async fn dry_run_uses_destination(ctx: &Ctx) {
             "--to",
             &collection,
             "-f",
-            "embedding",
+            field,
             "--dry-run",
         ])
         .success();
     let plan = preview.plan();
     let resolved = &plan.collections[&collection].fields["embedding"].schema;
     let destination = ctx.client.collections().get(&collection).await.unwrap();
-    assert_eq!(resolved, &destination.schema["embedding"]);
+    assert!(resolved.required);
+    assert!(
+        topk::import::plan::Field::new(resolved.clone()).matches(&destination.schema["embedding"])
+    );
 }
