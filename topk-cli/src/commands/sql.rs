@@ -56,12 +56,10 @@ pub async fn run(
         Some(meta) => (meta.sql, meta.describes),
         None => (sql, None),
     };
-    let mut client = timeout(
-        CONNECT_TIMEOUT,
-        SqlClient::connect(&config, args.scope.resolve(&config).await?),
-    )
-    .await
-    .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;
+    let scope = args.scope.resolve(&config).await?;
+    let mut client = timeout(CONNECT_TIMEOUT, SqlClient::connect(&config, scope))
+        .await
+        .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;
     let mut printer = Printer::new(BufWriter::new(out), output);
     let mut results = client.execute(&sql);
     while let Some(item) = results.next().await {
