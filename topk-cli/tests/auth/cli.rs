@@ -11,7 +11,7 @@ use url::Url;
 use topk::auth::OAuthConfig;
 use topk::client::DataClient;
 use topk::config::Config;
-use topk::endpoint::RegionArg;
+use topk::scope::ScopeArgs;
 
 use super::common::{host, tenant_dir};
 
@@ -215,10 +215,10 @@ fn local_dry_run_requires_no_authentication() {
 #[tokio::test]
 async fn endpoint_authenticates_with_the_project() {
     let try_parse = |args: &[&str]| {
-        let matches = RegionArg::augment_args(ClapCommand::new("test"))
+        let matches = ScopeArgs::augment_args(ClapCommand::new("test"))
             .mut_args(|arg| arg.env(None::<&str>))
             .try_get_matches_from(args)?;
-        RegionArg::from_arg_matches(&matches)
+        ScopeArgs::from_arg_matches(&matches)
     };
     let parse = |args: &[&str]| try_parse(args).unwrap();
     let dir = TempDir::new().unwrap();
@@ -236,16 +236,11 @@ async fn endpoint_authenticates_with_the_project() {
         .unwrap()
         .to_string()
         .contains("unexpected argument '--api-key'"));
-    let client = DataClient::new(
-        &config,
-        "p1".parse().unwrap(),
-        parse(&["test", "--region", "test"])
-            .resolve(&config)
-            .await
-            .unwrap()
-            .as_str(),
-    )
-    .unwrap();
+    let scope = parse(&["test", "--project-id", "p1", "--region", "test"])
+        .resolve(&config)
+        .await
+        .unwrap();
+    let client = DataClient::new(&config, scope.project_id, &scope.region).unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
 }

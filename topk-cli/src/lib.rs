@@ -2,13 +2,13 @@ pub mod auth;
 pub mod client;
 pub mod commands;
 pub mod config;
-pub mod endpoint;
 pub mod host;
 #[cfg(feature = "import")]
 pub mod import;
 pub mod management;
 pub mod meta;
 pub mod output;
+pub mod scope;
 mod storage;
 pub mod util;
 

@@ -5,9 +5,9 @@ use tempfile::TempDir;
 use topk::auth::OAuthConfig;
 use topk::commands::{project, region};
 use topk::config::Config;
-use topk::endpoint::{ProjectArg, RegionArg};
 use topk::host::Host;
 use topk::output::Output;
+use topk::scope::ScopeArgs;
 
 use super::common::host;
 
@@ -27,12 +27,8 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
     assert!(config.defaults().unwrap().project_id.is_none());
-    config
-        .update_defaults(|defaults| {
-            defaults.project_id = Some("p1".parse().unwrap());
-            defaults.region = Some("r1".into());
-        })
-        .unwrap();
+    config.set_project_id(Some("p1".parse().unwrap())).unwrap();
+    config.set_region(Some("r1".into())).unwrap();
     let loaded = Config::new(host(), config.oauth().clone(), dir.path().to_owned());
     assert_eq!(
         loaded.defaults().unwrap().project_id.unwrap().as_str(),
@@ -70,9 +66,7 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
 async fn current_and_clear_work_offline() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
-    config
-        .update_defaults(|defaults| defaults.project_id = Some("p1".parse().unwrap()))
-        .unwrap();
+    config.set_project_id(Some("p1".parse().unwrap())).unwrap();
     let mut out = Vec::new();
     project::run(
         config.clone(),
@@ -116,12 +110,8 @@ async fn current_and_clear_work_offline() {
 async fn region_current_and_clear_work_offline() {
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
-    config
-        .update_defaults(|defaults| {
-            defaults.project_id = Some("p1".parse().unwrap());
-            defaults.region = Some("r1".into());
-        })
-        .unwrap();
+    config.set_project_id(Some("p1".parse().unwrap())).unwrap();
+    config.set_region(Some("r1".into())).unwrap();
     let run = |command| {
         let config = config.clone();
         async move {
@@ -157,27 +147,23 @@ async fn project_and_region_resolve_in_order(
     let dir = TempDir::new().unwrap();
     let config = config(&dir);
     config
-        .update_defaults(|defaults| {
-            defaults.project_id = Some("saved".parse().unwrap());
-            defaults.region = Some("saved".into());
-        })
+        .set_project_id(Some("saved".parse().unwrap()))
         .unwrap();
+    config.set_region(Some("saved".into())).unwrap();
     // Each case reads its own variable, so cases cannot affect each other.
     if let Some(env) = env {
         std::env::set_var(env, "environment");
     }
-    let matches = RegionArg::augment_args(ProjectArg::augment_args(Command::new("test")))
+    let matches = ScopeArgs::augment_args(Command::new("test"))
         .mut_args(|arg| arg.env(env))
         .get_matches_from(args);
-    let project = ProjectArg::from_arg_matches(&matches)
+    let scope = ScopeArgs::from_arg_matches(&matches)
         .unwrap()
         .resolve(&config)
         .await
         .unwrap();
-    let region = RegionArg::from_arg_matches(&matches)
-        .unwrap()
-        .resolve(&config)
-        .await
-        .unwrap();
-    assert_eq!((project.as_str(), region.as_str()), (expected, expected));
+    assert_eq!(
+        (scope.project_id.as_str(), scope.region.as_str()),
+        (expected, expected)
+    );
 }

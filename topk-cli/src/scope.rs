@@ -10,14 +10,35 @@ use crate::util::select;
 use crate::ProjectId;
 
 #[derive(clap::Args, Clone, Debug)]
-pub struct ProjectArg {
+pub struct ScopeArgs {
     /// Project to access; defaults to the currently selected project
     #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
     project_id: Option<ProjectId>,
+
+    /// Region to read and write; defaults to the currently selected region
+    #[arg(
+        long,
+        env = "TOPK_REGION",
+        value_parser = NonEmptyStringValueParser::new(),
+        help_heading = "Connection options"
+    )]
+    region: Option<String>,
 }
 
-impl ProjectArg {
-    pub async fn resolve(&self, config: &Config) -> Result<ProjectId> {
+pub struct Scope {
+    pub project_id: ProjectId,
+    pub region: String,
+}
+
+impl ScopeArgs {
+    pub async fn resolve(&self, config: &Config) -> Result<Scope> {
+        Ok(Scope {
+            project_id: self.project_id(config).await?,
+            region: self.region(config).await?,
+        })
+    }
+
+    pub async fn project_id(&self, config: &Config) -> Result<ProjectId> {
         if let Some(id) = &self.project_id {
             return Ok(id.clone());
         }
@@ -34,22 +55,8 @@ impl ProjectArg {
         eprintln!("Run `topk project select` to skip this prompt.");
         project.project_id.parse()
     }
-}
 
-#[derive(clap::Args, Clone, Debug)]
-pub struct RegionArg {
-    /// Region to read and write; defaults to the currently selected region
-    #[arg(
-        long,
-        env = "TOPK_REGION",
-        value_parser = NonEmptyStringValueParser::new(),
-        help_heading = "Connection options"
-    )]
-    region: Option<String>,
-}
-
-impl RegionArg {
-    pub async fn resolve(&self, config: &Config) -> Result<String> {
+    async fn region(&self, config: &Config) -> Result<String> {
         if let Some(region) = &self.region {
             return Ok(region.clone());
         }

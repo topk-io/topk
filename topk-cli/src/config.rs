@@ -87,10 +87,24 @@ impl Config {
             .unwrap_or_default())
     }
 
-    pub fn update_defaults(&self, update: impl FnOnce(&mut Defaults)) -> Result<()> {
-        let mut defaults = self.defaults()?;
-        update(&mut defaults);
-        write_toml(&self.defaults_file(), &defaults)
+    pub fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
+        write_toml(
+            &self.defaults_file(),
+            &Defaults {
+                project_id,
+                ..self.defaults()?
+            },
+        )
+    }
+
+    pub fn set_region(&self, region: Option<String>) -> Result<()> {
+        write_toml(
+            &self.defaults_file(),
+            &Defaults {
+                region,
+                ..self.defaults()?
+            },
+        )
     }
 
     fn config_file(&self) -> PathBuf {
