@@ -8,7 +8,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{sleep, timeout};
 use url::Url;
 
-use super::common::{response, seed, tenant_dir, AuthTestContext};
+use super::common::{response, seed, tenant_dir, AuthTestContext, ACCESS_TOKEN};
 
 async fn request(port: u16, method: &str, path: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
@@ -91,7 +91,7 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
         };
         let (page, ()) = tokio::join!(callback, exchange);
         assert!(page.contains("Logged in"));
-        assert_eq!(auth.access_token().await.unwrap(), "access");
+        assert_eq!(auth.access_token().await.unwrap(), ACCESS_TOKEN);
     };
     let (result, ()) = tokio::join!(login.finish(), browser);
     result.unwrap();
@@ -154,7 +154,7 @@ async fn rejected_pasted_code_leaves_no_session(ctx: &mut AuthTestContext) {
     let error = login.finish("not-a-code".into()).await.err().unwrap();
     assert_eq!(
         error.to_string(),
-        "login rejected or expired. Run `topk login` again."
+        "exchanging the authorization code failed. Run `topk login` again."
     );
     assert!(!tenant_dir(ctx.dir.path(), &ctx.server.url)
         .join("credentials.toml")
@@ -170,7 +170,7 @@ async fn login_replaces_unreadable_credentials(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
     ctx.server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
-    assert_eq!(auth.access_token().await.unwrap(), "access");
+    assert_eq!(auth.access_token().await.unwrap(), ACCESS_TOKEN);
 }
 
 #[test_context(AuthTestContext)]

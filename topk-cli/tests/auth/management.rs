@@ -18,7 +18,7 @@ use topk::management::proto::region_service_server::{RegionService, RegionServic
 use topk::management::proto::*;
 use topk_rs::proto::v1::control::FieldSpec;
 
-use super::common::{response, seed, Server as OAuthServer};
+use super::common::{response, seed, Server as OAuthServer, ACCESS_TOKEN};
 
 #[derive(Clone)]
 struct Services {
@@ -207,7 +207,7 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .unwrap()
         .into_inner();
     assert_eq!(projects.projects[0].project_id, "project-1");
-    ctx.request("projects", "access").await;
+    ctx.request("projects", ACCESS_TOKEN).await;
     let collections = ctx
         .client
         .collections
@@ -222,7 +222,7 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .into_inner();
     assert_eq!(collections.collections[0].name, "books");
     assert!(collections.collections[0].schema.contains_key("title"));
-    ctx.request("collections", "access").await;
+    ctx.request("collections", ACCESS_TOKEN).await;
     let regions = ctx
         .client
         .regions
@@ -231,7 +231,7 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .unwrap()
         .into_inner();
     assert_eq!(regions.regions, ["aws-us-east-1"]);
-    ctx.request("regions", "access").await;
+    ctx.request("regions", ACCESS_TOKEN).await;
     let error = ctx
         .client
         .projects
@@ -242,7 +242,7 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .unwrap_err();
     assert_eq!(error.code(), Code::Unavailable);
     assert_eq!(error.message(), "try later");
-    ctx.request("create", "access").await;
+    ctx.request("create", ACCESS_TOKEN).await;
     assert!(ctx.requests.try_recv().is_err());
     assert!(ctx.oauth.requests.try_recv().is_err());
 }
@@ -253,7 +253,7 @@ async fn existing_service_client_refreshes_and_observes_logout() {
     let mut regions = ctx.client.regions.clone();
     ctx.login(3600).await;
     regions.list_regions(ListRegionsRequest {}).await.unwrap();
-    ctx.request("regions", "access").await;
+    ctx.request("regions", ACCESS_TOKEN).await;
     // Replace the session through a real login to expire it without sleeping.
     ctx.login(0).await;
     ctx.oauth.reply(200, json!({"access_token": "renewed", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "rotated"})).await;
@@ -295,7 +295,7 @@ async fn concurrent_service_calls_refresh_once() {
     }
     for job in jobs {
         job.await.unwrap();
-        ctx.request("regions", "access").await;
+        ctx.request("regions", ACCESS_TOKEN).await;
     }
     assert!(ctx.oauth.request().await.contains("refresh_token=refresh"));
     assert!(ctx.oauth.requests.try_recv().is_err());

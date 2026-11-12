@@ -9,7 +9,7 @@ use tokio::time::timeout;
 use topk::auth::{Auth, OAuthConfig};
 use topk::config::Config;
 
-use super::common::{host, response, seed, tenant_dir, AuthTestContext, Server};
+use super::common::{host, jwt, response, seed, tenant_dir, AuthTestContext, Server, ACCESS_TOKEN};
 
 #[test_context(AuthTestContext)]
 #[tokio::test]
@@ -27,7 +27,7 @@ async fn concurrent_refresh_happens_once_and_preserves_refresh_token(ctx: &mut A
         ));
     }
     for job in jobs {
-        assert_eq!(job.await.unwrap(), "access");
+        assert_eq!(job.await.unwrap(), ACCESS_TOKEN);
     }
     let request = ctx.server.request().await;
     assert!(
@@ -166,7 +166,7 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
             .to_string()
             .contains("authentication configuration mismatch"));
         drop(other.browser_login(&[0]).await.unwrap());
-        assert_eq!(auth.access_token().await.unwrap(), "access");
+        assert_eq!(auth.access_token().await.unwrap(), ACCESS_TOKEN);
     }
 }
 
@@ -177,7 +177,7 @@ async fn session_survives_reopening_and_logout_removes_it(ctx: &mut AuthTestCont
     ctx.server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
     let reopened = ctx.server.auth(ctx.dir.path());
-    assert_eq!(reopened.access_token().await.unwrap(), "access");
+    assert_eq!(reopened.access_token().await.unwrap(), ACCESS_TOKEN);
     reopened.logout().await.unwrap();
     assert!(!tenant_dir(ctx.dir.path(), &ctx.server.url)
         .join("credentials.toml")
@@ -204,11 +204,11 @@ async fn login_replaces_the_session_for_the_same_issuer(ctx: &mut AuthTestContex
     ctx.server
         .reply(
             200,
-            json!({"token_type": "Bearer", "access_token": "replacement", "expires_in": 3600}),
+            json!({"token_type": "Bearer", "access_token": jwt("replacement"), "expires_in": 3600}),
         )
         .await;
     seed(&other).await;
-    assert_eq!(other.access_token().await.unwrap(), "replacement");
+    assert_eq!(other.access_token().await.unwrap(), jwt("replacement"));
     assert!(auth
         .access_token()
         .await
@@ -220,7 +220,10 @@ async fn login_replaces_the_session_for_the_same_issuer(ctx: &mut AuthTestContex
             .unwrap(),
     )
     .unwrap();
-    assert_eq!(record["access_token"].as_str(), Some("replacement"));
+    assert_eq!(
+        record["access_token"].as_str(),
+        Some(jwt("replacement").as_str())
+    );
     assert_eq!(
         record["client_id"].as_str(),
         Some(config.client_id.as_str())
@@ -303,7 +306,7 @@ async fn logout_without_a_session_removes_legacy_api_key_and_is_idempotent(
 async fn file_storage_handles_large_sessions(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
     for size in [1_024, 4_096, 16_384] {
-        let access_token = "a".repeat(size);
+        let access_token = jwt(&"a".repeat(size));
         let refresh_token = "r".repeat(size);
         ctx.server
             .reply(
@@ -365,7 +368,7 @@ async fn file_storage_supports_login_refresh_and_logout(ctx: &mut AuthTestContex
             200,
             json!({
                 "token_type": "Bearer",
-                "access_token": "a".repeat(16_384),
+                "access_token": jwt(&"a".repeat(16_384)),
                 "refresh_token": refresh_token,
                 "expires_in": 0,
             }),
@@ -440,7 +443,7 @@ async fn switching_issuers_reuses_sessions(ctx: &mut AuthTestContext) {
         (&second, &second_auth, "second-access"),
     ] {
         let mut reply = response(3600, Some("refresh"));
-        reply["access_token"] = json!(token);
+        reply["access_token"] = json!(jwt(token));
         server.reply(200, reply).await;
         seed(auth).await;
     }
@@ -453,11 +456,11 @@ async fn switching_issuers_reuses_sessions(ctx: &mut AuthTestContext) {
                 .access_token()
                 .await
                 .unwrap(),
-            "first-access"
+            jwt("first-access")
         );
         assert_eq!(
             second.auth(ctx.dir.path()).access_token().await.unwrap(),
-            "second-access"
+            jwt("second-access")
         );
     }
     assert!(ctx.server.requests.try_recv().is_err());
@@ -475,7 +478,7 @@ async fn logout_only_removes_the_current_issuer_session(ctx: &mut AuthTestContex
         (&second, &second_auth, "second-access"),
     ] {
         let mut reply = response(3600, Some("refresh"));
-        reply["access_token"] = json!(token);
+        reply["access_token"] = json!(jwt(token));
         server.reply(200, reply).await;
         seed(auth).await;
     }
@@ -486,7 +489,10 @@ async fn logout_only_removes_the_current_issuer_session(ctx: &mut AuthTestContex
         .unwrap_err()
         .to_string()
         .contains("not logged in"));
-    assert_eq!(second_auth.access_token().await.unwrap(), "second-access");
+    assert_eq!(
+        second_auth.access_token().await.unwrap(),
+        jwt("second-access")
+    );
     assert!(tenant_dir(ctx.dir.path(), &ctx.server.url)
         .join("session.lock")
         .exists());
@@ -525,7 +531,7 @@ async fn refreshing_one_issuer_does_not_block_another(ctx: &mut AuthTestContext)
             .await
             .unwrap()
             .unwrap(),
-        "access"
+        ACCESS_TOKEN
     );
     assert!(second
         .request()
@@ -536,7 +542,7 @@ async fn refreshing_one_issuer_does_not_block_another(ctx: &mut AuthTestContext)
     ctx.server
         .reply(200, response(3600, Some("first-rotated")))
         .await;
-    assert_eq!(refresh.await.unwrap().unwrap(), "access");
+    assert_eq!(refresh.await.unwrap().unwrap(), ACCESS_TOKEN);
     for (server, token) in [(&ctx.server, "first-rotated"), (&second, "second-rotated")] {
         let credentials: toml::Table = toml::from_str(
             &read_to_string(tenant_dir(ctx.dir.path(), &server.url).join("credentials.toml"))

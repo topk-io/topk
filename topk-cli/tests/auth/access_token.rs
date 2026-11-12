@@ -31,7 +31,7 @@ use topk_rs::proto::v1::data::{
 };
 use topk_rs::{doc, Client, ClientConfig, Error};
 
-use super::common::{host, response, seed, tenant_dir, Server as OAuthServer};
+use super::common::{host, jwt, response, seed, tenant_dir, Server as OAuthServer, ACCESS_TOKEN};
 
 type Reply = Result<MintAccessTokenResponse, Status>;
 
@@ -92,7 +92,7 @@ impl RegionService for Service {
     ) -> Result<Response<ListRegionsResponse>, Status> {
         assert_eq!(
             request.metadata().get("authorization").unwrap(),
-            "Bearer access"
+            format!("Bearer {ACCESS_TOKEN}").as_str()
         );
         Ok(Response::new(ListRegionsResponse::default()))
     }
@@ -250,7 +250,7 @@ impl Fixture {
                 .await
                 .unwrap()
                 .unwrap(),
-            (project.into(), "Bearer access".into())
+            (project.into(), format!("Bearer {ACCESS_TOKEN}"))
         );
     }
 }
@@ -426,7 +426,7 @@ async fn cached_token_needs_no_account_but_renewal_uses_current_login() {
     let error = provider.token().await.err().unwrap();
     assert!(format!("{error:#}").contains("not logged in"));
     let mut account = response(3600, Some("new-refresh"));
-    account["access_token"] = "new-account".into();
+    account["access_token"] = jwt("new-account").into();
     ctx.oauth.reply(200, account).await;
     seed(&ctx.oauth.auth(ctx.dir.path())).await;
     ctx.oauth.request().await;
@@ -434,7 +434,7 @@ async fn cached_token_needs_no_account_but_renewal_uses_current_login() {
     assert_eq!(provider.token().await.unwrap().token, "renewed");
     assert_eq!(
         ctx.requests.recv().await.unwrap(),
-        ("p1".into(), "Bearer new-account".into())
+        ("p1".into(), format!("Bearer {}", jwt("new-account")))
     );
 }
 

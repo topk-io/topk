@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::oauth::jwt_payload;
@@ -26,14 +27,16 @@ struct Raw {
 }
 
 impl AccessTokenClaims {
-    pub fn parse(token: &str, audience: &str) -> Option<Self> {
-        let mut raw: Raw = serde_json::from_value(jwt_payload(token)?).ok()?;
+    pub fn parse(token: &str, audience: &str) -> Result<Self> {
+        let payload = jwt_payload(token).context("access token is not a JWT")?;
+        let mut raw: Raw =
+            serde_json::from_value(payload).context("access token has unexpected claims")?;
         let mut custom = |name: &str| {
             raw.extra
                 .remove(&format!("{audience}/{name}"))
                 .and_then(|v| v.as_str().map(str::to_string))
         };
-        Some(Self {
+        Ok(Self {
             name: custom("name"),
             email: custom("email"),
             role: custom("role"),

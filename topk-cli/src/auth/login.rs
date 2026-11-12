@@ -30,7 +30,7 @@ impl<'a> CodeLogin<'a> {
         &self.authorization.url
     }
 
-    pub async fn finish(self, code: String) -> Result<Option<AccessTokenClaims>> {
+    pub async fn finish(self, code: String) -> Result<AccessTokenClaims> {
         self.auth.exchange_code(self.authorization, code).await
     }
 }
@@ -55,7 +55,7 @@ impl<'a> BrowserLogin<'a> {
         &self.authorization.url
     }
 
-    pub async fn finish(self) -> Result<Option<AccessTokenClaims>> {
+    pub async fn finish(self) -> Result<AccessTokenClaims> {
         callback::run(
             self.listener,
             self.authorization.state.clone(),

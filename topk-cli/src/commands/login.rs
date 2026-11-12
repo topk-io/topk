@@ -1,3 +1,4 @@
+use std::io::{stdin, IsTerminal};
 use std::process::ExitCode;
 
 use anyhow::{ensure, Result};
@@ -6,7 +7,7 @@ use colored::Colorize;
 
 use crate::auth::Auth;
 use crate::config::Config;
-use crate::util::password;
+use crate::prompt::Prompt;
 
 // Registered Auth0 loopback callback ports.
 const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
@@ -29,7 +30,16 @@ pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
             "Open this URL in any browser to log in:\n\n{}\n",
             login.url()
         );
-        let code = password("Paste the code shown in the browser")?;
+        let prompt = "Paste the code shown in the browser";
+        let code = if stdin().is_terminal() {
+            Prompt::password(prompt)?
+        } else {
+            // Piped input
+            eprint!("{prompt}: ");
+            let mut code = String::new();
+            stdin().read_line(&mut code)?;
+            code.trim().to_string()
+        };
         ensure!(!code.is_empty(), "no code entered");
         login.finish(code).await?
     } else {
@@ -42,9 +52,6 @@ pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
         eprintln!("Waiting for login...");
         login.finish().await?
     };
-    match claims {
-        Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
-        None => eprintln!("{} Logged in.", "✓".green()),
-    }
+    eprintln!("{} Logged in as {}", "✓".green(), claims.account());
     Ok(ExitCode::SUCCESS)
 }

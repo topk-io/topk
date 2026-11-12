@@ -40,7 +40,7 @@ impl Auth {
         &self,
         authorization: Authorization,
         code: String,
-    ) -> Result<Option<AccessTokenClaims>> {
+    ) -> Result<AccessTokenClaims> {
         let (session, claims) = self.client.exchange_code(authorization, code).await?;
         self.config.session().await?.save(session)?;
         // Clear cached access tokens
