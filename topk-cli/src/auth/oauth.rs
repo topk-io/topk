@@ -117,7 +117,7 @@ impl OAuthClient {
         &self,
         authorization: Authorization,
         code: String,
-    ) -> Result<(Session, Option<AccessTokenClaims>)> {
+    ) -> Result<(Session, AccessTokenClaims)> {
         let res = self
             .client
             .exchange_code(AuthorizationCode::new(code))
@@ -125,9 +125,9 @@ impl OAuthClient {
             .set_redirect_uri(Cow::Owned(authorization.redirect_uri))
             .request_async(&self.http)
             .await
-            .context("exchanging the authorization code")?;
+            .context("exchanging the authorization code failed. Run `topk login` again.")?;
         let session = session_from_response(res)?;
-        let claims = AccessTokenClaims::parse(&session.access_token, &self.audience);
+        let claims = AccessTokenClaims::parse(&session.access_token, &self.audience)?;
         Ok((session, claims))
     }
 

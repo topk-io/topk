@@ -47,7 +47,7 @@ impl ImportOutput {
             }
         }
         self.message(toml::to_string_pretty(&pending)?)?;
-        crate::util::confirm(
+        crate::prompt::Prompt::confirm(
             format!(
                 "Import {} collection(s) into {}?",
                 pending.len(),

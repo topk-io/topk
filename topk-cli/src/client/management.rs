@@ -19,8 +19,7 @@ pub struct ManagementClient {
 
 impl ManagementClient {
     pub fn new(config: Config) -> Result<Self> {
-        let protocol = if config.https() { "https" } else { "http" };
-        let mut grpc = Endpoint::from_shared(format!("{protocol}://api.{}", config.host()))?;
+        let mut grpc = Endpoint::from_shared(config.api_url())?;
         if config.https() {
             grpc = grpc.tls_config(ClientTlsConfig::new().with_native_roots())?;
         }

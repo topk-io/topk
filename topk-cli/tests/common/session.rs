@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 
@@ -67,39 +67,37 @@ impl CliTestContext {
     }
 
     /// `topk login --no-browser` against the emulator issuer, which redirects
-    /// straight back to the callback with no login page in between.
+    /// straight to the hosted page that shows the code to paste back.
     async fn login_without_browser(&self) {
         let mut child = self
             .command(&["login", "--no-browser"])
+            .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
             .expect("spawn topk login");
-        // Keep reading until exit: the CLI dies of SIGPIPE if stderr closes under it.
-        let mut stderr = BufReader::new(child.stderr.take().unwrap())
-            .lines()
-            .map(Result::unwrap);
+        let mut stderr = BufReader::new(child.stderr.take().unwrap());
         let url = stderr
             .by_ref()
+            .lines()
+            .map(Result::unwrap)
             .find(|line| line.starts_with("http"))
             .expect("login url");
         let page = reqwest::get(url).await.expect("follow login url");
-        assert!(
-            page.status().is_success(),
-            "callback status {}",
-            page.status()
-        );
-        assert!(page.text().await.unwrap().contains("You're logged in"));
-        let rest: Vec<String> = stderr.collect();
+        assert!(page.status().is_success(), "code page {}", page.status());
+        let (_, code) = page
+            .url()
+            .query_pairs()
+            .find(|(key, _)| key == "code")
+            .expect("code in the page url");
+        writeln!(child.stdin.take().unwrap(), "{code}").expect("paste the code");
+        let mut rest = String::new();
+        stderr.read_to_string(&mut rest).unwrap();
         assert!(
             child.wait().unwrap().success(),
-            "topk login failed:\n{}",
-            rest.join("\n")
+            "topk login failed:\n{rest}"
         );
-        assert!(
-            rest.iter().any(|line| line.contains("Logged in")),
-            "{rest:?}"
-        );
+        assert!(rest.contains("Logged in"), "{rest}");
     }
 
     /// A real tenant has no scriptable login page: mint the session with the
