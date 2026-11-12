@@ -6,6 +6,7 @@ mod context;
 pub use context::{BooksContext, Scope, SessionContext, TableScope};
 
 mod client;
+pub use client::SqlClient;
 
 #[allow(dead_code)]
 pub fn ids<'a>(docs: impl IntoIterator<Item = &'a Document>) -> std::collections::HashSet<&'a str> {

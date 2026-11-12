@@ -29,6 +29,7 @@ tokio = { version = "1.35", features = ["full"] }
 sqlx = { version = "0.8", features = [
     "runtime-tokio",
     "postgres",
+    "chrono",
     "json",
     "tls-rustls",
 ] }

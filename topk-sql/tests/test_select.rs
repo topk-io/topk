@@ -1206,6 +1206,14 @@ async fn semantic_similarity_search() {
     "SELECT COUNT(*) FROM {{table}} LIMIT 5",
     "Unsupported: SELECT COUNT(*) ... LIMIT ..."
 )]
+#[case::count_filter(
+    "SELECT COUNT(*) FILTER (WHERE rating > 4) FROM {{table}}",
+    "Unsupported: COUNT: aggregate FILTER clause is not supported"
+)]
+#[case::count_over(
+    "SELECT COUNT(*) OVER () FROM {{table}}",
+    "Unsupported: COUNT: aggregate OVER clause is not supported"
+)]
 #[case::union(
     "SELECT _id FROM {{table}} UNION SELECT _id FROM {{table}} LIMIT 5",
     "Unsupported: SELECT ... UNION/INTERSECT/EXCEPT ..."
@@ -1357,4 +1365,18 @@ async fn select_star_answers(#[case] query: &str, #[case] expected: Vec<&str>) {
             rows[0].fields.keys().collect::<Vec<_>>()
         );
     }
+}
+
+#[rstest]
+#[case::filter(
+    "SELECT COUNT(*) FILTER (WHERE rating > 4) FROM books",
+    "Unsupported: COUNT: aggregate FILTER clause is not supported"
+)]
+#[case::over(
+    "SELECT COUNT(*) OVER () FROM books",
+    "Unsupported: COUNT: aggregate OVER clause is not supported"
+)]
+fn count_rejects_ignored_modifiers(#[case] sql: &str, #[case] expected: &str) {
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+    assert_eq!(err.to_string(), expected);
 }

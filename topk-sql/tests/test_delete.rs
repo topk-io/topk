@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use rstest::rstest;
+use topk_sql::{convert_sql, parse_sql};
 
 mod common;
 use common::{ids, BooksContext, Scope};
@@ -59,4 +60,35 @@ async fn delete_rejected(#[case] query: &str, #[case] expected: &str) {
         .unwrap_err();
 
     assert_eq!(err.to_string(), expected);
+}
+
+#[rstest]
+#[case::limit(
+    "DELETE FROM books WHERE rating > 0 LIMIT 1",
+    "Unsupported: DELETE … LIMIT"
+)]
+#[case::ordered(
+    "DELETE FROM books WHERE rating > 0 ORDER BY rating",
+    "Unsupported: DELETE … ORDER BY"
+)]
+#[case::partition_limit("DELETE FROM books$tenant LIMIT 1", "Unsupported: DELETE … LIMIT")]
+fn delete_ignored_clause(#[case] sql: &str, #[case] expected: &str) {
+    let err = convert_sql(parse_sql(sql).unwrap()).unwrap_err();
+    assert_eq!(err.to_string(), expected);
+}
+
+#[tokio::test]
+async fn rejected_limit_preserves_rows() {
+    BooksContext::with_scope(async |ctx: &BooksContext| {
+        let before_rows = ctx.sql("SELECT _id FROM {{table}}").await.unwrap();
+        let before = ids(&before_rows);
+        let err = ctx
+            .sql("DELETE FROM {{table}} WHERE published_year > 0 LIMIT 1")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Unsupported: DELETE … LIMIT"));
+        let after = ctx.sql("SELECT _id FROM {{table}}").await.unwrap();
+        assert_eq!(ids(&after), before);
+    })
+    .await;
 }
