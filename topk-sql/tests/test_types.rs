@@ -111,13 +111,14 @@ async fn decoding_errors(#[case] batch: bool, #[case] prepared: bool) {
 #[ignore = "requires PostgreSQL; run test_types with --ignored and PG connection variables"]
 async fn decoded_values() {
     let client = SqlClient::from_env().await.unwrap();
-    let sql = "SELECT 1::smallint AS small, 2::integer AS medium, 9223372036854775807::bigint AS big, 1.5::real AS single, 1.25::double precision AS double, true AS boolean, 'hello'::text AS text, decode('00ff', 'hex') AS bytes, NULL::bigint AS missing, 'null'::json AS json_null, '42'::jsonb AS json_number, '[1,2]'::json AS json_list";
+    let sql = "SELECT 1::smallint AS small, 2::integer AS medium, 9223372036854775807::bigint AS big, 1.5::real AS single, 1.25::double precision AS double, true AS boolean, 'hello'::text AS text, decode('00ff', 'hex') AS bytes, NULL::bigint AS missing, 'null'::json AS json_null, '42'::jsonb AS json_number, '[1,2]'::json AS json_list, TIMESTAMPTZ '1970-01-01 01:00:01+01' AS moment, NULL::timestamptz AS no_time";
     let expected = vec![doc!(
         "small" => 1_i64, "medium" => 2_i64, "big" => i64::MAX,
         "single" => 1.5_f32, "double" => 1.25_f64, "boolean" => true,
         "text" => "hello", "bytes" => Value::bytes(vec![0, 255]),
         "missing" => Value::null(), "json_null" => Value::null(),
-        "json_number" => 42_i64, "json_list" => "[1,2]"
+        "json_number" => 42_i64, "json_list" => "[1,2]",
+        "moment" => Value::timestamp(1_000_i64), "no_time" => Value::null()
     )];
     assert_eq!(client.query(sql).await.unwrap(), expected);
     assert_eq!(client.batch(&[sql]).await.unwrap(), expected);

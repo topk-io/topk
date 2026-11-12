@@ -3,6 +3,7 @@
 use std::str::FromStr;
 
 use anyhow::Context;
+use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
 use sqlx::{
     postgres::{PgArguments, PgConnectOptions, PgPool, PgPoolOptions, PgRow, PgSslMode},
@@ -222,6 +223,10 @@ impl SqlClient {
                                 "bytea" => row
                                     .try_get::<Option<Vec<u8>>, _>(ordinal)?
                                     .map(Value::bytes)
+                                    .unwrap_or_else(Value::null),
+                                "timestamptz" => row
+                                    .try_get::<Option<DateTime<Utc>>, _>(ordinal)?
+                                    .map(Value::timestamp)
                                     .unwrap_or_else(Value::null),
                                 _ => row
                                     .try_get::<Option<String>, _>(ordinal)?
