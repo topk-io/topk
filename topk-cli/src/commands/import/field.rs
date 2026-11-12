@@ -4,7 +4,7 @@ use topk_rs::proto::v1::control::{
     FieldIndex, KeywordIndexType, MultiVectorDistanceMetric, VectorDistanceMetric,
 };
 
-use crate::import::plan::{FieldSelection, Rename, Type};
+use crate::import::plan::{Field, FieldSelection, Rename, Type};
 use crate::import::Error;
 
 impl FromStr for FieldSelection {
@@ -86,11 +86,17 @@ impl FromStr for FieldSelection {
                 }
             }
         };
-        Ok(Self {
+        let selection = Self {
             name: name.into(),
             ty,
             index,
-        })
+        };
+        if let Some(schema) = selection.ty.as_ref().and_then(|ty| ty.field_spec(false)) {
+            let mut field = Field::new(schema);
+            field.schema.index = selection.index.clone();
+            field.validate()?;
+        }
+        Ok(selection)
     }
 }
 

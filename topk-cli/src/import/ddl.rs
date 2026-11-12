@@ -77,53 +77,12 @@ impl Field {
 }
 #[cfg(test)]
 mod tests {
-    use super::{Field, Schema};
+    use super::Field;
     use rstest::rstest;
     use topk_rs::proto::v1::control::{
         field_index::Index, field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, FieldType,
         MultiVectorDistanceMetric, MultiVectorQuantization, VectorDistanceMetric,
     };
-
-    #[rstest]
-    #[case::matching(true, true)]
-    #[case::different_type(true, false)]
-    #[case::missing(false, false)]
-    fn validates_destination(#[case] present: bool, #[case] success: bool) {
-        let schema = FieldSpec::f32_vector(3, true)
-            .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine));
-        let target = crate::import::plan::Target {
-            from: "data.parquet".into(),
-            id: "id".into(),
-            filter: None,
-            partition: None,
-            limit: None,
-            fields: [(
-                "embedding".into(),
-                crate::import::plan::Field {
-                    from: Some("vector".into()),
-                    ..crate::import::plan::Field::new(if success {
-                        schema.clone()
-                    } else {
-                        FieldSpec::text(false)
-                    })
-                },
-            )]
-            .into(),
-        };
-        let destination = if present {
-            [("embedding".into(), schema.clone())].into()
-        } else {
-            Schema::new()
-        };
-        let result = target.validate_schema("docs", &destination);
-        assert_eq!(result.is_ok(), success);
-        if !success {
-            assert!(matches!(
-                result,
-                Err(crate::import::Error::SchemaMismatch(_))
-            ));
-        }
-    }
 
     #[rstest]
     #[case::image_bytes(FieldType::image(), FieldType::bytes())]

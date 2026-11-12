@@ -1186,6 +1186,8 @@ async fn dry_run_uses_destination(ctx: &Ctx) {
             &from,
             "--to",
             &collection,
+            "-f",
+            "embedding",
             "--dry-run",
         ])
         .success();

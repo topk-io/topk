@@ -219,6 +219,20 @@ impl Target {
                 self.fields.insert(rename.target.clone(), field);
             }
         }
+        if let Some(schema) = existing {
+            for (name, field) in &mut self.fields {
+                if let Some(existing) = schema.get(name) {
+                    if fields
+                        .iter()
+                        .any(|arg| arg.name == *name && arg.ty.is_some())
+                    {
+                        field.schema.required = existing.required;
+                    } else {
+                        field.schema = existing.clone();
+                    }
+                }
+            }
+        }
         if !fields.is_empty() {
             let mut available = std::mem::take(&mut self.fields);
             for arg in fields {
@@ -231,13 +245,6 @@ impl Target {
                 let mut field = available.shift_remove(&arg.name).ok_or_else(|| {
                     Error::InvalidArgument(format!("field {:?} was not found", arg.name))
                 })?;
-                if let Some(schema) = existing.and_then(|schema| schema.get(&arg.name)) {
-                    if arg.ty.is_none() {
-                        field.schema = schema.clone();
-                    } else {
-                        field.schema.required = schema.required;
-                    }
-                }
                 let dimension = if arg.samples_dimension(&field) {
                     let mut sample = self.capped(100);
                     sample.fields = IndexMap::from([(arg.name.clone(), field.clone())]);
@@ -271,15 +278,6 @@ impl Target {
                 };
                 arg.apply(&mut field, dimension)?;
                 self.fields.insert(arg.name.clone(), field);
-            }
-        }
-        if fields.is_empty() {
-            if let Some(schema) = existing {
-                for (name, field) in &mut self.fields {
-                    if let Some(existing) = schema.get(name) {
-                        field.schema = existing.clone();
-                    }
-                }
             }
         }
         self.validate()
@@ -398,6 +396,24 @@ pub enum Type {
     Sparse,
 }
 
+impl Type {
+    pub fn field_spec(&self, required: bool) -> Option<FieldSpec> {
+        Some(match self {
+            Self::Text => FieldSpec::text(required),
+            Self::Int => FieldSpec::integer(required),
+            Self::Float => FieldSpec::float(required),
+            Self::Bool => FieldSpec::boolean(required),
+            Self::Bytes => FieldSpec::bytes(required),
+            Self::Image => FieldSpec::image(required),
+            Self::Timestamp => FieldSpec::timestamp(required),
+            Self::TextList => FieldSpec::list(required, ListValueType::String),
+            Self::IntList => FieldSpec::list(required, ListValueType::Integer),
+            Self::FloatList => FieldSpec::list(required, ListValueType::Float),
+            Self::Vector(_) | Self::Matrix(_) | Self::Sparse => return None,
+        })
+    }
+}
+
 impl FieldSelection {
     pub fn samples_dimension(&self, field: &Field) -> bool {
         matches!(&self.ty, Some(Type::Vector(None)))
@@ -419,24 +435,14 @@ impl FieldSelection {
     }
 
     pub fn apply(&self, field: &mut Field, sampled_dimension: Option<u32>) -> Result<(), Error> {
+        if let Some(schema) = self
+            .ty
+            .as_ref()
+            .and_then(|ty| ty.field_spec(field.schema.required))
+        {
+            field.schema = schema;
+        }
         match &self.ty {
-            None => {}
-            Some(Type::Text) => field.schema = FieldSpec::text(field.schema.required),
-            Some(Type::Int) => field.schema = FieldSpec::integer(field.schema.required),
-            Some(Type::Float) => field.schema = FieldSpec::float(field.schema.required),
-            Some(Type::Bool) => field.schema = FieldSpec::boolean(field.schema.required),
-            Some(Type::Bytes) => field.schema = FieldSpec::bytes(field.schema.required),
-            Some(Type::Image) => field.schema = FieldSpec::image(field.schema.required),
-            Some(Type::Timestamp) => field.schema = FieldSpec::timestamp(field.schema.required),
-            Some(Type::TextList) => {
-                field.schema = FieldSpec::list(field.schema.required, ListValueType::String)
-            }
-            Some(Type::IntList) => {
-                field.schema = FieldSpec::list(field.schema.required, ListValueType::Integer)
-            }
-            Some(Type::FloatList) => {
-                field.schema = FieldSpec::list(field.schema.required, ListValueType::Float)
-            }
             Some(Type::Vector(dim)) => {
                 let native_dim = match field
                     .schema
@@ -513,6 +519,7 @@ impl FieldSelection {
                     field.schema = FieldSpec::f32_sparse_vector(field.schema.required);
                 }
             }
+            _ => {}
         }
         if self.ty.is_some() || self.index.is_some() {
             field.schema.index = self.index.clone();
