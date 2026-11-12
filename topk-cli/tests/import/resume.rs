@@ -1,15 +1,15 @@
 use test_macros::rstest_ctx;
+use topk::import::plan::Plan;
 use topk::import::source::{Checkpoint, Cursor};
-use topk::import::spec::Spec;
 use topk::import::state::{Progress, Run, State};
 use topk::scope::Scope;
-use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric};
 
 use crate::import::common::{refused, target, Scratch};
 
 fn state() -> State {
-    let spec = Spec::try_from(
-        ["a", "b", "c"]
+    let plan = Plan {
+        collections: ["a", "b", "c"]
             .into_iter()
             .map(|name| {
                 (
@@ -17,20 +17,26 @@ fn state() -> State {
                     target(
                         &format!("{name}.parquet"),
                         "_id",
-                        [("title", FieldSpec::text(false))],
+                        [
+                            ("title", FieldSpec::text(false)),
+                            (
+                                "embedding",
+                                FieldSpec::f32_vector(3, false)
+                                    .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
+                            ),
+                        ],
                     ),
                 )
             })
             .collect::<indexmap::IndexMap<_, _>>(),
-    )
-    .unwrap();
+    };
     State::new(
         "books.parquet".into(),
         Scope {
             project_id: "p1".parse().unwrap(),
             region: "dev".into(),
         },
-        spec,
+        plan,
     )
 }
 
@@ -52,7 +58,7 @@ fn pending_collections() {
             .collect::<Vec<_>>(),
         ["a", "b"]
     );
-    state.spec.collections["b"].limit = Some(20);
+    state.plan.collections["b"].limit = Some(20);
     assert_eq!(
         state
             .pending()
@@ -71,7 +77,7 @@ fn different_source_rejected() {
 #[test]
 fn checkpoint_past_limit() {
     let mut state = state();
-    state.spec.collections["a"].limit = Some(5);
+    state.plan.collections["a"].limit = Some(5);
     state.progress.insert(
         "a".into(),
         Progress::After(Checkpoint {
@@ -105,44 +111,17 @@ async fn saved_plan_round_trips(ctx: &Scratch, #[case] cursor: Cursor) {
     let run = Run::start(&directory, saved).await.unwrap();
     run.save().unwrap();
     let id = run.id;
+    assert!(directory.join(format!("{id}.toml")).exists());
     drop(run);
     let run = Run::load(&directory, id).await.unwrap();
     assert_eq!(run.state().source, "books.parquet");
     assert_eq!(run.state().destination.project_id.as_str(), "p1");
     assert_eq!(run.state().destination.region, "dev");
-    assert!(run.state().spec.collections == state().spec.collections);
+    assert!(run.state().plan.collections == state().plan.collections);
     assert!(
         matches!(&run.state().progress["a"], Progress::After(checkpoint) if checkpoint.cursor == cursor && checkpoint.consumed == 42)
     );
     run.remove().unwrap();
-}
-
-#[test]
-fn legacy_shapes_in_saved_state() {
-    let state: State = toml::from_str(
-        r#"
-source = "rows.parquet"
-project_id = "p1"
-region = "dev"
-[spec.rows]
-from = "rows.parquet"
-id = "_id"
-[spec.rows.fields]
-dense = { type = "f32_vector", dim = 3 }
-sparse = { type = "f16_sparse_vector" }
-matrix = { type = "i8_matrix", cols = 8 }
-[cursors.rows.after]
-key = "last"
-consumed = 2
-"#,
-    )
-    .unwrap();
-    let encoded = toml::to_string(&state).unwrap();
-    assert!(encoded.contains("[cursors.rows.after]"));
-    assert!(!encoded.contains("[progress"));
-    let restored: State = toml::from_str(&encoded).unwrap();
-    assert!(state.spec.collections == restored.spec.collections);
-    assert!(matches!(&restored.progress["rows"], Progress::After(c) if c.consumed == 2));
 }
 
 #[rstest_ctx(Scratch)]

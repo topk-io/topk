@@ -133,7 +133,7 @@ If a search returns no rows right after the insert, wait a few seconds and run i
 
 Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
-- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes about 3 minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
+- Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes a few minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
 - Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
@@ -142,37 +142,20 @@ Show the user the search results and summarize what you set up: the project, the
 
 Follow this when the user wants a bigger demo. It loads 50,000 English Wikipedia articles from Hugging Face into a new collection, with no download step and no embedding pipeline, then answers questions over them. Steps 1–4 above must be done first.
 
-### 1. Write the import spec
+### 1. Import
 
-The spec says where the data comes from and which fields to index. Create `wikipedia.toml` in the current directory:
-
-```bash
-cat > wikipedia.toml <<'TOML'
-[wikipedia]
-from = "hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet"
-id = "id"
-limit = 50000
-
-[wikipedia.fields]
-title = { type = "text", index = "keyword" }
-text = { type = "text", index = "semantic", truncate = 4000 }
-url = { type = "text" }
-TOML
-```
-
-`title` gets a keyword index for exact word matches; `text`, the first 4,000 characters of each article, gets a semantic index for search by meaning.
-
-### 2. Import
-
-Tell the user it takes about 3 minutes, then run:
+Tell the user it takes a few minutes, then run:
 
 ```bash
-topk import -f wikipedia.toml --region <REGION> --yes
+topk import hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet \
+  --to wikipedia --limit 50000 -f title=keyword,text=semantic,url --region <REGION> --yes
 ```
 
-The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `to continue:`, adding `--yes` so it doesn't wait for confirmation. It resumes the same run with `--resume <RUN>`, using the run id from the `# run <RUN>` line printed when the import started.
+`-f` imports only the named fields: `title` gets a keyword index for exact word matches, `text` gets a semantic index for search by meaning, and `url` is stored as is. Article text over 32,768 characters is shortened before it is stored.
 
-### 3. Ask it questions
+The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `Continue with:`. It resumes the same run without asking for confirmation.
+
+### 2. Ask it questions
 
 Search by meaning: results match what the question is about, not just its exact words:
 

@@ -9,9 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::import::error::Error;
+use crate::import::plan::{Plan, Target};
 use crate::import::source::{Checkpoint, Uri};
-use crate::import::spec::{Spec, Target};
-use crate::scope::Scope;
 use crate::storage;
 
 /// Names a run in its header, its state file and `--resume`: eight lowercase hex digits.
@@ -58,7 +57,7 @@ pub struct State {
     /// Passwords are redacted.
     pub source: String,
     /// The whole plan, done collections included.
-    pub spec: Spec,
+    pub plan: Plan,
     #[serde(flatten)]
     pub destination: Scope,
     #[serde(default, rename = "cursors")]
@@ -66,17 +65,17 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(source: String, destination: Scope, spec: Spec) -> State {
+    pub fn new(source: String, destination: Scope, plan: Plan) -> State {
         State {
             source,
-            spec,
+            plan,
             destination,
             progress: BTreeMap::new(),
         }
     }
 
     pub fn pending(&self) -> impl Iterator<Item = (&String, &Target)> {
-        self.spec
+        self.plan
             .collections
             .iter()
             .filter(|(name, target)| match self.progress.get(*name) {
@@ -128,9 +127,9 @@ impl State {
     }
 
     pub fn validate(&self) -> Result<(), Error> {
-        self.spec.validate()?;
+        self.plan.validate()?;
         for (name, mark) in &self.progress {
-            let target = self.spec.collections.get(name).ok_or_else(|| {
+            let target = self.plan.collections.get(name).ok_or_else(|| {
                 Error::InvalidArgument(format!(
                     "saved run has a checkpoint for unknown collection {name:?}"
                 ))
@@ -195,6 +194,10 @@ impl Run {
 
     pub fn state(&self) -> &State {
         &self.state
+    }
+
+    pub fn state_mut(&mut self) -> &mut State {
+        &mut self.state
     }
 
     pub fn save(&self) -> Result<(), Error> {

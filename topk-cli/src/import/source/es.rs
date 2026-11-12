@@ -12,7 +12,7 @@ use serde_json::{json, Map, Value as JsonValue};
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::error::Error;
-use crate::import::spec::Target;
+use crate::import::plan::Target;
 use crate::import::ID;
 
 use super::{Catalog, Chunk, ReadEvent, ReadStream, Table};

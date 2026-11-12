@@ -9,7 +9,6 @@ use tokio::time::{timeout, Duration};
 use url::Url;
 
 use topk::auth::OAuthConfig;
-use topk::client::DataClient;
 use topk::config::Config;
 use topk::scope::ScopeArgs;
 
@@ -236,11 +235,16 @@ async fn endpoint_authenticates_with_the_project() {
         .unwrap()
         .to_string()
         .contains("unexpected argument '--api-key'"));
-    let scope = parse(&["test", "--project-id", "p1", "--region", "test"])
-        .resolve(&config)
-        .await
+    let client = config
+        .data_client(
+            "p1".parse().unwrap(),
+            parse(&["test", "--region", "test"])
+                .resolve(&config)
+                .await
+                .unwrap()
+                .as_str(),
+        )
         .unwrap();
-    let client = DataClient::new(&config, scope).unwrap();
     assert!(!client.config().headers().contains_key("authorization"));
     assert_eq!(client.config().region(), Some("test"));
 }

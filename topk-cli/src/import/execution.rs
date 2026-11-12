@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -10,11 +10,11 @@ use tokio::task::JoinSet;
 use topk_rs::proto::v1::data::Document;
 use topk_rs::Client;
 
-use crate::import::ddl::{self, Schema};
+use crate::import::ddl;
 use crate::import::error::Error;
+use crate::import::plan::Target;
 use crate::import::source::Checkpoint;
 use crate::import::source::{ReadEvent, ReadStream, Source};
-use crate::import::spec::Target;
 use crate::import::state::{Progress, Run};
 
 const OBJECT_CONCURRENCY: usize = 8;
@@ -56,7 +56,7 @@ pub struct Import {
     client: Client,
     source: Source,
     scans: Vec<(String, Target, ReadStream, u64)>,
-    pending: HashMap<String, Schema>,
+    to_create: Vec<String>,
 }
 
 impl Import {
@@ -64,7 +64,39 @@ impl Import {
         &self.run
     }
 
-    pub async fn prepare(source: Source, client: Client, run: Run) -> Result<Self, Error> {
+    pub async fn start(
+        source: Source,
+        client: Client,
+        run: Run,
+        to_create: Vec<String>,
+    ) -> Result<Self, Error> {
+        Self::validate(&source, &client, &run)?;
+        Self::open(source, client, run, to_create).await
+    }
+
+    pub async fn resume(source: Source, client: Client, run: Run) -> Result<Self, Error> {
+        Self::validate(&source, &client, &run)?;
+        let to_create = stream::iter(run.state().pending().map(|(name, target)| {
+            let client = &client;
+            async move {
+                match client.collections().get(name).await {
+                    Ok(collection) => {
+                        target.validate_schema(name, &collection.schema)?;
+                        Ok(None)
+                    }
+                    Err(topk_rs::Error::CollectionNotFound) => Ok(Some(name.clone())),
+                    Err(error) => Err(Error::from(error)),
+                }
+            }
+        }))
+        .buffered(8)
+        .try_filter_map(|name| async { Ok(name) })
+        .try_collect()
+        .await?;
+        Self::open(source, client, run, to_create).await
+    }
+
+    fn validate(source: &Source, client: &Client, run: &Run) -> Result<(), Error> {
         run.state().validate()?;
         if source.locator() != run.state().source {
             return Err(Error::InvalidArgument(
@@ -76,6 +108,15 @@ impl Import {
                 "destination region does not match the saved run".into(),
             ));
         }
+        Ok(())
+    }
+
+    async fn open(
+        source: Source,
+        client: Client,
+        run: Run,
+        to_create: Vec<String>,
+    ) -> Result<Self, Error> {
         let mut scans = Vec::new();
         for (name, target) in run.state().pending() {
             let resumed = match run.state().progress.get(name) {
@@ -90,13 +131,12 @@ impl Import {
                 resumed.map_or(0, |c| c.consumed),
             ));
         }
-        let pending = ddl::absent(&client, run.state().pending()).await?;
         Ok(Self {
             run,
             client,
             source,
             scans,
-            pending,
+            to_create,
         })
     }
 
@@ -112,15 +152,23 @@ impl Import {
             }
             let readers = self.scans.len().min(OBJECT_CONCURRENCY)
                 .min(self.source.concurrency_limit(self.run.state().pending().map(|(_, target)| target))).max(1);
-            let state = Arc::new(Mutex::new(self.run));
-            let budget = Arc::new(Semaphore::new(options.concurrency));
             let client = &self.client;
-            for (name, schema) in self.pending {
+            for name in self.to_create {
+                let target = self.run.state().plan.collections.get(&name)
+                    .ok_or_else(|| Error::InvalidArgument(format!("no import target for {name}")))?;
+                let schema: ddl::Schema = target.fields.iter()
+                    .map(|(name, field)| (name.clone(), field.schema.clone())).collect();
                 match client.collections().create(&name, schema, None).await {
-                    Ok(_) | Err(topk_rs::Error::CollectionAlreadyExists) => {}
+                    Ok(_) => {}
+                    Err(topk_rs::Error::CollectionAlreadyExists) => {
+                        let existing = client.collections().get(&name).await?;
+                        target.validate_schema(&name, &existing.schema)?;
+                    }
                     Err(error) => Err(Error::from(error))?,
                 }
             }
+            let state = Arc::new(Mutex::new(self.run));
+            let budget = Arc::new(Semaphore::new(options.concurrency));
             let streams = stream::iter(self.scans).map(|(name, target, mut chunks, mut consumed)| -> futures::stream::BoxStream<'_, Result<Event, Error>> {
                 let state = &state;
                 let budget = &budget;
@@ -362,9 +410,30 @@ mod tests {
 
     use futures::FutureExt;
     use rstest::rstest;
+    use topk_rs::proto::v1::control::FieldSpec;
     use topk_rs::ClientConfig;
 
     use super::*;
+
+    fn test_plan() -> crate::import::plan::Plan {
+        crate::import::plan::Plan {
+            collections: indexmap::IndexMap::from([(
+                "c".into(),
+                crate::import::plan::Target {
+                    from: "unused".into(),
+                    id: "_id".into(),
+                    filter: None,
+                    partition: None,
+                    limit: None,
+                    fields: [(
+                        "title".into(),
+                        crate::import::plan::Field::new(FieldSpec::text(false)),
+                    )]
+                    .into(),
+                },
+            )]),
+        }
+    }
 
     #[rstest]
     #[case::acknowledged_prefix(false)]
@@ -438,9 +507,8 @@ mod tests {
     #[tokio::test]
     async fn cancelled_writes_hold_lock() {
         let dir = tempfile::tempdir().unwrap();
-        let spec: crate::import::spec::Spec =
-            toml::from_str("[c]\nfrom = 'unused'\n[c.fields]\ntitle = { type = 'text' }").unwrap();
-        let target = spec.collections["c"].clone();
+        let plan = test_plan();
+        let target = plan.collections["c"].clone();
         let run = Run::start(
             dir.path(),
             crate::import::state::State::new(
@@ -449,7 +517,7 @@ mod tests {
                     project_id: "p1".parse().unwrap(),
                     region: "unused".into(),
                 },
-                spec,
+                plan,
             ),
         )
         .await
@@ -471,7 +539,7 @@ mod tests {
                 .await
                 .unwrap(),
             scans: vec![("c".into(), target, chunks, 0)],
-            pending: HashMap::new(),
+            to_create: Vec::new(),
         };
         let mut execution = Box::pin(import.execute(WriteOptions {
             continue_on_error: false,
@@ -500,9 +568,8 @@ mod tests {
     #[tokio::test]
     async fn source_error_boundary(#[case] stream_error: bool) {
         let dir = tempfile::tempdir().unwrap();
-        let spec: crate::import::spec::Spec =
-            toml::from_str("[c]\nfrom = 'unused'\n[c.fields]\ntitle = { type = 'text' }").unwrap();
-        let target = spec.collections["c"].clone();
+        let plan = test_plan();
+        let target = plan.collections["c"].clone();
         let run = Run::start(
             dir.path(),
             crate::import::state::State::new(
@@ -511,7 +578,7 @@ mod tests {
                     project_id: "p1".parse().unwrap(),
                     region: "unused".into(),
                 },
-                spec,
+                plan,
             ),
         )
         .await
@@ -535,7 +602,7 @@ mod tests {
                 .await
                 .unwrap(),
             scans: vec![("c".into(), target, chunks, 0)],
-            pending: HashMap::new(),
+            to_create: Vec::new(),
         };
         let mut execution = Box::pin(import.execute(WriteOptions {
             continue_on_error: true,

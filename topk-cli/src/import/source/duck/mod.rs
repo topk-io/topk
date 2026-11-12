@@ -12,7 +12,7 @@ use tokio::task::spawn_blocking;
 use url::Url;
 
 use crate::import::error::Error;
-use crate::import::spec::Target;
+use crate::import::plan::Target;
 
 use super::{redact, ChunkStream, Cursor, Table};
 

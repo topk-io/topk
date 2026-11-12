@@ -25,9 +25,6 @@ pub enum Error {
     #[error("mongodb error: {0}")]
     Mongo(#[from] mongodb::error::Error),
 
-    #[error(transparent)]
-    Toml(#[from] toml::de::Error),
-
     #[error("worker task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 
@@ -65,7 +62,7 @@ pub enum Error {
     },
 
     #[error(
-        "schema mismatch; make the spec match the collection (drop added or changed fields), \
+        "schema mismatch; requested fields differ from the collection (drop added or changed fields), \
          use a new collection name, or delete the collection and re-run:\n  {0}"
     )]
     SchemaMismatch(String),
@@ -77,7 +74,7 @@ impl From<topk_rs::Error> for Error {
             topk_rs::Error::DocumentValidationError(errors) => Error::RejectedDocuments(
                 errors.into_iter().map(|error| match error {
                     topk_rs::error::DocumentValidationError::TextTooLong { doc_id, field, max_length, got_length } => format!(
-                        "doc {doc_id:?}, field {field:?}: text length {got_length} exceeds {max_length}; set truncate in the spec or use --continue-on-error"
+                        "doc {doc_id:?}, field {field:?}: text length {got_length} exceeds {max_length}; use --continue-on-error or select a different field"
                     ),
                     error => format!("{error:?}"),
                 }).collect::<Vec<_>>().join("\n")

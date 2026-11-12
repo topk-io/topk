@@ -1,11 +1,14 @@
 use futures::TryStreamExt;
 use serde_json::json;
 use test_macros::rstest_ctx;
+use topk::import::plan::Plan;
 use topk::import::source::{Checkpoint, Cursor};
-use topk::import::spec::Spec;
 use topk::import::state::{Progress, Run};
 use topk::import::{Error, Event, Import, WriteOptions};
-use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType};
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType, VectorDistanceMetric};
+
+use topk_rs::proto::v1::data::{stage::sort_stage::SortOrder, ConsistencyLevel};
+use topk_rs::query::{field, fns, select};
 
 use crate::import::common::{source, target, Ctx};
 
@@ -15,13 +18,16 @@ async fn prepares_then_executes(ctx: &Ctx) {
     let from = ctx.cli.file("rows.csv", "id,title\n1,one\n2,two\n3,three");
     let source = source(&from).await.unwrap();
     let target = target(&from, "id", [("title", FieldSpec::text(false))]).capped(3);
-    let spec = Spec::try_from(indexmap::IndexMap::from([(collection.clone(), target)])).unwrap();
+    let mut plan = Plan {
+        collections: indexmap::IndexMap::from([(collection.clone(), target)]),
+    };
+    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, spec))
+    let run = Run::start(&directory, ctx.state(&source, plan))
         .await
         .unwrap();
     let path = directory.join(format!("{}.toml", run.id));
-    let import = Import::prepare(source, (*ctx.client).clone(), run)
+    let import = Import::start(source, ctx.client.clone(), run, to_create)
         .await
         .unwrap();
     assert!(!ctx.exists(&collection).await);
@@ -73,8 +79,10 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
         .file("rows.csv", "id,title\n1,one\n2,two\n3,three\n4,four");
     let source = source(&from).await.unwrap();
     let target = target(&from, "id", [("title", FieldSpec::text(false))]).capped(3);
-    let spec = Spec::try_from(indexmap::IndexMap::from([(collection.clone(), target)])).unwrap();
-    let mut state = ctx.state(&source, spec);
+    let plan = Plan {
+        collections: indexmap::IndexMap::from([(collection.clone(), target)]),
+    };
+    let mut state = ctx.state(&source, plan);
     state.progress.insert(
         collection.clone(),
         Progress::After(Checkpoint {
@@ -91,7 +99,7 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
     let id = run.id;
     drop(run);
     let run = Run::load(&directory, id).await.unwrap();
-    let import = Import::prepare(source, (*ctx.client).clone(), run)
+    let import = Import::resume(source, ctx.client.clone(), run)
         .await
         .unwrap();
     let events: Vec<_> = import
@@ -156,13 +164,16 @@ async fn backend_rejections(
             FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact)),
         )],
     );
-    let spec = Spec::try_from(indexmap::IndexMap::from([(collection.clone(), target)])).unwrap();
+    let mut plan = Plan {
+        collections: indexmap::IndexMap::from([(collection.clone(), target)]),
+    };
+    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, spec))
+    let run = Run::start(&directory, ctx.state(&source, plan))
         .await
         .unwrap();
     let id = run.id;
-    let import = Import::prepare(source, (*ctx.client).clone(), run)
+    let import = Import::start(source, ctx.client.clone(), run, to_create)
         .await
         .unwrap();
     let result: Result<Vec<_>, _> = import
@@ -215,4 +226,162 @@ async fn backend_rejections(
         let run = Run::load(&directory, id).await.unwrap();
         assert!(run.state().progress.is_empty());
     }
+}
+
+#[rstest_ctx(Ctx)]
+#[case::matching_schema(false)]
+#[case::conflicting_schema(true)]
+async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
+    let collection = ctx.collection("create-race");
+    let from = ctx.cli.file("rows.csv", "id,title\n1,one");
+    let source = source(&from).await.unwrap();
+    let mut plan = source
+        .catalog()
+        .await
+        .unwrap()
+        .discover(&[], Some(&collection), None)
+        .unwrap();
+    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
+    let run = Run::start(&ctx.cli.path("state"), ctx.state(&source, plan))
+        .await
+        .unwrap();
+    let import = Import::start(source, ctx.client.clone(), run, to_create)
+        .await
+        .unwrap();
+    ctx.client
+        .collections()
+        .create(
+            &collection,
+            [(
+                "title".into(),
+                if conflict {
+                    FieldSpec::integer(false)
+                } else {
+                    FieldSpec::text(false)
+                },
+            )],
+            None,
+        )
+        .await
+        .unwrap();
+    let result: Result<Vec<_>, _> = import
+        .execute(WriteOptions {
+            continue_on_error: false,
+            concurrency: 1,
+            batch_bytes: bytesize::ByteSize(1024),
+        })
+        .try_collect()
+        .await;
+    if conflict {
+        assert!(matches!(result, Err(Error::SchemaMismatch(_))));
+        assert!(ctx.docs(&collection, ["1"]).await.is_empty());
+    } else {
+        result.unwrap();
+        assert_eq!(
+            ctx.docs(&collection, ["1"]).await,
+            [json!({"_id":"1","title":"one"})]
+        );
+    }
+}
+
+#[rstest_ctx(Ctx)]
+#[case::direct_import(false)]
+#[case::resumed_import(true)]
+async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
+    let collection = ctx.collection("resolved-vector");
+    ctx.client
+        .collections()
+        .create(
+            &collection,
+            [(
+                "embedding".into(),
+                FieldSpec::f32_vector(3, true)
+                    .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
+            )],
+            None,
+        )
+        .await
+        .unwrap();
+    let from = ctx.cli.parquet(
+        "vectors.parquet",
+        if resume {
+            "SELECT 'one' AS id, [1.0, 0.0]::FLOAT[] AS embedding"
+        } else {
+            "SELECT 'one' AS id, [1.0, 0.0, 0.0]::FLOAT[] AS embedding"
+        },
+    );
+    let input = source(&from).await.unwrap();
+    let mut plan = input
+        .catalog()
+        .await
+        .unwrap()
+        .discover(&[], Some(&collection), None)
+        .unwrap();
+    let to_create = plan.resolve(&input, &ctx.client, &[], &[]).await.unwrap();
+    let directory = ctx.cli.path("state");
+    let run = Run::start(&directory, ctx.state(&input, plan))
+        .await
+        .unwrap();
+    let id = run.id;
+    let mut import = Import::start(input, ctx.client.clone(), run, to_create)
+        .await
+        .unwrap();
+    let destination = ctx.client.collections().get(&collection).await.unwrap();
+    assert_eq!(
+        import.run().state().plan.collections[&collection].fields["embedding"].schema,
+        destination.schema["embedding"]
+    );
+    if resume {
+        let failed = import
+            .execute(WriteOptions {
+                continue_on_error: false,
+                concurrency: 1,
+                batch_bytes: bytesize::ByteSize(1024),
+            })
+            .try_collect::<Vec<_>>()
+            .await;
+        assert!(failed.err().unwrap().to_string().contains("embedding"));
+        ctx.cli.parquet(
+            "vectors.parquet",
+            "SELECT 'one' AS id, [1.0, 0.0, 0.0]::FLOAT[] AS embedding",
+        );
+        let run = Run::load(&directory, id).await.unwrap();
+        assert_eq!(
+            run.state().plan.collections[&collection].fields["embedding"].schema,
+            destination.schema["embedding"]
+        );
+        import = Import::resume(source(&from).await.unwrap(), ctx.client.clone(), run)
+            .await
+            .unwrap();
+    }
+    import
+        .execute(WriteOptions {
+            continue_on_error: false,
+            concurrency: 1,
+            batch_bytes: bytesize::ByteSize(1024),
+        })
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
+    assert_eq!(
+        ctx.docs(&collection, ["one"]).await,
+        [json!({"_id":"one","embedding":[1.0,0.0,0.0]})]
+    );
+    let docs = ctx
+        .client
+        .collection(&collection)
+        .query(
+            select([(
+                "distance",
+                fns::vector_distance("embedding", vec![1.0f32, 0.0, 0.0]),
+            )])
+            .sort((field("distance"), SortOrder::Asc))
+            .limit(1),
+            None,
+            Some(ConsistencyLevel::Strong),
+        )
+        .await
+        .unwrap();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].fields["_id"].as_string(), Some("one"));
 }

@@ -6,9 +6,9 @@ use tokio::sync::mpsc;
 
 use crate::import::document::id_string;
 use crate::import::error::Error;
+use crate::import::plan::Target;
 use crate::import::source::file::local_path;
 use crate::import::source::{Chunk, Cursor, File, Record};
-use crate::import::spec::Target;
 
 use super::arrow;
 use super::select::Select;

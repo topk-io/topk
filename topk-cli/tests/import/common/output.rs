@@ -1,14 +1,14 @@
 use serde_json::Value;
 use std::collections::BTreeMap;
-use topk::import::spec::Spec;
+use topk::import::plan::Plan;
 use topk::import::Outcome;
 
 use crate::common::command::CliOutput;
 
 impl CliOutput {
     #[track_caller]
-    pub fn spec(&self) -> Spec {
-        toml::from_str(&self.stdout).unwrap_or_else(|error| panic!("{error}\n{self:?}"))
+    pub fn plan(&self) -> Plan {
+        serde_json::from_str(&self.stdout).unwrap_or_else(|error| panic!("{error}\n{self:?}"))
     }
 
     #[track_caller]

@@ -25,13 +25,13 @@ async fn mongo_binary(ctx: &Scratch) {
         .await
         .unwrap();
     let source = source(mongo::URL).await.unwrap();
-    let spec = source
+    let plan = source
         .catalog()
         .await
         .unwrap()
         .discover(&[name.clone()], None, None)
         .unwrap();
-    let docs = json_documents(&source, &spec.collections[&name])
+    let docs = json_documents(&source, &plan.collections[&name])
         .await
         .unwrap();
 

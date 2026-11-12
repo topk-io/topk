@@ -1,9 +1,9 @@
 use rstest::rstest;
-use topk::import::spec::{Field, Target};
+use topk::import::plan::{Field, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
-use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec};
 use topk_rs::proto::v1::data::{Document, Value};
 
 use crate::import::common::refused;
@@ -372,20 +372,16 @@ fn oversized_document() {
     );
     assert!(message.contains("largest field \"body\""), "got: {message}");
 
-    // The fix the message suggests.
     let truncated = row([(
         "body",
-        Field {
-            truncate: Some(100),
-            ..Field::new(FieldSpec::text(false))
-        },
+        Field::new(FieldSpec::text(false).with_index(FieldIndex::semantic())),
     )]);
     let record = vec![
         ("_id".to_string(), Value::string("1")),
         ("body".to_string(), Value::string("x".repeat(2_000_000))),
     ];
     let (_, doc) = truncated.document(record).expect("truncated document fits");
-    assert_eq!(doc.fields["body"], Value::string("x".repeat(100)));
+    assert_eq!(doc.fields["body"], Value::string("x".repeat(32768)));
 }
 
 #[rstest]
@@ -418,19 +414,19 @@ fn nested_matrices(#[case] ty: MatrixValueType, #[case] expected: Value) {
     );
 }
 
-#[rstest]
-#[case::empty(0, "hello", "")]
-#[case::shorter(10, "hello", "hello")]
-#[case::cuts(3, "hello", "hel")]
-#[case::unicode(2, "ééé", "éé")]
-fn truncates(#[case] limit: usize, #[case] input: &str, #[case] expected: &str) {
-    let field = Field {
-        truncate: Some(limit),
-        ..Field::new(FieldSpec::text(false))
-    };
+#[test]
+fn semantic_text_is_capped() {
+    let field = Field::new(FieldSpec::text(false).with_index(FieldIndex::semantic()));
+    let input = "é".repeat(32769);
     assert_eq!(
-        field.coerce(Value::string(input)).unwrap(),
-        Value::string(expected)
+        field.coerce(Value::string(&input)).unwrap(),
+        Value::string("é".repeat(32768))
+    );
+    assert_eq!(
+        Field::new(FieldSpec::text(false))
+            .coerce(Value::string(&input))
+            .unwrap(),
+        Value::string(input)
     );
 }
 

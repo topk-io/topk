@@ -5,46 +5,49 @@ use std::process::ExitCode;
 use anyhow::Context;
 use clap::Args;
 
-use crate::client::{DataClient, ManagementClient};
+use crate::client::ManagementClient;
 use crate::config::Config;
+use crate::import::plan::{FieldSelection, Plan, Rename};
 use crate::import::source::{Source, Uri};
-use crate::import::spec::Spec;
 use crate::import::state::{Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
 use crate::output::Output;
 use crate::scope::{Scope, ScopeArgs};
 use crate::util::Interrupted;
 
+mod field;
 mod output;
 
 use output::ImportOutput;
 
 #[derive(clap::Args, Debug)]
 pub struct PlanArgs {
-    #[arg(
-        conflicts_with = "spec",
-        help = "Source objects to import; exact names, globs, or <object>=<collection>"
-    )]
+    #[arg(help = "Source objects to import; exact names, globs, or <object>=<collection>")]
     pub objects: Vec<String>,
 
     #[arg(
         short = 'f',
-        long,
-        value_name = "SPEC",
-        help = "Read a TOML import spec"
+        long = "field",
+        value_name = "FIELD",
+        value_delimiter = ',',
+        help = "Import only these fields; name, name=semantic|keyword|ngram|image:semantic, or name=vector:<dim>:<metric>. Repeatable"
     )]
-    pub spec: Option<PathBuf>,
+    pub fields: Vec<FieldSelection>,
+    #[arg(
+        long = "rename",
+        value_name = "SOURCE=TARGET",
+        help = "Rename a source column before selecting fields. Repeatable"
+    )]
+    pub renames: Vec<Rename>,
     #[arg(
         long,
         value_name = "COLLECTION",
-        conflicts_with = "spec",
         help = "Name the target collection; required when it cannot be derived"
     )]
     pub to: Option<String>,
     #[arg(
         long,
         value_name = "COLUMN",
-        conflicts_with = "spec",
         help = "Column to use as the document id (_id); use when it can't be auto-detected"
     )]
     pub id: Option<String>,
@@ -55,50 +58,39 @@ pub struct PlanArgs {
     )]
     pub partition: Option<String>,
     #[arg(
-        conflicts_with = "spec",
         long,
         help = "Only read rows matching a filter, in the source's language: \
                 SQL WHERE for files and databases, a JSON query for mongodb/elasticsearch"
     )]
     pub filter: Option<String>,
-    // Broadcasts to every collection like --partition, so it is allowed with a spec.
     #[arg(long, help = "Read at most this many rows per object")]
     pub limit: Option<u64>,
 }
 
 impl PlanArgs {
-    pub async fn build(&self, source: &Source) -> Result<Spec, Error> {
-        let mut spec = match &self.spec {
-            Some(path) => {
-                toml::from_str::<Spec>(&std::fs::read_to_string(path).map_err(|error| {
-                    Error::Setup(
-                        anyhow::Error::new(error)
-                            .context(format!("cannot read spec {}", path.display())),
-                    )
-                })?)?
-            }
-            None => {
-                let catalog = source.catalog().await?;
-                catalog
-                    .discover(&self.objects, self.to.as_deref(), self.id.as_deref())
-                    .map_err(|error| match error {
-                        Error::MissingId(name) => Error::InvalidArgument(format!(
-                            "{} — pass --id <column> (or set `id` in a spec)",
-                            Error::MissingId(name)
-                        )),
-                        error => {
-                            Error::InvalidArgument(format!("source {}: {error}", source.locator()))
-                        }
-                    })?
-            }
-        };
-        if self.filter.is_some() && spec.collections.len() > 1 {
+    pub async fn build(&self, source: &Source) -> Result<Plan, Error> {
+        let catalog = source.catalog().await?;
+        let mut plan = catalog
+            .discover(&self.objects, self.to.as_deref(), self.id.as_deref())
+            .map_err(|error| match error {
+                Error::MissingId(name) => Error::InvalidArgument(format!(
+                    "{} — pass --id <column>",
+                    Error::MissingId(name)
+                )),
+                error => Error::InvalidArgument(format!("source {}: {error}", source.locator())),
+            })?;
+        if self.filter.is_some() && plan.collections.len() > 1 {
             return Err(Error::InvalidArgument(format!(
-                "--filter applies to a single object, but {} objects matched — set `filter` per collection in a spec",
-                spec.collections.len()
+                "--filter applies to a single object, but {} objects matched — import them separately",
+                plan.collections.len()
             )));
         }
-        for target in spec.collections.values_mut() {
+        if (!self.fields.is_empty() || !self.renames.is_empty()) && plan.collections.len() > 1 {
+            return Err(Error::InvalidArgument(
+                "-f and --rename apply to one collection; import matched objects separately".into(),
+            ));
+        }
+        for target in plan.collections.values_mut() {
             if let Some(filter) = &self.filter {
                 target.filter = Some(filter.clone());
             }
@@ -109,7 +101,7 @@ impl PlanArgs {
                 target.partition = Some(partition.clone());
             }
         }
-        Ok(spec)
+        Ok(plan)
     }
 }
 
@@ -138,12 +130,11 @@ pub struct WriteArgs {
 }
 
 #[derive(Args, Debug)]
-// Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
 #[command(override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...")]
 pub struct ImportArgs {
     #[arg(
-        required_unless_present_any = ["spec", "resume"],
-        help = "Source URL, file path, or glob (e.g. topk://<collection> to copy a collection); required with --spec except for files, or with --resume when credentials were in the source URL. \
+        required_unless_present = "resume",
+        help = "Source URL, file path, or glob (e.g. topk://<collection> to copy a collection); with --resume, provide it only when credentials were in the source URL. \
                 {name} in a glob makes that path segment a column ('data/{lang}/*.parquet'), \
                 as do key=value folders ('data/lang=sw/part-0.parquet')"
     )]
@@ -151,7 +142,7 @@ pub struct ImportArgs {
     #[arg(
         long,
         value_name = "RUN",
-        conflicts_with_all = ["objects", "to", "id", "filter", "limit", "partition", "spec", "dry_run"],
+        conflicts_with_all = ["objects", "to", "id", "filter", "limit", "partition", "fields", "renames", "dry_run"],
         help = "Continue the saved plan from its last checkpoint, using the printed resume command"
     )]
     pub resume: Option<RunId>,
@@ -160,7 +151,7 @@ pub struct ImportArgs {
     #[arg(
         long,
         conflicts_with = "resume",
-        help = "Print the spec and a sample of documents, without importing"
+        help = "Preview the import plan and a sample of documents, without importing"
     )]
     pub dry_run: bool,
 
@@ -180,13 +171,13 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         Some(path) => PathBuf::from(path),
         None => Config::dir()?.join("import"),
     };
-    let (source, run) = if let Some(id) = args.resume {
+    let import = if let Some(id) = args.resume {
         let run = Run::load(&directory, id).await?;
         if run.state().pending().next().is_none() {
             ui.message(format_args!(
                 "run {}: all {} collection(s) already imported",
                 run.id,
-                run.state().spec.collections.len()
+                run.state().plan.collections.len()
             ))?;
             if let Err(error) = run.remove() {
                 tracing::warn!(%error, "cannot remove run state");
@@ -194,23 +185,28 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             return ui.finish();
         }
         let uri = run.state().source(args.source.as_ref())?;
-        (args.source(uri, &config).await?, run)
-    } else {
-        let mut uri = args.source.clone().unwrap_or(Uri::Files(None));
-        // A topk:// source without a project reads from the destination's project.
-        let scope = match &mut uri {
-            Uri::Topk { project, .. } if project.is_none() => {
-                let scope = args.scope.resolve(&config).await?;
-                *project = Some(scope.project_id.clone());
-                Some(scope)
-            }
-            _ => None,
-        };
         let source = args.source(uri, &config).await?;
-        let spec = args.plan.build(&source).await?;
+        let client = config.data_client(
+            run.state().destination.project_id.clone(),
+            &run.state().destination.region,
+        )?;
+        Import::resume(source, client, run).await?
+    } else {
+        let source = args
+            .source(args.source.clone().unwrap_or(Uri::Files(None)), &config)
+            .await?;
+        let mut plan = args.plan.build(&source).await?;
+        let destination = Destination {
+            project_id: args.project.resolve(&config).await?,
+            region: args.region.resolve(&config).await?,
+        };
+        let client = config.data_client(destination.project_id.clone(), &destination.region)?;
+        let to_create = plan
+            .resolve(&source, &client, &args.plan.fields, &args.plan.renames)
+            .await?;
         if args.dry_run {
-            ui.spec(&spec)?;
-            for (name, target) in &spec.collections {
+            ui.plan(&plan)?;
+            for (name, target) in &plan.collections {
                 ui.sample_header(name)?;
                 let target = target.capped(5);
                 let mut rows = source.documents(&target).await?;
@@ -226,13 +222,11 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         };
         let run = Run::start(
             &directory,
-            State::new(source.locator().to_string(), scope, spec),
+            State::new(source.locator().to_string(), scope, plan),
         )
         .await?;
-        (source, run)
+        Import::start(source, client, run, to_create).await?
     };
-    let client = DataClient::new(&config, run.state().destination.clone())?;
-    let import = Import::prepare(source, (*client).clone(), run).await?;
     if !ui.confirm(import.run(), args.yes || args.resume.is_some())? {
         return Ok(ExitCode::SUCCESS);
     }
@@ -288,13 +282,13 @@ impl ImportArgs {
                 .collections()
                 .get(&project_id, &name)
                 .await?;
-            let scope = Scope {
-                project_id,
-                region: collection.region,
-            };
-            let client = DataClient::new(config, scope)?;
+            anyhow::ensure!(
+                !collection.region.is_empty(),
+                "source collection has no region"
+            );
+            let client = config.data_client(resolved, &collection.region)?;
             return Ok(Source::topk(
-                (*client).clone(),
+                client,
                 uri.to_string(),
                 name,
                 collection.schema,
