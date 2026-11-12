@@ -17,7 +17,6 @@ use crate::common::session::CliTestContext;
 use topk::auth::OAuthConfig;
 use topk::client::DataClient;
 use topk::config::Config;
-use topk::endpoint::RegionArg;
 use topk::host::Host;
 use topk::import::source::{Source, Uri};
 use topk::import::spec::{Field, Spec, Target};
@@ -306,11 +305,7 @@ impl AsyncTestContext for Ctx {
             client: DataClient::new(
                 &config,
                 project_id.clone(),
-                from_env::<RegionArg>()
-                    .resolve(&config)
-                    .await
-                    .expect("TOPK_REGION")
-                    .as_str(),
+                &std::env::var("TOPK_REGION").expect("TOPK_REGION"),
             )
             .expect("data client"),
             used: RefCell::new(HashSet::new()),

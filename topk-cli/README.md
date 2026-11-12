@@ -13,8 +13,8 @@ brew install topk
 
 ```bash
 topk login
-topk import ./books.parquet [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
-topk import postgres://user:pw@host/db 'public.*' [--project-id <PROJECT_ID>] --region aws-us-east-1-elastica
+topk import ./books.parquet
+topk import postgres://user:pw@host/db 'public.*'
 ```
 
 > [!NOTE]
@@ -177,9 +177,6 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 | `--region <REGION>` | Region to connect to (env `TOPK_REGION`); defaults to the region selected with `topk region select`. See https://docs.topk.io/regions |
 | `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 
-> [!IMPORTANT]
-> If no project or region is set, `topk sql` prompts you to pick one.
-
 #### Run a query
 
 Log in and find your project ID, then run SQL against a collection. This example searches a `title` field with a semantic index:
@@ -188,8 +185,7 @@ Log in and find your project ID, then run SQL against a collection. This example
 topk login
 topk project list
 topk sql "SELECT _id, title, semantic_similarity(title, 'classic American novel') AS score
-          FROM books ORDER BY score DESC LIMIT 10" \
-  --project-id <project-id> --region aws-us-east-1-elastica
+          FROM books ORDER BY score DESC LIMIT 10"
 ```
 
 See the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) for complete documentation.
@@ -197,8 +193,8 @@ See the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) for com
 #### Run SQL from a file or stdin
 
 ```bash
-topk sql -f queries.sql --project-id <project-id> --region aws-us-east-1-elastica
-echo "SELECT COUNT(*) FROM books" | topk sql - --project-id <project-id> --region aws-us-east-1-elastica
+topk sql -f queries.sql
+echo "SELECT COUNT(*) FROM books" | topk sql -
 ```
 
 
@@ -207,13 +203,13 @@ echo "SELECT COUNT(*) FROM books" | topk sql - --project-id <project-id> --regio
 psql-style commands list and describe tables:
 
 ```bash
-topk sql '\dt' --project-id <project-id> --region aws-us-east-1-elastica          # all tables
-topk sql '\dt books*' --project-id <project-id> --region aws-us-east-1-elastica   # matching a pattern
-topk sql '\d books' --project-id <project-id> --region aws-us-east-1-elastica     # columns and indexes
-topk sql '\di' --project-id <project-id> --region aws-us-east-1-elastica          # all indexes
-topk sql '\dA' --project-id <project-id> --region aws-us-east-1-elastica          # index kinds
-topk sql '\dT' --project-id <project-id> --region aws-us-east-1-elastica          # column types
-topk sql '\?' --project-id <project-id> --region aws-us-east-1-elastica           # supported commands
+topk sql '\dt'          # all tables
+topk sql '\dt books*'   # matching a pattern
+topk sql '\d books'     # columns and indexes
+topk sql '\di'          # all indexes
+topk sql '\dA'          # index kinds
+topk sql '\dT'          # column types
+topk sql '\?'           # supported commands
 ```
 
 #### Output
@@ -247,21 +243,16 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none |
 
-> [!IMPORTANT]
-> If no project or region is set, `topk import` prompts you to pick one.
-
 #### Authenticate
 
-Log in, then provide `--project-id` and `--region` when importing:
+Log in and select a project and a region, then import:
 
 ```bash
 topk login
-topk project list
-topk import ./books.parquet --project-id <project-id> --region aws-us-east-1-elastica
+topk project select
+topk region select
+topk import ./books.parquet
 ```
-
-> [!IMPORTANT]
-> Access tokens are cached and renewed automatically.
 
 #### Import a database
 

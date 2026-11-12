@@ -9,9 +9,9 @@ use serde_json::json;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::endpoint::pick_region;
 use crate::management::proto::ListRegionsRequest;
 use crate::output::{json_line, print_list, Output, Tabular};
+use crate::scope::pick_region;
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -75,7 +75,7 @@ pub async fn run(
             }
         }
         Command::Clear => {
-            config.update_defaults(|defaults| defaults.region = None)?;
+            config.set_region(None)?;
             match output {
                 Output::Json => json_line(out, &json!({"region": null}))?,
                 Output::Text => writeln!(out, "Region selection cleared")?,
@@ -98,7 +98,7 @@ pub async fn run(
                     pick_region(&mut client, &config).await?
                 }
             };
-            config.update_defaults(|defaults| defaults.region = Some(region.clone()))?;
+            config.set_region(Some(region.clone()))?;
             match output {
                 Output::Json => json_line(
                     out,

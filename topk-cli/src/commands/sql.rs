@@ -13,9 +13,9 @@ use tokio::time::timeout;
 
 use crate::client::SqlClient;
 use crate::config::Config;
-use crate::endpoint::{ProjectArg, RegionArg};
 use crate::meta;
 use crate::output::{json_line, table, Output};
+use crate::scope::ScopeArgs;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -30,10 +30,7 @@ pub struct SqlArgs {
     file: Option<FileOrStdin>,
 
     #[command(flatten)]
-    project: ProjectArg,
-
-    #[command(flatten)]
-    region: RegionArg,
+    scope: ScopeArgs,
 }
 
 impl SqlArgs {
@@ -59,11 +56,10 @@ pub async fn run(
         Some(meta) => (meta.sql, meta.describes),
         None => (sql, None),
     };
-    let project_id = args.project.resolve(&config).await?;
-    let region = args.region.resolve(&config).await?;
+    let scope = args.scope.resolve(&config).await?;
     let mut client = timeout(
         CONNECT_TIMEOUT,
-        SqlClient::connect(&config, project_id, &region),
+        SqlClient::connect(&config, scope.project_id, &scope.region),
     )
     .await
     .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;

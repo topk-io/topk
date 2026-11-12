@@ -10,12 +10,12 @@ use serde_json::json;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::endpoint::pick_project;
 use crate::management::proto::{
     CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
 };
 use crate::output::{json_line, print_list, print_one, Output, Tabular};
 use crate::prompt::Prompt;
+use crate::scope::pick_project;
 use crate::util::timestamp;
 use crate::ProjectId;
 
@@ -101,7 +101,7 @@ pub async fn run(
             }
         }
         Command::Clear => {
-            config.update_defaults(|defaults| defaults.project_id = None)?;
+            config.set_project_id(None)?;
             match output {
                 Output::Json => json_line(out, &json!({"project_id": null}))?,
                 Output::Text => writeln!(out, "Project selection cleared")?,
@@ -126,8 +126,7 @@ pub async fn run(
                     pick_project(&mut client, &config).await?
                 }
             };
-            let id = project.project_id.parse()?;
-            config.update_defaults(|defaults| defaults.project_id = Some(id))?;
+            config.set_project_id(Some(project.project_id.parse()?))?;
             match output {
                 Output::Json => json_line(
                     out,
@@ -201,7 +200,7 @@ pub async fn run(
                     .project_id
                     .is_some_and(|id| id.as_str() == project_id)
                 {
-                    config.update_defaults(|defaults| defaults.project_id = None)?;
+                    config.set_project_id(None)?;
                 }
                 match output {
                     Output::Json => json_line(out, &json!({"deleted": true}))?,

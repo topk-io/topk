@@ -6,13 +6,13 @@ use clap::Args;
 
 use crate::client::{DataClient, ManagementClient};
 use crate::config::Config;
-use crate::endpoint::{ProjectArg, RegionArg};
 use crate::import::source::{Source, Uri};
 use crate::import::spec::Spec;
 use crate::import::state::{DestinationId, Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
 use crate::management::proto::GetCollectionRequest;
 use crate::output::Output;
+use crate::scope::ScopeArgs;
 use crate::util::Interrupted;
 
 mod output;
@@ -170,10 +170,7 @@ pub struct ImportArgs {
     pub write: WriteArgs,
 
     #[command(flatten)]
-    pub project: ProjectArg,
-
-    #[command(flatten)]
-    pub region: RegionArg,
+    pub scope: ScopeArgs,
 }
 
 pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::Result<ExitCode> {
@@ -215,9 +212,10 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             return Ok(ExitCode::SUCCESS);
         }
+        let scope = args.scope.resolve(&config).await?;
         let destination = DestinationId {
-            project_id: args.project.resolve(&config).await?,
-            region: args.region.resolve(&config).await?,
+            project_id: scope.project_id,
+            region: scope.region,
         };
         let run = Run::start(
             &directory,
@@ -283,7 +281,7 @@ impl ImportArgs {
         {
             let resolved = match project.as_ref() {
                 Some(project) => project.clone(),
-                None => self.project.resolve(config).await?,
+                None => self.scope.project_id(config).await?,
             };
             *project = Some(resolved.clone());
             let name = name.clone();
