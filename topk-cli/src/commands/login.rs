@@ -1,9 +1,10 @@
-use std::io::stdin;
+use std::io::{stdin, IsTerminal};
 use std::process::ExitCode;
 
 use anyhow::{ensure, Result};
 use clap::Args;
 use colored::Colorize;
+use dialoguer::Password;
 
 use crate::auth::Auth;
 use crate::config::Config;
@@ -29,9 +30,15 @@ pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
             "Open this URL in any browser to log in:\n\n{}\n",
             login.url()
         );
-        eprint!("Paste the code shown in the browser: ");
-        let mut code = String::new();
-        stdin().read_line(&mut code)?;
+        let prompt = "Paste the code shown in the browser";
+        let code = if stdin().is_terminal() {
+            Password::new().with_prompt(prompt).interact()?
+        } else {
+            eprint!("{prompt}: ");
+            let mut code = String::new();
+            stdin().read_line(&mut code)?;
+            code
+        };
         let code = code.trim();
         ensure!(!code.is_empty(), "no code entered");
         login.finish(code.to_string()).await?
