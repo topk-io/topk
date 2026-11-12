@@ -9,19 +9,19 @@ use topk_rs::{Client, ClientConfig};
 
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
-use crate::ProjectId;
+use crate::scope::Scope;
 
 #[derive(Clone)]
 pub struct DataClient(Client);
 
 impl DataClient {
-    pub fn new(config: &Config, project_id: ProjectId, region: &str) -> Result<Self> {
+    pub fn new(config: &Config, scope: Scope) -> Result<Self> {
         let client = ClientConfig::default()
-            .with_region(region)
+            .with_region(scope.region)
             .with_interceptor(Arc::new(AccessTokenProvider::new(
                 ManagementClient::new(config.clone())?,
                 config.clone(),
-                project_id,
+                scope.project_id,
             )));
         // A batch tool rides out transient errors: retries never run out, an hour of
         // continuous failures fails the request, and `--resume` picks up.
