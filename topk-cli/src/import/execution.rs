@@ -9,6 +9,7 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use topk_rs::proto::v1::data::Document;
 use topk_rs::Client;
+use tracing::{debug, error, info, warn};
 
 use crate::import::ddl;
 use crate::import::error::Error;
@@ -147,16 +148,18 @@ impl Import {
             let buffer_bytes = options.batch_bytes.as_u64().checked_mul(options.concurrency as u64)
                 .ok_or_else(|| Error::InvalidArgument("batch size times concurrency is too large".into()))?;
             if let Err(error) = self.run.save() {
-                tracing::error!(%error, "cannot save run state — this run cannot be resumed");
+                error!(%error, "cannot save run state — this run cannot be resumed");
             }
             let readers = self.scans.len().min(OBJECT_CONCURRENCY)
                 .min(self.source.concurrency_limit(self.run.state().pending().map(|(_, target)| target))).max(1);
+            info!(run = %self.run.id, readers, buffer_bytes, "import started");
             let client = &self.client;
             for name in self.to_create {
                 let target = self.run.state().plan.collections.get(&name)
                     .ok_or_else(|| Error::InvalidArgument(format!("no import target for {name}")))?;
                 let schema: ddl::Schema = target.fields.iter()
                     .map(|(name, field)| (name.clone(), field.schema.clone())).collect();
+                info!(collection = %name, "creating collection");
                 match client.collections().create(&name, schema, None).await {
                     Ok(_) => {}
                     Err(topk_rs::Error::CollectionAlreadyExists) => {
@@ -173,6 +176,7 @@ impl Import {
                 let budget = &budget;
                 let options = &options;
                 async_stream::try_stream! {
+                    info!(collection = %name, consumed, "reading collection");
                     let started = Instant::now();
                     let mut written = 0;
                     let mut failed = 0;
@@ -187,7 +191,7 @@ impl Import {
                     loop {
                         if let Some(checkpoint) = checkpoints.ready() {
                             let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(&name, Progress::After(checkpoint));
-                            if let Err(error) = saved { tracing::error!(collection = %name, %error, "cannot save run state"); }
+                            if let Err(error) = saved { error!(collection = %name, %error, "cannot save run state"); }
                         }
                         if eof && batches.is_empty() && inflight.is_empty() { break; }
                         let ready = batches.iter().enumerate()
@@ -240,6 +244,7 @@ impl Import {
                                                 if count == 1 {
                                                     outcome.skipped.push(error.into());
                                                 } else if let Some(docs) = retry {
+                                                    debug!(count, "retrying rejected batch individually");
                                                     for doc in docs {
                                                         match collection.upsert(vec![doc]).await {
                                                             Ok(_) => outcome.written += 1,
@@ -288,7 +293,7 @@ impl Import {
                                 match event? {
                                     Some(ReadEvent::Restarted) => {
                                         consumed = 0;
-                                        tracing::warn!(collection = %name, "resume cursor expired, restarting from the beginning");
+                                        warn!(collection = %name, "resume cursor expired, restarting from the beginning");
                                     }
                                     Some(ReadEvent::Chunk(chunk)) => {
                                         consumed += chunk.rows.len() as u64;
@@ -302,7 +307,7 @@ impl Import {
                         }
                     }
                     let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(&name, Progress::Done);
-                    if let Err(error) = saved { tracing::error!(collection = %name, %error, "cannot save run state"); }
+                    if let Err(error) = saved { error!(collection = %name, %error, "cannot save run state"); }
                     yield Event::Completed { collection: name, outcome: Outcome { rows: written, failed, elapsed: started.elapsed() } };
                 }.boxed()
             }).flatten_unordered(readers);
@@ -318,7 +323,7 @@ impl Import {
                 }
             }
             let removed = state.lock().unwrap_or_else(|e| e.into_inner()).remove();
-            if let Err(error) = removed { tracing::warn!(%error, "cannot remove run state"); }
+            if let Err(error) = removed { warn!(%error, "cannot remove run state"); }
         }
     }
 }

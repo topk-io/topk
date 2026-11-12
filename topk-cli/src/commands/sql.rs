@@ -10,6 +10,7 @@ use serde_json::{Map, Value};
 use sqlx::postgres::PgRow;
 use sqlx::{Column, Either, Postgres, Row, Type, ValueRef};
 use tokio::time::timeout;
+use tracing::info;
 
 use crate::client::SqlClient;
 use crate::config::Config;
@@ -19,7 +20,7 @@ use crate::scope::ScopeArgs;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Debug)]
 #[command(group(ArgGroup::new("input").required(true).args(["query", "file"])))]
 pub struct SqlArgs {
     /// Statements to run, separated by `;`, or `-` to read them from stdin
@@ -51,6 +52,7 @@ pub async fn run(
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
+    info!(?args, "sql");
     let sql = args.input_sql()?;
     let (sql, mut describes) = match meta::expand(&sql)? {
         Some(meta) => (meta.sql, meta.describes),
@@ -62,6 +64,8 @@ pub async fn run(
         .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;
     let mut printer = Printer::new(BufWriter::new(out), output);
     let mut results = client.execute(&sql);
+    let mut statement = 0;
+    let mut started = std::time::Instant::now();
     while let Some(item) = results.next().await {
         match item? {
             Either::Right(row) => printer.row(row)?,
@@ -70,7 +74,16 @@ pub async fn run(
                 if let Some(table) = describes.take() {
                     ensure!(printer.rows > 0, "did not find a table named {table:?}");
                 }
-                printer.done(done.rows_affected())?
+                statement += 1;
+                info!(
+                    statement,
+                    rows = printer.rows,
+                    affected = done.rows_affected(),
+                    elapsed_ms = started.elapsed().as_millis(),
+                    "statement completed"
+                );
+                printer.done(done.rows_affected())?;
+                started = std::time::Instant::now();
             }
         }
     }

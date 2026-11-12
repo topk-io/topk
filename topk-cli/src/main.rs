@@ -12,6 +12,7 @@ use topk::config::Config;
 use topk::host::Host;
 use topk::output::Output;
 use topk::util::Interrupted;
+use tracing::info;
 
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
@@ -19,9 +20,9 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// Log what the run is doing to stderr (RUST_LOG overrides)
-    #[arg(short, long, global = true, help_heading = "Global options")]
-    verbose: bool,
+    /// Log progress with -v, diagnostic details with -vv (RUST_LOG overrides)
+    #[arg(short, long, action = clap::ArgAction::Count, global = true, help_heading = "Global options")]
+    verbose: u8,
 
     /// Agent-oriented output: --help includes the full manual
     /// (auto-detected for AI assistants)
@@ -97,7 +98,14 @@ fn main() -> ExitCode {
 async fn async_main() -> ExitCode {
     let cli = Cli::parse();
     init_logging(cli.verbose);
-    match run(&cli).await {
+    let started = std::time::Instant::now();
+    let result = run(&cli).await;
+    info!(
+        elapsed_ms = started.elapsed().as_millis(),
+        success = result.as_ref().is_ok_and(|code| *code == ExitCode::SUCCESS),
+        "command finished"
+    );
+    match result {
         Ok(code) => code,
         Err(e) if e.is::<Interrupted>() => ExitCode::from(130),
         Err(e) => {
@@ -143,11 +151,12 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
 }
 
 /// Warnings by default; `RUST_LOG` overrides verbosity. Stdout carries results.
-fn init_logging(verbose: bool) {
+fn init_logging(verbose: u8) {
     let filter =
         tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| match verbose {
-            true => tracing_subscriber::EnvFilter::new("info"),
-            false => tracing_subscriber::EnvFilter::new("warn"),
+            0 => tracing_subscriber::EnvFilter::new("warn"),
+            1 => tracing_subscriber::EnvFilter::new("warn,topk=info,topk_rs=warn,topk_es=warn"),
+            _ => tracing_subscriber::EnvFilter::new("warn,topk=debug,topk_rs=warn,topk_es=warn"),
         });
     let progress = IndicatifLayer::new().with_progress_style(ProgressStyle::default_spinner());
     tracing_subscriber::registry()

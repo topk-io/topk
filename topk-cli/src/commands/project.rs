@@ -7,6 +7,7 @@ use clap::Subcommand;
 use colored::Colorize;
 use serde::Serialize;
 use serde_json::json;
+use tracing::info;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
@@ -17,13 +18,13 @@ use crate::scope::pick_project;
 use crate::util::timestamp;
 use crate::ProjectId;
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Debug)]
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Show the selected project
     Current,
@@ -86,6 +87,7 @@ pub async fn run(
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
+    info!(?args, "project");
     let client = ManagementClient::new(config.clone())?;
     match &args.command {
         Command::Current => {

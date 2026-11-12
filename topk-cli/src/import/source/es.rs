@@ -10,6 +10,7 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
 
 use topk_rs::proto::v1::control::FieldSpec;
+use tracing::warn;
 
 use crate::import::error::Error;
 use crate::import::plan::Target;
@@ -135,7 +136,7 @@ impl Es {
                         }) {
                         Ok(fields) => fields.into_iter().collect(),
                         Err(error) => {
-                            tracing::warn!("skipping index {from:?}: unreadable mapping: {error}");
+                            warn!("skipping index {from:?}: unreadable mapping: {error}");
                             return None;
                         }
                     };

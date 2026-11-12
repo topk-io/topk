@@ -3,6 +3,7 @@ use std::io::{stdin, IsTerminal};
 use anyhow::{ensure, Result};
 use clap::builder::NonEmptyStringValueParser;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
 use crate::client::ManagementClient;
 use crate::config::Config;
@@ -34,17 +35,21 @@ pub struct Scope {
 
 impl ScopeArgs {
     pub async fn resolve(&self, config: &Config) -> Result<Scope> {
-        Ok(Scope {
+        let scope = Scope {
             project_id: self.project_id(config).await?,
             region: self.region(config).await?,
-        })
+        };
+        info!(?scope, "destination resolved");
+        Ok(scope)
     }
 
     async fn project_id(&self, config: &Config) -> Result<ProjectId> {
         if let Some(id) = &self.project_id {
+            debug!("project from flag or environment");
             return Ok(id.clone());
         }
         if let Some(id) = config.defaults()?.project_id {
+            debug!("project from saved defaults");
             return Ok(id);
         }
         ensure!(
@@ -60,9 +65,11 @@ impl ScopeArgs {
 
     async fn region(&self, config: &Config) -> Result<String> {
         if let Some(region) = &self.region {
+            debug!("region from flag or environment");
             return Ok(region.clone());
         }
         if let Some(region) = config.defaults()?.region {
+            debug!("region from saved defaults");
             return Ok(region);
         }
         ensure!(

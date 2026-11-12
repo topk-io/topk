@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use tracing::info;
+use tracing::debug;
 
 use crate::auth::oauth::{Authorization, OAuthClient};
 use crate::config::Config;
@@ -41,6 +41,7 @@ impl Auth {
         authorization: Authorization,
         code: String,
     ) -> Result<AccessTokenClaims> {
+        debug!("exchanging login code");
         let (session, claims) = self.client.exchange_code(authorization, code).await?;
         self.config.session().await?.save(session)?;
         // Clear cached access tokens
@@ -60,13 +61,14 @@ impl Auth {
             return Ok(session.access_token);
         }
         let refresh_token = session.refresh_token.context(SESSION_EXPIRED_MSG)?;
-        info!("refreshing access token");
+        debug!("refreshing access token");
         let Some(session) = self.client.refresh(refresh_token).await? else {
             store.delete()?;
             bail!(SESSION_EXPIRED_MSG);
         };
         let access_token = session.access_token.clone();
         store.save(session)?;
+        debug!("access token refreshed");
         Ok(access_token)
     }
 }

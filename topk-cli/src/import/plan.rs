@@ -8,6 +8,7 @@ use topk_rs::proto::v1::control::{
     field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, FieldType, KeywordIndexType,
     MultiVectorDistanceMetric, MultiVectorQuantization, VectorDistanceMetric,
 };
+use tracing::{debug, info};
 
 use crate::import::ddl::Schema;
 use crate::import::error::Error;
@@ -37,6 +38,7 @@ impl Plan {
                     Err(topk_rs::Error::CollectionNotFound) => None,
                     Err(error) => return Err(Error::from(error)),
                 };
+                debug!(collection = %name, existing = existing.is_some(), "resolving collection fields");
                 target
                     .select(source, fields, renames, existing.as_ref())
                     .await?;
@@ -50,6 +52,11 @@ impl Plan {
         .try_filter_map(|name| async { Ok(name) })
         .try_collect()
         .await?;
+        info!(
+            collections = self.collections.len(),
+            create = to_create.len(),
+            "import plan resolved"
+        );
         Ok(to_create)
     }
 

@@ -4,6 +4,7 @@ use std::process::ExitCode;
 use anyhow::{ensure, Result};
 use clap::Args;
 use colored::Colorize;
+use tracing::{info, warn};
 
 use crate::auth::Auth;
 use crate::config::Config;
@@ -23,6 +24,7 @@ pub struct LoginArgs {
 }
 
 pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
+    info!(?args, "login");
     let auth = Auth::new(config)?;
     let claims = if args.no_browser {
         let login = auth.browserless_login()?;
@@ -48,7 +50,9 @@ pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
             "Opening your browser to log in. If it doesn't open, visit:\n\n{}\n",
             login.url()
         );
-        let _ = open::that_detached(login.url().as_str());
+        if open::that_detached(login.url().as_str()).is_err() {
+            warn!("could not open browser; use the printed login URL");
+        }
         eprintln!("Waiting for login...");
         login.finish().await?
     };
