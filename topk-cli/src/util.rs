@@ -4,11 +4,11 @@ use anyhow::{bail, ensure, Result};
 use chrono::DateTime;
 use dialoguer::{Confirm, Select};
 
-pub fn select(
-    prompt: &str,
-    items: &[impl ToString],
-    current: Option<usize>,
-) -> Result<Option<usize>> {
+#[derive(Debug, thiserror::Error)]
+#[error("interrupted")]
+pub struct Interrupted;
+
+pub fn select(prompt: &str, items: &[impl ToString], current: Option<usize>) -> Result<usize> {
     ensure!(!items.is_empty(), "no choices available");
     match Select::new()
         .with_prompt(prompt)
@@ -16,8 +16,11 @@ pub fn select(
         .default(current.unwrap_or(0))
         .interact_opt()
     {
-        Ok(selected) => Ok(selected),
-        Err(dialoguer::Error::IO(error)) if error.kind() == ErrorKind::Interrupted => Ok(None),
+        Ok(Some(selected)) => Ok(selected),
+        Ok(None) => Err(Interrupted.into()),
+        Err(dialoguer::Error::IO(error)) if error.kind() == ErrorKind::Interrupted => {
+            Err(Interrupted.into())
+        }
         Err(error) => Err(error.into()),
     }
 }

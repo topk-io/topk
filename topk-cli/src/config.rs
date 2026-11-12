@@ -27,6 +27,7 @@ pub struct Config {
 #[derive(Default, Serialize, Deserialize)]
 pub struct Defaults {
     pub project_id: Option<ProjectId>,
+    pub region: Option<String>,
 }
 
 impl Config {
@@ -86,21 +87,10 @@ impl Config {
             .unwrap_or_default())
     }
 
-    pub fn default_project(&self) -> Result<ProjectId> {
-        self.defaults()?.project_id.context(
-            "--project-id (or TOPK_PROJECT_ID environment variable) is required, \
-             or select a default project with `topk project select`",
-        )
-    }
-
-    pub fn set_project_id(&self, project_id: Option<ProjectId>) -> Result<()> {
-        write_toml(
-            &self.defaults_file(),
-            &Defaults {
-                project_id,
-                ..self.defaults()?
-            },
-        )
+    pub fn update_defaults(&self, update: impl FnOnce(&mut Defaults)) -> Result<()> {
+        let mut defaults = self.defaults()?;
+        update(&mut defaults);
+        write_toml(&self.defaults_file(), &defaults)
     }
 
     fn config_file(&self) -> PathBuf {

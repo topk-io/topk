@@ -134,6 +134,34 @@ List available regions.
 topk region list
 ```
 
+> [!NOTE]
+> `topk region list` marks the currently selected region with `*`.
+
+#### select
+
+Select a default region.
+
+```bash
+topk region select  # interactive picker
+topk region select <REGION>
+```
+
+#### clear
+
+Clear the selected region:
+
+```bash
+topk region clear
+```
+
+#### current
+
+Show the currently selected region.
+
+```bash
+topk region current
+```
+
 ### sql
 
 Create and manage collections, read and write documents, and run keyword, vector, and semantic searches with [TopK SQL](https://docs.topk.io/sdk/topk-sql/overview).
@@ -146,8 +174,11 @@ topk sql <QUERY|--file <FILE>> [OPTIONS]
 | --- | --- |
 | `[QUERY]` | SQL to run, or `-` to read it from stdin; required unless `--file` is given |
 | `-f`, `--file <FILE>` | Read SQL from a file, or `-` for stdin |
-| `--region <REGION>` | Region to connect to (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
+| `--region <REGION>` | Region to connect to (env `TOPK_REGION`); defaults to the region selected with `topk region select`. See https://docs.topk.io/regions |
 | `--project-id <PROJECT_ID>` | Project to access with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
+
+> [!IMPORTANT]
+> If no project or region is set, `topk sql` prompts you to pick one.
 
 #### Run a query
 
@@ -201,7 +232,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | --- | --- |
 | `[SOURCE]` | Source URL, file path, or glob; also required with `--spec` or `--resume`, except for files |
 | `[OBJECTS]...` | Source objects to import; exact names, globs, or `<object>=<collection>` |
-| `--region <REGION>` | Region to import into (env `TOPK_REGION`); required. See https://docs.topk.io/regions |
+| `--region <REGION>` | Region to import into (env `TOPK_REGION`); defaults to the region selected with `topk region select`. See https://docs.topk.io/regions |
 | `--to <COLLECTION>` | Name the target collection; required when it cannot be derived |
 | `--id <COLUMN>` | Column to use as the document id (`_id`); use when it can't be auto-detected |
 | `--dry-run` | Print the spec and a sample of documents, without importing |
@@ -216,6 +247,9 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none |
 
+> [!IMPORTANT]
+> If no project or region is set, `topk import` prompts you to pick one.
+
 #### Authenticate
 
 Log in, then provide `--project-id` and `--region` when importing:
@@ -226,11 +260,8 @@ topk project list
 topk import ./books.parquet --project-id <project-id> --region aws-us-east-1-elastica
 ```
 
-Set `TOPK_PROJECT_ID` and `TOPK_REGION` to omit the corresponding flags. Explicit flags override environment variables.
-
-> [!TIP]
-> Use `topk project list` to find your project ID and `topk region list` to list regions. Access tokens are cached and renewed automatically.
-> Run `topk project select` once to omit `--project-id` from later commands.
+> [!IMPORTANT]
+> Access tokens are cached and renewed automatically.
 
 #### Import a database
 

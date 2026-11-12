@@ -6,14 +6,14 @@ use clap::Args;
 
 use crate::client::{DataClient, ManagementClient};
 use crate::config::Config;
-use crate::endpoint::DataEndpoint;
+use crate::endpoint::{ProjectArg, RegionArg};
 use crate::import::source::{Source, Uri};
 use crate::import::spec::Spec;
 use crate::import::state::{DestinationId, Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
 use crate::management::proto::GetCollectionRequest;
 use crate::output::Output;
-use crate::ProjectId;
+use crate::util::Interrupted;
 
 mod output;
 
@@ -169,12 +169,11 @@ pub struct ImportArgs {
     #[command(flatten)]
     pub write: WriteArgs,
 
-    /// Project to import into; defaults to the currently selected project
-    #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
-    pub project_id: Option<ProjectId>,
+    #[command(flatten)]
+    pub project: ProjectArg,
 
     #[command(flatten)]
-    pub data: DataEndpoint,
+    pub region: RegionArg,
 }
 
 pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::Result<ExitCode> {
@@ -217,12 +216,8 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             return Ok(ExitCode::SUCCESS);
         }
         let destination = DestinationId {
-            project_id: args
-                .project_id
-                .clone()
-                .map(Ok)
-                .unwrap_or_else(|| config.default_project())?,
-            region: args.data.region()?.to_string(),
+            project_id: args.project.resolve(&config).await?,
+            region: args.region.resolve(&config).await?,
         };
         let run = Run::start(
             &directory,
@@ -261,7 +256,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             event = execution.try_next() => event,
             _ = tokio::signal::ctrl_c() => {
                 ui.message(format_args!("stopped; rows written so far stay. {resume_hint}"))?;
-                return Ok(ExitCode::from(130));
+                return Err(Interrupted.into());
             }
         };
         match event {
@@ -288,11 +283,7 @@ impl ImportArgs {
         {
             let resolved = match project.as_ref() {
                 Some(project) => project.clone(),
-                None => self
-                    .project_id
-                    .clone()
-                    .map(Ok)
-                    .unwrap_or_else(|| config.default_project())?,
+                None => self.project.resolve(config).await?,
             };
             *project = Some(resolved.clone());
             let name = name.clone();

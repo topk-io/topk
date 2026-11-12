@@ -11,6 +11,7 @@ use topk::auth::OAuthConfig;
 use topk::config::Config;
 use topk::host::Host;
 use topk::output::Output;
+use topk::util::Interrupted;
 
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
@@ -95,6 +96,7 @@ async fn async_main() -> ExitCode {
     init_logging(cli.verbose);
     match run(&cli).await {
         Ok(code) => code,
+        Err(e) if e.is::<Interrupted>() => ExitCode::from(130),
         Err(e) => {
             eprintln!("{} {e:#}", "error:".red().bold());
             ExitCode::FAILURE

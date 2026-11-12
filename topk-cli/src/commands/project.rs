@@ -10,11 +10,12 @@ use serde_json::json;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
+use crate::endpoint::pick_project;
 use crate::management::proto::{
     CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
 };
 use crate::output::{json_line, print_list, print_one, Output, Tabular};
-use crate::util::{confirm, select, timestamp};
+use crate::util::{confirm, timestamp};
 use crate::ProjectId;
 
 #[derive(clap::Args)]
@@ -99,7 +100,7 @@ pub async fn run(
             }
         }
         Command::Clear => {
-            config.set_project_id(None)?;
+            config.update_defaults(|defaults| defaults.project_id = None)?;
             match output {
                 Output::Json => json_line(out, &json!({"project_id": null}))?,
                 Output::Text => writeln!(out, "Project selection cleared")?,
@@ -121,26 +122,11 @@ pub async fn run(
                         stdin().is_terminal(),
                         "no project ID given and stdin is not a terminal; run `topk project select <PROJECT_ID>`"
                     );
-                    let mut projects = client
-                        .projects
-                        .list_projects(ListProjectsRequest {})
-                        .await?
-                        .into_inner()
-                        .projects;
-                    let current = config.defaults()?.project_id;
-                    let selected = projects.iter().position(|p| {
-                        current
-                            .as_ref()
-                            .is_some_and(|id| id.as_str() == p.project_id)
-                    });
-                    let Some(index) = select("Select project", &projects, selected)? else {
-                        // Cancelling the picker exits with 130.
-                        return Ok(ExitCode::from(130));
-                    };
-                    projects.remove(index)
+                    pick_project(&mut client, &config).await?
                 }
             };
-            config.set_project_id(Some(project.project_id.parse()?))?;
+            let id = project.project_id.parse()?;
+            config.update_defaults(|defaults| defaults.project_id = Some(id))?;
             match output {
                 Output::Json => json_line(
                     out,
@@ -214,7 +200,7 @@ pub async fn run(
                     .project_id
                     .is_some_and(|id| id.as_str() == project_id)
                 {
-                    config.set_project_id(None)?;
+                    config.update_defaults(|defaults| defaults.project_id = None)?;
                 }
                 match output {
                     Output::Json => json_line(out, &json!({"deleted": true}))?,
