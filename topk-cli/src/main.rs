@@ -58,6 +58,9 @@ enum Commands {
     /// Run SQL against your collections
     Sql(topk::commands::sql::SqlArgs),
 
+    /// Show usage of your organization, projects and collections
+    Usage(topk::commands::usage::Args),
+
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
     Import(topk::commands::import::ImportArgs),
@@ -114,6 +117,9 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
 
         Some(Commands::Sql(args)) => {
             topk::commands::sql::run(config, args, cli.output, &mut std::io::stdout()).await
+        }
+        Some(Commands::Usage(args)) => {
+            topk::commands::usage::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
         Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
