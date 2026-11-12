@@ -13,10 +13,9 @@ use tokio::time::timeout;
 
 use crate::client::SqlClient;
 use crate::config::Config;
-use crate::endpoint::DataEndpoint;
+use crate::endpoint::{ProjectArg, RegionArg};
 use crate::meta;
 use crate::output::{json_line, table, Output};
-use crate::ProjectId;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -30,12 +29,11 @@ pub struct SqlArgs {
     #[arg(short, long)]
     file: Option<FileOrStdin>,
 
-    /// Project to access; defaults to the currently selected project
-    #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
-    project_id: Option<ProjectId>,
+    #[command(flatten)]
+    project: ProjectArg,
 
     #[command(flatten)]
-    data: DataEndpoint,
+    region: RegionArg,
 }
 
 impl SqlArgs {
@@ -61,13 +59,11 @@ pub async fn run(
         Some(meta) => (meta.sql, meta.describes),
         None => (sql, None),
     };
-    let project_id = match &args.project_id {
-        Some(project_id) => project_id.clone(),
-        None => config.default_project()?,
-    };
+    let project_id = args.project.resolve(&config).await?;
+    let region = args.region.resolve(&config).await?;
     let mut client = timeout(
         CONNECT_TIMEOUT,
-        SqlClient::connect(&config, project_id, args.data.region()?),
+        SqlClient::connect(&config, project_id, &region),
     )
     .await
     .with_context(|| format!("connecting timed out after {CONNECT_TIMEOUT:?}"))??;
