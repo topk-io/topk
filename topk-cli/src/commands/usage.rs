@@ -2,7 +2,7 @@ use std::io::Write;
 use std::process::ExitCode;
 use std::str::FromStr;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use chrono::{DateTime, Duration, NaiveDate, NaiveTime, SecondsFormat, Utc};
 use serde::{Serialize, Serializer};
@@ -22,12 +22,11 @@ pub struct Args {
     /// End of the range: a duration ago, a date or an RFC 3339 time; defaults to now
     #[arg(long, value_name = "TIME")]
     pub until: Option<Time>,
-    /// Limit to this project; defaults to the selected project, or the whole organization if
-    /// none is selected
+    /// Limit to this project; defaults to the whole organization
     #[arg(long, env = "TOPK_PROJECT_ID")]
     pub project_id: Option<ProjectId>,
     /// Limit to this collection in the project
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, value_name = "NAME", requires = "project_id")]
     pub collection: Option<String>,
 }
 
@@ -135,16 +134,6 @@ pub async fn run(
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
-    let project_id = match &args.project_id {
-        Some(project_id) => Some(project_id.clone()),
-        None => config.defaults()?.project_id,
-    };
-    if args.collection.is_some() && project_id.is_none() {
-        bail!(
-            "--collection needs a project: pass --project-id or select one with \
-             `topk project select`"
-        );
-    }
     let now = Utc::now();
     let start_time = args.since.resolve(now);
     let end_time = args.until.map_or(now, |until| until.resolve(now));
@@ -153,7 +142,7 @@ pub async fn run(
         .get_usage(GetUsageRequest {
             start_time: start_time.to_rfc3339_opts(SecondsFormat::Secs, true),
             end_time: end_time.to_rfc3339_opts(SecondsFormat::Secs, true),
-            project_id: project_id.as_ref().map(ToString::to_string),
+            project_id: args.project_id.as_ref().map(ToString::to_string),
             collection: args.collection.clone(),
         })
         .await
@@ -165,7 +154,7 @@ pub async fn run(
         output,
         metrics
             .into_iter()
-            .map(|metric| Row::new(metric, project_id.clone(), args.collection.clone())),
+            .map(|metric| Row::new(metric, args.project_id.clone(), args.collection.clone())),
     )?;
     Ok(ExitCode::SUCCESS)
 }

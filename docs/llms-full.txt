@@ -5811,7 +5811,7 @@ topk usage --since <TIME> [--until <TIME>] [OPTIONS]
 | --- | --- |
 | `--since <TIME>` | Start of the range, at most 90 days before the end: a duration ago (`<n>m`, `<n>h`, `<n>d` or `<n>w`), a date (`YYYY-MM-DD`) or an RFC 3339 time; required |
 | `--until <TIME>` | End of the range: a duration ago, a date or an RFC 3339 time; defaults to now |
-| `--project-id <PROJECT_ID>` | Limit to this project (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`, or the whole organization if none is selected |
+| `--project-id <PROJECT_ID>` | Limit to this project (env `TOPK_PROJECT_ID`); defaults to the whole organization |
 | `--collection <NAME>` | Limit to this collection in the project |
 
 ###### Choose a time range
@@ -5839,7 +5839,7 @@ topk usage --since 7d --project-id <project-id> --collection books   # a collect
 
 <Info>
 
-Without `--project-id`, usage covers the project selected with `topk project select`, or your whole organization if none is selected.
+Without `--project-id`, usage covers your whole organization.
 
 </Info>
 
