@@ -212,10 +212,10 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             return Ok(ExitCode::SUCCESS);
         }
-        let destination = args.scope.resolve(&config).await?;
+        let scope = args.scope.resolve(&config).await?;
         let run = Run::start(
             &directory,
-            State::new(source.locator().to_string(), destination, spec),
+            State::new(source.locator().to_string(), scope, spec),
         )
         .await?;
         (source, run)
@@ -271,33 +271,27 @@ impl ImportArgs {
             collection: name,
         } = &mut uri
         {
-            let resolved = match project.as_ref() {
+            let project_id = match project.as_ref() {
                 Some(project) => project.clone(),
                 None => self.scope.project_id(config).await?,
             };
-            *project = Some(resolved.clone());
+            *project = Some(project_id.clone());
             let name = name.clone();
             let collection = ManagementClient::new(config.clone())?
                 .collections
                 .get_collection(GetCollectionRequest {
-                    project_id: resolved.to_string(),
+                    project_id: project_id.to_string(),
                     name: name.clone(),
                 })
                 .await?
                 .into_inner()
                 .collection
                 .ok_or_else(|| anyhow::anyhow!("management returned no source collection"))?;
-            anyhow::ensure!(
-                !collection.region.is_empty(),
-                "source collection has no region"
-            );
-            let client = DataClient::new(
-                config,
-                Scope {
-                    project_id: resolved,
-                    region: collection.region,
-                },
-            )?;
+            let scope = Scope {
+                project_id,
+                region: collection.region,
+            };
+            let client = DataClient::new(config, scope)?;
             return Ok(Source::topk(
                 (*client).clone(),
                 uri.to_string(),

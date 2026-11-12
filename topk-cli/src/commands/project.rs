@@ -125,7 +125,7 @@ pub async fn run(
                     pick_project(&mut client, &config).await?
                 }
             };
-            config.set_project_id(Some(project.project_id.parse()?))?;
+            config.set_project_id(Some(project.project_id()?))?;
             match output {
                 Output::Json => json_line(
                     out,

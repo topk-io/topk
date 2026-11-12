@@ -55,7 +55,7 @@ impl ScopeArgs {
         let mut client = ManagementClient::new(config.clone())?;
         let project = pick_project(&mut client, config).await?;
         eprintln!("Run `topk project select` to skip this prompt.");
-        project.project_id.parse()
+        project.project_id()
     }
 
     async fn region(&self, config: &Config) -> Result<String> {
