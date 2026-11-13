@@ -1,6 +1,7 @@
 use sqlparser::ast::{Expr as SqlExpr, Value as SqlValue};
 
 use super::{SqlFunctionExt, SqlValueExt};
+use crate::Error;
 
 pub trait SqlExprExt {
     fn as_id(&self) -> Option<String>;
@@ -10,6 +11,7 @@ pub trait SqlExprExt {
     fn as_placeholder(&self) -> Option<usize>;
 
     fn as_string(&self) -> Option<String>;
+    fn string_literal(&self, what: &str) -> Result<String, Error>;
     fn as_bool(&self) -> Option<bool>;
     fn as_u64(&self) -> Option<u64>;
     fn as_i64(&self) -> Option<i64>;
@@ -73,6 +75,15 @@ impl SqlExprExt for SqlExpr {
         }
     }
 
+    fn string_literal(&self, what: &str) -> Result<String, Error> {
+        self.as_string().ok_or_else(|| match self {
+            SqlExpr::Identifier(ident) if ident.quote_style == Some('"') => {
+                Error::QuotedString(ident.value.clone())
+            }
+            _ => Error::Invalid(format!("{what} must be a string literal")),
+        })
+    }
+
     fn as_bool(&self) -> Option<bool> {
         match self {
             SqlExpr::Value(v) => match v.value {
@@ -109,5 +120,34 @@ impl SqlExprExt for SqlExpr {
             } => expr.as_i64().and_then(|n| n.checked_neg()),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use crate::{convert_sql, parse_sql};
+
+    #[rstest]
+    #[case::match_query(
+        "SELECT _id FROM t WHERE match(\"dune\", title) LIMIT 10",
+        "Invalid: \"dune\" is an identifier; use single quotes for strings: 'dune'"
+    )]
+    #[case::regex_operator(
+        "SELECT _id FROM t WHERE title ~ \"^D\" LIMIT 10",
+        "Invalid: \"^D\" is an identifier; use single quotes for strings: '^D'"
+    )]
+    #[case::like(
+        "SELECT _id FROM t WHERE title LIKE \"de-%\" LIMIT 10",
+        "Invalid: \"de-%\" is an identifier; use single quotes for strings: 'de-%'"
+    )]
+    #[case::not_a_string(
+        "SELECT _id FROM t WHERE regexp_like(title, 1) LIMIT 10",
+        "Invalid: regexp_like: pattern must be a string literal"
+    )]
+    fn string_literal(#[case] sql: &str, #[case] message: &str) {
+        let error = parse_sql(sql).and_then(convert_sql).unwrap_err();
+        assert_eq!(error.to_string(), message);
     }
 }
