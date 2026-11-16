@@ -1,4 +1,4 @@
-use std::io::IsTerminal;
+use std::io::{ErrorKind, IsTerminal, Write};
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -81,11 +81,6 @@ fn agent_mode() -> bool {
 }
 
 fn main() -> ExitCode {
-    // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
-    #[cfg(unix)]
-    unsafe {
-        libc::signal(libc::SIGPIPE, libc::SIG_DFL)
-    };
     // AWS SSO for duckdb: sets AWS_CONFIG_FILE, UB once runtime threads getenv.
     #[cfg(feature = "import")]
     if std::env::args().any(|a| a == "import") {
@@ -108,6 +103,13 @@ async fn async_main() -> ExitCode {
     match result {
         Ok(code) => code,
         Err(e) if e.is::<Interrupted>() => ExitCode::from(130),
+        // `topk … | head`: the reader went away; exit like a shell pipeline would.
+        Err(e)
+            if e.downcast_ref::<std::io::Error>().map(std::io::Error::kind)
+                == Some(ErrorKind::BrokenPipe) =>
+        {
+            ExitCode::from(141)
+        }
         Err(e) => {
             eprintln!("{} {e:#}", "error:".red().bold());
             ExitCode::FAILURE
@@ -139,7 +141,9 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,
 
         Some(Commands::Completions { shell }) => {
-            generate(*shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+            let mut script = Vec::new();
+            generate(*shell, &mut Cli::command(), "topk", &mut script);
+            std::io::stdout().write_all(&script)?;
             Ok(ExitCode::SUCCESS)
         }
 

@@ -69,3 +69,22 @@ fn import_logs_hide_the_source_password() {
     assert!(stderr.contains("u:***@"), "{stderr}");
     assert!(!stderr.contains("secret-marker"), "{stderr}");
 }
+
+#[cfg(unix)]
+#[rstest]
+#[case::json_output(&["-o", "json", "region", "clear"])]
+#[case::completions(&["completions", "bash"])]
+fn closed_stdout_exits_quietly(#[case] args: &[&str]) {
+    let dir = TempDir::new().unwrap();
+    let (stdout, reader) = std::os::unix::net::UnixStream::pair().unwrap();
+    drop(reader);
+    let output = Command::new(env!("CARGO_BIN_EXE_topk"))
+        .env_clear()
+        .env("TOPK_CONFIG_DIR", dir.path())
+        .args(args)
+        .stdout(std::os::fd::OwnedFd::from(stdout))
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(141), "{output:?}");
+    assert!(output.stderr.is_empty(), "{output:?}");
+}

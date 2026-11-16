@@ -48,7 +48,6 @@ url = { version = "2", features = ["serde"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "query", "tokio"] }
 wildmatch = { version = "2", optional = true }
 clap = { version = "4", features = ["derive", "env"] }
-libc = { version = "0.2" }
 clap_complete = { version = "4" }
 clap-stdin = "0.8"
 tokio = { version = "1", features = ["full"] }

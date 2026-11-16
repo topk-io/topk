@@ -21,8 +21,9 @@ pub trait Tabular: Serialize {
 
 /// One JSON object per line.
 pub fn json_line(out: &mut impl Write, value: &impl Serialize) -> Result<()> {
-    serde_json::to_writer(&mut *out, value)?;
-    writeln!(out)?;
+    let mut line = serde_json::to_vec(value)?;
+    line.push(b'\n');
+    out.write_all(&line)?;
     Ok(())
 }
 
@@ -73,4 +74,33 @@ pub fn table(header: impl Into<Row>) -> Table {
         table.set_content_arrangement(ContentArrangement::Dynamic);
     }
     table
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{self, ErrorKind, Write};
+
+    use super::json_line;
+
+    struct Closed;
+
+    impl Write for Closed {
+        fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            Err(ErrorKind::BrokenPipe.into())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn closed_writer_fails_with_io_error() {
+        let error = json_line(&mut Closed, &"x".repeat(4096)).unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<io::Error>().map(io::Error::kind),
+            Some(ErrorKind::BrokenPipe),
+            "{error:?}"
+        );
+    }
 }
