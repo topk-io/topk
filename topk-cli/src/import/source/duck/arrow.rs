@@ -5,9 +5,11 @@ use topk_rs::proto::v1::data::Value;
 use crate::import::coerce::floats;
 use crate::import::error::Error;
 use topk_rs::proto::v1::control::{
-    field_type::DataType as SchemaType, field_type_list::ListValueType, FieldSpec,
+    field_type::DataType as SchemaType, field_type_list::ListValueType,
+    field_type_matrix::MatrixValueType, FieldSpec,
 };
 
+/// The field type a column plans as; `None` when `value` cannot read it as one.
 pub fn ty(input: &DataType) -> Option<FieldSpec> {
     Some(match input {
         DataType::Boolean => FieldSpec::boolean(false),
@@ -20,8 +22,7 @@ pub fn ty(input: &DataType) -> Option<FieldSpec> {
         | DataType::UInt32
         | DataType::UInt64 => FieldSpec::integer(false),
         DataType::Float16 | DataType::Float32 | DataType::Float64 => FieldSpec::float(false),
-        // A decimal wider than f64 can hold (~15 digits) keeps its exact value
-        // only as text.
+        // CONVENTION: DECIMAL(p > 15) → text, DECIMAL(p <= 15) → float; f64 holds ~15 digits
         DataType::Decimal128(p, _) | DataType::Decimal256(p, _) => {
             if *p > 15 {
                 FieldSpec::text(false)
@@ -33,16 +34,29 @@ pub fn ty(input: &DataType) -> Option<FieldSpec> {
             FieldSpec::bytes(false)
         }
         DataType::List(f) | DataType::LargeList(f) | DataType::FixedSizeList(f, _) => {
-            match ty(f.data_type())?.data_type.and_then(|ty| ty.data_type) {
-                Some(SchemaType::Integer(_)) => FieldSpec::list(false, ListValueType::Integer),
-                Some(SchemaType::Float(_)) => FieldSpec::list(false, ListValueType::Float),
-                Some(
-                    SchemaType::Boolean(_) | SchemaType::Struct(_) | SchemaType::F32SparseVector(_),
-                ) => return None,
-                _ => FieldSpec::list(false, ListValueType::String),
+            let numeric = |ty: &DataType| match ty {
+                DataType::Decimal128(p, _) | DataType::Decimal256(p, _) => *p <= 15,
+                _ => ty.is_integer() || ty.is_floating(),
+            };
+            match f.data_type() {
+                // CONVENTION: LIST<FIXED_SIZE_LIST<numeric, cols>> → matrix:<cols>
+                DataType::FixedSizeList(row, cols) if *cols > 0 && numeric(row.data_type()) => {
+                    FieldSpec::matrix(false, *cols as u32, MatrixValueType::F32)
+                }
+                element if element.is_integer() => FieldSpec::list(false, ListValueType::Integer),
+                element if numeric(element) => FieldSpec::list(false, ListValueType::Float),
+                DataType::Utf8
+                | DataType::LargeUtf8
+                | DataType::Decimal128(_, _)
+                | DataType::Decimal256(_, _)
+                | DataType::Null => FieldSpec::list(false, ListValueType::String),
+                _ => return None,
             }
         }
+
+        // CONVENTION: STRUCT{indices: LIST, values: LIST} → sparse
         DataType::Struct(fields) if is_sparse_struct(fields) => FieldSpec::f32_sparse_vector(false),
+        // CONVENTION: STRUCT{bytes: BLOB, path: VARCHAR} (Hugging Face image) → image
         DataType::Struct(fields)
             if fields.len() == 2
                 && fields.iter().any(|f| {
@@ -56,7 +70,12 @@ pub fn ty(input: &DataType) -> Option<FieldSpec> {
         {
             FieldSpec::image(false)
         }
-        DataType::Struct(_) => FieldSpec::r#struct(false, Vec::<(String, FieldSpec)>::new()),
+        DataType::Struct(fields) => {
+            for field in fields {
+                ty(field.data_type())?;
+            }
+            FieldSpec::r#struct(false, Vec::<(String, FieldSpec)>::new())
+        }
         // value() renders these to RFC 3339 / a bare date, which the Timestamp
         // coercion reads back to epoch millis.
         DataType::Timestamp(_, _) | DataType::Date32 | DataType::Date64 => {
@@ -282,4 +301,57 @@ fn is_sparse_struct(fields: &Fields) -> bool {
             .any(|f| f.name() == name && is_list(f.data_type()))
     };
     fields.len() == 2 && named("indices") && named("values")
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::{ty, value};
+    use crate::import::plan::Field;
+
+    #[rstest]
+    #[case::int_list("[1, 2]", true)]
+    #[case::uint_list("[1::UBIGINT]", true)]
+    #[case::float_list("[1.5, 2.5]", true)]
+    #[case::text_list("['a', 'b']", true)]
+    #[case::wide_decimal_list("[1.5::DECIMAL(20, 2)]", true)]
+    #[case::fixed_matrix("[[1.0, 2.0]::FLOAT[2]]", true)]
+    #[case::scalar_struct("{'a': 1, 'b': 'x'}", true)]
+    #[case::nested_struct("{'a': {'b': [1, 2]}}", true)]
+    #[case::sparse("{'indices': [1], 'values': [1.5]}", true)]
+    #[case::map("MAP {'a': 1}", true)]
+    #[case::interval("INTERVAL 1 DAY", true)]
+    #[case::time("TIME '10:00:00'", true)]
+    #[case::timestamp("TIMESTAMP '2024-01-01 10:00:00'", true)]
+    #[case::timestamp_list("[TIMESTAMP '2024-01-01 10:00:00']", false)]
+    #[case::date_list("[DATE '2024-01-01']", false)]
+    #[case::blob_list("['a'::BLOB]", false)]
+    #[case::bool_list("[true]", false)]
+    #[case::struct_list("[{'k': 'v'}]", false)]
+    #[case::integer_matrix("[[1, 2]]::INTEGER[2][]", true)]
+    #[case::decimal_matrix("[[1, 2]]::DECIMAL(15,2)[2][]", true)]
+    #[case::wide_decimal_matrix("[[1, 2]]::DECIMAL(16,2)[2][]", false)]
+    #[case::text_matrix("[['1', '2']]::VARCHAR[2][]", false)]
+    #[case::boolean_matrix("[[true, false]]::BOOLEAN[2][]", false)]
+    #[case::ragged_matrix("[[1.0, 2.0]]", false)]
+    #[case::struct_with_struct_list("{'tags': [{'k': 'v'}]}", false)]
+    #[case::struct_with_bool_list("{'flags': [true]}", false)]
+    fn planned_types_read(#[case] expression: &str, #[case] typed: bool) {
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        let mut stmt = conn.prepare(&format!("SELECT {expression} AS v")).unwrap();
+        let batch = stmt.query_arrow([]).unwrap().next().unwrap();
+        let column = batch.column(0);
+        let spec = ty(column.data_type());
+        assert_eq!(
+            spec.is_some(),
+            typed,
+            "{expression}: {}",
+            column.data_type()
+        );
+        if let Some(spec) = spec {
+            let value = value(column, 0).unwrap();
+            Field::new(spec).coerce(value).unwrap();
+        }
+    }
 }

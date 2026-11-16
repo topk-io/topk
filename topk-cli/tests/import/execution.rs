@@ -1,7 +1,7 @@
 use futures::TryStreamExt;
 use serde_json::json;
 use test_macros::rstest_ctx;
-use topk::import::plan::Plan;
+use topk::import::plan::{Plan, Target};
 use topk::import::source::{Checkpoint, Cursor};
 use topk::import::state::{Progress, Run};
 use topk::import::{Error, Event, Import, WriteOptions};
@@ -19,15 +19,19 @@ async fn prepares_then_executes(ctx: &Ctx) {
     let source = source(&from).await.unwrap();
     let target = target(&from, "id", [("title", FieldSpec::text(false))]).capped(3);
     let mut plan = Plan {
-        collections: indexmap::IndexMap::from([(collection.clone(), target)]),
+        collection: collection.clone(),
+        target,
     };
-    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
+    let create = plan
+        .resolve(&source, &ctx.client, &[], &[], &[])
+        .await
+        .unwrap();
     let directory = ctx.cli.path("state");
     let run = Run::start(&directory, ctx.state(&source, plan))
         .await
         .unwrap();
     let path = directory.join(format!("{}.toml", run.id));
-    let import = Import::start(source, ctx.client.clone(), run, to_create)
+    let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
     assert!(!ctx.exists(&collection).await);
@@ -49,15 +53,11 @@ async fn prepares_then_executes(ctx: &Ctx) {
     );
     for event in events {
         match event {
-            Event::Completed {
-                collection: name,
-                outcome,
-            } => {
-                assert_eq!(name, collection);
+            Event::Completed { outcome } => {
                 assert_eq!((outcome.rows, outcome.failed), (3, 0));
             }
             Event::Progress { written, .. } => assert!(written <= 3),
-            Event::Skipped { error, .. } => panic!("{error}"),
+            Event::Skipped { error } => panic!("{error}"),
         }
     }
     assert!(!path.exists());
@@ -80,19 +80,17 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
     let source = source(&from).await.unwrap();
     let target = target(&from, "id", [("title", FieldSpec::text(false))]).capped(3);
     let plan = Plan {
-        collections: indexmap::IndexMap::from([(collection.clone(), target)]),
+        collection: collection.clone(),
+        target,
     };
     let mut state = ctx.state(&source, plan);
-    state.progress.insert(
-        collection.clone(),
-        Progress::After(Checkpoint {
-            cursor: Cursor::Offset {
-                part: from,
-                rows: 1,
-            },
-            consumed: 1,
-        }),
-    );
+    state.progress = Some(Progress::After(Checkpoint {
+        cursor: Cursor::Offset {
+            part: from,
+            rows: 1,
+        },
+        consumed: 1,
+    }));
     let directory = ctx.cli.path("state");
     let run = Run::start(&directory, state).await.unwrap();
     run.save().unwrap();
@@ -115,14 +113,11 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
         events
             .iter()
             .filter_map(|event| match event {
-                Event::Completed {
-                    collection,
-                    outcome,
-                } => Some((collection.as_str(), outcome.rows, outcome.failed)),
+                Event::Completed { outcome } => Some((outcome.rows, outcome.failed)),
                 _ => None,
             })
             .collect::<Vec<_>>(),
-        [(collection.as_str(), 2, 0)]
+        [(2, 0)]
     );
     assert!(events.iter().all(|event| matches!(
         event,
@@ -165,15 +160,19 @@ async fn backend_rejections(
         )],
     );
     let mut plan = Plan {
-        collections: indexmap::IndexMap::from([(collection.clone(), target)]),
+        collection: collection.clone(),
+        target,
     };
-    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
+    let create = plan
+        .resolve(&source, &ctx.client, &[], &[], &[])
+        .await
+        .unwrap();
     let directory = ctx.cli.path("state");
     let run = Run::start(&directory, ctx.state(&source, plan))
         .await
         .unwrap();
     let id = run.id;
-    let import = Import::start(source, ctx.client.clone(), run, to_create)
+    let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
     let result: Result<Vec<_>, _> = import
@@ -190,27 +189,23 @@ async fn backend_rejections(
             let skipped: Vec<_> = events
                 .iter()
                 .filter_map(|event| match event {
-                    Event::Skipped { collection, error } => Some((collection, error)),
+                    Event::Skipped { error } => Some(error),
                     _ => None,
                 })
                 .collect();
             assert_eq!(skipped.len(), invalid);
-            for (name, error) in skipped {
-                assert_eq!(name, &collection);
+            for error in skipped {
                 assert!(matches!(error, Error::RejectedDocuments(_)));
             }
             assert_eq!(
                 events
                     .iter()
                     .filter_map(|event| match event {
-                        Event::Completed {
-                            collection,
-                            outcome,
-                        } => Some((collection.as_str(), outcome.rows, outcome.failed)),
+                        Event::Completed { outcome } => Some((outcome.rows, outcome.failed)),
                         _ => None,
                     })
                     .collect::<Vec<_>>(),
-                [(collection.as_str(), valid, invalid)]
+                [(valid, invalid)]
             );
         }
         Err(error) => assert!(matches!(error, Error::RejectedDocuments(_))),
@@ -224,7 +219,7 @@ async fn backend_rejections(
         assert!(!directory.join(format!("{id}.toml")).exists());
     } else {
         let run = Run::load(&directory, id).await.unwrap();
-        assert!(run.state().progress.is_empty());
+        assert!(run.state().progress.is_none());
     }
 }
 
@@ -235,17 +230,18 @@ async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
     let collection = ctx.collection("create-race");
     let from = ctx.cli.file("rows.csv", "id,title\n1,one");
     let source = source(&from).await.unwrap();
-    let mut plan = source
-        .catalog()
+    let mut plan = Plan {
+        collection: collection.clone(),
+        target: Target::new(source.discover().await.unwrap(), None).unwrap(),
+    };
+    let create = plan
+        .resolve(&source, &ctx.client, &[], &[], &[])
         .await
-        .unwrap()
-        .discover(&[], Some(&collection), None)
         .unwrap();
-    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
     let run = Run::start(&ctx.cli.path("state"), ctx.state(&source, plan))
         .await
         .unwrap();
-    let import = Import::start(source, ctx.client.clone(), run, to_create)
+    let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
     ctx.client
@@ -311,24 +307,25 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
         },
     );
     let input = source(&from).await.unwrap();
-    let mut plan = input
-        .catalog()
+    let mut plan = Plan {
+        collection: collection.clone(),
+        target: Target::new(input.discover().await.unwrap(), None).unwrap(),
+    };
+    let create = plan
+        .resolve(&input, &ctx.client, &[], &[], &[])
         .await
-        .unwrap()
-        .discover(&[], Some(&collection), None)
         .unwrap();
-    let to_create = plan.resolve(&input, &ctx.client, &[], &[]).await.unwrap();
     let directory = ctx.cli.path("state");
     let run = Run::start(&directory, ctx.state(&input, plan))
         .await
         .unwrap();
     let id = run.id;
-    let mut import = Import::start(input, ctx.client.clone(), run, to_create)
+    let mut import = Import::start(input, ctx.client.clone(), run, create)
         .await
         .unwrap();
     let destination = ctx.client.collections().get(&collection).await.unwrap();
     assert_eq!(
-        import.run().state().plan.collections[&collection].fields["embedding"].schema,
+        import.run().state().plan.target.fields["embedding"].schema,
         destination.schema["embedding"]
     );
     if resume {
@@ -347,7 +344,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
         );
         let run = Run::load(&directory, id).await.unwrap();
         assert_eq!(
-            run.state().plan.collections[&collection].fields["embedding"].schema,
+            run.state().plan.target.fields["embedding"].schema,
             destination.schema["embedding"]
         );
         import = Import::resume(source(&from).await.unwrap(), ctx.client.clone(), run)

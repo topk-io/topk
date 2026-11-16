@@ -13,11 +13,12 @@ use crate::import::plan::Target;
 use crate::import::source::Record;
 use crate::import::ID;
 
-use super::{Chunk, ChunkStream, Table};
+use super::{Chunk, ChunkStream, SourceLocation, Table};
 
 #[derive(Clone)]
 pub struct Mongo {
     db: Database,
+    pub object: String,
 }
 
 /// A query document; the default matches everything.
@@ -42,69 +43,64 @@ impl FromStr for Filter {
 }
 
 impl Mongo {
-    pub async fn connect(url: &Url) -> Result<Mongo, Error> {
+    pub async fn connect(url: &Url, object: String) -> Result<Mongo, Error> {
         let client = Client::with_uri_str(url.as_str()).await?;
         let db = client
             .default_database()
             .ok_or_else(|| Error::InvalidArgument(format!("{url} names no database")))?;
-        Ok(Mongo { db })
+        Ok(Mongo { db, object })
     }
 
-    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
-        let names = self.db.list_collection_names().await?;
-        let mut tables = Vec::with_capacity(names.len());
-        for from in names {
-            let mut cursor = self
-                .db
-                .collection::<BsonDoc>(&from)
-                .aggregate([doc! { "$sample": { "size": 1000 } }])
-                .await?;
+    pub async fn discover(&self) -> Result<Table, Error> {
+        let mut cursor = self
+            .db
+            .collection::<BsonDoc>(&self.object)
+            .aggregate([doc! { "$sample": { "size": 1000 } }])
+            .await?;
 
-            // Type on first sight; array length agreed across samples, or 0 on
-            // disagreement (0 never promotes to a vector).
-            let mut fields: IndexMap<String, (FieldSpec, Option<u32>)> = IndexMap::new();
-            while let Some(document) = cursor.try_next().await? {
-                for (key, value) in &document {
-                    if matches!(value, Wire::Null | Wire::Undefined) {
-                        continue;
-                    }
-                    let (kind, len) = fields
-                        .entry(key.clone())
-                        .or_insert_with(|| (ty(value), None));
-                    // Decimal128 in any sampled doc forces Text: f64 can't hold its precision.
-                    if matches!(value, Wire::Decimal128(_)) {
-                        *kind = FieldSpec::text(false);
-                    }
-                    if let Wire::Array(items) = value {
-                        let seen = items.len() as u32;
-                        *len = Some(match *len {
-                            None => seen,
-                            Some(agreed) if agreed == seen => seen,
-                            Some(_) => 0,
-                        });
-                    }
+        // Type on first sight; array length agreed across samples, or 0 on
+        // disagreement.
+        let mut fields: IndexMap<String, (FieldSpec, Option<u32>)> = IndexMap::new();
+        while let Some(document) = cursor.try_next().await? {
+            for (key, value) in &document {
+                if matches!(value, Wire::Null | Wire::Undefined) {
+                    continue;
+                }
+                let (kind, len) = fields
+                    .entry(key.clone())
+                    .or_insert_with(|| (ty(value), None));
+                // CONVENTION: Decimal128 in any sample → text; f64 can't hold its precision
+                if matches!(value, Wire::Decimal128(_)) {
+                    *kind = FieldSpec::text(false);
+                }
+                if let Wire::Array(items) = value {
+                    let seen = items.len() as u32;
+                    *len = Some(match *len {
+                        None => seen,
+                        Some(agreed) if agreed == seen => seen,
+                        Some(_) => 0,
+                    });
                 }
             }
-            let columns = fields
-                .into_iter()
-                .map(|(name, (kind, len))| {
-                    let field = match len.filter(|dim| *dim > 0) {
-                        Some(dim) if kind == FieldSpec::list(false, ListValueType::Float) => {
-                            FieldSpec::f32_vector(dim, false)
-                        }
-                        _ => kind,
-                    };
-                    (name, Some(field))
-                })
-                .collect();
-            tables.push(Table {
-                collection_hint: Some(from.clone()),
-                from,
-                columns,
-                key: Some(ID.to_string()),
-            });
         }
-        Ok(tables)
+        let columns = fields
+            .into_iter()
+            .map(|(name, (kind, len))| {
+                let field = match len.filter(|dim| *dim > 0) {
+                    // CONVENTION: float array, same length n in every sample → vector:<n>
+                    Some(dim) if kind == FieldSpec::list(false, ListValueType::Float) => {
+                        FieldSpec::f32_vector(dim, false)
+                    }
+                    _ => kind,
+                };
+                (name, field)
+            })
+            .collect();
+        Ok(Table {
+            from: SourceLocation::Object(self.object.clone()),
+            columns,
+            key: Some(ID.to_string()),
+        })
     }
 
     /// Ordered by the id (`_id` is always indexed); the cursor is the last id as
@@ -142,7 +138,7 @@ impl Mongo {
             filter =
                 doc! { "$and": [filter, { "$expr": { "$gt": ["$_id", { "$literal": value }] } }] };
         }
-        let collection = self.db.collection::<BsonDoc>(&target.from);
+        let collection = self.db.collection::<BsonDoc>(&target.from.value());
         let limit = target.limit;
 
         let stream = async_stream::stream! {

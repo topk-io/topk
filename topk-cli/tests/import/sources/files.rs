@@ -7,6 +7,7 @@ use topk_rs::proto::v1::control::{field_type_matrix::MatrixValueType, FieldSpec}
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::common::*;
+use topk::import::plan::Target;
 
 #[rstest_ctx(Scratch)]
 #[case::decimal_list(
@@ -119,12 +120,11 @@ async fn inferred_types(ctx: &Scratch) {
     );
 
     let connected = crate::import::common::source(&source).await.unwrap();
-    let catalog = &connected.catalog().await.unwrap().tables;
-    assert_eq!(catalog.len(), 1);
-    let fields: indexmap::IndexMap<_, _> = catalog[0]
+    let table = connected.discover().await.unwrap();
+    let fields: indexmap::IndexMap<_, _> = table
         .columns
         .iter()
-        .map(|(name, field)| (name.as_str(), field.as_ref().unwrap()))
+        .map(|(name, field)| (name.as_str(), field))
         .collect();
 
     assert_eq!(
@@ -144,16 +144,14 @@ async fn ragged_float_lists_stay_lists(ctx: &Scratch) {
          FROM range(3) t(i)",
     );
     let connected = crate::import::common::source(&source).await.unwrap();
-    let catalog = &connected.catalog().await.unwrap().tables;
-    assert_eq!(catalog.len(), 1);
-    let field = catalog[0]
+    let table = connected.discover().await.unwrap();
+    let field = &table
         .columns
         .iter()
         .find(|(name, _)| name == "embedding")
         .unwrap()
-        .1
-        .as_ref()
-        .unwrap();
+        .1;
+
     assert_eq!(field, &FieldSpec::list(false, ListValueType::Float));
 }
 
@@ -162,7 +160,7 @@ async fn read_errors_name_the_source(ctx: &Scratch) {
     let missing = format!("{}/missing-*.parquet", ctx.scratch().display());
 
     let connected = source(&missing).await.unwrap();
-    let message = refused(connected.catalog().await);
+    let message = refused(connected.discover().await);
     assert!(
         message.contains("reading") && message.contains("missing-*.parquet"),
         "got: {message}"
@@ -171,42 +169,14 @@ async fn read_errors_name_the_source(ctx: &Scratch) {
 }
 
 #[rstest_ctx(Scratch)]
-async fn glob_has_no_collection_hint(ctx: &Scratch) {
+async fn glob_is_one_object(ctx: &Scratch) {
     for i in 0..2 {
         ctx.seed_parquet(&format!("part_{i}"), books());
     }
     let pattern = format!("{}/part_*.parquet", ctx.scratch().display());
     let connected = source(&pattern).await.unwrap();
-    let catalog = &connected.catalog().await.unwrap().tables;
-    assert_eq!(catalog.len(), 1);
-    assert_eq!(catalog[0].from, pattern);
-    assert_eq!(catalog[0].collection_hint, None);
-}
-
-#[rstest_ctx(Scratch)]
-#[case::missing_id("nope", None, "title", r#"id column "nope""#)]
-#[case::missing_partition("id", Some("nope"), "title", r#"partition column "nope""#)]
-#[case::missing_field_source(
-    "id",
-    None,
-    "nonexistent_col",
-    r#"field "title" reads column "nonexistent_col""#
-)]
-async fn missing_columns(
-    ctx: &Scratch,
-    #[case] id: &str,
-    #[case] partition: Option<&str>,
-    #[case] field: &str,
-    #[case] fragment: &str,
-) {
-    let from = ctx.file("books.csv", "id,title\n1,dune");
-    let mut target = target(&from, id, [("title", FieldSpec::text(false))]);
-    target.partition = partition.map(str::to_string);
-    target.fields["title"].from = Some(field.into());
-    let source = source(&from).await.unwrap();
-    let message = refused(source.scan(&target, None).await);
-    assert!(message.contains(fragment), "{message}");
-    assert!(message.contains("available: id, title"), "{message}");
+    let table = connected.discover().await.unwrap();
+    assert_eq!(table.from.value(), pattern);
 }
 
 #[rstest_ctx(Scratch)]
@@ -282,18 +252,10 @@ async fn huggingface_image_column(ctx: &Scratch) {
         "SELECT 1 AS id, {'bytes': from_hex('89504e470d0a1a0a'), 'path': 'page.png'} AS image",
     );
     let connected = source(&from).await.unwrap();
-    let plan = connected
-        .catalog()
-        .await
-        .unwrap()
-        .discover(&[], Some("images"), Some("id"))
-        .unwrap();
-    assert_eq!(
-        plan.collections["images"].fields["image"].schema,
-        FieldSpec::image(false)
-    );
+    let target = Target::new(connected.discover().await.unwrap(), Some("id")).unwrap();
+    assert_eq!(target.fields["image"].schema, FieldSpec::image(false));
     let docs = connected
-        .documents(&plan.collections["images"])
+        .documents(&target)
         .await
         .unwrap()
         .try_collect::<Vec<_>>()

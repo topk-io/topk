@@ -6,6 +6,7 @@ use topk::import::plan::Target;
 use topk::import::source::{Cursor, ReadEvent};
 use topk_rs::proto::v1::control::FieldSpec;
 
+use crate::import::common::seed::es;
 use crate::import::common::seed::Backend::Elasticsearch;
 use crate::import::common::*;
 
@@ -31,14 +32,11 @@ async fn es_rejected_query_carries_the_reason(ctx: &Scratch) {
 async fn elasticsearch_url_index_is_a_selector(ctx: &Scratch) {
     let seeded = ctx.seed(Elasticsearch, "books", books()).await;
     let target = target(&seeded.from, "_id", [("title", FieldSpec::text(false))]);
-    let url = format!("es://localhost:19200/{}", target.from);
-
-    let source = source(&url).await.unwrap();
-    let catalog = &source.catalog().await.unwrap().tables;
+    let source = source(&seeded.url).await.unwrap();
+    let table = source.discover().await.unwrap();
     let docs = json_documents(&source, &target).await.unwrap();
 
-    assert_eq!(catalog.len(), 1);
-    assert_eq!(catalog[0].from, target.from);
+    assert_eq!(table.from, target.from);
     assert_eq!(docs.len(), 3);
 }
 
@@ -49,7 +47,7 @@ async fn elasticsearch_url_index_is_a_selector(ctx: &Scratch) {
 #[case::malformed_filter("{")]
 #[tokio::test]
 async fn es_filter_requires_object(#[case] filter: &str) {
-    let source = source("es+http://127.0.0.1:1").await.unwrap();
+    let source = source("es+http://127.0.0.1:1/books").await.unwrap();
     let target = Target {
         filter: Some(filter.to_string()),
         ..target("books", "_id", [("title", FieldSpec::text(false))])
@@ -138,4 +136,51 @@ async fn pit_lifetime(
             .error_for_status()
             .unwrap();
     }
+}
+
+#[rstest_ctx(Scratch)]
+async fn aliases_resolve_one_index(ctx: &Scratch) {
+    let first = ctx.seed(Elasticsearch, "first", books()).await;
+    let second = ctx.seed(Elasticsearch, "second", books()).await;
+    let alias = ctx.name("alias");
+    let client = reqwest::Client::new();
+    client
+        .post("http://localhost:19200/_aliases")
+        .json(&json!({"actions":[{"add":{"index":first.from,"alias":alias}}]}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    let selected = es::source(&alias).await.unwrap();
+    let target = Target::new(selected.discover().await.unwrap(), None).unwrap();
+    assert_eq!(target.from.value(), first.from);
+    assert_eq!(json_documents(&selected, &target).await.unwrap().len(), 3);
+    client
+        .post("http://localhost:19200/_aliases")
+        .json(&json!({"actions":[{"add":{"index":second.from,"alias":alias}}]}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    let selected = es::source(&alias).await.unwrap();
+    assert!(refused(selected.discover().await).contains("resolves to 2 indices"));
+    let missing = es::source(&ctx.name("missing")).await.unwrap();
+    assert!(missing.discover().await.is_err());
+}
+
+#[rstest_ctx(Scratch)]
+async fn unreadable_selected_mapping_fails(ctx: &Scratch) {
+    let index = ctx.name("unsupported");
+    reqwest::Client::new()
+        .put(format!("http://localhost:19200/{index}"))
+        .json(&json!({"mappings":{"properties":{"rank":{"type":"rank_features"}}}}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    let selected = es::source(&index).await.unwrap();
+    assert!(refused(selected.discover().await).contains("rank_features"));
 }

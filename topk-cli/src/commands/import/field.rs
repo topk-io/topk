@@ -21,7 +21,11 @@ impl FromStr for FieldSelection {
             )));
         }
         let (ty, index) = match value {
-            None => (None, None),
+            None => {
+                return Err(Error::InvalidArgument(format!(
+                    "-f takes <field>=<type or index>, e.g. {name}=keyword; to leave {name} out, use --exclude {name}"
+                )))
+            }
             Some(value) => {
                 let (kind, suffix) = value
                     .split_once(':')

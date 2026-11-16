@@ -1,10 +1,13 @@
+use crate::import::common::seed::mongo;
 use crate::import::common::seed::Backend;
 use crate::import::common::seed::Backend::{Mongo, Postgres};
-use crate::import::common::seed::{mongo, pg};
 use crate::import::common::*;
 use base64::Engine;
+use clap::{Args, Command};
 use serde_json::{json, Value as JsonValue};
+use std::collections::HashMap;
 use test_macros::rstest_ctx;
+use topk::commands::import::ImportArgs;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::{
     field_type_list::ListValueType, field_type_matrix::MatrixValueType, FieldIndex, FieldSpec,
@@ -41,8 +44,7 @@ async fn skips_oversized_document(ctx: &Ctx) {
             "json",
         ])
         .failure(1);
-    let summary = done.summary();
-    let outcome = &summary[&collection];
+    let outcome = done.summary();
     assert_eq!((outcome.rows, outcome.failed), (2, 1));
     assert_eq!(
         ctx.docs(&collection, ["good1", "bad", "good2"]).await,
@@ -71,15 +73,17 @@ async fn bare_scheme_connects_from_environment(
     let run = ctx
         .command()
         .envs(env)
-        .args(["-o", "json", "import", &scheme, &source.from, "--dry-run"])
+        .args([
+            "-o",
+            "json",
+            "import",
+            &format!("{scheme}#{}", source.from),
+            "--to",
+            "c",
+            "--dry-run",
+        ])
         .success();
-    let plan = run.plan();
-    let found: Vec<_> = plan
-        .collections
-        .values()
-        .map(|target| target.from.as_str())
-        .collect();
-    assert_eq!(found, [source.from.as_str()]);
+    assert_eq!(run.plan().target.from.value(), source.from);
 }
 
 #[rstest_ctx(Ctx)]
@@ -88,37 +92,13 @@ async fn previews_carry_no_credentials(ctx: &Ctx) {
     let source = ctx.seed(Postgres, "books", books()).await;
     let printed = ctx
         .command()
-        .args(["import", &source.url, &source.from, "--dry-run"])
+        .args(["import", &source.url, "--to", "c", "--dry-run"])
         .success()
         .stdout;
     assert!(
         !printed.contains("postgres"),
         "a preview names what to import, never where to connect:\n{printed}"
     );
-}
-
-#[rstest_ctx(Scratch)]
-fn a_cli_filter_needs_a_single_object(ctx: &Scratch) {
-    let base = ctx.name("filt");
-    let columns = "(id INTEGER PRIMARY KEY, title TEXT)";
-    let _tables = pg::Pg::temp(&[
-        (format!("public.{base}_a"), columns),
-        (format!("public.{base}_b"), columns),
-    ]);
-
-    let run = ctx
-        .command()
-        .args([
-            "import",
-            &pg::Pg::URL,
-            &format!("{base}*"),
-            "--filter",
-            "id > 1",
-            "--dry-run",
-        ])
-        .failure(1);
-
-    assert!(run.stderr.contains("applies to a single object"), "{run:?}");
 }
 
 #[rstest_ctx(Ctx)]
@@ -157,6 +137,8 @@ async fn fields_rename_and_inferred_vector(ctx: &Ctx, #[case] ty: &str) {
         "raw_title=title",
         "--filter",
         "id = 'one'",
+        "--exclude",
+        "extra",
         "-f",
         "title=keyword,embedding=vector:cosine",
     ];
@@ -167,10 +149,10 @@ async fn fields_rename_and_inferred_vector(ctx: &Ctx, #[case] ty: &str) {
         .args(args)
         .args(["--dry-run"])
         .success();
-    let target = &preview.plan().collections[&collection];
+    let target = &preview.plan().target;
     assert_eq!(
         target.fields.keys().map(String::as_str).collect::<Vec<_>>(),
-        ["title", "embedding"]
+        ["embedding", "title"]
     );
     assert_eq!(target.fields["title"].from.as_deref(), Some("raw_title"));
     let mut vector = FieldSpec::f32_vector(2, false);
@@ -182,7 +164,7 @@ async fn fields_rename_and_inferred_vector(ctx: &Ctx, #[case] ty: &str) {
         .args(args)
         .args(["--yes", "-o", "json"])
         .success();
-    assert_eq!(done.summary()[&collection].rows, 1);
+    assert_eq!(done.summary().rows, 1);
     let schema = ctx
         .client
         .collections()
@@ -216,7 +198,6 @@ async fn fields_rename_and_inferred_vector(ctx: &Ctx, #[case] ty: &str) {
 }
 
 #[rstest_ctx(Ctx)]
-#[case::keep("'hello'", "value", FieldSpec::text(false), json!("hello"))]
 #[case::text("'hello'", "value=text", FieldSpec::text(false), json!("hello"))]
 #[case::int("'42'", "value=int", FieldSpec::integer(false), json!(42))]
 #[case::float("'1.5'", "value=float", FieldSpec::float(false), json!(1.5))]
@@ -268,7 +249,7 @@ async fn field_choices_import(
             "--dry-run",
         ])
         .success();
-    let target = &run.plan().collections[&collection];
+    let target = &run.plan().target;
     assert_eq!(target.fields.len(), 1);
     assert!(!target.fields["value"].schema.required);
     assert_eq!(target.fields["value"].schema.data_type, expected.data_type);
@@ -289,7 +270,7 @@ async fn field_choices_import(
             "--yes",
         ])
         .success();
-    assert_eq!(done.summary()[&collection].rows, 1);
+    assert_eq!(done.summary().rows, 1);
     let schema = ctx
         .client
         .collections()
@@ -322,7 +303,7 @@ async fn keyword_list_reimports(ctx: &Ctx) {
             .args(["-o", "json", "import", &from, "--to", &collection, "--yes"])
             .args(fields)
             .success();
-        assert_eq!(run.summary()[&collection].rows, 1);
+        assert_eq!(run.summary().rows, 1);
     }
     assert_eq!(
         ctx.docs(&collection, ["one"]).await[0]["tags"],
@@ -363,7 +344,7 @@ async fn matrix_columns_inherit_from_source(ctx: &Ctx) {
             "--yes",
         ])
         .success();
-    assert_eq!(done.summary()[&dest].rows, 1);
+    assert_eq!(done.summary().rows, 1);
     let schema = ctx.client.collections().get(&dest).await.unwrap().schema;
     assert_eq!(schema["value"].data_type, matrix.data_type);
     assert_eq!(
@@ -399,7 +380,7 @@ async fn semantic_image_import(ctx: &Ctx) {
             "--yes",
         ])
         .success();
-    assert_eq!(done.summary()[&dest].rows, 1);
+    assert_eq!(done.summary().rows, 1);
     let schema = ctx.client.collections().get(&dest).await.unwrap().schema;
     assert!(topk::import::plan::Field::new(
         FieldSpec::image(false).with_index(FieldIndex::semantic())
@@ -511,20 +492,12 @@ async fn semantic_preview_warns_in_json(ctx: &Ctx) {
             &from,
             "-f",
             "body=semantic",
+            "--to",
+            "c",
             "--dry-run",
         ])
         .success();
-    assert_eq!(
-        preview
-            .plan()
-            .collections
-            .values()
-            .next()
-            .unwrap()
-            .fields
-            .len(),
-        1
-    );
+    assert_eq!(preview.plan().target.fields.len(), 1);
     assert!(preview.stderr.contains("will be shortened"), "{preview:?}");
 }
 
@@ -535,13 +508,13 @@ async fn dry_run_requires_destination(ctx: &Ctx) {
     let with_key = ctx
         .command()
         .envs([("TOPK_API_KEY", "unused")])
-        .args(["-o", "json", "import", &from, "--dry-run"])
+        .args(["-o", "json", "import", &from, "--to", "c", "--dry-run"])
         .success();
     let without_credentials = ctx
         .command()
         .env_remove("TOPK_PROJECT_ID")
         .envs([("TOPK_CONFIG_DIR", ctx.scratch())])
-        .args(["import", &from, "--dry-run"])
+        .args(["import", &from, "--to", "c", "--dry-run"])
         .failure(1);
     with_key.plan();
     let destination = format!(
@@ -569,7 +542,7 @@ async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
     let run = ctx
         .command()
         .envs([("TOPK_IMPORT_STATE_DIR", &state)])
-        .args(["import", &from, "--dry-run"])
+        .args(["import", &from, "--to", "c", "--dry-run"])
         .args(args)
         .success();
     assert_eq!(run.preview().len(), 3);
@@ -580,7 +553,7 @@ async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
 #[case::concurrency_cap(&["missing.parquet", "-c", "1025"], "1025 is not in 1..=1024", 2)]
 #[case::preview_flag(&["x.parquet", "--preview"], "unexpected argument '--preview'", 2)]
 #[case::resume_partition(&["--resume", "1234abcd", "--partition", "tenant"], "cannot be used with", 2)]
-#[case::resume_fields(&["--resume", "1234abcd", "-f", "title"], "cannot be used with", 2)]
+#[case::resume_fields(&["--resume", "1234abcd", "-f", "title=keyword"], "cannot be used with", 2)]
 #[case::resume_dry_run(&["--resume", "1234abcd", "--dry-run"], "cannot be used with", 2)]
 #[case::resume_path(&["--resume", "../escape"], "run id must be eight lowercase hex digits", 2)]
 #[case::incompatible_index(&["x.parquet", "-f", "value=int:semantic"], "incompatible index", 2)]
@@ -593,7 +566,13 @@ async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
 #[case::extra_vector_shape(&["x.parquet", "-f", "value=vector:2:cosine:other"], "unknown vector metric", 2)]
 #[case::empty_vector_metric(&["x.parquet", "-f", "value=vector:2:"], "invalid field choice", 2)]
 #[case::no_spec(&["x.parquet", "--spec", "a.toml"], "unexpected argument '--spec'", 2)]
-#[case::stdin_source(&["-", "--to", "c", "--id", "id", "--dry-run"], "cannot tell the file type", 2)]
+#[case::stdin_source(&["-", "--to", "c", "--id", "id", "--dry-run"], "import does not read stdin", 2)]
+#[case::missing_destination(&["x.parquet", "--dry-run"], "--to <COLLECTION>", 2)]
+#[case::invalid_destination(&["x.parquet", "--to", "a/b"], "collection names start with a letter or digit", 2)]
+#[case::object_argument(&["postgres://host/db#orders", "orders", "--to", "orders"], "put the table, collection or index in its URI", 2)]
+#[case::old_syntax(&["postgres://host/db", "orders", "--to", "orders"], "requires #object", 2)]
+#[case::bare_field(&["x.parquet", "--to", "c", "-f", "title"], "-f takes <field>=<type or index>", 2)]
+#[case::bucket_prefix(&["s3://bucket/events/", "--to", "c"], "use 's3://bucket/events/*.parquet'", 2)]
 fn rejected_arguments(
     ctx: &Scratch,
     #[case] args: &[&str],
@@ -613,7 +592,7 @@ fn rejected_arguments(
 async fn resume_rejects_state_without_project(ctx: &Scratch) {
     ctx.file(
         "state/1234abcd.toml",
-        "source = \"\"\nregion = \"dev\"\n[plan.c]\nfrom = \"a.parquet\"\nid = \"_id\"\n[plan.c.fields]\n",
+        "source = \"\"\nregion = \"dev\"\n[plan]\ncollection = \"c\"\n[plan.target]\nfrom = { local = \"a.parquet\" }\nid = \"_id\"\nexclude = []\n[plan.target.fields]\n",
     );
     let run = ctx
         .command()
@@ -629,7 +608,15 @@ async fn partition_column_previews(ctx: &Ctx) {
     let from = ctx.seed_parquet("books", books());
     let preview = ctx
         .command()
-        .args(["import", &from, "--partition", "author", "--dry-run"])
+        .args([
+            "import",
+            &from,
+            "--to",
+            "c",
+            "--partition",
+            "author",
+            "--dry-run",
+        ])
         .success();
     assert!(preview.stderr.contains("# partition Lee"), "{preview:?}");
 }
@@ -657,6 +644,7 @@ async fn missing_id_rejected(ctx: &Scratch) {
         .failure(1);
     assert!(preview.stdout.is_empty(), "{preview:?}");
     assert!(preview.stderr.contains("--id"), "{preview:?}");
+    assert!(preview.stderr.contains("available: a, b"), "{preview:?}");
     assert!(done.stderr.contains("--id"), "{done:?}");
 }
 
@@ -679,7 +667,7 @@ async fn a_cli_filter_reaches_the_target(ctx: &Ctx) {
         ])
         .success();
     assert_eq!(
-        run.plan().collections["c"].filter.as_deref(),
+        run.plan().target.filter.as_deref(),
         Some("published_year > 1950")
     );
     assert_eq!(
@@ -697,7 +685,7 @@ async fn empty_region_is_rejected(ctx: &Scratch) {
     let run = ctx
         .command()
         .envs([("TOPK_REGION", "")])
-        .args(["-o", "json", "import", &from, "--yes"])
+        .args(["-o", "json", "import", &from, "--to", "c", "--yes"])
         .failure(2);
     assert!(
         run.stderr
@@ -728,11 +716,17 @@ async fn yes_required_without_tty(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-#[case::missing_field(&["-f", "ghost"], "field \"ghost\" was not found")]
-#[case::duplicate_field(&["-f", "value,value"], "field \"value\" selected twice")]
-#[case::missing_rename_source(&["--rename", "nonexistent_col=ghost", "-f", "title,ghost"], "source field \"nonexistent_col\" was not found")]
+#[case::missing_field(&["-f", "ghost=keyword"], "field \"ghost\" was not found")]
+#[case::duplicate_field(&["-f", "value=int,value=int"], "field \"value\" selected twice")]
+#[case::missing_rename_source(&["--rename", "nonexistent_col=ghost"], "source field \"nonexistent_col\" was not found")]
 #[case::rename_collision(&["--rename", "title=value"], "field \"value\" already exists")]
 #[case::inferred_index_mismatch(&["-f", "value=semantic"], "incompatible index for field type")]
+#[case::id_as_field(&["-f", "id=text"], "\"id\" is the document id")]
+#[case::rename_twice(&["--rename", "title=a", "--rename", "title=b"], "column \"title\" is renamed twice")]
+#[case::excluded_and_set(&["--exclude", "title", "-f", "title=keyword"], "both excluded and set with -f")]
+#[case::missing_exclude(&["--exclude", "ghost"], "excluded field \"ghost\" was not found")]
+#[case::missing_id(&["--id", "nope"], "id column \"nope\" is not in")]
+#[case::missing_partition(&["--partition", "nope"], "partition column \"nope\" is not in")]
 async fn invalid_fields_fail_before_creating(
     ctx: &Ctx,
     #[case] args: &[&str],
@@ -773,8 +767,8 @@ async fn reimport_replaces_fields(ctx: &Ctx) {
             &from,
             "--to",
             &collection,
-            "-f",
-            "title",
+            "--exclude",
+            "author,published_year,rating,in_print",
             "--yes",
         ])
         .success();
@@ -792,9 +786,9 @@ async fn reimport_replaces_fields(ctx: &Ctx) {
         std::env::var("TOPK_REGION").unwrap()
     );
     assert!(first.stderr.contains(&destination), "{first:?}");
-    assert_eq!(first.summary()[&collection].rows, 3);
-    assert_eq!(narrowed.summary()[&collection].rows, 3);
-    assert_eq!(full.summary()[&collection].rows, 3);
+    assert_eq!(first.summary().rows, 3);
+    assert_eq!(narrowed.summary().rows, 3);
+    assert_eq!(full.summary().rows, 3);
     let expected: Vec<_> = books().iter().map(|doc| json!(json(doc))).collect();
     assert_eq!(ctx.docs(&collection, BOOK_IDS).await, expected);
 }
@@ -832,7 +826,7 @@ async fn skipped_rows_report_failure(ctx: &Ctx, #[case] format: &str) {
         }
         "json" => {
             let summary = output.summary();
-            let outcome = &summary[&collection];
+            let outcome = &summary;
             assert_eq!((outcome.rows, outcome.failed), (2, 1));
             assert!(!output.stderr.contains("rows written"), "{output:?}");
         }
@@ -851,7 +845,10 @@ async fn preview_elides_large_values(ctx: &Ctx) {
         "data.parquet",
         "SELECT 1 AS id, repeat('é', 300) AS title, range(10) AS numbers",
     );
-    let output = ctx.command().args(["import", &from, "--dry-run"]).success();
+    let output = ctx
+        .command()
+        .args(["import", &from, "--to", "c", "--dry-run"])
+        .success();
     assert!(output.stdout.contains("title: text"), "{output:?}");
     let sample = output
         .stderr
@@ -875,10 +872,7 @@ async fn successful_text_summary(ctx: &Ctx) {
         .success();
     assert!(output.stdout.is_empty(), "{output:?}");
     assert_eq!(
-        output
-            .stderr
-            .matches(&format!("{collection}: 3 rows written, 0 failed"))
-            .count(),
+        output.stderr.matches("3 rows written, 0 failed").count(),
         1,
         "{output:?}"
     );
@@ -913,6 +907,37 @@ async fn failure_prints_resume_command(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
+async fn resume_from_another_directory(ctx: &Ctx) {
+    ctx.cli
+        .file("data/visits.csv", "id,n\n1,1\n2,not-a-number\n3,3");
+    let collection = ctx.collection("resume-elsewhere");
+    let stopped = ctx
+        .cli
+        .command()
+        .current_dir(ctx.cli.path("data"))
+        .args(["-o", "json", "import", "visits.csv", "--to", &collection])
+        .args(["-f", "n=int", "--yes"])
+        .failure(1);
+    let resumed = ctx
+        .cli
+        .command()
+        .current_dir(ctx.cli.scratch())
+        .args([
+            "-o",
+            "json",
+            "import",
+            "--resume",
+            stopped.id(),
+            "--continue-on-error",
+        ])
+        .failure(1);
+    assert!(stopped.stderr.contains("← visits.csv"), "{stopped:?}");
+    assert!(resumed.stderr.contains("← data/visits.csv"), "{resumed:?}");
+    assert_eq!(resumed.summary().failed, 1, "{resumed:?}");
+    assert_eq!(ctx.docs(&collection, ["1", "3"]).await.len(), 2);
+}
+
+#[rstest_ctx(Ctx)]
 #[case::default_cap(None, 5)]
 #[case::zero_limit(Some("0"), 0)]
 #[case::lower_limit(Some("2"), 2)]
@@ -934,12 +959,9 @@ async fn preview_limits(ctx: &Ctx, #[case] limit: Option<&str>, #[case] expected
         ])
         .args(limit.into_iter().flat_map(|limit| ["--limit", limit]))
         .success();
-    assert_eq!(preview.plan().collections[&collection].id, "_id");
+    assert_eq!(preview.plan().target.id, "_id");
     if let Some(limit) = limit {
-        assert_eq!(
-            preview.plan().collections[&collection].limit,
-            Some(limit.parse().unwrap())
-        );
+        assert_eq!(preview.plan().target.limit, Some(limit.parse().unwrap()));
     }
     assert_eq!(preview.preview().len(), expected);
     assert!(
@@ -968,7 +990,7 @@ async fn imports_filtered_documents(ctx: &Ctx) {
             "--yes",
         ])
         .success();
-    assert_eq!(done.summary()[&collection].rows, 1);
+    assert_eq!(done.summary().rows, 1);
     let expected = json!({"_id": "mockingbird", "title": "To Kill a Mockingbird", "author": "Lee",
         "published_year": 1960, "rating": 4.3, "in_print": true});
     assert_eq!(
@@ -1005,34 +1027,347 @@ async fn copies_collection(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-async fn unsupported_lists_are_skipped_in_plan(ctx: &Ctx) {
+async fn existing_collection_keeps_its_schema(ctx: &Ctx) {
+    let collection = ctx.collection("declared");
+    let embedding = FieldSpec::f32_vector(3, false)
+        .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine));
+    ctx.client
+        .collections()
+        .create(&collection, [("embedding".into(), embedding)], None)
+        .await
+        .unwrap();
+    let from = ctx.cli.parquet(
+        "declared.parquet",
+        "SELECT 'one' AS id, 'Dune' AS title, 1965 AS year, [1.0, 0.0, 0.0]::FLOAT[] AS embedding",
+    );
+    let done = ctx
+        .cli
+        .command()
+        .args(["-o", "json", "import", &from, "--to", &collection, "--yes"])
+        .success();
+    assert_eq!(done.summary().rows, 1);
+    let schema = ctx
+        .client
+        .collections()
+        .get(&collection)
+        .await
+        .unwrap()
+        .schema;
+    assert_eq!(schema.keys().collect::<Vec<_>>(), ["embedding"]);
+    assert_eq!(
+        ctx.docs(&collection, ["one"]).await,
+        [json!({"_id": "one", "title": "Dune", "year": 1965, "embedding": [1.0, 0.0, 0.0]})]
+    );
+    let indexed = ctx
+        .cli
+        .command()
+        .args(["import", &from, "--to", &collection])
+        .args(["-f", "title=keyword", "--yes"])
+        .failure(1);
+    assert!(
+        indexed
+            .stderr
+            .contains("title: an index needs the field declared"),
+        "{indexed:?}"
+    );
+}
+
+#[rstest_ctx(Ctx)]
+async fn declared_required_field_must_come_from_the_source(ctx: &Ctx) {
+    let collection = ctx.collection("required");
+    ctx.client
+        .collections()
+        .create(
+            &collection,
+            [
+                ("title".into(), FieldSpec::text(false)),
+                ("body".into(), FieldSpec::text(true)),
+            ],
+            None,
+        )
+        .await
+        .unwrap();
+    let from = ctx
+        .cli
+        .parquet("titles.parquet", "SELECT 'one' AS id, 'Dune' AS title");
+    let run = ctx
+        .cli
+        .command()
+        .args(["import", &from, "--to", &collection, "--yes"])
+        .failure(1);
+    assert!(
+        run.stderr
+            .contains("body: the collection requires it, and this import leaves it out"),
+        "{run:?}"
+    );
+    assert!(ctx.docs(&collection, ["one"]).await.is_empty());
+}
+
+#[rstest_ctx(Ctx)]
+async fn failed_first_write_leaves_no_collection(ctx: &Ctx) {
+    let collection = ctx.collection("lazy-create");
+    let from = ctx
+        .cli
+        .parquet("titles.parquet", "SELECT 'one' AS id, 'hello' AS title");
+    let failed = ctx
+        .cli
+        .command()
+        .args(["import", &from, "--to", &collection])
+        .args(["-f", "title=vector:3:cosine", "--yes"])
+        .failure(1);
+    assert!(failed.stderr.contains("title"), "{failed:?}");
+    assert!(!ctx.exists(&collection).await);
+    ctx.cli
+        .command()
+        .args(["import", &from, "--to", &collection, "--yes"])
+        .success();
+    assert_eq!(
+        ctx.docs(&collection, ["one"]).await,
+        [json!({"_id": "one", "title": "hello"})]
+    );
+}
+
+#[rstest_ctx(Ctx)]
+#[case::keeps(
+    vec![("title", FieldSpec::text(false))],
+    None,
+    &[],
+    json!({"_id": "one", "title": "Dune", "year": 1965, "draft": true}),
+    vec![("title", FieldSpec::text(false))]
+)]
+#[case::selects(
+    vec![("title", FieldSpec::text(false))],
+    None,
+    &["--exclude", "draft", "-f", "year=int"],
+    json!({"_id": "one", "title": "Dune", "year": 1965}),
+    vec![("title", FieldSpec::text(false)), ("year", FieldSpec::integer(false))]
+)]
+#[case::required_destination(
+    vec![("title", FieldSpec::text(false))],
+    Some(vec![("year", FieldSpec::integer(true))]),
+    &[],
+    json!({"_id": "one", "title": "Dune", "year": 1965, "draft": true}),
+    vec![("year", FieldSpec::integer(true))]
+)]
+#[case::declared_type_converts(
+    vec![("title", FieldSpec::text(false))],
+    Some(vec![("year", FieldSpec::float(false))]),
+    &[],
+    json!({"_id": "one", "title": "Dune", "year": 1965.0, "draft": true}),
+    vec![("year", FieldSpec::float(false))]
+)]
+#[case::renames_undeclared(
+    vec![("title", FieldSpec::text(false))],
+    None,
+    &["--rename", "year=released", "-f", "released=int"],
+    json!({"_id": "one", "title": "Dune", "released": 1965, "draft": true}),
+    vec![("title", FieldSpec::text(false)), ("released", FieldSpec::integer(false))]
+)]
+#[case::index_on_undeclared(
+    vec![],
+    None,
+    &["-f", "title=keyword"],
+    json!({"_id": "one", "title": "Dune", "year": 1965, "draft": true}),
+    vec![("title", FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Text)))]
+)]
+#[case::no_declared_fields(
+    vec![],
+    None,
+    &[],
+    json!({"_id": "one", "title": "Dune", "year": 1965, "draft": true}),
+    vec![]
+)]
+async fn copy_undeclared_fields(
+    ctx: &Ctx,
+    #[case] source_schema: Vec<(&str, FieldSpec)>,
+    #[case] destination: Option<Vec<(&str, FieldSpec)>>,
+    #[case] args: &[&str],
+    #[case] expected: JsonValue,
+    #[case] expected_schema: Vec<(&str, FieldSpec)>,
+) {
+    let schema = |fields: Vec<(&str, FieldSpec)>| -> HashMap<String, FieldSpec> {
+        fields
+            .into_iter()
+            .map(|(name, spec)| (name.into(), spec))
+            .collect()
+    };
+    let source = ctx.collection("undeclared-source");
+    let dest = ctx.collection("undeclared-copy");
+    ctx.client
+        .collections()
+        .create(&source, schema(source_schema), None)
+        .await
+        .unwrap();
+    if let Some(fields) = destination {
+        ctx.client
+            .collections()
+            .create(&dest, schema(fields), None)
+            .await
+            .unwrap();
+    }
+    ctx.client
+        .collection(&source)
+        .upsert(vec![
+            doc!("_id" => "one", "title" => "Dune", "year" => 1965_i64, "draft" => true),
+        ])
+        .await
+        .unwrap();
+    ctx.cli
+        .command()
+        .args(["-o", "json", "import", &format!("topk://{source}")])
+        .args(["--to", &dest, "--yes"])
+        .args(args)
+        .success();
+    assert_eq!(ctx.docs(&dest, ["one"]).await, [expected]);
+    assert_eq!(
+        ctx.client.collections().get(&dest).await.unwrap().schema,
+        schema(expected_schema)
+    );
+}
+#[rstest_ctx(Ctx)]
+async fn copy_onto_itself_is_refused(ctx: &Ctx) {
+    let from = ctx.cli.seed_parquet("books", books());
+    let collection = ctx.collection("self-copy");
+    ctx.cli
+        .command()
+        .args(["import", &from, "--to", &collection, "--yes"])
+        .success();
+    let run = ctx
+        .cli
+        .command()
+        .args([
+            "import",
+            &format!("topk://{collection}"),
+            "--to",
+            &collection,
+        ])
+        .args(["--yes"])
+        .failure(1);
+    assert!(run.stderr.contains("is the destination"), "{run:?}");
+}
+
+#[rstest_ctx(Scratch)]
+fn folder_source_names_the_glob(ctx: &Scratch) {
+    ctx.parquet("events/a.parquet", "SELECT 1 AS id, 'x' AS title");
+    ctx.file("events/b.csv", "id,title\n2,y");
+    let dir = ctx.path("events");
+    let run = ctx
+        .command()
+        .args(["import", dir.to_str().unwrap(), "--to", "c", "--dry-run"])
+        .failure(2);
+    let dir = dir.display();
+    assert!(
+        run.stderr
+            .contains(&format!("use '{dir}/*.csv' or '{dir}/*.parquet'")),
+        "{run:?}"
+    );
+}
+
+#[rstest_ctx(Ctx)]
+async fn copy_skips_rows_without_required_field(ctx: &Ctx) {
+    let source = ctx.collection("required-rows");
+    let dest = ctx.collection("required-rows-copy");
+    ctx.client
+        .collections()
+        .create(&source, HashMap::new(), None)
+        .await
+        .unwrap();
+    ctx.client
+        .collections()
+        .create(&dest, [("year".into(), FieldSpec::integer(true))], None)
+        .await
+        .unwrap();
+    ctx.client
+        .collection(&source)
+        .upsert(vec![
+            doc!("_id" => "one", "year" => 1965_i64),
+            doc!("_id" => "two", "title" => "Emma"),
+        ])
+        .await
+        .unwrap();
+    let done = ctx
+        .cli
+        .command()
+        .args(["-o", "json", "import", &format!("topk://{source}")])
+        .args(["--to", &dest, "--continue-on-error", "--yes"])
+        .failure(1);
+    assert_eq!((done.summary().rows, done.summary().failed), (1, 1));
+    assert_eq!(
+        ctx.docs(&dest, ["one", "two"]).await,
+        [json!({"_id": "one", "year": 1965})]
+    );
+}
+
+#[rstest_ctx(Ctx)]
+async fn excluding_every_field_imports_ids(ctx: &Ctx) {
+    let from = ctx
+        .cli
+        .parquet("ids.parquet", "SELECT 'one' AS id, 'x' AS title");
+    let dest = ctx.collection("ids-only");
+    ctx.cli
+        .command()
+        .args([
+            "import",
+            &from,
+            "--to",
+            &dest,
+            "--exclude",
+            "title",
+            "--yes",
+        ])
+        .success();
+    assert_eq!(ctx.docs(&dest, ["one"]).await, [json!({"_id": "one"})]);
+    assert!(ctx
+        .client
+        .collections()
+        .get(&dest)
+        .await
+        .unwrap()
+        .schema
+        .is_empty());
+}
+
+#[rstest_ctx(Ctx)]
+async fn untyped_columns_fail_the_plan(ctx: &Ctx) {
     let ctx = &ctx.cli;
     let from = ctx.file(
         "lists.jsonl",
-        r#"{"id":"one","title":"book","flags":[true],"messages":[{"role":"user"}]}"#,
+        r#"{"id":"one","title":"book","flags":[true],"messages":[{"role":"user"}],"ts":["2024-01-01T00:00:00Z"]}"#,
+    );
+    let refused = ctx
+        .command()
+        .args(["import", &from, "--id", "id", "--to", "c", "--dry-run"])
+        .failure(1);
+    assert!(refused.stdout.is_empty(), "{refused:?}");
+    assert!(
+        refused
+            .stderr
+            .contains("flags, messages, ts have no TopK type"),
+        "{refused:?}"
+    );
+    assert!(
+        refused.stderr.contains("--exclude flags,messages,ts"),
+        "{refused:?}"
     );
     let run = ctx
         .command()
-        .env_remove("RUST_LOG")
-        .args(["import", &from, "--id", "id", "--dry-run"])
+        .args(["import", &from, "--id", "id", "--to", "c"])
+        .args(["--exclude", "flags,messages,ts", "--dry-run"])
         .success();
-    assert!(!run.stdout.contains("flags"), "{run:?}");
-    assert!(!run.stdout.contains("messages"), "{run:?}");
-    assert!(run.stderr.contains("skipping column \"flags\""), "{run:?}");
-    assert!(
-        run.stderr.contains("skipping column \"messages\""),
-        "{run:?}"
-    );
+    assert!(run.stdout.contains("title: text"), "{run:?}");
     assert!(run.stderr.contains("book"), "{run:?}");
 }
 
 #[rstest_ctx(Scratch)]
 async fn empty_database_names_source(ctx: &Scratch) {
     let path = ctx.file("empty.db", "");
-    let url = format!("sqlite:{path}");
-    let run = ctx.command().args(["import", &url, "--dry-run"]).failure(1);
+    let url = format!("sqlite:{path}#missing");
+    let run = ctx
+        .command()
+        .args(["import", &url, "--to", "c", "--dry-run"])
+        .failure(1);
     assert!(run.stderr.contains(&path), "{run:?}");
-    assert!(run.stderr.contains("no objects"), "{run:?}");
+    assert!(run.stderr.contains("was not found"), "{run:?}");
 }
 
 #[rstest_ctx(Ctx)]
@@ -1073,8 +1408,8 @@ async fn partition_failure_resumes_saved_prefix(
         toml::from_str(&std::fs::read_to_string(ctx.cli.state_path(stopped.id())).unwrap())
             .unwrap();
     assert!(matches!(
-        &state.progress[&collection],
-        topk::import::state::Progress::After(checkpoint) if checkpoint.consumed == 11
+        &state.progress,
+        Some(topk::import::state::Progress::After(checkpoint)) if checkpoint.consumed == 11
     ));
     let resumed = ctx
         .cli
@@ -1094,7 +1429,7 @@ async fn partition_failure_resumes_saved_prefix(
         .failure(1);
     let summary = resumed.summary();
     assert_eq!(
-        (summary[&collection].rows, summary[&collection].failed),
+        (summary.rows, summary.failed),
         ((consumed - 12) as usize, 1)
     );
     for partition in 0..2 {
@@ -1142,11 +1477,14 @@ async fn missing_file_is_readable(ctx: &Ctx) {
     let ctx = &ctx.cli;
     let path = ctx.scratch().join("missing.parquet");
     let path = path.to_str().unwrap();
-    let output = ctx.command().args(["import", path, "--dry-run"]).failure(1);
+    let output = ctx
+        .command()
+        .args(["import", path, "--to", "c", "--dry-run"])
+        .failure(1);
     assert!(
         output
             .stderr
-            .contains(&format!("error: file not found: {path}")),
+            .contains(&format!("error: source {path}: file not found: {path}")),
         "{}",
         output.stderr
     );
@@ -1154,9 +1492,9 @@ async fn missing_file_is_readable(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-#[case::bare("embedding")]
-#[case::explicit("embedding=vector:cosine")]
-async fn dry_run_uses_destination(ctx: &Ctx, #[case] field: &str) {
+#[case::bare(&[])]
+#[case::explicit(&["-f", "embedding=vector:cosine"])]
+async fn dry_run_uses_destination(ctx: &Ctx, #[case] field: &[&str]) {
     let collection = ctx.collection("resolved-vector");
     let schema =
         FieldSpec::f32_vector(3, true).with_index(FieldIndex::vector(VectorDistanceMetric::Cosine));
@@ -1179,16 +1517,20 @@ async fn dry_run_uses_destination(ctx: &Ctx, #[case] field: &str) {
             &from,
             "--to",
             &collection,
-            "-f",
-            field,
             "--dry-run",
         ])
+        .args(field)
         .success();
     let plan = preview.plan();
-    let resolved = &plan.collections[&collection].fields["embedding"].schema;
+    let resolved = &plan.target.fields["embedding"].schema;
     let destination = ctx.client.collections().get(&collection).await.unwrap();
     assert!(resolved.required);
     assert!(
         topk::import::plan::Field::new(resolved.clone()).matches(&destination.schema["embedding"])
     );
+}
+
+#[test]
+fn import_argument_schema() {
+    ImportArgs::augment_args(Command::new("import")).debug_assert();
 }

@@ -1,5 +1,6 @@
 use rstest::rstest;
 use topk::import::plan::{Field, Target};
+use topk::import::source::SourceLocation;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
@@ -10,7 +11,7 @@ use crate::import::common::refused;
 
 fn row<const N: usize>(fields: [(&str, Field); N]) -> Target {
     Target {
-        from: "unused".into(),
+        from: SourceLocation::Object("unused".into()),
         id: "_id".into(),
         fields: fields
             .into_iter()
@@ -19,6 +20,7 @@ fn row<const N: usize>(fields: [(&str, Field); N]) -> Target {
         filter: None,
         partition: None,
         limit: None,
+        exclude: Vec::new(),
     }
 }
 
@@ -315,7 +317,6 @@ fn refusals(#[case] schema: FieldSpec, #[case] input: Value, #[case] fragment: &
 #[rstest]
 #[case::id_is_stringified([("title", Field::new(FieldSpec::text(false)))], vec![("_id", Value::i64(42)), ("title", Value::string("Dune"))], doc!("_id" => "42", "title" => "Dune"))]
 #[case::a_field_reads_another_column([("vec", Field { from: Some("embedding".into()), ..Field::new(FieldSpec::f32_vector(2, false)) })], vec![("_id", Value::string("1")), ("embedding", Value::list(vec![1.0_f32, 2.0]))], doc!("_id" => "1", "vec" => Value::list(vec![1.0_f32, 2.0])))]
-#[case::undeclared_columns_are_dropped([("title", Field::new(FieldSpec::text(false)))], vec![("_id", Value::string("1")), ("title", Value::string("Dune")), ("extra", Value::i64(7))], doc!("_id" => "1", "title" => "Dune"))]
 fn documents(
     #[case] fields: [(&str, Field); 1],
     #[case] record: Vec<(&str, Value)>,
@@ -432,3 +433,35 @@ fn semantic_text_is_capped() {
 
 const JPEG: &[u8] = b"\xFF\xD8\xFF\xE0";
 const PNG: &[u8] = b"\x89PNG\r\n\x1A\n";
+
+#[test]
+fn unplanned_keys_pass_through() {
+    let target = Target {
+        exclude: vec!["secret".into()],
+        ..row([("title", Field::new(FieldSpec::text(false)))])
+    };
+    let record = vec![
+        ("_id".to_string(), Value::string("one")),
+        ("title".to_string(), Value::string("Dune")),
+        ("year".to_string(), Value::i64(1965)),
+        ("_lang".to_string(), Value::string("en")),
+        ("secret".to_string(), Value::string("x")),
+    ];
+    let (_, doc) = target.document(record).expect("document");
+    assert_eq!(
+        doc,
+        doc!("_id" => "one", "title" => "Dune", "year" => 1965_i64, "lang" => "en")
+    );
+}
+
+#[test]
+fn unplanned_key_collision_is_a_row_error() {
+    let target = row([("lang", Field::new(FieldSpec::text(false)))]);
+    let record = vec![
+        ("_id".to_string(), Value::string("one")),
+        ("lang".to_string(), Value::string("en")),
+        ("_lang".to_string(), Value::string("de")),
+    ];
+    let error = target.document(record).unwrap_err().to_string();
+    assert!(error.contains("--exclude _lang"), "{error}");
+}

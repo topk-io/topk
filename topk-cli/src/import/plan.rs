@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::{
@@ -12,64 +12,47 @@ use tracing::{debug, info};
 
 use crate::import::ddl::Schema;
 use crate::import::error::Error;
-use crate::import::source::{ReadEvent, Source, Table};
+use crate::import::source::{ReadEvent, Source, SourceLocation, Table};
 
 #[derive(Clone, Deserialize, PartialEq, Serialize)]
-#[serde(transparent)]
 pub struct Plan {
-    pub collections: IndexMap<String, Target>,
+    pub collection: String,
+    pub target: Target,
 }
 
 impl Plan {
+    /// Selects fields against the destination; true when the collection does not exist yet.
     pub async fn resolve(
         &mut self,
         source: &Source,
         client: &topk_rs::Client,
         fields: &[FieldSelection],
         renames: &[Rename],
-    ) -> Result<Vec<String>, Error> {
-        for name in self.collections.keys() {
-            collection_name(name)?;
+        exclude: &[String],
+    ) -> Result<bool, Error> {
+        let existing = match client.collections().get(&self.collection).await {
+            Ok(collection) => Some(collection.schema),
+            Err(topk_rs::Error::CollectionNotFound) => None,
+            Err(error) => return Err(Error::from(error)),
+        };
+        debug!(collection = %self.collection, existing = existing.is_some(), "resolving collection fields");
+        self.target
+            .select(source, fields, renames, exclude, existing.as_ref())
+            .await?;
+        if let Some(schema) = &existing {
+            self.target.validate_schema(&self.collection, schema)?;
         }
-        let to_create: Vec<String> = futures::stream::iter(self.collections.iter_mut().map(
-            |(name, target)| async move {
-                let existing = match client.collections().get(name).await {
-                    Ok(collection) => Some(collection.schema),
-                    Err(topk_rs::Error::CollectionNotFound) => None,
-                    Err(error) => return Err(Error::from(error)),
-                };
-                debug!(collection = %name, existing = existing.is_some(), "resolving collection fields");
-                target
-                    .select(source, fields, renames, existing.as_ref())
-                    .await?;
-                if let Some(schema) = &existing {
-                    target.validate_schema(name, schema)?;
-                }
-                Ok(existing.is_none().then(|| name.clone()))
-            },
-        ))
-        .buffered(8)
-        .try_filter_map(|name| async { Ok(name) })
-        .try_collect()
-        .await?;
-        info!(
-            collections = self.collections.len(),
-            create = to_create.len(),
-            "import plan resolved"
-        );
-        Ok(to_create)
+        info!(create = existing.is_none(), "import plan resolved");
+        Ok(existing.is_none())
     }
 
     pub fn validate(&self) -> Result<(), Error> {
-        for (name, target) in self.collections.iter() {
-            collection_name(name)?;
-            target.validate()?;
-        }
-        Ok(())
+        collection_name(&self.collection)?;
+        self.target.validate()
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Field {
     pub from: Option<String>,
     pub schema: FieldSpec,
@@ -87,9 +70,7 @@ impl Field {
     pub fn validate(&self) -> Result<(), Error> {
         Self::validate_schema(&self.schema)
     }
-}
 
-impl Field {
     fn validate_schema(schema: &FieldSpec) -> Result<(), Error> {
         let ty = schema
             .data_type
@@ -187,117 +168,252 @@ impl Field {
 
 #[derive(Clone, Deserialize, PartialEq, Serialize)]
 pub struct Target {
-    pub from: String,
+    pub from: SourceLocation,
     pub id: String,
     pub filter: Option<String>,
     pub partition: Option<String>,
     pub limit: Option<u64>,
     pub fields: IndexMap<String, Field>,
+    /// Source columns left out with `--exclude`; any other unplanned key passes through.
+    pub exclude: Vec<String>,
 }
 
 impl Target {
+    pub fn new(table: &Table, id: Option<&str>) -> Result<Self, Error> {
+        let id = id
+            .or(table.key.as_deref())
+            .or_else(|| {
+                table
+                    .columns
+                    .iter()
+                    .find(|(name, _)| matches!(name.to_ascii_lowercase().as_str(), "_id" | "id"))
+                    .map(|(name, _)| name.as_str())
+            })
+            .ok_or_else(|| Error::MissingId {
+                from: table.from.clone(),
+                columns: table.columns.iter().map(|(name, _)| name.clone()).collect(),
+            })?;
+
+        // Field names may not start with `_`, but sources use it for bookkeeping
+        // columns (`_lang`, `_n_chars`); strip it and keep the source column in
+        // `from`. A name that strips to nothing or onto another column is left
+        // for validation to reject.
+        let mut fields: IndexMap<String, Field> = IndexMap::new();
+        let taken: HashSet<&str> = table
+            .columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect();
+        for (name, field) in table.columns.iter().filter(|(name, _)| name.as_str() != id) {
+            let mut field = Field::new(field.clone());
+            let stripped = name.trim_start_matches('_');
+            if name.starts_with('_')
+                && !stripped.is_empty()
+                && !taken.contains(stripped)
+                && !fields.contains_key(stripped)
+            {
+                field.from = Some(name.clone());
+                fields.insert(stripped.to_string(), field);
+            } else {
+                fields.insert(name.clone(), field);
+            }
+        }
+        Ok(Self {
+            fields,
+            exclude: Vec::new(),
+            from: table.from.clone(),
+            id: id.to_string(),
+            filter: None,
+            partition: None,
+            limit: None,
+        })
+    }
+
+    /// Every column imports; `--rename`, then `--exclude`, then `-f` adjust the set.
     pub async fn select(
         &mut self,
         source: &Source,
         fields: &[FieldSelection],
         renames: &[Rename],
+        exclude: &[String],
         existing: Option<&Schema>,
     ) -> Result<(), Error> {
+        let typed = source.typed();
+        if typed {
+            let columns: Vec<&str> = source
+                .discover()
+                .await?
+                .columns
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect();
+            for (what, column) in [
+                ("id", Some(&self.id)),
+                ("partition", self.partition.as_ref()),
+            ] {
+                if let Some(column) = column.filter(|column| !columns.contains(&column.as_str())) {
+                    return Err(Error::InvalidArgument(format!(
+                        "{what} column {column:?} is not in {:?} — available: {}",
+                        self.from.to_string(),
+                        columns.join(", ")
+                    )));
+                }
+            }
+        }
+        let mut renamed = HashSet::new();
         for rename in renames {
+            if !renamed.insert(rename.source.as_str()) {
+                return Err(Error::InvalidArgument(format!(
+                    "column {:?} is renamed twice",
+                    rename.source
+                )));
+            }
             let old = self
                 .fields
                 .iter()
                 .find(|(name, field)| field.source(name) == rename.source)
-                .map(|(name, _)| name.clone())
-                .ok_or_else(|| {
-                    Error::InvalidArgument(format!(
-                        "source field {:?} was not found",
-                        rename.source
-                    ))
-                })?;
-            if old != rename.target {
-                if self.fields.contains_key(&rename.target) {
-                    return Err(Error::InvalidArgument(format!(
-                        "field {:?} already exists",
-                        rename.target
-                    )));
-                }
-                let mut field = self.fields.shift_remove(&old).ok_or_else(|| {
-                    Error::InvalidArgument(format!(
-                        "source field {:?} was not found",
-                        rename.source
-                    ))
-                })?;
-                field.from = Some(rename.source.clone());
-                self.fields.insert(rename.target.clone(), field);
+                .map(|(name, _)| name.clone());
+            if old.as_ref() == Some(&rename.target) {
+                continue;
             }
+            if self.fields.contains_key(&rename.target) {
+                return Err(Error::InvalidArgument(format!(
+                    "field {:?} already exists",
+                    rename.target
+                )));
+            }
+            let mut field = match old {
+                Some(old) => self.fields.shift_remove(&old),
+                None => (!typed).then(Field::default),
+            }
+            .ok_or_else(|| {
+                Error::InvalidArgument(format!("source field {:?} was not found", rename.source))
+            })?;
+            field.from = Some(rename.source.clone());
+            self.fields.insert(rename.target.clone(), field);
+        }
+        for excluded in exclude {
+            if fields.iter().any(|arg| arg.name == *excluded) {
+                return Err(Error::InvalidArgument(format!(
+                    "field {excluded:?} is both excluded and set with -f"
+                )));
+            }
+            let index = self
+                .fields
+                .iter()
+                .position(|(name, field)| name == excluded || field.source(name) == excluded);
+            let column = match index.and_then(|index| self.fields.shift_remove_index(index)) {
+                Some((name, field)) => field.source(&name).to_string(),
+                None if !typed => excluded.clone(),
+                None => {
+                    return Err(Error::InvalidArgument(format!(
+                        "excluded field {excluded:?} was not found"
+                    )))
+                }
+            };
+            self.exclude.push(column);
         }
         if let Some(schema) = existing {
-            for (name, field) in &mut self.fields {
-                if let Some(existing) = schema.get(name) {
-                    if fields
-                        .iter()
-                        .any(|arg| arg.name == *name && arg.ty.is_some())
+            let read: HashSet<String> = self
+                .source_columns()
+                .into_iter()
+                .chain(self.exclude.iter().map(String::as_str))
+                .map(str::to_string)
+                .collect();
+            for (name, spec) in schema.iter().collect::<BTreeMap<_, _>>() {
+                match self.fields.get_mut(name) {
+                    Some(field)
+                        if fields
+                            .iter()
+                            .any(|arg| arg.name == *name && arg.ty.is_some()) =>
                     {
-                        field.schema.required = existing.required;
-                    } else {
-                        field.schema = existing.clone();
+                        field.schema.required = spec.required
                     }
+                    Some(field) => field.schema = spec.clone(),
+                    None if !typed && !read.contains(name) => {
+                        self.fields.insert(name.clone(), Field::new(spec.clone()));
+                    }
+                    None => {}
                 }
             }
         }
-        if !fields.is_empty() {
-            let mut available = std::mem::take(&mut self.fields);
-            for arg in fields {
-                if self.fields.contains_key(&arg.name) {
-                    return Err(Error::InvalidArgument(format!(
-                        "field {:?} selected twice",
-                        arg.name
-                    )));
-                }
-                let mut field = available.shift_remove(&arg.name).ok_or_else(|| {
+        let mut selected = HashSet::new();
+        for arg in fields {
+            if !selected.insert(arg.name.as_str()) {
+                return Err(Error::InvalidArgument(format!(
+                    "field {:?} selected twice",
+                    arg.name
+                )));
+            }
+            if arg.name == self.id {
+                return Err(Error::InvalidArgument(format!(
+                    "{:?} is the document id and imports as _id; pick another id column with --id to also import it as a field",
+                    arg.name
+                )));
+            }
+            // CONVENTION: -f on a field discovery did not see starts as text; a type choice replaces it
+            let mut field = self
+                .fields
+                .get(&arg.name)
+                .cloned()
+                .or_else(|| (!typed).then(|| Field::new(FieldSpec::text(false))))
+                .ok_or_else(|| {
                     Error::InvalidArgument(format!("field {:?} was not found", arg.name))
                 })?;
-                let dimension = if arg.samples_dimension(&field) {
-                    let mut sample = self.capped(100);
-                    sample.fields = IndexMap::from([(arg.name.clone(), field.clone())]);
-                    let mut stream = source.scan(&sample, None).await?;
-                    let mut dimension = None;
-                    'sample: while let Some(event) = stream.try_next().await? {
-                        if let ReadEvent::Chunk(chunk) = event {
-                            for row in chunk.rows {
-                                let row = row?;
-                                let value =
-                                    row.iter().find(|(name, _)| name == field.source(&arg.name));
-                                let size = value
-                                    .and_then(|(_, value)| crate::import::floats(value))
-                                    .map(|values| values.len());
-                                if let Some(size) = size.filter(|size| *size > 0) {
-                                    let size = u32::try_from(size).map_err(|_| {
-                                        Error::InvalidArgument(format!(
-                                            "{}: vector dimension exceeds u32",
-                                            arg.name
-                                        ))
-                                    })?;
-                                    dimension = Some(size);
-                                    break 'sample;
-                                }
+            let dimension = if arg.samples_dimension(&field) {
+                let mut sample = self.capped(100);
+                sample.fields.retain(|name, _| name == &arg.name);
+                let mut stream = source.scan(&sample, None).await?;
+                let mut dimension = None;
+                'sample: while let Some(event) = stream.try_next().await? {
+                    if let ReadEvent::Chunk(chunk) = event {
+                        for row in chunk.rows {
+                            let row = row?;
+                            let value =
+                                row.iter().find(|(name, _)| name == field.source(&arg.name));
+                            let size = value
+                                .and_then(|(_, value)| crate::import::floats(value))
+                                .map(|values| values.len());
+                            if let Some(size) = size.filter(|size| *size > 0) {
+                                let size = u32::try_from(size).map_err(|_| {
+                                    Error::InvalidArgument(format!(
+                                        "{}: vector dimension exceeds u32",
+                                        arg.name
+                                    ))
+                                })?;
+                                dimension = Some(size);
+                                break 'sample;
                             }
                         }
                     }
-                    dimension
-                } else {
-                    None
-                };
-                arg.apply(&mut field, dimension)?;
-                self.fields.insert(arg.name.clone(), field);
-            }
+                }
+                dimension
+            } else {
+                None
+            };
+            arg.apply(&mut field, dimension)?;
+            self.fields.insert(arg.name.clone(), field);
+        }
+        let untyped: Vec<&str> = self
+            .fields
+            .iter()
+            .filter(|(_, field)| field.schema.data_type.is_none())
+            .map(|(name, _)| name.as_str())
+            .collect();
+        if !untyped.is_empty() {
+            return Err(Error::InvalidArgument(format!(
+                "{} {} no TopK type: leave {} out with `--exclude {}`, or set a type with -f <field>=<type> where one applies",
+                untyped.join(", "),
+                if untyped.len() == 1 { "has" } else { "have" },
+                if untyped.len() == 1 { "it" } else { "them" },
+                untyped.join(",")
+            )));
         }
         self.validate()
     }
 
     pub fn validate(&self) -> Result<(), Error> {
-        if self.from.trim().is_empty() {
+        if self.from.value().trim().is_empty() {
             return Err(Error::InvalidArgument(
                 "`from` is empty — name the table, index, collection or file path to read".into(),
             ));
@@ -305,15 +421,24 @@ impl Target {
         if self.id.trim().is_empty() {
             return Err(Error::InvalidArgument("`id` cannot be empty".into()));
         }
-        if self.fields.is_empty() {
-            return Err(Error::InvalidArgument(
-                "select at least one field — only selected fields are imported".into(),
-            ));
-        }
         for (field_name, field) in &self.fields {
             field.validate()?;
             if field_name.is_empty() || field_name.starts_with('_') {
-                return Err(Error::InvalidArgument(format!("{field_name:?}: field names cannot be empty or start with `_` — rename the column with `--rename {field_name}=<name>` or leave it out of `-f`")));
+                return Err(Error::InvalidArgument(format!("{field_name:?}: field names cannot be empty or start with `_` — rename the column with `--rename {field_name}=<name>` or leave it out with `--exclude {field_name}`")));
+            }
+            for (dot, _) in field_name.match_indices('.') {
+                let parent = &field_name[..dot];
+                if matches!(
+                    self.fields
+                        .get(parent)
+                        .and_then(|field| field.schema.data_type.as_ref())
+                        .and_then(|ty| ty.data_type.as_ref()),
+                    Some(DataType::Struct(_))
+                ) {
+                    return Err(Error::InvalidArgument(format!(
+                        "field {field_name:?} conflicts with struct field {parent:?}; rename one with --rename"
+                    )));
+                }
             }
         }
         Ok(())
@@ -331,57 +456,6 @@ impl Target {
             .chain(self.fields.iter().map(|(name, field)| field.source(name)))
             .chain(self.partition.as_deref())
             .collect()
-    }
-    pub fn from_table(table: &Table, id: Option<&str>) -> Result<Target, Error> {
-        let id = id
-            .or(table.key.as_deref())
-            .or_else(|| {
-                table
-                    .columns
-                    .iter()
-                    .find(|(name, _)| matches!(name.to_ascii_lowercase().as_str(), "_id" | "id"))
-                    .map(|(name, _)| name.as_str())
-            })
-            .ok_or_else(|| Error::MissingId(table.from.clone()))?;
-
-        // Field names may not start with `_`, but sources use it for bookkeeping
-        // columns (`_lang`, `_n_chars`); strip it and keep the source column in
-        // `from`. A name that strips to nothing or onto another column is left
-        // for validation to reject.
-        let mut fields: IndexMap<String, Field> = IndexMap::new();
-        let taken: HashSet<&str> = table
-            .columns
-            .iter()
-            .map(|(name, _)| name.as_str())
-            .collect();
-        for (name, field) in table
-            .columns
-            .iter()
-            .filter(|(name, _)| name.as_str() != id)
-            .filter_map(|(name, field)| field.as_ref().map(|field| (name, field)))
-        {
-            let stripped = name.trim_start_matches('_');
-            if name.starts_with('_')
-                && !stripped.is_empty()
-                && !taken.contains(stripped)
-                && !fields.contains_key(stripped)
-            {
-                let mut field = Field::new(field.clone());
-                field.from = Some(name.clone());
-                fields.insert(stripped.to_string(), field);
-            } else {
-                fields.insert(name.clone(), Field::new(field.clone()));
-            }
-        }
-
-        Ok(Target {
-            fields,
-            from: table.from.clone(),
-            id: id.to_string(),
-            filter: None,
-            partition: None,
-            limit: None,
-        })
     }
 }
 
@@ -542,28 +616,13 @@ pub struct Rename {
     pub target: String,
 }
 
-fn collection_name(name: &str) -> Result<(), Error> {
+pub fn collection_name(name: &str) -> Result<String, Error> {
     let mut chars = name.chars();
     let valid = matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
         && name.len() <= 255;
     match valid {
-        true => Ok(()),
+        true => Ok(name.to_string()),
         false => Err(Error::InvalidArgument(format!("{name:?}: collection names start with a letter or digit, then letters, digits, `_`, `.` or `-` (max 255 characters)"))),
     }
-}
-
-/// Source object hint → collection name; None when no valid name derives.
-pub(super) fn collection_key(hint: &str) -> Option<String> {
-    let key: String = hint
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    collection_name(&key).ok().map(|()| key)
 }

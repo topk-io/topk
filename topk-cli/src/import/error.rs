@@ -1,12 +1,17 @@
 use thiserror::Error as ThisError;
 
+use crate::import::source::SourceLocation;
+
 pub const MAX_DOC_BYTES: usize = 2_000_000;
 pub const MAX_IMAGE_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
-    #[error("{0}: couldn't detect an id column")]
-    MissingId(String),
+    #[error("{}: couldn't detect an id column — available: {} — pass --id <column>", .from, .columns.join(", "))]
+    MissingId {
+        from: SourceLocation,
+        columns: Vec<String>,
+    },
     #[error(transparent)]
     Setup(#[from] anyhow::Error),
 
@@ -62,8 +67,8 @@ pub enum Error {
     },
 
     #[error(
-        "schema mismatch; requested fields differ from the collection (drop added or changed fields), \
-         use a new collection name, or delete the collection and re-run:\n  {0}"
+        "the collection's schema is set when it is created and cannot change; import into a new \
+         collection, or change -f, --exclude or --rename:\n  {0}"
     )]
     SchemaMismatch(String),
 }

@@ -1,7 +1,12 @@
 use std::fmt;
 use std::str::FromStr;
 
+use percent_encoding::{
+    percent_decode_str, utf8_percent_encode, AsciiSet, CONTROLS, NON_ALPHANUMERIC,
+};
 use url::Url;
+
+const ESCAPE: &AsciiSet = &CONTROLS.add(b' ').add(b'%').add(b'#');
 
 use crate::import::error::Error;
 use crate::ProjectId;
@@ -15,12 +20,27 @@ use super::{Backend, Source};
 /// A source as named on the command line, parsed but not connected.
 #[derive(Clone, Debug)]
 pub enum Uri {
-    Postgres(SourceUrl),
-    Mysql(SourceUrl),
-    Sqlite(String),
+    Postgres {
+        url: SourceUrl,
+        object: String,
+    },
+    Mysql {
+        url: SourceUrl,
+        object: String,
+    },
+    Sqlite {
+        path: String,
+        object: String,
+    },
     Files(File),
-    Elasticsearch(SourceUrl),
-    Mongo(SourceUrl),
+    Elasticsearch {
+        url: SourceUrl,
+        index: String,
+    },
+    Mongo {
+        url: SourceUrl,
+        object: String,
+    },
     Topk {
         project: Option<ProjectId>,
         collection: String,
@@ -31,12 +51,25 @@ impl Uri {
     pub async fn connect(&self) -> Result<Source, Error> {
         let locator = self.to_string();
         let backend = match self {
-            Uri::Postgres(url) => Backend::Duck(Duckdb::Postgres(url.clone())),
-            Uri::Mysql(url) => Backend::Duck(Duckdb::Mysql(url.clone())),
-            Uri::Sqlite(path) => Backend::Duck(Duckdb::Sqlite(path.clone())),
+            Uri::Postgres { url, object } => Backend::Duck(Duckdb::Postgres {
+                url: url.clone(),
+                object: object.clone(),
+            }),
+            Uri::Mysql { url, object } => Backend::Duck(Duckdb::Mysql {
+                url: url.clone(),
+                object: object.clone(),
+            }),
+            Uri::Sqlite { path, object } => Backend::Duck(Duckdb::Sqlite {
+                path: path.clone(),
+                object: object.clone(),
+            }),
             Uri::Files(file) => Backend::Duck(Duckdb::Files(file.clone())),
-            Uri::Elasticsearch(url) => Backend::Es(Es::new(url.0.clone())?),
-            Uri::Mongo(url) => Backend::Mongo(Mongo::connect(&url.0).await?),
+            Uri::Elasticsearch { url, index } => {
+                Backend::Es(Es::new(url.0.clone(), index.clone())?)
+            }
+            Uri::Mongo { url, object } => {
+                Backend::Mongo(Mongo::connect(&url.0, object.clone()).await?)
+            }
             Uri::Topk { .. } => {
                 return Err(Error::InvalidArgument(
                     "TopK sources require a connected client; use Source::topk".into(),
@@ -46,15 +79,16 @@ impl Uri {
         Ok(Source {
             locator,
             backend,
-            catalog: tokio::sync::OnceCell::new(),
+            table: tokio::sync::OnceCell::new(),
         })
     }
 
     pub fn password(&self) -> Option<&str> {
         match self {
-            Uri::Postgres(url) | Uri::Mysql(url) | Uri::Elasticsearch(url) | Uri::Mongo(url) => {
-                url.0.password()
-            }
+            Uri::Postgres { url, .. }
+            | Uri::Mysql { url, .. }
+            | Uri::Elasticsearch { url, .. }
+            | Uri::Mongo { url, .. } => url.0.password(),
             _ => None,
         }
     }
@@ -68,6 +102,23 @@ impl FromStr for Uri {
         if s.is_empty() {
             return Err(Error::InvalidArgument("empty source uri".into()));
         }
+        let decode = |value: &str| -> Result<String, Error> {
+            if value.as_bytes().iter().enumerate().any(|(i, b)| {
+                *b == b'%'
+                    && !value
+                        .as_bytes()
+                        .get(i + 1..i + 3)
+                        .is_some_and(|bytes| bytes.iter().all(u8::is_ascii_hexdigit))
+            }) {
+                return Err(Error::InvalidArgument(
+                    "invalid percent encoding in source path or object".into(),
+                ));
+            }
+            percent_decode_str(value)
+                .decode_utf8()
+                .map(|value| value.into_owned())
+                .map_err(|_| Error::InvalidArgument("source path or object is not UTF-8".into()))
+        };
         if let Some(rest) = s.strip_prefix("topk://") {
             if rest.contains('@') {
                 return Err(Error::InvalidArgument(
@@ -96,69 +147,121 @@ impl FromStr for Uri {
                 project: project_id,
             });
         }
-        if s.starts_with("mongodb://") || s.starts_with("mongodb+srv://") {
-            // A bare scheme reads MONGODB_URI.
-            let s = match s {
-                "mongodb://" | "mongodb+srv://" => std::env::var("MONGODB_URI").map_err(|_| {
-                    Error::InvalidArgument(
-                        "bare mongodb:// needs MONGODB_URI set, or pass the full URL".into(),
-                    )
-                })?,
-                _ => s.to_string(),
-            };
-            let url = url(&s)?;
-            if url
-                .path_segments()
-                .and_then(|mut p| p.next())
-                .filter(|p| !p.is_empty())
-                .is_none()
-            {
-                return Err(Error::InvalidArgument(
-                    "mongodb url must include a database, e.g. mongodb://host/dbname".into(),
-                ));
-            }
-            return Ok(Uri::Mongo(SourceUrl(url)));
-        }
-        for (prefix, scheme) in [
+        let elastic = [
             ("elasticsearch://", "http"),
             ("elasticsearch+http://", "http"),
             ("elasticsearch+https://", "https"),
             ("es://", "http"),
             ("es+http://", "http"),
             ("es+https://", "https"),
-        ] {
-            if let Some(rest) = s.strip_prefix(prefix) {
-                return Ok(Uri::Elasticsearch(SourceUrl(url(&format!(
-                    "{scheme}://{rest}"
-                ))?)));
+        ]
+        .into_iter()
+        .find_map(|(prefix, scheme)| {
+            s.strip_prefix(prefix)
+                .map(|rest| format!("{scheme}://{rest}"))
+        });
+        let endpoint = match elastic.as_deref() {
+            Some(input) => Some(url(input)?),
+            None if s.starts_with("http://") || s.starts_with("https://") => {
+                let url = url(s)?;
+                url.host_str()
+                    .is_some_and(|host| {
+                        host.ends_with(".cloud.es.io") || host.ends_with(".elastic.cloud")
+                    })
+                    .then_some(url)
             }
-        }
-        // An Elastic Cloud endpoint is ES even as a bare https url:
-        // hosted is <deployment>.es.<region>.<provider>.cloud.es.io,
-        // serverless is <project>.es.<region>.<provider>.elastic.cloud.
-        if s.starts_with("http://") || s.starts_with("https://") {
-            let url = url(s)?;
-            if url.host_str().is_some_and(|host| {
-                host.ends_with(".cloud.es.io") || host.ends_with(".elastic.cloud")
-            }) {
-                return Ok(Uri::Elasticsearch(SourceUrl(url)));
+            None => None,
+        };
+        if let Some(mut url) = endpoint {
+            let index = decode(url.path().trim_matches('/'))?;
+            if index.is_empty()
+                || index.contains(['*', '?', ',', '/'])
+                || index == "_all"
+                || url.fragment().is_some()
+            {
+                return Err(Error::InvalidArgument(
+                    "elasticsearch source requires one index, e.g. es://host/orders".into(),
+                ));
             }
-        }
-        if s.starts_with("postgres://") || s.starts_with("postgresql://") {
-            return Ok(Uri::Postgres(SourceUrl(url(s)?)));
-        }
-        if s.starts_with("mysql://") || s.starts_with("mariadb://") {
-            return Ok(Uri::Mysql(SourceUrl(url(s)?)));
+            url.set_path("/");
+            return Ok(Uri::Elasticsearch {
+                url: SourceUrl(url),
+                index,
+            });
         }
         if let Some(path) = s
             .strip_prefix("sqlite://")
             .or_else(|| s.strip_prefix("sqlite:"))
         {
-            return Ok(Uri::Sqlite(
-                std::path::absolute(&*shellexpand::tilde(path))?
+            let (path, object) = path
+                .split_once('#')
+                .filter(|(_, object)| !object.is_empty())
+                .ok_or_else(|| {
+                    Error::InvalidArgument(
+                        "database source requires #object, e.g. sqlite:./shop.db#orders; old saved runs need a new import".into(),
+                    )
+                })?;
+            return Ok(Uri::Sqlite {
+                path: std::path::absolute(&*shellexpand::tilde(&decode(path)?))?
                     .display()
                     .to_string(),
-            ));
+                object: decode(object)?,
+            });
+        }
+        if matches!(
+            s.split_once("://").map(|(scheme, _)| scheme),
+            Some("postgres" | "postgresql" | "mysql" | "mariadb" | "mongodb" | "mongodb+srv")
+        ) {
+            let input = if matches!(s.split('#').next(), Some("mongodb://" | "mongodb+srv://")) {
+                let connection = std::env::var("MONGODB_URI").map_err(|_| {
+                    Error::InvalidArgument(
+                        "bare mongodb:// needs MONGODB_URI set, or pass the full URL".into(),
+                    )
+                })?;
+                match s.split_once('#') {
+                    Some((_, object)) => format!(
+                        "{}#{object}",
+                        connection.split('#').next().unwrap_or(&connection)
+                    ),
+                    None => connection,
+                }
+            } else {
+                s.to_string()
+            };
+            let mut url = url(&input)?;
+            if matches!(url.scheme(), "mongodb" | "mongodb+srv")
+                && url.path().trim_matches('/').is_empty()
+            {
+                return Err(Error::InvalidArgument(
+                    "mongodb url must include a database, e.g. mongodb://host/dbname#collection"
+                        .into(),
+                ));
+            }
+            let object = decode(
+                url.fragment()
+                    .filter(|object| !object.is_empty())
+                    .ok_or_else(|| {
+                        Error::InvalidArgument(
+                            "database source requires #object, e.g. postgres://host/db#orders; old saved runs need a new import"
+                                .into(),
+                        )
+                    })?,
+            )?;
+            url.set_fragment(None);
+            return Ok(match url.scheme() {
+                "postgres" | "postgresql" => Uri::Postgres {
+                    url: SourceUrl(url),
+                    object,
+                },
+                "mysql" | "mariadb" => Uri::Mysql {
+                    url: SourceUrl(url),
+                    object,
+                },
+                _ => Uri::Mongo {
+                    url: SourceUrl(url),
+                    object,
+                },
+            });
         }
         Ok(Uri::Files(s.parse()?))
     }
@@ -168,10 +271,26 @@ impl FromStr for Uri {
 impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Uri::Postgres(url) | Uri::Mysql(url) | Uri::Mongo(url) => write!(f, "{url}"),
-            Uri::Sqlite(path) => write!(f, "sqlite:{path}"),
+            Uri::Postgres { url, object }
+            | Uri::Mysql { url, object }
+            | Uri::Mongo { url, object } => {
+                write!(f, "{url}#{}", utf8_percent_encode(object, ESCAPE))
+            }
+            Uri::Sqlite { path, object } => write!(
+                f,
+                "sqlite:{}#{}",
+                utf8_percent_encode(path, ESCAPE),
+                utf8_percent_encode(object, ESCAPE)
+            ),
             Uri::Files(file) => f.write_str(&file.path),
-            Uri::Elasticsearch(url) => write!(f, "es+{url}"),
+            Uri::Elasticsearch { url, index } => {
+                let mut url = url.0.clone();
+                url.set_path(&format!(
+                    "/{}",
+                    utf8_percent_encode(index, NON_ALPHANUMERIC)
+                ));
+                write!(f, "es+{}", SourceUrl(url))
+            }
             Uri::Topk {
                 project: Some(project),
                 collection,

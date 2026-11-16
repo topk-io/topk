@@ -1,5 +1,4 @@
 use serde_json::Value;
-use std::collections::BTreeMap;
 use topk::import::plan::Plan;
 use topk::import::Outcome;
 
@@ -12,7 +11,7 @@ impl CliOutput {
     }
 
     #[track_caller]
-    pub fn summary(&self) -> BTreeMap<String, Outcome> {
+    pub fn summary(&self) -> Outcome {
         serde_json::from_str(&self.stdout).unwrap_or_else(|error| panic!("{error}\n{self:?}"))
     }
 

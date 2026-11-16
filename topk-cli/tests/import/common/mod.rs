@@ -18,7 +18,7 @@ use topk::auth::OAuthConfig;
 use topk::config::Config;
 use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
-use topk::import::source::{Source, Uri};
+use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
 use topk::import::Error;
 use topk::scope::Scope;
@@ -102,7 +102,10 @@ pub fn target<'a>(
     fields: impl IntoIterator<Item = (&'a str, FieldSpec)>,
 ) -> Target {
     Target {
-        from: from.into(),
+        from: from
+            .parse::<File>()
+            .map(|file| SourceLocation::from(&file))
+            .unwrap_or_else(|_| SourceLocation::Object(from.into())),
         id: id.into(),
         fields: fields
             .into_iter()
@@ -111,6 +114,7 @@ pub fn target<'a>(
         filter: None,
         partition: None,
         limit: None,
+        exclude: Vec::new(),
     }
 }
 

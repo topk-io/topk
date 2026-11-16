@@ -1,4 +1,3 @@
-mod catalog;
 mod duck;
 mod es;
 mod file;
@@ -6,7 +5,9 @@ mod mongo;
 mod topk;
 mod uri;
 
+use std::borrow::Cow;
 use std::fmt;
+use std::path::PathBuf;
 
 use futures::stream::BoxStream;
 use futures::{StreamExt, TryStreamExt};
@@ -18,7 +19,6 @@ use tracing::{debug, info};
 use crate::import::error::Error;
 use crate::import::plan::Target;
 
-pub use catalog::{Catalog, Table};
 pub use duck::aws_process_profile;
 use duck::Duckdb;
 use es::Es;
@@ -26,6 +26,60 @@ pub use file::{File, Format, ObjectStore};
 use mongo::Mongo;
 use topk::Topk;
 pub use uri::{SourceUrl, Uri};
+
+#[derive(Clone)]
+pub struct Table {
+    pub from: SourceLocation,
+    pub columns: Vec<(String, FieldSpec)>,
+    pub key: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SourceLocation {
+    Local(PathBuf),
+    Remote(String),
+    Object(String),
+}
+
+impl SourceLocation {
+    pub fn value(&self) -> Cow<'_, str> {
+        match self {
+            Self::Local(path) => path.to_string_lossy(),
+            Self::Remote(value) | Self::Object(value) => Cow::Borrowed(value),
+        }
+    }
+}
+
+impl From<&File> for SourceLocation {
+    fn from(file: &File) -> Self {
+        match file.store {
+            None => Self::Local(
+                file.path
+                    .strip_prefix("file://")
+                    .unwrap_or(&file.path)
+                    .into(),
+            ),
+            Some(_) => Self::Remote(file.path.clone()),
+        }
+    }
+}
+
+impl fmt::Display for SourceLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Local(path) => {
+                let dir = std::env::current_dir().ok();
+                let path = dir
+                    .as_ref()
+                    .and_then(|dir| path.strip_prefix(dir).ok())
+                    .unwrap_or(path);
+                write!(f, "{}", path.display())
+            }
+            Self::Remote(value) | Self::Object(value) => f.write_str(value),
+        }
+    }
+}
 
 pub type Record = Vec<(String, Value)>;
 
@@ -90,7 +144,7 @@ pub struct Checkpoint {
 pub struct Source {
     locator: String,
     backend: Backend,
-    catalog: tokio::sync::OnceCell<Catalog>,
+    table: tokio::sync::OnceCell<Table>,
 }
 
 enum Backend {
@@ -105,6 +159,11 @@ impl Source {
         &self.locator
     }
 
+    /// Discovery lists every column the reader returns.
+    pub fn typed(&self) -> bool {
+        matches!(self.backend, Backend::Duck(_))
+    }
+
     pub fn topk(
         client: topk_rs::Client,
         locator: String,
@@ -114,36 +173,22 @@ impl Source {
         Self {
             locator,
             backend: Backend::Topk(Topk::new(client, name, schema)),
-            catalog: tokio::sync::OnceCell::new(),
+            table: tokio::sync::OnceCell::new(),
         }
     }
 
-    pub async fn catalog(&self) -> Result<&Catalog, Error> {
-        self.catalog
+    pub async fn discover(&self) -> Result<&Table, Error> {
+        self.table
             .get_or_try_init(|| async {
                 info!("discovering source");
-                let catalog = match &self.backend {
-                    Backend::Es(es) => es.catalog().await,
-                    Backend::Duck(duck) => duck.catalog().await,
-                    Backend::Mongo(mongo) => Ok(Catalog {
-                        tables: mongo.catalog().await?,
-                    }),
-                    Backend::Topk(topk) => topk.catalog().await,
-                }?;
-                info!(objects = catalog.tables.len(), "source discovered");
-                Ok(catalog)
+                match &self.backend {
+                    Backend::Es(es) => es.discover().await,
+                    Backend::Duck(duck) => duck.discover().await,
+                    Backend::Mongo(mongo) => mongo.discover().await,
+                    Backend::Topk(topk) => topk.discover().await,
+                }
             })
             .await
-    }
-
-    pub(crate) fn concurrency_limit<'a>(
-        &self,
-        targets: impl IntoIterator<Item = &'a Target>,
-    ) -> usize {
-        match &self.backend {
-            Backend::Duck(duck) => duck.concurrency_limit(targets),
-            _ => usize::MAX,
-        }
     }
 
     /// A source may push `limit` down, but need not honor it: rows past it are
@@ -172,8 +217,7 @@ impl Source {
                 Box::pin(duck.files(remaining, cursor)?.map_ok(ReadEvent::Chunk))
             }
             Backend::Duck(duck) => {
-                let table = self.catalog().await?.table(&target.from)?;
-                remaining.from = table.from.clone();
+                let table = self.discover().await?;
                 let key = table.key.clone().ok_or_else(|| {
                     Error::InvalidArgument(format!(
                         "{}: SQL imports require a single-column non-null primary or unique key",
@@ -190,60 +234,17 @@ impl Source {
                 Box::pin(topk.scan(&remaining, cursor)?.map_ok(ReadEvent::Chunk))
             }
         };
-        match &self.backend {
-            Backend::Mongo(_) => {}
-            Backend::Es(es) => {
-                if self.catalog.get().is_none_or(|catalog| {
-                    !catalog.tables.iter().any(|table| table.from == target.from)
-                }) {
-                    es.validate(&target.from).await?;
-                }
+        let matches = match &self.backend {
+            Backend::Mongo(mongo) => {
+                matches!(&target.from, SourceLocation::Object(name) if name == &mongo.object)
             }
-            _ => {
-                let catalog = self.catalog().await?;
-                let files;
-                let catalog = if matches!(&self.backend, Backend::Duck(Duckdb::Files(_)))
-                    && !catalog.tables.iter().any(|table| table.from == target.from)
-                {
-                    files = Duckdb::Files(target.from.parse()?).catalog().await?;
-                    &files
-                } else {
-                    catalog
-                };
-                let table = if matches!(&self.backend, Backend::Duck(Duckdb::Files(_))) {
-                    catalog.tables.first().ok_or_else(|| {
-                        Error::InvalidArgument(format!("no source object for {:?}", target.from))
-                    })?
-                } else {
-                    catalog.table(&target.from)?
-                };
-                let has = |column: &str| table.columns.iter().any(|(c, _)| c == column);
-                let absent = |what: String| {
-                    let available: Vec<&str> =
-                        table.columns.iter().map(|(c, _)| c.as_str()).collect();
-                    Error::InvalidArgument(format!(
-                        "{what} is not in {:?} — available: {}",
-                        target.from,
-                        available.join(", ")
-                    ))
-                };
-                if !has(&target.id) {
-                    return Err(absent(format!("id column {:?}", target.id)));
-                }
-                if let Some(column) = target.partition.as_deref() {
-                    if !has(column) {
-                        return Err(absent(format!("partition column {column:?}")));
-                    }
-                }
-                for (field, field_plan) in target.fields.iter() {
-                    let column = field_plan.source(field);
-                    if !has(column) {
-                        return Err(absent(format!(
-                            "field {field:?} reads column {column:?}, which"
-                        )));
-                    }
-                }
-            }
+            _ => self.discover().await?.from == target.from,
+        };
+        if !matches {
+            return Err(Error::InvalidArgument(format!(
+                "source {}, saved plan reads {}; start a new import",
+                self.locator, target.from
+            )));
         }
         let limit = target.limit;
         Ok(Box::pin(async_stream::try_stream! {
@@ -293,35 +294,39 @@ impl Source {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cursor, Duckdb};
+    use super::{Cursor, Duckdb, SourceLocation};
     use crate::import::plan::Target;
 
     #[test]
     fn cursor_shape_matches_the_source() {
         let target = Target {
-            from: "docs.parquet".to_string(),
+            from: SourceLocation::Local("docs.parquet".into()),
             id: "_id".into(),
             fields: Default::default(),
             filter: None,
             partition: None,
             limit: None,
+            exclude: Vec::new(),
         };
         let error = Duckdb::Files("docs.parquet".parse().unwrap())
             .files(target.clone(), Some(Cursor::Key("42".into())))
             .err()
             .expect("files accepted a key cursor");
         assert!(error.to_string().contains("does not fit"));
-        let error = Duckdb::Sqlite("docs.db".into())
-            .table(
-                target,
-                "_id".into(),
-                Some(Cursor::Offset {
-                    part: "docs.parquet".into(),
-                    rows: 7,
-                }),
-            )
-            .err()
-            .expect("table accepted an offset cursor");
+        let error = Duckdb::Sqlite {
+            path: "docs.db".into(),
+            object: "docs".into(),
+        }
+        .table(
+            target,
+            "_id".into(),
+            Some(Cursor::Offset {
+                part: "docs.parquet".into(),
+                rows: 7,
+            }),
+        )
+        .err()
+        .expect("table accepted an offset cursor");
         assert!(error.to_string().contains("does not match source key"));
     }
 }

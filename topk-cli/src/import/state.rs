@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io::ErrorKind;
@@ -9,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::import::error::Error;
-use crate::import::plan::{Plan, Target};
+use crate::import::plan::Plan;
 use crate::import::source::{Checkpoint, Uri};
 use crate::scope::Scope;
 use crate::storage;
@@ -43,7 +42,7 @@ impl fmt::Display for RunId {
     }
 }
 
-/// Where a collection's import stands.
+/// Where the import stands.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Progress {
@@ -57,12 +56,11 @@ pub enum Progress {
 pub struct State {
     /// Passwords are redacted.
     pub source: String,
-    /// The whole plan, done collections included.
     pub plan: Plan,
     #[serde(flatten)]
     pub destination: Scope,
-    #[serde(default, rename = "cursors")]
-    pub progress: BTreeMap<String, Progress>,
+    #[serde(default)]
+    pub progress: Option<Progress>,
 }
 
 impl State {
@@ -71,19 +69,18 @@ impl State {
             source,
             plan,
             destination,
-            progress: BTreeMap::new(),
+            progress: None,
         }
     }
 
-    pub fn pending(&self) -> impl Iterator<Item = (&String, &Target)> {
-        self.plan
-            .collections
-            .iter()
-            .filter(|(name, target)| match self.progress.get(*name) {
-                Some(Progress::Done) => false,
-                Some(Progress::After(checkpoint)) => target.limit != Some(checkpoint.consumed),
-                None => true,
-            })
+    pub fn done(&self) -> bool {
+        match &self.progress {
+            Some(Progress::Done) => true,
+            Some(Progress::After(checkpoint)) => {
+                self.plan.target.limit == Some(checkpoint.consumed)
+            }
+            None => false,
+        }
     }
 
     pub fn source(&self, supplied: Option<&Uri>) -> Result<Uri, Error> {
@@ -128,19 +125,14 @@ impl State {
 
     pub fn validate(&self) -> Result<(), Error> {
         self.plan.validate()?;
-        for (name, mark) in &self.progress {
-            let target = self.plan.collections.get(name).ok_or_else(|| {
-                Error::InvalidArgument(format!(
-                    "saved run has a checkpoint for unknown collection {name:?}"
-                ))
-            })?;
-            if let (Progress::After(checkpoint), Some(limit)) = (mark, target.limit) {
-                if checkpoint.consumed > limit {
-                    return Err(Error::InvalidArgument(format!(
-                        "{name}: checkpoint consumed {} rows, exceeding limit {limit}",
-                        checkpoint.consumed
-                    )));
-                }
+        if let (Some(Progress::After(checkpoint)), Some(limit)) =
+            (&self.progress, self.plan.target.limit)
+        {
+            if checkpoint.consumed > limit {
+                return Err(Error::InvalidArgument(format!(
+                    "checkpoint consumed {} rows, exceeding limit {limit}",
+                    checkpoint.consumed
+                )));
             }
         }
         Ok(())
@@ -201,8 +193,8 @@ impl Run {
         Ok(())
     }
 
-    pub(super) fn mark(&mut self, name: &str, mark: Progress) -> Result<(), Error> {
-        self.state.progress.insert(name.to_string(), mark);
+    pub(super) fn mark(&mut self, mark: Progress) -> Result<(), Error> {
+        self.state.progress = Some(mark);
         self.save()
     }
 

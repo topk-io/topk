@@ -1,25 +1,18 @@
 use crate::import::common::refused;
 use rstest::rstest;
-use topk::import::plan::{Field, FieldSelection};
-use topk::import::source::Catalog;
+use topk::import::plan::{Field, FieldSelection, Plan, Target};
+use topk::import::source::SourceLocation;
 use topk::import::source::Table;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType};
 
-fn catalog(tables: impl IntoIterator<Item = Table>) -> Catalog {
-    Catalog {
-        tables: tables.into_iter().collect(),
-    }
-}
-
 fn table(columns: &[&str]) -> Table {
     Table {
-        from: "books".into(),
-        collection_hint: Some("books".into()),
+        from: SourceLocation::Object("books".into()),
         key: None,
         columns: columns
             .iter()
-            .map(|name| ((*name).into(), Some(FieldSpec::text(false))))
+            .map(|name| ((*name).into(), FieldSpec::text(false)))
             .collect(),
     }
 }
@@ -37,9 +30,8 @@ fn explicit_type_clears_source_index() {
 /// bookkeeping columns — so a discovered plan renames them and runs as written.
 #[test]
 fn underscore_columns_are_renamed() {
-    let catalog = catalog([table(&["_id", "_lang", "_n_chars", "text"])]);
-    let plan = catalog.discover(&[], None, None).unwrap();
-    let target = plan.collections.values().next().unwrap();
+    let metadata = table(&["_id", "_lang", "_n_chars", "text"]);
+    let target = Target::new(&metadata, None).unwrap();
 
     assert_eq!(target.id, "_id");
     assert_eq!(target.fields["lang"].from.as_deref(), Some("_lang"));
@@ -53,8 +45,8 @@ fn underscore_columns_are_renamed() {
 /// clear error beats silently folding two columns onto one field.
 #[test]
 fn underscore_rename_yields_to_a_collision() {
-    let catalog = catalog([table(&["_id", "_lang", "lang"])]);
-    let error = refused(catalog.discover(&[], None, None).unwrap().validate());
+    let metadata = table(&["_id", "_lang", "lang"]);
+    let error = refused(Target::new(&metadata, None).unwrap().validate());
 
     assert!(
         error.contains("\"_lang\": field names cannot be empty or start with `_` — rename the column with `--rename _lang=<name>`"),
@@ -65,14 +57,14 @@ fn underscore_rename_yields_to_a_collision() {
 #[test]
 fn plan_names_list_types_and_source_columns() {
     let mut table = table(&["_id", "_lang"]);
-    table.columns.push((
-        "tags".into(),
-        Some(FieldSpec::list(false, ListValueType::String)),
-    ));
-    let plan = catalog([table])
-        .discover(&[], None, None)
-        .unwrap()
-        .to_string();
+    table
+        .columns
+        .push(("tags".into(), FieldSpec::list(false, ListValueType::String)));
+    let plan = Plan {
+        collection: "books".into(),
+        target: Target::new(&table, None).unwrap(),
+    }
+    .to_string();
 
     assert!(plan.contains("\n  lang ← _lang: text\n"), "{plan}");
     assert!(plan.contains("\n  tags: text_list\n"), "{plan}");
@@ -80,15 +72,15 @@ fn plan_names_list_types_and_source_columns() {
 
 #[test]
 fn plan_names_partition_filter_and_limit() {
-    let mut plan = catalog([table(&["_id", "lang"])])
-        .discover(&[], None, None)
-        .unwrap();
-    for target in plan.collections.values_mut() {
-        target.partition = Some("lang".into());
-        target.filter = Some("year > 2000".into());
-        target.limit = Some(10);
+    let mut target = Target::new(&table(&["_id", "lang"]), None).unwrap();
+    target.partition = Some("lang".into());
+    target.filter = Some("year > 2000".into());
+    target.limit = Some(10);
+    let plan = Plan {
+        collection: "books".into(),
+        target,
     }
-    let plan = plan.to_string();
+    .to_string();
 
     assert!(
         plan.contains("\n  _id ← _id\n  partition ← lang\n  filter year > 2000\n  limit 10\n"),
@@ -96,110 +88,42 @@ fn plan_names_partition_filter_and_limit() {
     );
 }
 
-#[test]
-fn all_objects_skipped_says_so() {
-    let catalog = catalog([table(&["id"])]);
-    let error = refused(catalog.discover(&[], None, None));
-
-    assert!(
-        error.contains("all 1 matched object(s) were skipped"),
-        "{error}"
-    );
-}
-
-#[test]
-fn missing_hint_requires_name() {
-    let catalog = catalog([Table {
-        collection_hint: None,
-        ..table(&["id", "title"])
-    }]);
-    let message = refused(catalog.discover(&[], None, None));
-    assert!(message.contains("pass --to <name>"), "got: {message}");
-
-    let plan = catalog.discover(&[], Some("parts"), None).unwrap();
-    assert_eq!(plan.collections.keys().collect::<Vec<_>>(), ["parts"]);
-    assert_eq!(plan.collections["parts"].from, "books");
-}
-
-#[rstest]
-#[case::exact_name("public.books", "books")]
-#[case::qualified_glob("public.book*", "books")]
-#[case::inline_rename("public.books=renamed", "renamed")]
-fn catalog_selection(#[case] pattern: &str, #[case] name: &str) {
-    let catalog = catalog([
-        Table {
-            from: "public.books".into(),
-            ..table(&["id", "title"])
-        },
-        Table {
-            from: "public.authors".into(),
-            collection_hint: Some("authors".into()),
-            ..table(&["id", "name"])
-        },
-    ]);
-    let plan = catalog.discover(&[pattern.into()], None, None).unwrap();
-    assert_eq!(plan.collections.keys().collect::<Vec<_>>(), [name]);
-    assert_eq!(plan.collections[name].from, "public.books");
-}
-
-#[rstest]
-#[case::no_match("missing*", &["nothing to import", "object(s)"])]
-#[case::schema_collision("books", &["rename one inline"])]
-#[case::normalized_collision("public.books?x", &["both map to collection"])]
-fn selection_errors(#[case] pattern: &str, #[case] fragments: &[&str]) {
-    let catalog = catalog(
-        [
-            ("public.books", "books"),
-            ("other.books", "books"),
-            ("public.books x", "books x"),
-            ("public.books_x", "books_x"),
-        ]
-        .into_iter()
-        .map(|(from, hint)| Table {
-            from: from.into(),
-            collection_hint: Some(hint.into()),
-            ..table(&["id", "title"])
-        }),
-    );
-    let message = refused(catalog.discover(&[pattern.into()], None, None));
-    for fragment in fragments {
-        assert!(message.contains(fragment), "{message}");
-    }
-}
-
 #[rstest]
 #[case::key(Some("sku"), None, "sku")]
 #[case::explicit_id(None, Some("title"), "title")]
 #[case::override_key(Some("sku"), Some("title"), "title")]
 fn catalog_id(#[case] key: Option<&str>, #[case] id: Option<&str>, #[case] expected: &str) {
-    let catalog = catalog([Table {
+    let metadata = Table {
         key: key.map(str::to_string),
         ..table(&["sku", "title"])
-    }]);
-    let plan = catalog.discover(&[], None, id).unwrap();
-    assert_eq!(plan.collections["books"].id, expected);
-    assert!(!plan.collections["books"].fields.contains_key(expected));
+    };
+    let target = Target::new(&metadata, id).unwrap();
+    assert_eq!(target.id, expected);
+    assert!(!target.fields.contains_key(expected));
 }
 
 #[test]
 fn unresolved_id_rejected() {
-    let catalog = catalog([table(&["sku", "title"])]);
+    let metadata = table(&["sku", "title"]);
     assert!(matches!(
-        catalog.discover(&[], None, None),
-        Err(topk::import::Error::MissingId(name)) if name == "books"
+        Target::new(&metadata, None),
+        Err(topk::import::Error::MissingId { from, columns }) if from.value() == "books" && columns == ["sku", "title"]
     ));
 }
 
 #[test]
-fn unresolved_objects_skipped() {
-    let catalog = catalog([
-        table(&["sku", "title"]),
-        Table {
-            from: "authors".into(),
-            collection_hint: Some("authors".into()),
-            ..table(&["id", "name"])
-        },
-    ]);
-    let plan = catalog.discover(&[], None, None).unwrap();
-    assert_eq!(plan.collections.keys().collect::<Vec<_>>(), ["authors"]);
+fn dotted_name_under_struct_rejected() {
+    let mut target = Target::new(&table(&["_id", "meta"]), None).unwrap();
+    target.fields["meta"] = Field::new(FieldSpec::r#struct(
+        false,
+        Vec::<(String, FieldSpec)>::new(),
+    ));
+    target
+        .fields
+        .insert("meta.lang".into(), Field::new(FieldSpec::text(false)));
+    let error = refused(target.validate());
+    assert!(
+        error.contains("\"meta.lang\" conflicts with struct field \"meta\""),
+        "{error}"
+    );
 }

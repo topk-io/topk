@@ -4,9 +4,17 @@ use elasticsearch::indices::IndicesDeleteParts;
 use elasticsearch::params::Refresh;
 use elasticsearch::{BulkParts, Elasticsearch};
 use serde_json::json;
+use topk::import::source::Source;
+use topk::import::Error;
 use topk_rs::proto::v1::data::Document;
 
 use crate::import::common::json as doc_json;
+
+pub const URL: &str = "es://localhost:19200";
+
+pub async fn source(index: &str) -> Result<Source, Error> {
+    crate::import::common::source(&format!("{URL}/{index}")).await
+}
 
 pub async fn seed(name: &str, docs: Vec<Document>) -> anyhow::Result<String> {
     let client = Elasticsearch::new(Transport::single_node("http://localhost:19200")?);

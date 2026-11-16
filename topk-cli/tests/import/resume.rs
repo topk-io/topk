@@ -9,26 +9,19 @@ use crate::import::common::{refused, target, Scratch};
 
 fn state() -> State {
     let plan = Plan {
-        collections: ["a", "b", "c"]
-            .into_iter()
-            .map(|name| {
+        collection: "a".into(),
+        target: target(
+            "a.parquet",
+            "_id",
+            [
+                ("title", FieldSpec::text(false)),
                 (
-                    name.to_string(),
-                    target(
-                        &format!("{name}.parquet"),
-                        "_id",
-                        [
-                            ("title", FieldSpec::text(false)),
-                            (
-                                "embedding",
-                                FieldSpec::f32_vector(3, false)
-                                    .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
-                            ),
-                        ],
-                    ),
-                )
-            })
-            .collect::<indexmap::IndexMap<_, _>>(),
+                    "embedding",
+                    FieldSpec::f32_vector(3, false)
+                        .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
+                ),
+            ],
+        ),
     };
     State::new(
         "books.parquet".into(),
@@ -41,31 +34,19 @@ fn state() -> State {
 }
 
 #[test]
-fn pending_collections() {
+fn done_after_last_checkpoint() {
     let mut state = state();
-    state.progress.insert(
-        "b".into(),
-        Progress::After(Checkpoint {
-            cursor: Cursor::Key("200".into()),
-            consumed: 20,
-        }),
-    );
-    state.progress.insert("c".into(), Progress::Done);
-    assert_eq!(
-        state
-            .pending()
-            .map(|(name, _)| name.as_str())
-            .collect::<Vec<_>>(),
-        ["a", "b"]
-    );
-    state.plan.collections["b"].limit = Some(20);
-    assert_eq!(
-        state
-            .pending()
-            .map(|(name, _)| name.as_str())
-            .collect::<Vec<_>>(),
-        ["a"]
-    );
+    assert!(!state.done());
+    state.progress = Some(Progress::After(Checkpoint {
+        cursor: Cursor::Key("200".into()),
+        consumed: 20,
+    }));
+    assert!(!state.done());
+    state.plan.target.limit = Some(20);
+    assert!(state.done());
+    state.plan.target.limit = None;
+    state.progress = Some(Progress::Done);
+    assert!(state.done());
 }
 
 #[test]
@@ -77,14 +58,11 @@ fn different_source_rejected() {
 #[test]
 fn checkpoint_past_limit() {
     let mut state = state();
-    state.plan.collections["a"].limit = Some(5);
-    state.progress.insert(
-        "a".into(),
-        Progress::After(Checkpoint {
-            cursor: Cursor::Key("6".into()),
-            consumed: 6,
-        }),
-    );
+    state.plan.target.limit = Some(5);
+    state.progress = Some(Progress::After(Checkpoint {
+        cursor: Cursor::Key("6".into()),
+        consumed: 6,
+    }));
     let error = refused(state.validate());
     assert!(
         error.contains("checkpoint consumed 6 rows, exceeding limit 5"),
@@ -101,13 +79,10 @@ fn checkpoint_past_limit() {
 async fn saved_plan_round_trips(ctx: &Scratch, #[case] cursor: Cursor) {
     let directory = ctx.path("state");
     let mut saved = state();
-    saved.progress.insert(
-        "a".into(),
-        Progress::After(Checkpoint {
-            cursor: cursor.clone(),
-            consumed: 42,
-        }),
-    );
+    saved.progress = Some(Progress::After(Checkpoint {
+        cursor: cursor.clone(),
+        consumed: 42,
+    }));
     let run = Run::start(&directory, saved).await.unwrap();
     run.save().unwrap();
     let id = run.id;
@@ -117,9 +92,9 @@ async fn saved_plan_round_trips(ctx: &Scratch, #[case] cursor: Cursor) {
     assert_eq!(run.state().source, "books.parquet");
     assert_eq!(run.state().destination.project_id.as_str(), "p1");
     assert_eq!(run.state().destination.region, "dev");
-    assert!(run.state().plan.collections == state().plan.collections);
+    assert!(run.state().plan == state().plan);
     assert!(
-        matches!(&run.state().progress["a"], Progress::After(checkpoint) if checkpoint.cursor == cursor && checkpoint.consumed == 42)
+        matches!(&run.state().progress, Some(Progress::After(checkpoint)) if checkpoint.cursor == cursor && checkpoint.consumed == 42)
     );
     run.remove().unwrap();
 }
@@ -136,4 +111,24 @@ fn equivalent_file_paths_resume(ctx: &Scratch) {
             .to_string(),
         state.source
     );
+}
+
+#[test]
+fn credentials_preserve_selector() {
+    let mut state = state();
+    state.source = "postgres://u:***@host/db?sslmode=require#public.orders".into();
+    let supplied = "postgres://u:new-password@host/db?sslmode=require#public.orders"
+        .parse()
+        .unwrap();
+    assert_eq!(
+        state.source(Some(&supplied)).unwrap().password(),
+        Some("new-password")
+    );
+    assert!(refused(state.source(None)).contains("needs source credentials"));
+    let changed = "postgres://u:new-password@host/db?sslmode=require#public.customers"
+        .parse()
+        .unwrap();
+    assert!(refused(state.source(Some(&changed))).contains("saved run reads"));
+    state.source = "postgres://u:***@host/db".into();
+    assert!(refused(state.source(None)).contains("old saved runs need a new import"));
 }
