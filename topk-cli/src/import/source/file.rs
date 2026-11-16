@@ -96,7 +96,7 @@ impl FromStr for File {
                     }
                     _ if s.contains("://") => {
                         ". To read from a database, pass it as the source, \
-                         e.g. `topk import postgres://host/db --spec <spec>`"
+                         e.g. `topk import postgres://host/db books`"
                     }
                     _ => "",
                 };

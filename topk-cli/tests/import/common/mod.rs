@@ -15,17 +15,17 @@ use test_context::AsyncTestContext;
 pub use crate::common::command::TestCommand;
 use crate::common::session::CliTestContext;
 use topk::auth::OAuthConfig;
-use topk::client::DataClient;
 use topk::config::Config;
 use topk::host::Host;
+use topk::import::plan::{Field, Plan, Target};
 use topk::import::source::{Source, Uri};
-use topk::import::spec::{Field, Spec, Target};
 use topk::import::state::State;
 use topk::import::Error;
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document};
+use topk_rs::Client;
 
 /// A flag group as the CLI reads it from the environment.
 pub fn from_env<T: Args + FromArgMatches>() -> T {
@@ -181,10 +181,6 @@ impl Scratch {
         path.to_str().unwrap().to_string()
     }
 
-    pub fn read(&self, name: &str) -> String {
-        std::fs::read_to_string(self.path(name)).unwrap()
-    }
-
     pub fn jsonl(&self, name: &str, docs: &[Document]) -> String {
         let lines = docs
             .iter()
@@ -227,19 +223,19 @@ impl AsyncTestContext for Scratch {
 pub struct Ctx {
     pub cli: Scratch,
     _session: CliTestContext,
-    pub client: DataClient,
+    pub client: Client,
     used: RefCell<HashSet<String>>,
 }
 
 impl Ctx {
-    pub fn state(&self, source: &Source, spec: Spec) -> State {
+    pub fn state(&self, source: &Source, plan: Plan) -> State {
         State::new(
             source.locator().into(),
             Scope {
                 project_id: std::env::var("TOPK_PROJECT_ID").unwrap().parse().unwrap(),
                 region: self.client.config().region().unwrap().into(),
             },
-            spec,
+            plan,
         )
     }
 
@@ -303,14 +299,12 @@ impl AsyncTestContext for Ctx {
         Ctx {
             cli,
             _session: session,
-            client: DataClient::new(
-                &config,
-                Scope {
-                    project_id: project_id.clone(),
-                    region: std::env::var("TOPK_REGION").expect("TOPK_REGION"),
-                },
-            )
-            .expect("data client"),
+            client: config
+                .data_client(
+                    project_id.clone(),
+                    &std::env::var("TOPK_REGION").expect("TOPK_REGION"),
+                )
+                .expect("data client"),
             used: RefCell::new(HashSet::new()),
         }
     }

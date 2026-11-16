@@ -2,8 +2,8 @@ use futures::TryStreamExt;
 use rstest::rstest;
 use serde_json::json;
 use test_macros::rstest_ctx;
+use topk::import::plan::Target;
 use topk::import::source::{Cursor, ReadEvent};
-use topk::import::spec::Target;
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::common::seed::Backend::Elasticsearch;

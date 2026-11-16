@@ -4,7 +4,8 @@ use topk_rs::proto::v1::data::{
 };
 
 use crate::import::error::{Error, MAX_IMAGE_BYTES};
-use crate::import::spec::Field;
+use crate::import::plan::Field;
+use crate::import::SEMANTIC_TEXT_LIMIT;
 use topk_rs::proto::v1::control::{
     field_type::DataType, field_type_list::ListValueType, field_type_matrix::MatrixValueType,
 };
@@ -40,8 +41,8 @@ impl Field {
         Ok(match ty {
             DataType::Text(_) => {
                 let mut text = text(value)?;
-                if let Some(chars) = self.truncate {
-                    if let Some((at, _)) = text.char_indices().nth(chars) {
+                if self.schema.as_semantic_index().is_some() {
+                    if let Some((at, _)) = text.char_indices().nth(SEMANTIC_TEXT_LIMIT) {
                         text.truncate(at);
                     }
                 }
@@ -572,6 +573,11 @@ fn ints(value: &Value) -> Option<Vec<i64>> {
 }
 
 pub fn floats(value: &Value) -> Option<Vec<f64>> {
+    if let Some(text) = value.as_string() {
+        return serde_json::from_str::<topk_rs::json::Value>(text)
+            .ok()
+            .and_then(|value| floats(&value.into_inner()));
+    }
     if let Some(Inner::List(list)) = value.value.as_ref() {
         match list.values.as_ref()? {
             list::Values::F16(v) => return Some(v.as_ref().iter().map(|n| n.to_f64()).collect()),

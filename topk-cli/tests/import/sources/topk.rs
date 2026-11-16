@@ -23,7 +23,7 @@ async fn copies_native_values(ctx: &Ctx) {
     for (name, ty, value) in [
         (
             "f32",
-            FieldSpec::f32_vector(2, false)
+            FieldSpec::f32_vector(2, true)
                 .with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
             Value::list(vec![0.125_f32, -2.75]),
         ),
@@ -124,22 +124,23 @@ async fn copies_native_values(ctx: &Ctx) {
         .unwrap();
     let schema = ctx.client.collections().get(&name).await.unwrap().schema;
     let source = Source::topk(
-        (*ctx.client).clone(),
+        ctx.client.clone(),
         format!("topk://{name}"),
         name,
         schema.clone(),
     );
-    let spec = source
+    let mut plan = source
         .catalog()
         .await
         .unwrap()
         .discover(&[], Some(&dest), None)
         .unwrap();
+    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, spec))
+    let run = Run::start(&directory, ctx.state(&source, plan))
         .await
         .unwrap();
-    let import = Import::prepare(source, (*ctx.client).clone(), run)
+    let import = Import::start(source, ctx.client.clone(), run, to_create)
         .await
         .unwrap();
     import
@@ -179,7 +180,7 @@ async fn rejects_partitioned_copy(ctx: &Ctx) {
         .await
         .unwrap();
     let source = Source::topk(
-        (*ctx.client).clone(),
+        ctx.client.clone(),
         format!("topk://{name}"),
         name,
         HashMap::new(),

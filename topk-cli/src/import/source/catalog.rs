@@ -3,7 +3,7 @@ use topk_rs::proto::v1::control::FieldSpec;
 use wildmatch::WildMatch;
 
 use crate::import::error::Error;
-use crate::import::spec::{collection_key, Spec, Target};
+use crate::import::plan::{collection_key, Plan, Target};
 
 #[derive(Clone)]
 pub struct Table {
@@ -42,7 +42,7 @@ impl Catalog {
         patterns: &[String],
         to: Option<&str>,
         id: Option<&str>,
-    ) -> Result<Spec, Error> {
+    ) -> Result<Plan, Error> {
         let mut renames: Vec<(&str, &str)> = Vec::new();
         let mut globs: Vec<WildMatch> = Vec::new();
         for pattern in patterns {
@@ -74,14 +74,13 @@ impl Catalog {
 
         if to.is_some() && matched.len() > 1 {
             return Err(Error::InvalidArgument(format!(
-                "--to names a single collection, but {} objects matched — name them in a spec",
+                "--to names a single collection, but {} objects matched — import them separately",
                 matched.len()
             )));
         }
         if id.is_some() && matched.len() > 1 {
             return Err(Error::InvalidArgument(format!(
-                "--id names the id column of a single object, but {} objects matched — \
-             set `id` per collection in a spec",
+                "--id names the id column of a single object, but {} objects matched — import them separately",
                 matched.len()
             )));
         }
@@ -152,6 +151,6 @@ impl Catalog {
             }));
         }
 
-        Spec::try_from(collections)
+        Ok(Plan { collections })
     }
 }

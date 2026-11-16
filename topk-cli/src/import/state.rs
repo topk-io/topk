@@ -9,8 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::import::error::Error;
+use crate::import::plan::{Plan, Target};
 use crate::import::source::{Checkpoint, Uri};
-use crate::import::spec::{Spec, Target};
 use crate::scope::Scope;
 use crate::storage;
 
@@ -58,7 +58,7 @@ pub struct State {
     /// Passwords are redacted.
     pub source: String,
     /// The whole plan, done collections included.
-    pub spec: Spec,
+    pub plan: Plan,
     #[serde(flatten)]
     pub destination: Scope,
     #[serde(default, rename = "cursors")]
@@ -66,17 +66,17 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(source: String, destination: Scope, spec: Spec) -> State {
+    pub fn new(source: String, destination: Scope, plan: Plan) -> State {
         State {
             source,
-            spec,
+            plan,
             destination,
             progress: BTreeMap::new(),
         }
     }
 
     pub fn pending(&self) -> impl Iterator<Item = (&String, &Target)> {
-        self.spec
+        self.plan
             .collections
             .iter()
             .filter(|(name, target)| match self.progress.get(*name) {
@@ -94,7 +94,7 @@ impl State {
                 } else {
                     let saved: Uri = self.source.parse()?;
                     match (&saved, uri) {
-                        (Uri::Files(Some(a)), Uri::Files(Some(b)))
+                        (Uri::Files(a), Uri::Files(b))
                             if a.store.is_none()
                                 && b.store.is_none()
                                 && matches!((std::fs::canonicalize(&a.path), std::fs::canonicalize(&b.path)),
@@ -111,7 +111,6 @@ impl State {
                     }
                 }
             }
-            None if self.source.is_empty() => Uri::Files(None),
             None => self.source.parse()?,
         };
         if uri.password() == Some("***") {
@@ -128,9 +127,9 @@ impl State {
     }
 
     pub fn validate(&self) -> Result<(), Error> {
-        self.spec.validate()?;
+        self.plan.validate()?;
         for (name, mark) in &self.progress {
-            let target = self.spec.collections.get(name).ok_or_else(|| {
+            let target = self.plan.collections.get(name).ok_or_else(|| {
                 Error::InvalidArgument(format!(
                     "saved run has a checkpoint for unknown collection {name:?}"
                 ))

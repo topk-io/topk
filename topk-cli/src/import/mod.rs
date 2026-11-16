@@ -3,11 +3,13 @@ mod ddl;
 mod document;
 mod error;
 mod execution;
+pub mod plan;
 pub mod source;
-pub mod spec;
 pub mod state;
 
 pub const ID: &str = "_id";
+pub const SEMANTIC_TEXT_LIMIT: usize = 32768;
 
+pub use coerce::floats;
 pub use error::Error;
 pub use execution::{Event, Import, Outcome, WriteOptions};

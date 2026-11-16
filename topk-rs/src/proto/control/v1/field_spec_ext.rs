@@ -7,6 +7,13 @@ use crate::proto::control::v1::{
 use super::*;
 
 impl FieldSpec {
+    pub fn as_semantic_index(&self) -> Option<&SemanticIndex> {
+        match self.index.as_ref()?.index.as_ref()? {
+            field_index::Index::SemanticIndex(index) => Some(index),
+            _ => None,
+        }
+    }
+
     pub fn with_index(mut self, index: FieldIndex) -> Self {
         assert!(self.index.is_none(), "Field index is already set");
         self.index = Some(index);

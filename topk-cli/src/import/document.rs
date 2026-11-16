@@ -5,8 +5,8 @@ use topk_rs::proto::v1::data::{value::Value as Inner, Document, Value};
 
 use crate::import::coerce::text;
 use crate::import::error::{Error, MAX_DOC_BYTES};
+use crate::import::plan::Target;
 use crate::import::source::Record;
-use crate::import::spec::Target;
 use crate::import::ID;
 
 impl Target {
@@ -64,7 +64,7 @@ impl Target {
                 ));
             }
         };
-        // The spec is a whitelist; several fields may read one column, the id included.
+        // Several fields may read one column, the id included.
         let mut doc = Document {
             fields: HashMap::with_capacity(self.fields.len() + 1),
         };

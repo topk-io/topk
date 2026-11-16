@@ -15,7 +15,7 @@ use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::error::Error;
-use crate::import::spec::Target;
+use crate::import::plan::Target;
 
 pub use catalog::{Catalog, Table};
 pub use duck::aws_process_profile;
@@ -24,8 +24,7 @@ use es::Es;
 pub use file::{File, Format, ObjectStore};
 use mongo::Mongo;
 use topk::Topk;
-use uri::redact;
-pub use uri::Uri;
+pub use uri::{SourceUrl, Uri};
 
 pub type Record = Vec<(String, Value)>;
 
@@ -123,7 +122,6 @@ impl Source {
             .get_or_try_init(|| async {
                 match &self.backend {
                     Backend::Es(es) => es.catalog().await,
-                    Backend::Duck(Duckdb::Files(None)) => Ok(Catalog { tables: Vec::new() }),
                     Backend::Duck(duck) => duck.catalog().await,
                     Backend::Mongo(mongo) => Ok(Catalog {
                         tables: mongo.catalog().await?,
@@ -197,7 +195,7 @@ impl Source {
                 let catalog = if matches!(&self.backend, Backend::Duck(Duckdb::Files(_)))
                     && !catalog.tables.iter().any(|table| table.from == target.from)
                 {
-                    files = Duckdb::Files(Some(target.from.parse()?)).catalog().await?;
+                    files = Duckdb::Files(target.from.parse()?).catalog().await?;
                     &files
                 } else {
                     catalog
@@ -227,8 +225,8 @@ impl Source {
                         return Err(absent(format!("partition column {column:?}")));
                     }
                 }
-                for (field, spec) in target.fields.iter() {
-                    let column = spec.source(field);
+                for (field, field_plan) in target.fields.iter() {
+                    let column = field_plan.source(field);
                     if !has(column) {
                         return Err(absent(format!(
                             "field {field:?} reads column {column:?}, which"
@@ -286,7 +284,7 @@ impl Source {
 #[cfg(test)]
 mod tests {
     use super::{Cursor, Duckdb};
-    use crate::import::spec::Target;
+    use crate::import::plan::Target;
 
     #[test]
     fn cursor_shape_matches_the_source() {
@@ -298,7 +296,7 @@ mod tests {
             partition: None,
             limit: None,
         };
-        let error = Duckdb::Files(None)
+        let error = Duckdb::Files("docs.parquet".parse().unwrap())
             .files(target.clone(), Some(Cursor::Key("42".into())))
             .err()
             .expect("files accepted a key cursor");

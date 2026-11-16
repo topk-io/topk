@@ -87,30 +87,28 @@ Write the export script from step 1 of [Migrate from Chroma](https://docs.topk.i
 CHROMA_TENANT=... CHROMA_DATABASE=... CHROMA_API_KEY=... .venv/bin/python chroma_to_topk.py
 ```
 
-It writes `<collection>.jsonl` and `<collection>.toml` for each collection, and prints one line per collection. If the user wants TopK to embed the text too, change `index = "keyword"` to `index = "semantic"` on the `document` line of each `.toml` file.
+It writes `<collection>.jsonl` for each collection and prints the collection's summary and its `topk import` command. If the user wants TopK to embed the text too, change `document=keyword` to `document=semantic` in each command.
 
-Read each `.toml` file and tell the user about two kinds of field the script changes, because their filters will need the new names or types:
+Read the printed `-f` lists and tell the user about two kinds of field the script changes, because their filters will need the new names or types:
 
 - Fields starting with `meta_` were renamed: TopK field names can't start with `_`, and `id`, `document` and `embedding` are taken by the script.
-- Fields declared `type = "text"` that hold numbers or booleans in Chroma had mixed types, so every value is now a string.
+- Fields given as `<name>=text` that hold numbers or booleans in Chroma had mixed types, so every value is now a string.
 
 ### 6. Import
 
-Preview one spec first and check the plan it prints:
+Run each printed command with `--region <REGION> --dry-run` appended first, and check the plan it prints:
 
 ```bash
-topk import -f <COLLECTION>.toml --region <REGION> --dry-run
+topk import <COLLECTION>.jsonl -f <FIELDS> --region <REGION> --dry-run
 ```
 
-Then import every spec:
+Then run each command with `--region <REGION> --yes` appended:
 
 ```bash
-for spec in *.toml; do
-  topk import -f "$spec" --region <REGION> --yes
-done
+topk import <COLLECTION>.jsonl -f <FIELDS> --region <REGION> --yes
 ```
 
-If an import stops partway, run the command the CLI prints after `to continue:`, adding `--yes`. It resumes the run from its last checkpoint.
+If an import stops partway, run the command the CLI prints after `Continue with:`. It resumes the run from its last checkpoint.
 
 ### 7. Verify
 
@@ -167,7 +165,7 @@ Show the user a table per collection: Chroma count, TopK count and the average n
 | Error or symptom | Fix |
 | --- | --- |
 | `chromadb` authentication error | Check the tenant ID, database name and API key with the user. |
-| Import rejects an existing collection | A TopK collection with that name exists with a different schema. Ask the user whether to import under another name: change the collection name in every table header of the `.toml` file. |
+| Import rejects an existing collection | A TopK collection with that name exists with a different schema. Ask the user whether to import under another name: add `--to <NEW_NAME>` to the command. |
 | `--region is required` | Add `--region <REGION>` to the command. |
 | `not logged in` or `session expired` | Run `topk login` again. |
 

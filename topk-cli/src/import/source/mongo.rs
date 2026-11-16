@@ -9,8 +9,8 @@ use topk_rs::proto::v1::data::Value;
 use url::Url;
 
 use crate::import::error::Error;
+use crate::import::plan::Target;
 use crate::import::source::Record;
-use crate::import::spec::Target;
 use crate::import::ID;
 
 use super::{Chunk, ChunkStream, Table};

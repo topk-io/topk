@@ -290,7 +290,7 @@ Without `--project-id`, usage covers your whole organization.
 
 ### import
 
-Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
+Bulk import into TopK collections. Every run previews the selected fields and asks before writing; collections are created right after.
 
 ```bash
 topk import [SOURCE] [OBJECTS]... [OPTIONS]
@@ -298,22 +298,23 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 
 | argument | description |
 | --- | --- |
-| `[SOURCE]` | Source URL, file path, or glob; also required with `--spec` or `--resume`, except for files |
+| `[SOURCE]` | Source URL, file path, or glob; with `--resume`, needed only when credentials were in the source URL |
 | `[OBJECTS]...` | Source objects to import; exact names, globs, or `<object>=<collection>` |
 | `--region <REGION>` | Region to import into (env `TOPK_REGION`); defaults to the region selected with `topk region select`. See https://docs.topk.io/regions |
 | `--to <COLLECTION>` | Name the target collection; required when it cannot be derived |
 | `--id <COLUMN>` | Column to use as the document id (`_id`); use when it can't be auto-detected |
-| `--dry-run` | Print the spec and a sample of documents, without importing |
-| `-f`, `--spec <SPEC>` | Read a TOML import spec |
+| `--dry-run` | Preview the plan and a sample of documents, without importing |
+| `-f`, `--field <FIELD>` | Import only the named fields; repeatable and comma-separated. `name`, `name=semantic`, `name=image:semantic`, `name=keyword`, `name=ngram`, `name=vector:<dimension>:<metric>`; omit the dimension when it can be inferred. All choices: [Select fields and indexes](#select-fields-and-indexes) |
+| `--rename <SOURCE=TARGET>` | Rename a source column before selecting fields; repeatable |
 | `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
-| `--resume <RUN>` | Continue the saved plan by its run ID; cannot be combined with `--spec` |
+| `--resume <RUN>` | Continue the saved plan by its run ID |
 | `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
 | `--limit <LIMIT>` | Read at most this many rows per object |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
 | `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
-| `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
-| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select`. A `--dry-run` needs none |
+| `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
+| `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 
 #### Authenticate
 
@@ -349,7 +350,7 @@ A single file names its collection.
 #### Copy a TopK collection
 
 ```bash
-topk import topk://<project-id>/books --to books-v2                        # reindex under a new schema
+topk import topk://<project-id>/books --to books-v2                        # copy under a new name
 topk import topk://<project-id>/books --region aws-eu-central-1-monstera   # copy across regions
 topk import topk://<project-id>/books --project-id <other-project-id>      # copy to another project
 ```
@@ -370,29 +371,33 @@ The column only has to exist in the source. It does not have to be an imported f
 
 </Tip>
 
-#### Preview and edit the plan
+#### Select fields and indexes
 
 ```bash
-topk import postgres://host/db orders --dry-run > spec.toml   # spec on stdout, sample documents on stderr
-vim spec.toml                                                 # drop columns, fix types, add indexes
-topk import "$DB_URL" -f spec.toml --yes                      # run
+topk import books.parquet --to books -f title=keyword,body=semantic --dry-run
+topk import books.parquet --to books -f title=keyword,body=semantic --yes
+topk import books.parquet --to books --rename raw_body=body -f title,body=semantic
 ```
 
-<Warning>
+| choice | values |
+| --- | --- |
+| type | `text` `int` `float` `bool` `bytes` `image` `timestamp` `text_list` `int_list` `float_list` |
+| index | `keyword` `semantic` `ngram`, alone or after a type: `text_list:keyword`, `image:semantic` |
+| vector | `vector[:<dim>][:cosine\|euclidean\|dot_product\|hamming]`, `matrix[:<cols>][:maxsim]`, `sparse[:dot_product]` |
 
-Keep credentials on the command line or in the environment, never in the spec — the spec is meant to go in git.
-
-</Warning>
+Without `-f`, all supported fields are imported. With `-f`, only named fields are imported, and the document ID is always read separately. Field names in `-f` refer to names after `--rename`. A semantic index on text shortens stored values over 32,768 characters; the preview warns about this. Other text is not shortened.
 
 #### Resume a stopped run
 
 Stop a run — `^C`, a lost connection — and pick it up where it left off:
 
 ```bash
-topk import postgres://host/db --resume 1234abcd               # run id printed at start
+topk import postgres://host/db --resume 1234abcd               # run id from the resume command
 ```
 
 Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+
+MongoDB checkpoints use the source `_id`, independently of the destination ID mapping. Legacy checkpoints made with a custom ID column require a new import. Elasticsearch retains its point-in-time snapshot for interrupted scans and closes it before returning a final page.
 
 #### Sources
 
@@ -408,35 +413,11 @@ Resume skips finished collections and continues unfinished ones from their sourc
 
 SQL column names are literal, including dots. Dots inside schema or table names are not supported; source discovery rejects them explicitly.
 
-#### Spec
-
-One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags (`partition` names a column), and a `fields` whitelist (only declared fields import):
-
-```toml
-[books]
-from = "public.books"
-id = "sku"
-
-[books.fields]
-title = { type = "text", index = "semantic" }
-year = { type = "int", from = "published_year" }
-embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cosine" } } }
-```
-
-| field key | |
-| --- | --- |
-| `type` | `text` `int` `float` `bool` `bytes` `image` `timestamp` `struct` `*_list` `*_vector` `*_matrix` `*_sparse_vector` |
-| `from` | source column, when the name differs |
-| `required` | fail the document if missing |
-| `truncate` | max chars, text only |
-| `dim` / `cols` | vector dimension / matrix row width |
-| `index` | `"keyword"` `"exact"` `"semantic"` `"ngram"` `{ vector = { metric = "cosine" \| "euclidean" \| "dot_product" \| "hamming" } }` `{ multi_vector = {} }` |
-
-Discovery takes the source's types; declaring a different `type` converts. Embeddings that arrive as float lists, text (`"[1,2,3]"`) or packed bytes become vectors by declaring `f32_vector` and `dim` (`f32_matrix` and `cols` for multi-vectors); a sparse vector reads numeric keys or parallel `indices`/`values` lists; epoch numbers or date text become `timestamp`. Conversions are exact or the document fails; a narrower declaration (`truncate` included) is how loss is accepted.
+For a new collection, discovery takes the source's types; an explicit field choice can change its type or add an index. For an existing collection, untouched fields use the destination's types and indexes, and explicit choices must match its schema. Dry-run resolves against the destination too, so it requires a project and authentication. `vector`, `matrix`, and `sparse` preserve an already typed source field. Float lists, text (`"[1,2,3]"`), and packed bytes become f32 vectors with `-f embedding=vector:768:cosine`. A sparse vector reads numeric keys or parallel `indices`/`values` lists. Conversions are exact or the document fails.
 
 Image fields accept JPEG/PNG bytes, data URIs, and Hugging Face `{bytes, path}` structs. Each image must fit within 512 KiB.
 
-Declare an image field with `page = { type = "image", index = "semantic" }` in the spec.
+Select an already typed image with `-f page=semantic`. For a data URI or image bytes, use `-f page=image:semantic` to convert and index it.
 
 #### Failures and limits
 
@@ -444,10 +425,12 @@ Pending document buffers are bounded per active collection by `--batch-bytes × 
 
 Progress counts acknowledged writes. After 10 seconds without progress, the CLI prints a waiting notice.
 
-A document fails when a value does not convert exactly, its id is missing or empty, or it is over 2 MB. A failure stops the run, ready to `--resume`; `--continue-on-error` skips them instead.
+By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
+
+Summaries count acknowledged writes and skipped rows for the current invocation. Any skipped rows or fatal error produce a nonzero exit. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
 
 - there is no schema migration: an existing collection whose schema differs is rejected
-- an upsert replaces the whole document, so a spec that omits an existing field clears it
+- an upsert replaces the whole document, so `-f` omitting an existing field clears it
 
 ## Global flags
 

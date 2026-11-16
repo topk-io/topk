@@ -4,8 +4,8 @@ use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, SortOrder};
 
 use crate::import::error::Error;
+use crate::import::plan::Target;
 use crate::import::source::Record;
-use crate::import::spec::Target;
 use crate::import::ID;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::Client;

@@ -282,18 +282,18 @@ async fn huggingface_image_column(ctx: &Scratch) {
         "SELECT 1 AS id, {'bytes': from_hex('89504e470d0a1a0a'), 'path': 'page.png'} AS image",
     );
     let connected = source(&from).await.unwrap();
-    let spec = connected
+    let plan = connected
         .catalog()
         .await
         .unwrap()
         .discover(&[], Some("images"), Some("id"))
         .unwrap();
     assert_eq!(
-        spec.collections["images"].fields["image"].schema,
+        plan.collections["images"].fields["image"].schema,
         FieldSpec::image(false)
     );
     let docs = connected
-        .documents(&spec.collections["images"])
+        .documents(&plan.collections["images"])
         .await
         .unwrap()
         .try_collect::<Vec<_>>()

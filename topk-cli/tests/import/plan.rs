@@ -1,8 +1,10 @@
 use crate::import::common::refused;
 use rstest::rstest;
+use topk::import::plan::{Field, FieldSelection};
 use topk::import::source::Catalog;
 use topk::import::source::Table;
-use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::control::field_type_list::ListValueType;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType};
 
 fn catalog(tables: impl IntoIterator<Item = Table>) -> Catalog {
     Catalog {
@@ -22,13 +24,22 @@ fn table(columns: &[&str]) -> Table {
     }
 }
 
+#[test]
+fn explicit_type_clears_source_index() {
+    let selection: FieldSelection = "title=text".parse().unwrap();
+    let mut field =
+        Field::new(FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)));
+    selection.apply(&mut field, None).unwrap();
+    assert_eq!(field.schema, FieldSpec::text(true));
+}
+
 /// Field names may not start with `_`, but sources use that for their own
-/// bookkeeping columns — so a discovered spec renames them and runs as written.
+/// bookkeeping columns — so a discovered plan renames them and runs as written.
 #[test]
 fn underscore_columns_are_renamed() {
     let catalog = catalog([table(&["_id", "_lang", "_n_chars", "text"])]);
-    let spec = catalog.discover(&[], None, None).unwrap();
-    let target = spec.collections.values().next().unwrap();
+    let plan = catalog.discover(&[], None, None).unwrap();
+    let target = plan.collections.values().next().unwrap();
 
     assert_eq!(target.id, "_id");
     assert_eq!(target.fields["lang"].from.as_deref(), Some("_lang"));
@@ -43,11 +54,45 @@ fn underscore_columns_are_renamed() {
 #[test]
 fn underscore_rename_yields_to_a_collision() {
     let catalog = catalog([table(&["_id", "_lang", "lang"])]);
-    let error = refused(catalog.discover(&[], None, None));
+    let error = refused(catalog.discover(&[], None, None).unwrap().validate());
 
     assert!(
-        error.contains("\"_lang\": field names cannot be empty or start with `_`"),
+        error.contains("\"_lang\": field names cannot be empty or start with `_` — rename the column with `--rename _lang=<name>`"),
         "{error}"
+    );
+}
+
+#[test]
+fn plan_names_list_types_and_source_columns() {
+    let mut table = table(&["_id", "_lang"]);
+    table.columns.push((
+        "tags".into(),
+        Some(FieldSpec::list(false, ListValueType::String)),
+    ));
+    let plan = catalog([table])
+        .discover(&[], None, None)
+        .unwrap()
+        .to_string();
+
+    assert!(plan.contains("\n  lang ← _lang: text\n"), "{plan}");
+    assert!(plan.contains("\n  tags: text_list\n"), "{plan}");
+}
+
+#[test]
+fn plan_names_partition_filter_and_limit() {
+    let mut plan = catalog([table(&["_id", "lang"])])
+        .discover(&[], None, None)
+        .unwrap();
+    for target in plan.collections.values_mut() {
+        target.partition = Some("lang".into());
+        target.filter = Some("year > 2000".into());
+        target.limit = Some(10);
+    }
+    let plan = plan.to_string();
+
+    assert!(
+        plan.contains("\n  _id ← _id\n  partition ← lang\n  filter year > 2000\n  limit 10\n"),
+        "{plan}"
     );
 }
 
@@ -71,9 +116,9 @@ fn missing_hint_requires_name() {
     let message = refused(catalog.discover(&[], None, None));
     assert!(message.contains("pass --to <name>"), "got: {message}");
 
-    let spec = catalog.discover(&[], Some("parts"), None).unwrap();
-    assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["parts"]);
-    assert_eq!(spec.collections["parts"].from, "books");
+    let plan = catalog.discover(&[], Some("parts"), None).unwrap();
+    assert_eq!(plan.collections.keys().collect::<Vec<_>>(), ["parts"]);
+    assert_eq!(plan.collections["parts"].from, "books");
 }
 
 #[rstest]
@@ -92,9 +137,9 @@ fn catalog_selection(#[case] pattern: &str, #[case] name: &str) {
             ..table(&["id", "name"])
         },
     ]);
-    let spec = catalog.discover(&[pattern.into()], None, None).unwrap();
-    assert_eq!(spec.collections.keys().collect::<Vec<_>>(), [name]);
-    assert_eq!(spec.collections[name].from, "public.books");
+    let plan = catalog.discover(&[pattern.into()], None, None).unwrap();
+    assert_eq!(plan.collections.keys().collect::<Vec<_>>(), [name]);
+    assert_eq!(plan.collections[name].from, "public.books");
 }
 
 #[rstest]
@@ -131,9 +176,9 @@ fn catalog_id(#[case] key: Option<&str>, #[case] id: Option<&str>, #[case] expec
         key: key.map(str::to_string),
         ..table(&["sku", "title"])
     }]);
-    let spec = catalog.discover(&[], None, id).unwrap();
-    assert_eq!(spec.collections["books"].id, expected);
-    assert!(!spec.collections["books"].fields.contains_key(expected));
+    let plan = catalog.discover(&[], None, id).unwrap();
+    assert_eq!(plan.collections["books"].id, expected);
+    assert!(!plan.collections["books"].fields.contains_key(expected));
 }
 
 #[test]
@@ -155,6 +200,6 @@ fn unresolved_objects_skipped() {
             ..table(&["id", "name"])
         },
     ]);
-    let spec = catalog.discover(&[], None, None).unwrap();
-    assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["authors"]);
+    let plan = catalog.discover(&[], None, None).unwrap();
+    assert_eq!(plan.collections.keys().collect::<Vec<_>>(), ["authors"]);
 }

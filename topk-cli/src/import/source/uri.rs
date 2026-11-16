@@ -13,14 +13,14 @@ use super::File;
 use super::{Backend, Source};
 
 /// A source as named on the command line, parsed but not connected.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Uri {
-    Postgres(Url),
-    Mysql(Url),
+    Postgres(SourceUrl),
+    Mysql(SourceUrl),
     Sqlite(String),
-    Files(Option<File>),
-    Elasticsearch(Url),
-    Mongo(Url),
+    Files(File),
+    Elasticsearch(SourceUrl),
+    Mongo(SourceUrl),
     Topk {
         project: Option<ProjectId>,
         collection: String,
@@ -35,8 +35,8 @@ impl Uri {
             Uri::Mysql(url) => Backend::Duck(Duckdb::Mysql(url.clone())),
             Uri::Sqlite(path) => Backend::Duck(Duckdb::Sqlite(path.clone())),
             Uri::Files(file) => Backend::Duck(Duckdb::Files(file.clone())),
-            Uri::Elasticsearch(url) => Backend::Es(Es::new(url.clone())?),
-            Uri::Mongo(url) => Backend::Mongo(Mongo::connect(url).await?),
+            Uri::Elasticsearch(url) => Backend::Es(Es::new(url.0.clone())?),
+            Uri::Mongo(url) => Backend::Mongo(Mongo::connect(&url.0).await?),
             Uri::Topk { .. } => {
                 return Err(Error::InvalidArgument(
                     "TopK sources require a connected client; use Source::topk".into(),
@@ -53,7 +53,7 @@ impl Uri {
     pub fn password(&self) -> Option<&str> {
         match self {
             Uri::Postgres(url) | Uri::Mysql(url) | Uri::Elasticsearch(url) | Uri::Mongo(url) => {
-                url.password()
+                url.0.password()
             }
             _ => None,
         }
@@ -117,7 +117,7 @@ impl FromStr for Uri {
                     "mongodb url must include a database, e.g. mongodb://host/dbname".into(),
                 ));
             }
-            return Ok(Uri::Mongo(url));
+            return Ok(Uri::Mongo(SourceUrl(url)));
         }
         for (prefix, scheme) in [
             ("elasticsearch://", "http"),
@@ -128,7 +128,9 @@ impl FromStr for Uri {
             ("es+https://", "https"),
         ] {
             if let Some(rest) = s.strip_prefix(prefix) {
-                return Ok(Uri::Elasticsearch(url(&format!("{scheme}://{rest}"))?));
+                return Ok(Uri::Elasticsearch(SourceUrl(url(&format!(
+                    "{scheme}://{rest}"
+                ))?)));
             }
         }
         // An Elastic Cloud endpoint is ES even as a bare https url:
@@ -139,14 +141,14 @@ impl FromStr for Uri {
             if url.host_str().is_some_and(|host| {
                 host.ends_with(".cloud.es.io") || host.ends_with(".elastic.cloud")
             }) {
-                return Ok(Uri::Elasticsearch(url));
+                return Ok(Uri::Elasticsearch(SourceUrl(url)));
             }
         }
         if s.starts_with("postgres://") || s.starts_with("postgresql://") {
-            return Ok(Uri::Postgres(url(s)?));
+            return Ok(Uri::Postgres(SourceUrl(url(s)?)));
         }
         if s.starts_with("mysql://") || s.starts_with("mariadb://") {
-            return Ok(Uri::Mysql(url(s)?));
+            return Ok(Uri::Mysql(SourceUrl(url(s)?)));
         }
         if let Some(path) = s
             .strip_prefix("sqlite://")
@@ -158,7 +160,7 @@ impl FromStr for Uri {
                     .to_string(),
             ));
         }
-        Ok(Uri::Files(Some(s.parse()?)))
+        Ok(Uri::Files(s.parse()?))
     }
 }
 
@@ -166,12 +168,10 @@ impl FromStr for Uri {
 impl fmt::Display for Uri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Uri::Postgres(url) | Uri::Mysql(url) => f.write_str(&redact(url)),
+            Uri::Postgres(url) | Uri::Mysql(url) | Uri::Mongo(url) => write!(f, "{url}"),
             Uri::Sqlite(path) => write!(f, "sqlite:{path}"),
-            Uri::Files(Some(file)) => f.write_str(&file.path),
-            Uri::Files(None) => Ok(()),
-            Uri::Elasticsearch(url) => write!(f, "es+{}", redact(url)),
-            Uri::Mongo(url) => f.write_str(&redact(url)),
+            Uri::Files(file) => f.write_str(&file.path),
+            Uri::Elasticsearch(url) => write!(f, "es+{url}"),
             Uri::Topk {
                 project: Some(project),
                 collection,
@@ -184,9 +184,24 @@ impl fmt::Display for Uri {
     }
 }
 
-impl fmt::Debug for Uri {
+/// A source url whose password prints as `***`.
+#[derive(Clone)]
+pub struct SourceUrl(pub Url);
+
+impl fmt::Display for SourceUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
+        if self.0.password().is_none() {
+            return write!(f, "{}", self.0);
+        }
+        let mut url = self.0.clone();
+        let _ = url.set_password(Some("***"));
+        write!(f, "{url}")
+    }
+}
+
+impl fmt::Debug for SourceUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
     }
 }
 
@@ -197,13 +212,4 @@ fn url(s: &str) -> Result<Url, Error> {
             if s.contains('@') { "<redacted>" } else { s }
         )))
     })
-}
-
-pub(super) fn redact(url: &Url) -> String {
-    if url.password().is_none() {
-        return url.to_string();
-    }
-    let mut url = url.clone();
-    let _ = url.set_password(Some("***"));
-    url.to_string()
 }

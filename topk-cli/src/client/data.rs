@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -9,26 +8,23 @@ use topk_rs::{Client, ClientConfig};
 
 use crate::client::{AccessTokenProvider, ManagementClient};
 use crate::config::Config;
-use crate::scope::Scope;
+use crate::ProjectId;
 
-#[derive(Clone)]
-pub struct DataClient(Client);
-
-impl DataClient {
-    pub fn new(config: &Config, scope: Scope) -> Result<Self> {
+impl Config {
+    pub fn data_client(&self, project_id: ProjectId, region: &str) -> Result<Client> {
         let client = ClientConfig::default()
-            .with_region(scope.region)
+            .with_region(region)
             .with_interceptor(Arc::new(AccessTokenProvider::new(
-                ManagementClient::new(config.clone())?,
-                config.clone(),
-                scope.project_id,
+                ManagementClient::new(self.clone())?,
+                self.clone(),
+                project_id,
             )));
         // A batch tool rides out transient errors: retries never run out, an hour of
         // continuous failures fails the request, and `--resume` picks up.
-        Ok(Self(Client::new(
+        Ok(Client::new(
             client
-                .with_host(config.host())
-                .with_https(config.https())
+                .with_host(self.host())
+                .with_https(self.https())
                 .with_retry_config(RetryConfig {
                     max_retries: usize::MAX,
                     timeout: Duration::from_secs(60 * 60),
@@ -37,14 +33,6 @@ impl DataClient {
                         ..BackoffConfig::default()
                     },
                 }),
-        )))
-    }
-}
-
-impl Deref for DataClient {
-    type Target = Client;
-
-    fn deref(&self) -> &Client {
-        &self.0
+        ))
     }
 }
