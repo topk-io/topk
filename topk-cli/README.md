@@ -283,7 +283,7 @@ topk import [SOURCE] [OBJECTS]... [OPTIONS]
 | `--to <COLLECTION>` | Name the target collection; required when it cannot be derived |
 | `--id <COLUMN>` | Column to use as the document id (`_id`); use when it can't be auto-detected |
 | `--dry-run` | Preview the plan and a sample of documents, without importing |
-| `-f`, `--field <FIELD>` | Import only the named fields; repeatable and comma-separated. `name`, `name=semantic`, `name=image:semantic`, `name=keyword`, `name=ngram`, `name=vector:<dimension>:<metric>`; omit the dimension when it can be inferred |
+| `-f`, `--field <FIELD>` | Import only the named fields; repeatable and comma-separated. `name`, `name=semantic`, `name=image:semantic`, `name=keyword`, `name=ngram`, `name=vector:<dimension>:<metric>`; omit the dimension when it can be inferred. All choices: [Select fields and indexes](#select-fields-and-indexes) |
 | `--rename <SOURCE=TARGET>` | Rename a source column before selecting fields; repeatable |
 | `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
 | `--resume <RUN>` | Continue the saved plan by its run ID |
@@ -354,6 +354,12 @@ topk import books.parquet --to books -f title=keyword,body=semantic --dry-run
 topk import books.parquet --to books -f title=keyword,body=semantic --yes
 topk import books.parquet --to books --rename raw_body=body -f title,body=semantic
 ```
+
+| choice | values |
+| --- | --- |
+| type | `text` `int` `float` `bool` `bytes` `image` `timestamp` `text_list` `int_list` `float_list` |
+| index | `keyword` `semantic` `ngram`, alone or after a type: `text_list:keyword`, `image:semantic` |
+| vector | `vector[:<dim>][:cosine\|euclidean\|dot_product\|hamming]`, `matrix[:<cols>][:maxsim]`, `sparse[:dot_product]` |
 
 Without `-f`, all supported fields are imported. With `-f`, only named fields are imported, and the document ID is always read separately. Field names in `-f` refer to names after `--rename`. A semantic index on text shortens stored values over 32,768 characters; the preview warns about this. Other text is not shortened.
 

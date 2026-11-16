@@ -131,7 +131,10 @@ pub struct WriteArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...")]
+#[command(
+    override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...",
+    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]"
+)]
 pub struct ImportArgs {
     #[arg(
         required_unless_present = "resume",
