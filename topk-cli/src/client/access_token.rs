@@ -1,4 +1,4 @@
-use anyhow::{Context, Error, Result};
+use anyhow::{Error, Result};
 use chrono::Utc;
 use http::header::{HeaderValue, AUTHORIZATION};
 use http::Request;
@@ -11,7 +11,6 @@ use topk_rs::client::AsyncInterceptor;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::management::proto::{MintAccessTokenRequest, MintAccessTokenResponse};
 use crate::ProjectId;
 
 const REFRESH_EARLY_SECS: u64 = 60;
@@ -53,11 +52,8 @@ impl AccessTokenProvider {
     async fn mint(&self) -> Result<AccessToken> {
         info!(project_id = %self.project_id, "minting data access token");
         self.mgmt
-            .tokens
-            .clone()
-            .mint_access_token(MintAccessTokenRequest {
-                project_id: self.project_id.to_string(),
-            })
+            .tokens()
+            .mint(&self.project_id)
             .await
             .map_err(|status| {
                 let context = match status.code() {
@@ -65,9 +61,7 @@ impl AccessTokenProvider {
                     _ => "minting data access token",
                 };
                 Error::new(status).context(context)
-            })?
-            .into_inner()
-            .try_into()
+            })
     }
 }
 
@@ -86,20 +80,6 @@ pub struct AccessToken {
     pub token: String,
     /// Unix timestamp in seconds.
     pub expires_at: u64,
-}
-
-impl TryFrom<MintAccessTokenResponse> for AccessToken {
-    type Error = Error;
-
-    fn try_from(response: MintAccessTokenResponse) -> Result<Self> {
-        Ok(Self {
-            token: response.token,
-            expires_at: response
-                .expires_at
-                .try_into()
-                .context("invalid token expiry")?,
-        })
-    }
 }
 
 impl AccessToken {

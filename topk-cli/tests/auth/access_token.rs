@@ -356,7 +356,7 @@ async fn mint_does_not_hold_the_session_lock() {
         .reply(200, response(0, Some("first-rotation")))
         .await;
     let reply = ctx.pending_reply();
-    let mut management =
+    let management =
         ManagementClient::connect(ctx.endpoint.clone(), ctx.oauth.auth(ctx.dir.path()));
     let provider = ctx.provider("p1");
     let mint = tokio::spawn(async move { provider.token().await });
@@ -366,13 +366,10 @@ async fn mint_does_not_hold_the_session_lock() {
     ctx.oauth
         .reply(200, response(3600, Some("second-rotation")))
         .await;
-    timeout(
-        Duration::from_secs(2),
-        management.regions.list_regions(ListRegionsRequest {}),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    timeout(Duration::from_secs(2), management.regions().list())
+        .await
+        .unwrap()
+        .unwrap();
     assert!(ctx
         .oauth
         .request()

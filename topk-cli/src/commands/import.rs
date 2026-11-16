@@ -11,7 +11,6 @@ use crate::import::source::{Source, Uri};
 use crate::import::spec::Spec;
 use crate::import::state::{Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
-use crate::management::proto::GetCollectionRequest;
 use crate::output::Output;
 use crate::scope::{Scope, ScopeArgs};
 use crate::util::Interrupted;
@@ -286,15 +285,9 @@ impl ImportArgs {
             let project_id = project.clone().context("topk:// source has no project")?;
             let name = name.clone();
             let collection = ManagementClient::new(config.clone())?
-                .collections
-                .get_collection(GetCollectionRequest {
-                    project_id: project_id.to_string(),
-                    name: name.clone(),
-                })
-                .await?
-                .into_inner()
-                .collection
-                .ok_or_else(|| anyhow::anyhow!("management returned no source collection"))?;
+                .collections()
+                .get(&project_id, &name)
+                .await?;
             let scope = Scope {
                 project_id,
                 region: collection.region,

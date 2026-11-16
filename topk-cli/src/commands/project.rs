@@ -10,9 +10,7 @@ use serde_json::json;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::management::proto::{
-    CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
-};
+use crate::management::proto::Project;
 use crate::output::{json_line, print_list, print_one, Output, Tabular};
 use crate::prompt::Prompt;
 use crate::scope::pick_project;
@@ -36,12 +34,12 @@ pub enum Command {
     /// List projects in the current organization
     List,
     /// Get a project by ID
-    Get { project_id: String },
+    Get { project_id: ProjectId },
     /// Create a project
     Create { name: String },
     /// Delete a project by ID
     Delete {
-        project_id: String,
+        project_id: ProjectId,
         /// Skip confirmation
         #[arg(short = 'y', long)]
         yes: bool,
@@ -88,7 +86,7 @@ pub async fn run(
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
-    let mut client = ManagementClient::new(config.clone())?;
+    let client = ManagementClient::new(config.clone())?;
     match &args.command {
         Command::Current => {
             let id = config
@@ -109,21 +107,13 @@ pub async fn run(
         }
         Command::Select { project_id } => {
             let project = match project_id {
-                Some(id) => client
-                    .projects
-                    .get_project(GetProjectRequest {
-                        project_id: id.to_string(),
-                    })
-                    .await?
-                    .into_inner()
-                    .project
-                    .context("management API returned no project")?,
+                Some(id) => client.projects().get(id).await?,
                 None => {
                     ensure!(
                         stdin().is_terminal(),
                         "no project ID given; run `topk project select <PROJECT_ID>`"
                     );
-                    pick_project(&mut client, &config).await?
+                    pick_project(&client, &config).await?
                 }
             };
             config.set_project_id(Some(project.project_id()?))?;
@@ -144,12 +134,7 @@ pub async fn run(
             }
         }
         Command::List => {
-            let projects = client
-                .projects
-                .list_projects(ListProjectsRequest {})
-                .await?
-                .into_inner()
-                .projects;
+            let projects = client.projects().list().await?;
             let current = config.defaults()?.project_id;
             print_list(
                 out,
@@ -163,42 +148,21 @@ pub async fn run(
             )?;
         }
         Command::Get { project_id } => {
-            let project = client
-                .projects
-                .get_project(GetProjectRequest {
-                    project_id: project_id.clone(),
-                })
-                .await?
-                .into_inner()
-                .project
-                .context("management API returned no project")?;
-            print_one(out, output, project)?;
+            print_one(out, output, client.projects().get(project_id).await?)?;
         }
         Command::Create { name } => {
-            let project = client
-                .projects
-                .create_project(CreateProjectRequest { name: name.clone() })
-                .await?
-                .into_inner()
-                .project
-                .context("management API returned no project")?;
-            print_one(out, output, project)?;
+            print_one(out, output, client.projects().create(name).await?)?;
         }
         Command::Delete { project_id, yes } => {
-            if Prompt::confirm(format!("Delete project {project_id:?}?"), *yes)
+            if Prompt::confirm(format!("Delete project \"{project_id}\"?"), *yes)
                 .context("pass --yes to delete without confirmation")?
             {
-                client
-                    .projects
-                    .delete_project(DeleteProjectRequest {
-                        project_id: project_id.clone(),
-                    })
-                    .await?;
+                client.projects().delete(project_id).await?;
                 // Clear the default project if it was deleted.
                 if config
                     .defaults()?
                     .project_id
-                    .is_some_and(|id| id.as_str() == project_id)
+                    .is_some_and(|id| id == *project_id)
                 {
                     config.set_project_id(None)?;
                 }
