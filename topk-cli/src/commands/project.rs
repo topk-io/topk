@@ -15,6 +15,7 @@ use crate::management::proto::{
 };
 use crate::output::{json_line, print_list, print_one, Output, Tabular};
 use crate::prompt::Prompt;
+use crate::scope::pick_project;
 use crate::util::timestamp;
 use crate::ProjectId;
 
@@ -120,28 +121,12 @@ pub async fn run(
                 None => {
                     ensure!(
                         stdin().is_terminal(),
-                        "no project ID given and stdin is not a terminal; run `topk project select <PROJECT_ID>`"
+                        "no project ID given; run `topk project select <PROJECT_ID>`"
                     );
-                    let mut projects = client
-                        .projects
-                        .list_projects(ListProjectsRequest {})
-                        .await?
-                        .into_inner()
-                        .projects;
-                    let current = config.defaults()?.project_id;
-                    let selected = projects.iter().position(|p| {
-                        current
-                            .as_ref()
-                            .is_some_and(|id| id.as_str() == p.project_id)
-                    });
-                    let Some(index) = Prompt::select("Select project", &projects, selected)? else {
-                        // Cancelling the picker exits with 130.
-                        return Ok(ExitCode::from(130));
-                    };
-                    projects.remove(index)
+                    pick_project(&mut client, &config).await?
                 }
             };
-            config.set_project_id(Some(project.project_id.parse()?))?;
+            config.set_project_id(Some(project.project_id()?))?;
             match output {
                 Output::Json => json_line(
                     out,

@@ -1,5 +1,9 @@
 use chrono::DateTime;
 
+#[derive(Debug, thiserror::Error)]
+#[error("interrupted")]
+pub struct Interrupted;
+
 pub fn timestamp(seconds: i64) -> String {
     DateTime::from_timestamp(seconds, 0)
         .map(|date| date.format("%Y-%m-%d %H:%M:%S UTC").to_string())

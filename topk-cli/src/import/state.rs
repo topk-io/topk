@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::import::error::Error;
 use crate::import::source::{Checkpoint, Uri};
 use crate::import::spec::{Spec, Target};
+use crate::scope::Scope;
 use crate::storage;
-use crate::ProjectId;
 
 /// Names a run in its header, its state file and `--resume`: eight lowercase hex digits.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -51,12 +51,6 @@ pub enum Progress {
     After(Checkpoint),
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct DestinationId {
-    pub project_id: ProjectId,
-    pub region: String,
-}
-
 /// Created at confirmation, rewritten at every checkpoint, deleted on success:
 /// a file exists only for a run that stopped.
 #[derive(Serialize, Deserialize)]
@@ -66,13 +60,13 @@ pub struct State {
     /// The whole plan, done collections included.
     pub spec: Spec,
     #[serde(flatten)]
-    pub destination: DestinationId,
+    pub destination: Scope,
     #[serde(default, rename = "cursors")]
     pub progress: BTreeMap<String, Progress>,
 }
 
 impl State {
-    pub fn new(source: String, destination: DestinationId, spec: Spec) -> State {
+    pub fn new(source: String, destination: Scope, spec: Spec) -> State {
         State {
             source,
             spec,

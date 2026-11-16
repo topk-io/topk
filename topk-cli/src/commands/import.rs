@@ -2,18 +2,19 @@ use futures::TryStreamExt;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use anyhow::Context;
 use clap::Args;
 
 use crate::client::{DataClient, ManagementClient};
 use crate::config::Config;
-use crate::endpoint::DataEndpoint;
 use crate::import::source::{Source, Uri};
 use crate::import::spec::Spec;
-use crate::import::state::{DestinationId, Run, RunId, State};
+use crate::import::state::{Run, RunId, State};
 use crate::import::{Error, Import, WriteOptions};
 use crate::management::proto::GetCollectionRequest;
 use crate::output::Output;
-use crate::ProjectId;
+use crate::scope::{Scope, ScopeArgs};
+use crate::util::Interrupted;
 
 mod output;
 
@@ -169,12 +170,8 @@ pub struct ImportArgs {
     #[command(flatten)]
     pub write: WriteArgs,
 
-    /// Project to import into; defaults to the currently selected project
-    #[arg(long, env = "TOPK_PROJECT_ID", help_heading = "Connection options")]
-    pub project_id: Option<ProjectId>,
-
     #[command(flatten)]
-    pub data: DataEndpoint,
+    pub scope: ScopeArgs,
 }
 
 pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::Result<ExitCode> {
@@ -200,9 +197,17 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         let uri = run.state().source(args.source.as_ref())?;
         (args.source(uri, &config).await?, run)
     } else {
-        let source = args
-            .source(args.source.clone().unwrap_or(Uri::Files(None)), &config)
-            .await?;
+        let mut uri = args.source.clone().unwrap_or(Uri::Files(None));
+        // A topk:// source without a project reads from the destination's project.
+        let scope = match &mut uri {
+            Uri::Topk { project, .. } if project.is_none() => {
+                let scope = args.scope.resolve(&config).await?;
+                *project = Some(scope.project_id.clone());
+                Some(scope)
+            }
+            _ => None,
+        };
+        let source = args.source(uri, &config).await?;
         let spec = args.plan.build(&source).await?;
         if args.dry_run {
             ui.spec(&spec)?;
@@ -216,26 +221,18 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             return Ok(ExitCode::SUCCESS);
         }
-        let destination = DestinationId {
-            project_id: args
-                .project_id
-                .clone()
-                .map(Ok)
-                .unwrap_or_else(|| config.default_project())?,
-            region: args.data.region()?.to_string(),
+        let scope = match scope {
+            Some(scope) => scope,
+            None => args.scope.resolve(&config).await?,
         };
         let run = Run::start(
             &directory,
-            State::new(source.locator().to_string(), destination, spec),
+            State::new(source.locator().to_string(), scope, spec),
         )
         .await?;
         (source, run)
     };
-    let client = DataClient::new(
-        &config,
-        run.state().destination.project_id.clone(),
-        &run.state().destination.region,
-    )?;
+    let client = DataClient::new(&config, run.state().destination.clone())?;
     let import = Import::prepare(source, (*client).clone(), run).await?;
     if !ui.confirm(import.run(), args.yes || args.resume.is_some())? {
         return Ok(ExitCode::SUCCESS);
@@ -261,7 +258,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             event = execution.try_next() => event,
             _ = tokio::signal::ctrl_c() => {
                 ui.message(format_args!("stopped; rows written so far stay. {resume_hint}"))?;
-                return Ok(ExitCode::from(130));
+                return Err(Interrupted.into());
             }
         };
         match event {
@@ -280,37 +277,29 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
 }
 
 impl ImportArgs {
-    async fn source(&self, mut uri: Uri, config: &Config) -> anyhow::Result<Source> {
+    async fn source(&self, uri: Uri, config: &Config) -> anyhow::Result<Source> {
         if let Uri::Topk {
             project,
             collection: name,
-        } = &mut uri
+        } = &uri
         {
-            let resolved = match project.as_ref() {
-                Some(project) => project.clone(),
-                None => self
-                    .project_id
-                    .clone()
-                    .map(Ok)
-                    .unwrap_or_else(|| config.default_project())?,
-            };
-            *project = Some(resolved.clone());
+            let project_id = project.clone().context("topk:// source has no project")?;
             let name = name.clone();
             let collection = ManagementClient::new(config.clone())?
                 .collections
                 .get_collection(GetCollectionRequest {
-                    project_id: resolved.to_string(),
+                    project_id: project_id.to_string(),
                     name: name.clone(),
                 })
                 .await?
                 .into_inner()
                 .collection
                 .ok_or_else(|| anyhow::anyhow!("management returned no source collection"))?;
-            anyhow::ensure!(
-                !collection.region.is_empty(),
-                "source collection has no region"
-            );
-            let client = DataClient::new(config, resolved, &collection.region)?;
+            let scope = Scope {
+                project_id,
+                region: collection.region,
+            };
+            let client = DataClient::new(config, scope)?;
             return Ok(Source::topk(
                 (*client).clone(),
                 uri.to_string(),

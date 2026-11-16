@@ -3,14 +3,12 @@ use std::io::{stdin, ErrorKind, IsTerminal};
 use anyhow::{bail, ensure, Result};
 use dialoguer::{Confirm, Password, Select};
 
+use crate::util::Interrupted;
+
 pub struct Prompt;
 
 impl Prompt {
-    pub fn select(
-        prompt: &str,
-        items: &[impl ToString],
-        current: Option<usize>,
-    ) -> Result<Option<usize>> {
+    pub fn select(prompt: &str, items: &[impl ToString], current: Option<usize>) -> Result<usize> {
         ensure!(!items.is_empty(), "no choices available");
         match Select::new()
             .with_prompt(prompt)
@@ -18,8 +16,11 @@ impl Prompt {
             .default(current.unwrap_or(0))
             .interact_opt()
         {
-            Ok(selected) => Ok(selected),
-            Err(dialoguer::Error::IO(error)) if error.kind() == ErrorKind::Interrupted => Ok(None),
+            Ok(Some(selected)) => Ok(selected),
+            Ok(None) => Err(Interrupted.into()),
+            Err(dialoguer::Error::IO(error)) if error.kind() == ErrorKind::Interrupted => {
+                Err(Interrupted.into())
+            }
             Err(error) => Err(error.into()),
         }
     }
