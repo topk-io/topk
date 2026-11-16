@@ -4,12 +4,12 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use bytesize::ByteSize;
-use chrono::{DateTime, Duration, NaiveDate, NaiveTime, SecondsFormat, Utc};
+use chrono::{DateTime, Duration, NaiveDate, NaiveTime, Utc};
 use serde::{Serialize, Serializer};
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::management::proto::{GetUsageRequest, UsageMetric, UsageUnit};
+use crate::management::proto::{UsageMetric, UsageUnit};
 use crate::output::{print_list, Output, Tabular};
 use crate::ProjectId;
 
@@ -138,17 +138,15 @@ pub async fn run(
     let start_time = args.since.resolve(now);
     let end_time = args.until.map_or(now, |until| until.resolve(now));
     let metrics = ManagementClient::new(config)?
-        .usage
-        .get_usage(GetUsageRequest {
-            start_time: start_time.to_rfc3339_opts(SecondsFormat::Secs, true),
-            end_time: end_time.to_rfc3339_opts(SecondsFormat::Secs, true),
-            project_id: args.project_id.as_ref().map(ToString::to_string),
-            collection: args.collection.clone(),
-        })
+        .usage()
+        .get(
+            start_time,
+            end_time,
+            args.project_id.as_ref(),
+            args.collection.clone(),
+        )
         .await
-        .context("failed to get usage")?
-        .into_inner()
-        .metrics;
+        .context("failed to get usage")?;
     print_list(
         out,
         output,

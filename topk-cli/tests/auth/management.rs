@@ -86,25 +86,25 @@ impl ProjectService for Services {
 impl CollectionService for Services {
     async fn list_collections(
         &self,
-        request: Request<ListCollectionsRequest>,
+        _: Request<ListCollectionsRequest>,
     ) -> Result<Response<ListCollectionsResponse>, Status> {
-        self.record("collections", &request);
-        assert_eq!(request.into_inner().project_id, "project-1");
-        Ok(Response::new(ListCollectionsResponse {
-            collections: vec![Collection {
-                name: "books".into(),
-                project_id: "project-1".into(),
-                schema: [("title".into(), FieldSpec::default())].into(),
-                ..Default::default()
-            }],
-        }))
+        Err(Status::unimplemented("unused"))
     }
 
     async fn get_collection(
         &self,
-        _: Request<GetCollectionRequest>,
+        request: Request<GetCollectionRequest>,
     ) -> Result<Response<GetCollectionResponse>, Status> {
-        Err(Status::unimplemented("unused"))
+        self.record("collections", &request);
+        assert_eq!(request.into_inner().project_id, "project-1");
+        Ok(Response::new(GetCollectionResponse {
+            collection: Some(Collection {
+                name: "books".into(),
+                project_id: "project-1".into(),
+                schema: [("title".into(), FieldSpec::default())].into(),
+                ..Default::default()
+            }),
+        }))
     }
 
     async fn create_collection(
@@ -199,45 +199,25 @@ impl Fixture {
 async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
     let mut ctx = Fixture::new().await;
     ctx.login(3600).await;
-    let projects = ctx
-        .client
-        .projects
-        .list_projects(ListProjectsRequest {})
-        .await
-        .unwrap()
-        .into_inner();
-    assert_eq!(projects.projects[0].project_id, "project-1");
+    let projects = ctx.client.projects().list().await.unwrap();
+    assert_eq!(projects[0].project_id, "project-1");
     ctx.request("projects", ACCESS_TOKEN).await;
-    let collections = ctx
+    let collection = ctx
         .client
-        .collections
-        .list_collections(ListCollectionsRequest {
-            search: None,
-            project_id: "project-1".into(),
-            start_after: None,
-            limit: None,
-        })
+        .collections()
+        .get(&"project-1".parse().unwrap(), "books")
         .await
-        .unwrap()
-        .into_inner();
-    assert_eq!(collections.collections[0].name, "books");
-    assert!(collections.collections[0].schema.contains_key("title"));
+        .unwrap();
+    assert_eq!(collection.name, "books");
+    assert!(collection.schema.contains_key("title"));
     ctx.request("collections", ACCESS_TOKEN).await;
-    let regions = ctx
-        .client
-        .regions
-        .list_regions(ListRegionsRequest {})
-        .await
-        .unwrap()
-        .into_inner();
-    assert_eq!(regions.regions, ["aws-us-east-1"]);
+    let regions = ctx.client.regions().list().await.unwrap();
+    assert_eq!(regions, ["aws-us-east-1"]);
     ctx.request("regions", ACCESS_TOKEN).await;
     let error = ctx
         .client
-        .projects
-        .create_project(CreateProjectRequest {
-            name: "new-project".into(),
-        })
+        .projects()
+        .create("new-project")
         .await
         .unwrap_err();
     assert_eq!(error.code(), Code::Unavailable);
@@ -250,27 +230,24 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
 #[tokio::test]
 async fn existing_service_client_refreshes_and_observes_logout() {
     let mut ctx = Fixture::new().await;
-    let mut regions = ctx.client.regions.clone();
+    let regions = ctx.client.regions();
     ctx.login(3600).await;
-    regions.list_regions(ListRegionsRequest {}).await.unwrap();
+    regions.list().await.unwrap();
     ctx.request("regions", ACCESS_TOKEN).await;
     // Replace the session through a real login to expire it without sleeping.
     ctx.login(0).await;
     ctx.oauth.reply(200, json!({"access_token": "renewed", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "rotated"})).await;
-    regions.list_regions(ListRegionsRequest {}).await.unwrap();
+    regions.list().await.unwrap();
     assert!(ctx
         .oauth
         .request()
         .await
         .contains("grant_type=refresh_token"));
     ctx.request("regions", "renewed").await;
-    regions.list_regions(ListRegionsRequest {}).await.unwrap();
+    regions.list().await.unwrap();
     ctx.request("regions", "renewed").await;
     ctx.oauth.auth(ctx.dir.path()).logout().await.unwrap();
-    let error = regions
-        .list_regions(ListRegionsRequest {})
-        .await
-        .unwrap_err();
+    let error = regions.list().await.unwrap_err();
     assert_eq!(error.code(), Code::Unknown);
     assert!(error.message().contains("topk login"));
     assert!(ctx.requests.try_recv().is_err());
@@ -284,13 +261,9 @@ async fn concurrent_service_calls_refresh_once() {
     ctx.oauth.reply(200, response(3600, Some("rotated"))).await;
     let mut jobs = Vec::new();
     for _ in 0..8 {
-        let mut client = ctx.client.clone();
+        let client = ctx.client.clone();
         jobs.push(tokio::spawn(async move {
-            client
-                .regions
-                .list_regions(ListRegionsRequest {})
-                .await
-                .unwrap()
+            client.regions().list().await.unwrap()
         }));
     }
     for job in jobs {
@@ -304,23 +277,13 @@ async fn concurrent_service_calls_refresh_once() {
 #[tokio::test]
 async fn authentication_failures_never_reach_management_server() {
     let mut ctx = Fixture::new().await;
-    let error = ctx
-        .client
-        .projects
-        .list_projects(ListProjectsRequest {})
-        .await
-        .unwrap_err();
+    let error = ctx.client.projects().list().await.unwrap_err();
     assert_eq!(error.code(), Code::Unknown);
     assert!(error.message().contains("not logged in"));
     assert!(std::error::Error::source(&error).is_some());
     ctx.login(0).await;
     ctx.oauth.reply(503, json!({"error": "server_error"})).await;
-    let error = ctx
-        .client
-        .projects
-        .list_projects(ListProjectsRequest {})
-        .await
-        .unwrap_err();
+    let error = ctx.client.projects().list().await.unwrap_err();
     assert_eq!(error.code(), Code::Unknown);
     assert!(error.message().contains("refreshing the access token"));
     assert!(anyhow::Error::new(error)
@@ -331,12 +294,7 @@ async fn authentication_failures_never_reach_management_server() {
     ctx.oauth
         .reply(400, json!({"error": "invalid_grant"}))
         .await;
-    let error = ctx
-        .client
-        .projects
-        .list_projects(ListProjectsRequest {})
-        .await
-        .unwrap_err();
+    let error = ctx.client.projects().list().await.unwrap_err();
     assert_eq!(error.code(), Code::Unknown);
     assert!(error
         .message()

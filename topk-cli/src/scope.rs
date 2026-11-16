@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::management::proto::{ListProjectsRequest, ListRegionsRequest, Project};
+use crate::management::proto::Project;
 use crate::prompt::Prompt;
 use crate::ProjectId;
 
@@ -52,8 +52,8 @@ impl ScopeArgs {
             "--project-id (or TOPK_PROJECT_ID environment variable) is required, \
              or select a default project with `topk project select`"
         );
-        let mut client = ManagementClient::new(config.clone())?;
-        let project = pick_project(&mut client, config).await?;
+        let client = ManagementClient::new(config.clone())?;
+        let project = pick_project(&client, config).await?;
         eprintln!("Run `topk project select` to skip this prompt.");
         project.project_id()
     }
@@ -70,20 +70,15 @@ impl ScopeArgs {
             "--region (or TOPK_REGION environment variable) is required, \
              or select a default region with `topk region select`"
         );
-        let mut client = ManagementClient::new(config.clone())?;
-        let region = pick_region(&mut client, config).await?;
+        let client = ManagementClient::new(config.clone())?;
+        let region = pick_region(&client, config).await?;
         eprintln!("Run `topk region select` to skip this prompt.");
         Ok(region)
     }
 }
 
-pub async fn pick_project(client: &mut ManagementClient, config: &Config) -> Result<Project> {
-    let mut projects = client
-        .projects
-        .list_projects(ListProjectsRequest {})
-        .await?
-        .into_inner()
-        .projects;
+pub async fn pick_project(client: &ManagementClient, config: &Config) -> Result<Project> {
+    let mut projects = client.projects().list().await?;
     let current = config.defaults()?.project_id;
     let selected = projects.iter().position(|p| {
         current
@@ -93,13 +88,8 @@ pub async fn pick_project(client: &mut ManagementClient, config: &Config) -> Res
     Ok(projects.remove(Prompt::select("Select project", &projects, selected)?))
 }
 
-pub async fn pick_region(client: &mut ManagementClient, config: &Config) -> Result<String> {
-    let mut regions = client
-        .regions
-        .list_regions(ListRegionsRequest {})
-        .await?
-        .into_inner()
-        .regions;
+pub async fn pick_region(client: &ManagementClient, config: &Config) -> Result<String> {
+    let mut regions = client.regions().list().await?;
     let current = config.defaults()?.region;
     let selected = regions
         .iter()

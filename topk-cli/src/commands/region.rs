@@ -9,7 +9,6 @@ use serde_json::json;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::management::proto::ListRegionsRequest;
 use crate::output::{json_line, print_list, Output, Tabular};
 use crate::scope::pick_region;
 
@@ -47,22 +46,13 @@ impl Tabular for Row {
     }
 }
 
-async fn list(client: &mut ManagementClient) -> Result<Vec<String>> {
-    Ok(client
-        .regions
-        .list_regions(ListRegionsRequest {})
-        .await?
-        .into_inner()
-        .regions)
-}
-
 pub async fn run(
     config: Config,
     args: &Args,
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
-    let mut client = ManagementClient::new(config.clone())?;
+    let client = ManagementClient::new(config.clone())?;
     match &args.command {
         Command::Current => {
             let region = config
@@ -85,7 +75,7 @@ pub async fn run(
             let region = match region {
                 Some(region) => {
                     ensure!(
-                        list(&mut client).await?.contains(region),
+                        client.regions().list().await?.contains(region),
                         "unknown region {region:?}; list regions with `topk region list`"
                     );
                     region.clone()
@@ -95,7 +85,7 @@ pub async fn run(
                         stdin().is_terminal(),
                         "no region given; run `topk region select <REGION>`"
                     );
-                    pick_region(&mut client, &config).await?
+                    pick_region(&client, &config).await?
                 }
             };
             config.set_region(Some(region.clone()))?;
@@ -119,7 +109,7 @@ pub async fn run(
             print_list(
                 out,
                 output,
-                list(&mut client).await?.into_iter().map(|name| Row {
+                client.regions().list().await?.into_iter().map(|name| Row {
                     selected: current.as_ref() == Some(&name),
                     name,
                 }),
