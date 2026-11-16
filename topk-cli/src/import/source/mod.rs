@@ -22,7 +22,7 @@ use crate::import::plan::Target;
 pub use duck::aws_process_profile;
 use duck::Duckdb;
 use es::Es;
-pub use file::{File, Format, ObjectStore};
+pub use file::{File, Format, ObjectStore, Segment};
 use mongo::Mongo;
 use topk::Topk;
 pub use uri::{SourceUrl, Uri};
@@ -56,12 +56,7 @@ impl SourceLocation {
 impl From<&File> for SourceLocation {
     fn from(file: &File) -> Self {
         match file.store {
-            None => Self::Local(
-                file.path
-                    .strip_prefix("file://")
-                    .unwrap_or(&file.path)
-                    .into(),
-            ),
+            None => Self::Local((&file.path).into()),
             Some(_) => Self::Remote(file.path.clone()),
         }
     }
@@ -215,9 +210,10 @@ impl Source {
         let remaining_limit = remaining.limit;
         let cursor = after.map(|checkpoint| checkpoint.cursor.clone());
         let mut events: ReadStream = match &self.backend {
-            Backend::Duck(duck @ Duckdb::Files(_)) => {
-                Box::pin(duck.files(remaining, cursor)?.map_ok(ReadEvent::Chunk))
-            }
+            Backend::Duck(duck @ Duckdb::Files(file)) => Box::pin(
+                duck.files(file, remaining, cursor)?
+                    .map_ok(ReadEvent::Chunk),
+            ),
             Backend::Duck(duck) => {
                 let table = self.discover().await?;
                 let key = table.key.clone().ok_or_else(|| {
@@ -296,7 +292,7 @@ impl Source {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cursor, Duckdb, SourceLocation};
+    use super::{Cursor, Duckdb, File, SourceLocation};
     use crate::import::plan::Target;
 
     #[test]
@@ -310,8 +306,9 @@ mod tests {
             limit: None,
             exclude: Vec::new(),
         };
-        let error = Duckdb::Files("docs.parquet".parse().unwrap())
-            .files(target.clone(), Some(Cursor::Key("42".into())))
+        let file: File = "docs.parquet".parse().unwrap();
+        let error = Duckdb::Files(file.clone())
+            .files(&file, target.clone(), Some(Cursor::Key("42".into())))
             .err()
             .expect("files accepted a key cursor");
         assert!(error.to_string().contains("does not fit"));

@@ -101,9 +101,10 @@ impl State {
                     let saved = saved()?;
                     match (&saved, uri) {
                         (Uri::Files(a), Uri::Files(b))
-                            if a.store.is_none()
-                                && b.store.is_none()
-                                && matches!((std::fs::canonicalize(&a.path), std::fs::canonicalize(&b.path)),
+                            if a == b
+                                || a.store.is_none()
+                                    && b.store.is_none()
+                                    && matches!((std::fs::canonicalize(&a.path), std::fs::canonicalize(&b.path)),
                                 (Ok(a), Ok(b)) if a == b) =>
                         {
                             saved

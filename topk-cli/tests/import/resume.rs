@@ -134,6 +134,17 @@ fn equivalent_file_paths_resume(ctx: &Scratch) {
 }
 
 #[test]
+fn saved_file_scheme_resumes() {
+    let mut state = state();
+    state.source = "file:///data/part_*.parquet".into();
+    let supplied = "file:///data/part_*.parquet".parse().unwrap();
+    assert_eq!(
+        state.source(Some(&supplied)).unwrap().to_string(),
+        "/data/part_*.parquet"
+    );
+}
+
+#[test]
 fn credentials_preserve_selector() {
     let mut state = state();
     state.source = "postgres://u:***@host/db?sslmode=require#public.orders".into();

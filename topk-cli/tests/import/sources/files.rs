@@ -2,7 +2,7 @@ use crate::import::common::seed::{rustfs, Backend::S3};
 use futures::TryStreamExt;
 use serde_json::json;
 use test_macros::rstest_ctx;
-use topk::import::source::{Checkpoint, Cursor};
+use topk::import::source::{Checkpoint, Cursor, ReadEvent};
 use topk::import::Error;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::{field_type_matrix::MatrixValueType, FieldSpec};
@@ -211,6 +211,120 @@ async fn read_errors_name_the_source(ctx: &Scratch) {
         message.contains("No files found") && !message.contains("LINE "),
         "got: {message}"
     );
+}
+
+#[rstest_ctx(Scratch)]
+#[case::named_segment("{dir}/{lang}/*.parquet", "{lang}")]
+#[case::hive_folder("{dir}/*/*.parquet", "lang={lang}")]
+async fn partition_from_path(ctx: &Scratch, #[case] pattern: &str, #[case] folder: &str) {
+    let dir = ctx.scratch().strip_prefix("/").unwrap();
+    for (lang, id) in [("sw", 1), ("yo", 2)] {
+        ctx.parquet(
+            &format!("{}/part-0.parquet", folder.replace("{lang}", lang)),
+            &format!("SELECT '{id}' AS id, 't{id}' AS text"),
+        );
+    }
+    let from = format!("/{}", pattern.replace("{dir}", &dir.display().to_string()));
+    let connected = source(&from).await.unwrap();
+    let table = connected.discover().await.unwrap();
+    assert_eq!(table.from.value(), from);
+    assert!(table.columns.iter().any(|(name, _)| name == "lang"));
+    let mut target = target(&from, "id", [("text", FieldSpec::text(false))]);
+    target.partition = Some("lang".into());
+    target
+        .select(&connected, &[], &[], &[], None)
+        .await
+        .unwrap();
+    assert_eq!(
+        json_documents(&connected, &target).await.unwrap(),
+        [
+            (Some("sw".into()), json!({"_id": "1", "text": "t1"})),
+            (Some("yo".into()), json!({"_id": "2", "text": "t2"})),
+        ]
+    );
+}
+
+#[rstest_ctx(Scratch)]
+#[case::matched_folder("{dir}/*/p.parquet", &["1", "2"])]
+#[case::matched_file("{dir}/d/*.parquet", &["3", "4"])]
+#[case::literal_file("{dir}/d/x{1}.parquet", &["3"])]
+#[case::beside_path_column("{dir}/{lang}/x{1}.parquet", &["3", "5"])]
+async fn braces_are_literal(ctx: &Scratch, #[case] pattern: &str, #[case] ids: &[&str]) {
+    for (id, file) in [
+        ("1", "a{1}/p.parquet"),
+        ("2", "b/p.parquet"),
+        ("3", "d/x{1}.parquet"),
+        ("4", "d/y.parquet"),
+        ("5", "sw/x{1}.parquet"),
+    ] {
+        ctx.parquet(file, &format!("SELECT '{id}' AS id, 't' AS text"));
+    }
+    let from = pattern.replace("{dir}", &ctx.scratch().display().to_string());
+    let docs = json_documents(
+        &source(&from).await.unwrap(),
+        &target(&from, "id", [("text", FieldSpec::text(false))]),
+    )
+    .await
+    .unwrap();
+    let mut read: Vec<_> = docs
+        .iter()
+        .map(|(_, doc)| doc["_id"].as_str().unwrap())
+        .collect();
+    read.sort();
+    assert_eq!(read, ids);
+}
+
+#[rstest_ctx(Scratch)]
+#[case::file_column("sw", ", 'x' AS lang", "{lang}")]
+#[case::hive_folder("lang=sw", "", "{lang}")]
+#[case::other_case("sw", ", 'x' AS lang", "{Lang}")]
+async fn path_column_clash(
+    ctx: &Scratch,
+    #[case] folder: &str,
+    #[case] column: &str,
+    #[case] segment: &str,
+) {
+    ctx.parquet(
+        &format!("{folder}/p.parquet"),
+        &format!("SELECT '1' AS id{column}"),
+    );
+    let from = format!("{}/{segment}/*.parquet", ctx.scratch().display());
+    let error = refused(source(&from).await.unwrap().discover().await);
+    assert!(error.contains("already have a"), "{error}");
+}
+
+#[rstest_ctx(Scratch)]
+async fn file_scheme_resumes(ctx: &Scratch) {
+    let path = ctx.parquet(
+        "rows.parquet",
+        "SELECT range::VARCHAR AS id, 't' AS text FROM range(3)",
+    );
+    let from = format!("file://{path}");
+    let target = target(&from, "id", [("text", FieldSpec::text(false))]);
+    let checkpoint = Checkpoint {
+        cursor: Cursor::Offset {
+            part: path,
+            rows: 2,
+        },
+        consumed: 2,
+    };
+    let events: Vec<_> = source(&from)
+        .await
+        .unwrap()
+        .scan(&target, Some(&checkpoint))
+        .await
+        .unwrap()
+        .try_collect()
+        .await
+        .unwrap();
+    let rows: usize = events
+        .iter()
+        .map(|event| match event {
+            ReadEvent::Chunk(chunk) => chunk.rows.len(),
+            ReadEvent::Restarted => 0,
+        })
+        .sum();
+    assert_eq!(rows, 1);
 }
 
 #[rstest_ctx(Scratch)]

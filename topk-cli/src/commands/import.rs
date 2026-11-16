@@ -155,7 +155,8 @@ pub struct ImportArgs {
     #[arg(
         required_unless_present = "resume",
         help = "Source URL, file path, or glob (e.g. topk://<collection> to copy a collection); with --resume, provide it only when credentials were in the source URL. \
-                key=value folders make that path segment a column ('data/lang=sw/part-0.parquet')"
+                {name} in a glob makes that path segment a column ('data/{lang}/*.parquet'), \
+                as do key=value folders ('data/lang=sw/part-0.parquet')"
     )]
     pub source: Option<Uri>,
     #[arg(hide = true, value_parser = |object: &str| Err::<String, _>(format!(

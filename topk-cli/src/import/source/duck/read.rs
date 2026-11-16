@@ -68,11 +68,11 @@ pub(super) fn files(
     resume: Option<(String, u64)>,
     tx: &Sender,
 ) -> Result<(), Error> {
-    let path = &file.path;
+    let path = &file.glob();
     let files: Vec<String> = match local_path(path).is_some() {
         true => vec![path.clone()],
         false => {
-            let conn = source.connect(Some(file))?;
+            let conn = source.connect()?;
             let mut stmt = conn
                 .prepare(&format!(
                     "SELECT file FROM glob('{}') ORDER BY 1",
@@ -104,17 +104,10 @@ pub(super) fn files(
             };
             let (file_tx, file_rx) = mpsc::channel(2);
             let source = source.clone();
-            let file = File {
-                path,
-                ..file.clone()
-            };
-            let target = target.clone();
+            let plan = Plan::file(file, path, target, offset, remaining)?;
             readers.push_back((
                 file_rx,
-                thread::spawn(move || {
-                    let conn = source.connect(Some(&file))?;
-                    Plan::file(&file, &target, offset, remaining).read(&conn, &file_tx)
-                }),
+                thread::spawn(move || plan.read(&source.connect()?, &file_tx)),
             ));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
@@ -163,18 +156,28 @@ impl Plan {
     /// One file of a glob, resumed at `offset`. A column only some files carry
     /// must stay absent from the rest the way `union_by_name` leaves it, rather
     /// than raise a binder error: `COLUMNS` keeps the names that exist.
-    fn file(file: &File, target: &Target, offset: u64, limit: Option<u64>) -> Plan {
-        Plan {
-            sql: Select::file(file)
+    fn file(
+        file: &File,
+        path: String,
+        target: &Target,
+        offset: u64,
+        limit: Option<u64>,
+    ) -> Result<Plan, Error> {
+        Ok(Plan {
+            sql: Select::file(file.format, &path)
+                .constants(file.path_values(&path)?)
                 .existing_columns(target.source_columns())
                 .filter(target.filter.as_deref())
                 .limit(limit)
                 .offset(offset)
                 .into_sql(),
-            from: SourceLocation::from(file),
+            from: match file.store {
+                None => SourceLocation::Local(path.into()),
+                Some(_) => SourceLocation::Remote(path),
+            },
             filter: target.filter.clone(),
             position: Position::Offset(offset),
-        }
+        })
     }
 
     pub(super) fn read(&self, conn: &Connection, tx: &Sender) -> Result<u64, Error> {

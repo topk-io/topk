@@ -1,4 +1,4 @@
-use crate::import::source::{File, Format};
+use crate::import::source::Format;
 
 use super::lit;
 
@@ -32,22 +32,35 @@ impl Select {
         Select::new(name.split('.').map(quoted).collect::<Vec<_>>().join("."))
     }
 
-    pub(super) fn file(file: &File) -> Self {
+    pub(super) fn file(format: Format, path: &str) -> Self {
         // Take the union of every file a glob matches, so a column present in only
         // some files is kept, not dropped to the first file's schema.
-        let opts = match file.format {
+        let opts = match format {
             Format::Csv => ", union_by_name=true, null_padding=true, parallel=false",
             Format::Json | Format::Parquet => ", union_by_name=true",
             Format::Arrow | Format::Avro => "",
         };
-        let reader = match file.format {
+        let reader = match format {
             Format::Csv => "read_csv_auto",
             Format::Json => "read_json_auto",
             Format::Parquet => "read_parquet",
             Format::Arrow => "read_arrow",
             Format::Avro => "read_avro",
         };
-        Self::new(format!("{reader}('{}'{opts})", lit(&file.path)))
+        Self::new(format!("{reader}('{}'{opts})", lit(path)))
+    }
+
+    /// Text columns with one value for every row.
+    pub(super) fn constants<'a>(mut self, columns: Vec<(&'a str, &'a str)>) -> Self {
+        for (name, value) in columns {
+            self.relation = format!(
+                "(SELECT *, '{}' AS {} FROM {})",
+                lit(value),
+                quoted(name),
+                self.relation
+            );
+        }
+        self
     }
 
     /// Runs the query on the attached server instead of in duckdb.
