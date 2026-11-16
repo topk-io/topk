@@ -13,11 +13,13 @@ use oauth2::{
     TokenResponse, TokenUrl,
 };
 use reqwest::{redirect::Policy, Client as HttpClient};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use url::Url;
 
 use crate::auth::session::Session;
+use crate::host::{Host, DEFAULT_HOST};
 
 mod claims;
 pub use claims::AccessTokenClaims;
@@ -31,35 +33,81 @@ const AUTH_CLIENT_ID: &str = "2LqddiN2N5fQplfMP2MIYPHM6ttFNeaG";
 const AUTH_AUDIENCE: &str = "https://api.topk.io";
 
 #[derive(clap::Args, Clone, Debug)]
-pub struct OAuthConfig {
+pub struct OAuthArgs {
     #[arg(
         long = "auth-issuer",
         env = "TOPK_AUTH_ISSUER",
-        default_value = AUTH_ISSUER,
+        requires_all = ["client_id", "audience"],
         hide = true,
         global = true
     )]
-    pub issuer: Url,
+    issuer: Option<Url>,
     #[arg(
         long = "auth-client-id",
         env = "TOPK_AUTH_CLIENT_ID",
-        default_value = AUTH_CLIENT_ID,
         value_parser = NonEmptyStringValueParser::new(),
+        requires_all = ["issuer", "audience"],
         hide = true,
         global = true
     )]
-    pub client_id: String,
+    client_id: Option<String>,
     #[arg(
         long = "auth-audience",
         env = "TOPK_AUTH_AUDIENCE",
-        default_value = AUTH_AUDIENCE,
+        requires_all = ["issuer", "client_id"],
         hide = true,
         global = true
     )]
+    audience: Option<String>,
+}
+
+impl OAuthArgs {
+    pub fn config(self) -> Option<OAuthConfig> {
+        Some(OAuthConfig {
+            issuer: self.issuer?,
+            client_id: self.client_id?,
+            audience: self.audience?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OAuthConfig {
+    pub issuer: Url,
+    #[serde(rename = "cli_client_id")]
+    pub client_id: String,
     pub audience: String,
 }
 
 impl OAuthConfig {
+    pub async fn resolve(host: &Host) -> Result<Self> {
+        match host.host.as_str() {
+            DEFAULT_HOST => Ok(Self {
+                issuer: AUTH_ISSUER.parse()?,
+                client_id: AUTH_CLIENT_ID.into(),
+                audience: AUTH_AUDIENCE.into(),
+            }),
+            _ => Self::fetch(&format!("{}/auth/config.json", host.api_url())).await,
+        }
+    }
+
+    async fn fetch(url: &str) -> Result<Self> {
+        let load = async {
+            HttpClient::builder()
+                .connect_timeout(CONNECT_TIMEOUT)
+                .timeout(REQUEST_TIMEOUT)
+                .build()?
+                .get(url)
+                .send()
+                .await?
+                .error_for_status()?
+                .json::<Self>()
+                .await
+        };
+        load.await
+            .with_context(|| format!("cannot load login settings from {url}"))
+    }
+
     pub fn issuer_key(&self) -> String {
         format!("{:x}", Sha256::digest(self.issuer.as_str().as_bytes()))
     }

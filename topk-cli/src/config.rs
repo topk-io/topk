@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use toml::Table;
 
-use crate::auth::{OAuthConfig, Session};
+use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
-use crate::host::Host;
+use crate::host::{Host, DEFAULT_HOST};
 use crate::ProjectId;
 
 pub use crate::storage::{lock, read, read_toml, write_secret_file, write_toml};
@@ -33,6 +33,29 @@ pub struct Defaults {
 impl Config {
     pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
         Self { dir, host, oauth }
+    }
+
+    pub async fn load(host: Host, oauth: OAuthArgs, dir: PathBuf) -> Result<Self> {
+        let oauth = match oauth.config() {
+            Some(oauth) => oauth,
+            None => match read_toml(&oauth_file(&dir, &host))? {
+                Some(cached) => cached,
+                None => {
+                    let config = OAuthConfig::resolve(&host).await?;
+                    match host.host.as_str() {
+                        // Using the default host, don't cache the oauth config.
+                        DEFAULT_HOST => {}
+                        _ => write_toml(&oauth_file(&dir, &host), &config)?,
+                    }
+                    config
+                }
+            },
+        };
+        Ok(Self { dir, host, oauth })
+    }
+
+    pub fn clear_oauth(&self) -> Result<()> {
+        remove(&oauth_file(&self.dir, &self.host))
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -78,8 +101,7 @@ impl Config {
     }
 
     pub fn api_url(&self) -> String {
-        let protocol = if self.host.https { "https" } else { "http" };
-        format!("{protocol}://api.{}", self.host.host)
+        self.host.api_url()
     }
 
     pub fn oauth(&self) -> &OAuthConfig {
@@ -117,10 +139,9 @@ impl Config {
     }
 
     fn defaults_file(&self) -> PathBuf {
-        let key = Sha256::digest(format!("{}:{}", self.host.https, self.host.host).as_bytes());
         self.tenant_dir()
             .join("defaults")
-            .join(format!("{key:x}.toml"))
+            .join(format!("{}.toml", host_key(&self.host)))
     }
 
     /// Everything scoped to this issuer's session lives here.
@@ -237,6 +258,17 @@ impl Credentials {
         );
         Ok(self.session)
     }
+}
+
+fn host_key(host: &Host) -> String {
+    format!(
+        "{:x}",
+        Sha256::digest(format!("{}:{}", host.https, host.host).as_bytes())
+    )
+}
+
+fn oauth_file(dir: &Path, host: &Host) -> PathBuf {
+    dir.join("hosts").join(format!("{}.toml", host_key(host)))
 }
 
 fn remove(path: &Path) -> Result<()> {

@@ -14,7 +14,7 @@ use test_context::AsyncTestContext;
 
 pub use crate::common::command::TestCommand;
 use crate::common::session::CliTestContext;
-use topk::auth::OAuthConfig;
+use topk::auth::OAuthArgs;
 use topk::config::Config;
 use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
@@ -289,11 +289,13 @@ impl AsyncTestContext for Ctx {
         session.login().await;
         let project_id = session.select_e2e_project();
         std::env::set_var("TOPK_PROJECT_ID", project_id.as_str());
-        let config = Config::new(
+        let config = Config::load(
             from_env::<Host>(),
-            from_env::<OAuthConfig>(),
+            from_env::<OAuthArgs>(),
             Config::dir().expect("config directory"),
-        );
+        )
+        .await
+        .expect("login settings");
         let mut cli = Scratch::default();
         cli.config_dir = Config::dir().expect("session config directory");
         Ctx {
