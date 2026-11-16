@@ -79,6 +79,24 @@ fn plan_names_list_types_and_source_columns() {
 }
 
 #[test]
+fn plan_names_partition_filter_and_limit() {
+    let mut plan = catalog([table(&["_id", "lang"])])
+        .discover(&[], None, None)
+        .unwrap();
+    for target in plan.collections.values_mut() {
+        target.partition = Some("lang".into());
+        target.filter = Some("year > 2000".into());
+        target.limit = Some(10);
+    }
+    let plan = plan.to_string();
+
+    assert!(
+        plan.contains("\n  _id ← _id\n  partition ← lang\n  filter year > 2000\n  limit 10\n"),
+        "{plan}"
+    );
+}
+
+#[test]
 fn all_objects_skipped_says_so() {
     let catalog = catalog([table(&["id"])]);
     let error = refused(catalog.discover(&[], None, None));

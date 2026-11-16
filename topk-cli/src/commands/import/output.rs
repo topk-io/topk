@@ -177,6 +177,15 @@ impl Display for Plan {
         for (collection, target) in &self.collections {
             writeln!(f, "{collection} ← {}", target.from)?;
             writeln!(f, "  _id ← {}", target.id)?;
+            if let Some(partition) = &target.partition {
+                writeln!(f, "  partition ← {partition}")?;
+            }
+            if let Some(filter) = &target.filter {
+                writeln!(f, "  filter {filter}")?;
+            }
+            if let Some(limit) = target.limit {
+                writeln!(f, "  limit {limit}")?;
+            }
             for (name, field) in &target.fields {
                 let ty = field
                     .schema
