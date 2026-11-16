@@ -40,7 +40,7 @@ impl ScopeArgs {
         })
     }
 
-    pub async fn project_id(&self, config: &Config) -> Result<ProjectId> {
+    async fn project_id(&self, config: &Config) -> Result<ProjectId> {
         if let Some(id) = &self.project_id {
             return Ok(id.clone());
         }

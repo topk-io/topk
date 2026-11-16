@@ -121,7 +121,7 @@ pub async fn run(
                 None => {
                     ensure!(
                         stdin().is_terminal(),
-                        "no project ID given and stdin is not a terminal; run `topk project select <PROJECT_ID>`"
+                        "no project ID given; run `topk project select <PROJECT_ID>`"
                     );
                     pick_project(&mut client, &config).await?
                 }

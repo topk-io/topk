@@ -53,5 +53,5 @@ async fn select_rejects_unknown_or_missing_region(ctx: &mut CliTestContext) {
         .contains("unknown region \"nowhere\""));
     assert!(ctx
         .fails(&["region", "select"])
-        .contains("stdin is not a terminal"));
+        .contains("no region given; run `topk region select <REGION>`"));
 }

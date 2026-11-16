@@ -93,7 +93,7 @@ pub async fn run(
                 None => {
                     ensure!(
                         stdin().is_terminal(),
-                        "no region given and stdin is not a terminal; run `topk region select <REGION>`"
+                        "no region given; run `topk region select <REGION>`"
                     );
                     pick_region(&mut client, &config).await?
                 }

@@ -2,6 +2,7 @@ use futures::TryStreamExt;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use anyhow::Context;
 use clap::Args;
 
 use crate::client::{DataClient, ManagementClient};
@@ -196,9 +197,17 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         let uri = run.state().source(args.source.as_ref())?;
         (args.source(uri, &config).await?, run)
     } else {
-        let source = args
-            .source(args.source.clone().unwrap_or(Uri::Files(None)), &config)
-            .await?;
+        let mut uri = args.source.clone().unwrap_or(Uri::Files(None));
+        // A topk:// source without a project reads from the destination's project.
+        let scope = match &mut uri {
+            Uri::Topk { project, .. } if project.is_none() => {
+                let scope = args.scope.resolve(&config).await?;
+                *project = Some(scope.project_id.clone());
+                Some(scope)
+            }
+            _ => None,
+        };
+        let source = args.source(uri, &config).await?;
         let spec = args.plan.build(&source).await?;
         if args.dry_run {
             ui.spec(&spec)?;
@@ -212,7 +221,10 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             return Ok(ExitCode::SUCCESS);
         }
-        let scope = args.scope.resolve(&config).await?;
+        let scope = match scope {
+            Some(scope) => scope,
+            None => args.scope.resolve(&config).await?,
+        };
         let run = Run::start(
             &directory,
             State::new(source.locator().to_string(), scope, spec),
@@ -265,17 +277,13 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
 }
 
 impl ImportArgs {
-    async fn source(&self, mut uri: Uri, config: &Config) -> anyhow::Result<Source> {
+    async fn source(&self, uri: Uri, config: &Config) -> anyhow::Result<Source> {
         if let Uri::Topk {
             project,
             collection: name,
-        } = &mut uri
+        } = &uri
         {
-            let project_id = match project.as_ref() {
-                Some(project) => project.clone(),
-                None => self.scope.project_id(config).await?,
-            };
-            *project = Some(project_id.clone());
+            let project_id = project.clone().context("topk:// source has no project")?;
             let name = name.clone();
             let collection = ManagementClient::new(config.clone())?
                 .collections
