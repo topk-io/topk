@@ -62,6 +62,7 @@ futures = { version = "0.3" }
 serde = { version = "1", features = ["derive"] }
 bytesize = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+humantime = "2"
 shellexpand = "3"
 dirs = "5"
 open = "5"
