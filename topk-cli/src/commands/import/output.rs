@@ -1,7 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{self, Display};
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use topk_rs::proto::v1::control::{
@@ -22,7 +23,7 @@ use crate::scope::Scope;
 pub struct ImportOutput {
     format: Output,
     status: Span,
-    skipped: usize,
+    progress: ProgressDisplay,
     outcome: Option<Outcome>,
 }
 
@@ -31,7 +32,7 @@ impl ImportOutput {
         Self {
             format,
             status: Span::none(),
-            skipped: 0,
+            progress: ProgressDisplay::new(Instant::now()),
             outcome: None,
         }
     }
@@ -106,19 +107,31 @@ impl ImportOutput {
         Ok(())
     }
 
-    pub fn event(&mut self, event: Event) -> Result<()> {
-        if self.status.is_disabled() && self.format == Output::Text && io::stderr().is_terminal() {
+    pub fn start(&mut self) {
+        self.progress = ProgressDisplay::new(Instant::now());
+        if self.format == Output::Text && io::stderr().is_terminal() {
             self.status = tracing::info_span!(parent: None, "import_progress", indicatif.pb_show = tracing::field::Empty);
             self.status.pb_start();
         }
+    }
+
+    pub fn tick(&mut self) {
+        let now = Instant::now();
+        if !self.status.is_disabled() {
+            self.status.pb_set_message(&self.progress.render(now));
+        } else if let Some(line) = self.progress.line(now) {
+            let _ = self.message(line);
+        }
+    }
+
+    pub fn event(&mut self, event: Event) -> Result<()> {
         match event {
-            Event::Progress { written } => {
-                self.status
-                    .pb_set_message(&format!("{written} rows written"));
+            Event::Progress { written, bytes } => {
+                self.progress.update(written, bytes, Instant::now());
             }
             Event::Skipped { error } => {
-                self.skipped += 1;
-                match self.skipped {
+                self.progress.failed += 1;
+                match self.progress.failed {
                     1..=3 => self.message(format_args!("skipped {error}"))?,
                     4 => self.message("skipping more failing rows; the summary counts them")?,
                     _ => {}
@@ -127,8 +140,14 @@ impl ImportOutput {
             Event::Completed { outcome } => {
                 if self.format == Output::Text {
                     self.message(format_args!(
-                        "{} rows written, {} failed in {:.2?}",
-                        outcome.rows, outcome.failed, outcome.elapsed
+                        "{} rows written, {} failed in {:.2?} · {:.0} rows/s · {:.1} MiB/s average",
+                        outcome.rows,
+                        outcome.failed,
+                        outcome.elapsed,
+                        outcome.rows as f64 / outcome.elapsed.as_secs_f64().max(f64::EPSILON),
+                        outcome.bytes as f64
+                            / 1_048_576.0
+                            / outcome.elapsed.as_secs_f64().max(f64::EPSILON)
                     ))?;
                 }
                 self.outcome = Some(outcome);
@@ -147,6 +166,78 @@ impl ImportOutput {
                 .as_ref()
                 .is_some_and(|outcome| outcome.failed != 0) as u8,
         ))
+    }
+}
+
+const LINE_EVERY: Duration = Duration::from_secs(10);
+
+struct ProgressDisplay {
+    started: Instant,
+    printed: Instant,
+    last_write: Option<Instant>,
+    failed: usize,
+    written: (usize, u64),
+    samples: VecDeque<(Instant, usize, u64)>,
+}
+
+impl ProgressDisplay {
+    fn new(now: Instant) -> Self {
+        Self {
+            started: now,
+            printed: now,
+            last_write: None,
+            failed: 0,
+            written: (0, 0),
+            samples: VecDeque::from([(now, 0, 0)]),
+        }
+    }
+
+    fn update(&mut self, rows: usize, bytes: u64, now: Instant) {
+        if rows > self.written.0 {
+            self.last_write = Some(now);
+        }
+        self.written = (rows, bytes);
+    }
+
+    /// Without a terminal, a plain line every `LINE_EVERY` instead of the redrawn bar.
+    fn line(&mut self, now: Instant) -> Option<String> {
+        if now.duration_since(self.printed) < LINE_EVERY {
+            return None;
+        }
+        self.printed = now;
+        Some(self.render(now))
+    }
+
+    fn render(&mut self, now: Instant) -> String {
+        let (rows, bytes) = self.written;
+        while self.samples.len() > 1
+            && now.duration_since(self.samples[1].0) >= Duration::from_secs(5)
+        {
+            self.samples.pop_front();
+        }
+        let (sampled, old_rows, old_bytes) = self.samples[0];
+        let seconds = now.duration_since(sampled).as_secs_f64().max(f64::EPSILON);
+        self.samples.push_back((now, rows, bytes));
+        let mut message = format!(
+            "{rows} rows · {:.0} rows/s · {:.1} MiB/s · {}s",
+            (rows - old_rows) as f64 / seconds,
+            (bytes - old_bytes) as f64 / 1_048_576.0 / seconds,
+            now.duration_since(self.started).as_secs(),
+        );
+        if self.failed != 0 {
+            message.push_str(&format!(" · {} skipped", self.failed));
+        }
+        let waiting = now
+            .duration_since(self.last_write.unwrap_or(self.started))
+            .as_secs();
+        if waiting >= 5 {
+            if self.last_write.is_some() {
+                message.push_str(&format!(" · last write {waiting}s ago"));
+            } else {
+                message.push_str(&format!(" · waiting for first write {waiting}s"));
+            }
+        }
+        message
     }
 }
 
@@ -238,5 +329,93 @@ impl Display for Plan {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use tracing_subscriber::prelude::*;
+
+    #[test]
+    fn progress_output() {
+        let subscriber = tracing_subscriber::registry().with(
+            tracing_indicatif::IndicatifLayer::new()
+                .with_progress_style(tracing_indicatif::style::ProgressStyle::default_spinner()),
+        );
+        let _guard = tracing::subscriber::set_default(subscriber);
+        let mut output = ImportOutput::new(Output::Text);
+        output.start();
+        assert_eq!(!output.status.is_disabled(), io::stderr().is_terminal());
+        output
+            .event(Event::Progress {
+                written: 100,
+                bytes: 1_048_576,
+            })
+            .unwrap();
+        output.progress.started -= Duration::from_secs(2);
+        output.progress.samples[0].0 -= Duration::from_secs(2);
+        output.tick();
+        output
+            .event(Event::Completed {
+                outcome: Outcome {
+                    rows: 100,
+                    bytes: 1_048_576,
+                    failed: 0,
+                    elapsed: Duration::from_secs(2),
+                },
+            })
+            .unwrap();
+        assert_eq!(output.progress.written, (100, 1_048_576));
+        assert_eq!(output.finish().unwrap(), ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn progress_lines_without_terminal() {
+        let now = Instant::now();
+        let mut progress = ProgressDisplay::new(now);
+        assert_eq!(progress.line(now + Duration::from_secs(9)), None);
+        progress.update(100, 1_048_576, now + Duration::from_secs(1));
+        let line = progress.line(now + Duration::from_secs(10)).unwrap();
+        assert!(line.starts_with("100 rows · "), "{line}");
+        assert_eq!(progress.line(now + Duration::from_secs(15)), None);
+        assert!(progress.line(now + Duration::from_secs(20)).is_some());
+    }
+
+    #[rstest]
+    #[case::writes_stall(true)]
+    #[case::first_write_pending(false)]
+    fn progress_during_wait(#[case] written: bool) {
+        let now = Instant::now();
+        let mut progress = ProgressDisplay::new(now);
+        if written {
+            progress.update(300, 3_145_728, now + Duration::from_secs(1));
+            progress.update(400, 4_194_304, now + Duration::from_secs(2));
+            progress.failed = 3;
+            assert_eq!(
+                progress.render(now + Duration::from_secs(2)),
+                "400 rows · 200 rows/s · 2.0 MiB/s · 2s · 3 skipped"
+            );
+        }
+        let mut message = String::new();
+        for tick in 9..=40 {
+            message = progress.render(now + Duration::from_millis(tick * 250));
+        }
+        assert!(message.contains("0 rows/s · 0.0 MiB/s"), "{message}");
+        assert!(progress.samples.len() <= 22);
+        if written {
+            assert!(message.ends_with("last write 8s ago"), "{message}");
+        } else {
+            assert!(
+                message.ends_with("waiting for first write 10s"),
+                "{message}"
+            );
+        }
+        progress.update(500, 5_242_880, now + Duration::from_secs(11));
+        let message = progress.render(now + Duration::from_secs(11));
+        assert!(!message.contains("last write"), "{message}");
+        assert!(!message.contains("waiting"), "{message}");
+        assert!(!message.contains("· 0 rows/s"), "{message}");
     }
 }

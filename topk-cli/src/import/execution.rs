@@ -25,10 +25,12 @@ pub struct Outcome {
     pub failed: usize,
     #[serde(skip)]
     pub elapsed: Duration,
+    #[serde(skip)]
+    pub bytes: u64,
 }
 
 pub enum Event {
-    Progress { written: usize },
+    Progress { written: usize, bytes: u64 },
     Skipped { error: Error },
     Completed { outcome: Outcome },
 }
@@ -142,6 +144,7 @@ impl Import {
             let mut chunks = self.scan;
             let started = Instant::now();
             let mut written = 0;
+            let mut bytes = 0;
             let mut failed = 0;
             let mut batches = IndexMap::<Option<String>, Batch>::new();
             let mut buffered = 0;
@@ -150,7 +153,7 @@ impl Import {
             let mut rows = Vec::<Result<crate::import::source::Record, Error>>::new().into_iter();
             let mut chunk_id = 0;
             let mut eof = false;
-            yield Event::Progress { written };
+            yield Event::Progress { written, bytes };
             loop {
                 if let Some(checkpoint) = checkpoints.ready() {
                     let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint));
@@ -173,11 +176,12 @@ impl Import {
                         let outcome = completed
                             .ok_or_else(|| Error::InvalidArgument("missing completed batch".into()))??;
                         written += outcome.written;
+                        bytes += outcome.bytes;
                         failed += outcome.skipped.len();
                         for error in outcome.skipped {
                             yield Event::Skipped { error };
                         }
-                        yield Event::Progress { written };
+                        yield Event::Progress { written, bytes };
                         outcome.result?;
                         for (id, count) in outcome.chunks { checkpoints.complete(id, count)?; }
                     }
@@ -198,6 +202,7 @@ impl Import {
                                 let mut outcome = BatchOutcome {
                                     chunks: batch.chunks,
                                     written: 0,
+                                    bytes: 0,
                                     skipped: Vec::new(),
                                     result: Ok(()),
                                 };
@@ -206,6 +211,7 @@ impl Import {
                                 match collection.upsert(docs).await {
                                     Ok(_) => {
                                         outcome.written = count;
+                                        outcome.bytes = batch.bytes;
                                     },
                                     Err(error @ topk_rs::Error::DocumentValidationError(_)) if continue_on_error => {
                                         if count == 1 {
@@ -213,9 +219,11 @@ impl Import {
                                         } else if let Some(docs) = retry {
                                             debug!(count, "retrying rejected batch individually");
                                             for doc in docs {
+                                                let bytes = doc.encoded_len() as u64;
                                                 match collection.upsert(vec![doc]).await {
                                                     Ok(_) => {
                                                         outcome.written += 1;
+                                                        outcome.bytes += bytes;
                                                     },
                                                     Err(error @ topk_rs::Error::DocumentValidationError(_)) => {
                                                         outcome.skipped.push(error.into())
@@ -280,7 +288,7 @@ impl Import {
             }
             let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::Done);
             if let Err(error) = saved { error!(%error, "cannot save run state"); }
-            yield Event::Completed { outcome: Outcome { rows: written, failed, elapsed: started.elapsed() } };
+            yield Event::Completed { outcome: Outcome { rows: written, failed, bytes, elapsed: started.elapsed() } };
             let removed = state.lock().unwrap_or_else(|e| e.into_inner()).remove();
             if let Err(error) = removed { warn!(%error, "cannot remove run state"); }
         }
@@ -297,6 +305,7 @@ enum Ready {
 struct BatchOutcome {
     chunks: Vec<(u64, usize)>,
     written: usize,
+    bytes: u64,
     skipped: Vec<Error>,
     result: Result<(), Error>,
 }

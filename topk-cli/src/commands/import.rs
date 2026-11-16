@@ -1,6 +1,7 @@
 use futures::TryStreamExt;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::time::Duration;
 
 use anyhow::Context;
 use clap::Args;
@@ -258,12 +259,19 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         concurrency: args.write.concurrency,
         batch_bytes: args.write.batch_bytes,
     };
+    ui.start();
+    let mut refresh = tokio::time::interval(Duration::from_millis(250));
+    refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let execution = import.execute(options);
     let interrupt = tokio::signal::ctrl_c();
     futures::pin_mut!(execution, interrupt);
     loop {
         let event = tokio::select! {
             event = execution.try_next() => event,
+            _ = refresh.tick() => {
+                ui.tick();
+                continue;
+            }
             _ = &mut interrupt => {
                 ui.message(format_args!("stopped; rows written so far stay. {resume_hint}"))?;
                 return Err(Interrupted.into());

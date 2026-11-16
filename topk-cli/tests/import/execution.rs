@@ -1,4 +1,5 @@
 use futures::TryStreamExt;
+use prost::Message;
 use serde_json::json;
 use test_macros::rstest_ctx;
 use topk::import::plan::{Plan, Target};
@@ -149,6 +150,11 @@ async fn backend_rejections(
     let docs: Vec<_> = (0..invalid + valid)
         .map(|i| topk_rs::doc!("_id" => i.to_string(), "tag" => if i < invalid { "x".repeat(10_000) } else { "ok".into() }))
         .collect();
+    let expected_bytes: u64 = docs
+        .iter()
+        .skip(invalid)
+        .map(|doc| doc.encoded_len() as u64)
+        .sum();
     let from = ctx.cli.seed_parquet("rows", docs);
     let source = source(&from).await.unwrap();
     let target = target(
@@ -186,6 +192,13 @@ async fn backend_rejections(
     assert_eq!(result.is_ok(), continue_on_error);
     match result {
         Ok(events) => {
+            for event in &events {
+                match event {
+                    Event::Progress { bytes, .. } => assert!(*bytes <= expected_bytes),
+                    Event::Completed { outcome, .. } => assert_eq!(outcome.bytes, expected_bytes),
+                    _ => {}
+                }
+            }
             let skipped: Vec<_> = events
                 .iter()
                 .filter_map(|event| match event {
