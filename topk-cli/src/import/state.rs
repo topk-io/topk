@@ -94,7 +94,7 @@ impl State {
                 } else {
                     let saved: Uri = self.source.parse()?;
                     match (&saved, uri) {
-                        (Uri::Files(Some(a)), Uri::Files(Some(b)))
+                        (Uri::Files(a), Uri::Files(b))
                             if a.store.is_none()
                                 && b.store.is_none()
                                 && matches!((std::fs::canonicalize(&a.path), std::fs::canonicalize(&b.path)),
@@ -111,7 +111,6 @@ impl State {
                     }
                 }
             }
-            None if self.source.is_empty() => Uri::Files(None),
             None => self.source.parse()?,
         };
         if uri.password() == Some("***") {

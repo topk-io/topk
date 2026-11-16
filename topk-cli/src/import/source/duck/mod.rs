@@ -4,17 +4,16 @@ mod read;
 mod select;
 
 use std::collections::HashMap;
-use std::fmt;
 
 use duckdb::Connection;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
-use url::Url;
 
 use crate::import::error::Error;
 use crate::import::plan::Target;
 
-use super::{redact, ChunkStream, Cursor, Table};
+use super::uri::SourceUrl;
+use super::{ChunkStream, Cursor, Table};
 
 use super::file::{local_path, stem};
 use super::{File, Format};
@@ -23,36 +22,12 @@ use creds::secret;
 use read::{Plan, Sender, READ_AHEAD};
 use select::Select;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Duckdb {
-    Postgres(Url),
-    Mysql(Url),
+    Postgres(SourceUrl),
+    Mysql(SourceUrl),
     Sqlite(String),
-    /// `Some` when a uri named one file or glob; `None` when each `target.from`
-    /// is its own locator.
-    Files(Option<File>),
-}
-
-impl fmt::Display for Duckdb {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Duckdb::Postgres(url) | Duckdb::Mysql(url) => f.write_str(&redact(url)),
-            Duckdb::Sqlite(path) => write!(f, "sqlite:{path}"),
-            Duckdb::Files(Some(file)) => f.write_str(&file.path),
-            Duckdb::Files(None) => Ok(()),
-        }
-    }
-}
-
-impl fmt::Debug for Duckdb {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Duckdb::Postgres(url) => f.debug_tuple("Postgres").field(&redact(url)).finish(),
-            Duckdb::Mysql(url) => f.debug_tuple("Mysql").field(&redact(url)).finish(),
-            Duckdb::Sqlite(path) => f.debug_tuple("Sqlite").field(path).finish(),
-            Duckdb::Files(file) => f.debug_tuple("Files").field(file).finish(),
-        }
-    }
+    Files(File),
 }
 
 /// A single-quoted SQL literal's body.
@@ -138,8 +113,8 @@ impl Duckdb {
         };
 
         let (ext, dsn) = match self {
-            Duckdb::Postgres(url) => ("postgres", url.as_str()),
-            Duckdb::Mysql(url) => ("mysql", url.as_str()),
+            Duckdb::Postgres(url) => ("postgres", url.0.as_str()),
+            Duckdb::Mysql(url) => ("mysql", url.0.as_str()),
             Duckdb::Sqlite(path) => ("sqlite", path.as_str()),
             Duckdb::Files(_) => {
                 let file = file.ok_or_else(|| {
@@ -175,7 +150,7 @@ impl Duckdb {
         // Duckdb echoes the DSN verbatim, password included.
         .map_err(|e| {
             let redacted = match self {
-                Duckdb::Postgres(url) | Duckdb::Mysql(url) => redact(url),
+                Duckdb::Postgres(url) | Duckdb::Mysql(url) => url.to_string(),
                 _ => dsn.to_string(),
             };
             Error::InvalidArgument(e.to_string().replace(dsn, &redacted))
@@ -279,7 +254,7 @@ impl Duckdb {
         let source = self.clone();
         spawn_blocking(move || -> Result<super::Catalog, Error> {
             let file = match &source {
-                Duckdb::Files(file) => file.clone(),
+                Duckdb::Files(file) => Some(file.clone()),
                 _ => None,
             };
             if let Some(file) = &file {

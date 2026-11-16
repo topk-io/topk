@@ -9,7 +9,7 @@ use topk::import::source::{Format, ObjectStore};
 #[case::surrounding_space("  postgres://localhost/db  ", "postgres://localhost/db")]
 fn postgres_urls(#[case] input: &str, #[case] expected: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Postgres(url) => assert_eq!(url.as_str(), expected),
+        Uri::Postgres(url) => assert_eq!(url.0.as_str(), expected),
         uri => panic!("expected PostgreSQL, got {uri:?}"),
     }
 }
@@ -19,7 +19,7 @@ fn postgres_urls(#[case] input: &str, #[case] expected: &str) {
 #[case::mariadb("mariadb://localhost/demo")]
 fn mysql_urls(#[case] input: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Mysql(url) => assert_eq!(url.as_str(), input),
+        Uri::Mysql(url) => assert_eq!(url.0.as_str(), input),
         uri => panic!("expected MySQL, got {uri:?}"),
     }
 }
@@ -29,7 +29,7 @@ fn mysql_urls(#[case] input: &str) {
 #[case::mongo_srv("mongodb+srv://cluster.example.com/demo")]
 fn mongo_urls(#[case] input: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Mongo(url) => assert_eq!(url.as_str(), input),
+        Uri::Mongo(url) => assert_eq!(url.0.as_str(), input),
         uri => panic!("expected MongoDB, got {uri:?}"),
     }
 }
@@ -51,8 +51,23 @@ fn mongo_urls(#[case] input: &str) {
 )]
 fn elasticsearch_urls(#[case] input: &str, #[case] expected: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Elasticsearch(url) => assert_eq!(url.as_str(), expected),
+        Uri::Elasticsearch(url) => assert_eq!(url.0.as_str(), expected),
         uri => panic!("expected Elasticsearch, got {uri:?}"),
+    }
+}
+
+#[rstest]
+#[case::postgres("postgres://u:hunter2@localhost/db")]
+#[case::mysql("mysql://u:hunter2@localhost/db")]
+#[case::mongo("mongodb://u:hunter2@localhost/db")]
+#[case::elasticsearch("es+https://u:hunter2@es.example.com")]
+fn printing_hides_the_password(#[case] input: &str) {
+    let uri = input.parse::<Uri>().unwrap();
+    for printed in [uri.to_string(), format!("{uri:?}")] {
+        assert!(
+            printed.contains("u:***@") && !printed.contains("hunter2"),
+            "{printed}"
+        );
     }
 }
 
@@ -73,7 +88,7 @@ fn sqlite_paths(#[case] input: &str, #[case] expected: std::path::PathBuf) {
 #[case::bucket_file("s3://bucket/books.parquet")]
 fn routes_to_files(#[case] input: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Files(Some(file)) => assert_eq!(file.path, input),
+        Uri::Files(file) => assert_eq!(file.path, input),
         uri => panic!("expected a file, got {uri:?}"),
     }
 }

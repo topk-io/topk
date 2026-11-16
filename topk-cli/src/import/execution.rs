@@ -533,7 +533,7 @@ mod tests {
         let import = Import {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
-            source: crate::import::source::Uri::Files(None)
+            source: crate::import::source::Uri::Files("docs.parquet".parse().unwrap())
                 .connect()
                 .await
                 .unwrap(),
@@ -596,7 +596,7 @@ mod tests {
         let import = Import {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
-            source: crate::import::source::Uri::Files(None)
+            source: crate::import::source::Uri::Files("docs.parquet".parse().unwrap())
                 .connect()
                 .await
                 .unwrap(),

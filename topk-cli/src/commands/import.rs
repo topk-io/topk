@@ -196,7 +196,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         )?;
         Import::resume(source, client, run).await?
     } else {
-        let mut uri = args.source.clone().unwrap_or(Uri::Files(None));
+        let mut uri = args.source.clone().context("SOURCE is required")?;
         // A topk:// source without a project reads from the destination's project.
         let scope = match &mut uri {
             Uri::Topk { project, .. } if project.is_none() => {
