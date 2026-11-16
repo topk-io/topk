@@ -39,7 +39,7 @@ topk login
 ```
 
 > [!NOTE]
-> If the CLI cannot open your browser automatically, or you prefer to open it manually, use `topk login --no-browser` to print the login URL.
+> Over SSH or in a container, use `topk login --no-browser`. Log in from any browser with the URL it prints, then paste the login code into the terminal.
 
 ### logout
 

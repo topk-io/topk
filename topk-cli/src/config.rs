@@ -76,6 +76,11 @@ impl Config {
         self.host.https
     }
 
+    pub fn api_url(&self) -> String {
+        let protocol = if self.host.https { "https" } else { "http" };
+        format!("{protocol}://api.{}", self.host.host)
+    }
+
     pub fn oauth(&self) -> &OAuthConfig {
         &self.oauth
     }

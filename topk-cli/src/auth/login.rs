@@ -11,19 +11,18 @@ use crate::auth::{callback, AccessTokenClaims, Auth};
 
 const TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
-pub struct Login<'a> {
+pub struct CodeLogin<'a> {
     auth: &'a Auth,
-    listener: TcpListener,
     authorization: Authorization,
 }
 
-impl<'a> Login<'a> {
-    pub async fn new(auth: &'a Auth, ports: &[u16]) -> Result<Self> {
-        let (listener, redirect_uri) = callback_listener(ports).await?;
+impl<'a> CodeLogin<'a> {
+    pub fn new(auth: &'a Auth) -> Result<Self> {
         Ok(Self {
             auth,
-            listener,
-            authorization: auth.client.authorize(redirect_uri),
+            authorization: auth
+                .client
+                .authorize(RedirectUrl::new(auth.config.api_url() + "/auth/code")?),
         })
     }
 
@@ -31,22 +30,37 @@ impl<'a> Login<'a> {
         &self.authorization.url
     }
 
-    pub async fn finish(self) -> Result<Option<AccessTokenClaims>> {
+    pub async fn finish(self, code: String) -> Result<AccessTokenClaims> {
+        self.auth.exchange_code(self.authorization, code).await
+    }
+}
+
+pub struct BrowserLogin<'a> {
+    auth: &'a Auth,
+    authorization: Authorization,
+    listener: TcpListener,
+}
+
+impl<'a> BrowserLogin<'a> {
+    pub async fn new(auth: &'a Auth, ports: &[u16]) -> Result<Self> {
+        let (listener, redirect_uri) = callback_listener(ports).await?;
+        Ok(Self {
+            auth,
+            authorization: auth.client.authorize(redirect_uri),
+            listener,
+        })
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.authorization.url
+    }
+
+    pub async fn finish(self) -> Result<AccessTokenClaims> {
         callback::run(
             self.listener,
             self.authorization.state.clone(),
             TIMEOUT,
-            |code| async move {
-                let (session, claims) = self
-                    .auth
-                    .client
-                    .exchange_code(self.authorization, code)
-                    .await?;
-                self.auth.config.session().await?.save(session)?;
-                // Clear cached access tokens
-                self.auth.config.access_tokens().clear()?;
-                Ok(claims)
-            },
+            |code| self.auth.exchange_code(self.authorization, code),
         )
         .await
     }

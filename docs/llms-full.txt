@@ -580,7 +580,7 @@ Then run:
 topk login
 ```
 
-The command waits until the user finishes in the browser, for up to 5 minutes, so run it with a timeout longer than 5 minutes or in the background. On success it prints a line starting with `✓ Logged in` to stderr. If the browser doesn't open, run `topk login --no-browser` and give the user the URL it prints. The browser must be on the same machine as the CLI.
+The command waits until the user finishes in the browser, for up to 5 minutes, so run it with a timeout longer than 5 minutes or in the background. On success it prints a line starting with `✓ Logged in` to stderr. If the browser doesn't open, or it is on another machine, run `topk login --no-browser` and give the user the URL it prints. After they log in, the page shows a code; paste it into the command's prompt to finish.
 
 ##### 3. Select a project
 
@@ -5645,7 +5645,7 @@ topk login
 
 <Note>
 
-If the CLI cannot open your browser automatically, or you prefer to open it manually, use `topk login --no-browser` to print the login URL.
+Over SSH or in a container, use `topk login --no-browser`. Log in from any browser with the URL it prints, then paste the login code into the terminal.
 
 </Note>
 

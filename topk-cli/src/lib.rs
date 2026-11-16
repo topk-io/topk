@@ -9,6 +9,7 @@ pub mod import;
 pub mod management;
 pub mod meta;
 pub mod output;
+pub mod prompt;
 mod storage;
 pub mod util;
 

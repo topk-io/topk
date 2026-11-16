@@ -6,6 +6,8 @@ use std::time::Duration;
 use axum::http::{header, StatusCode};
 use axum::routing::post;
 use axum::Router;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
@@ -18,6 +20,9 @@ use url::Url;
 use topk::auth::{Auth, OAuthConfig};
 use topk::config::Config;
 use topk::host::Host;
+
+/// An unsigned JWT with the claims `{"sub":"user","exp":4102444800}`.
+pub const ACCESS_TOKEN: &str = "e30.eyJzdWIiOiJ1c2VyIiwiZXhwIjo0MTAyNDQ0ODAwfQ.e30";
 
 pub fn host() -> Host {
     Host {
@@ -114,7 +119,7 @@ impl Server {
 }
 
 pub async fn seed(auth: &Auth) {
-    let login = auth.login(&[0]).await.unwrap();
+    let login = auth.browser_login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let mut callback = Url::parse(&params["redirect_uri"]).unwrap();
     callback
@@ -123,16 +128,16 @@ pub async fn seed(auth: &Auth) {
         .append_pair("state", &params["state"]);
     let (result, page) = tokio::join!(login.finish(), reqwest::get(callback));
     result.unwrap();
-    assert!(page
-        .unwrap()
-        .text()
-        .await
-        .unwrap()
-        .contains("You're logged in"));
+    assert!(page.unwrap().text().await.unwrap().contains("Logged in"));
+}
+
+pub fn jwt(sub: &str) -> String {
+    let claims = json!({"sub": sub, "exp": 4102444800u64}).to_string();
+    format!("e30.{}.e30", URL_SAFE_NO_PAD.encode(claims))
 }
 
 pub fn response(expires_in: u64, refresh: Option<&str>) -> Value {
-    json!({"token_type": "Bearer", "access_token": "access", "refresh_token": refresh, "expires_in": expires_in})
+    json!({"token_type": "Bearer", "access_token": ACCESS_TOKEN, "refresh_token": refresh, "expires_in": expires_in})
 }
 
 pub fn tenant_dir(config_dir: &Path, issuer: &Url) -> PathBuf {

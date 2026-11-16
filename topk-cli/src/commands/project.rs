@@ -14,7 +14,8 @@ use crate::management::proto::{
     CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest, Project,
 };
 use crate::output::{json_line, print_list, print_one, Output, Tabular};
-use crate::util::{confirm, select, timestamp};
+use crate::prompt::Prompt;
+use crate::util::timestamp;
 use crate::ProjectId;
 
 #[derive(clap::Args)]
@@ -133,7 +134,7 @@ pub async fn run(
                             .as_ref()
                             .is_some_and(|id| id.as_str() == p.project_id)
                     });
-                    let Some(index) = select("Select project", &projects, selected)? else {
+                    let Some(index) = Prompt::select("Select project", &projects, selected)? else {
                         // Cancelling the picker exits with 130.
                         return Ok(ExitCode::from(130));
                     };
@@ -199,7 +200,7 @@ pub async fn run(
             print_one(out, output, project)?;
         }
         Command::Delete { project_id, yes } => {
-            if confirm(format!("Delete project {project_id:?}?"), *yes)
+            if Prompt::confirm(format!("Delete project {project_id:?}?"), *yes)
                 .context("pass --yes to delete without confirmation")?
             {
                 client
