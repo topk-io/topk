@@ -64,11 +64,15 @@ fn elasticsearch_urls(#[case] input: &str, #[case] expected: &str) {
 #[case::mysql("mysql://u:hunter2@localhost/db#orders")]
 #[case::mongo("mongodb://u:hunter2@localhost/db#orders")]
 #[case::elasticsearch("es+https://u:hunter2@es.example.com/orders")]
+#[case::query_parameter("postgres://u@localhost/db?sslmode=require&password=hunter2#orders")]
 fn printing_hides_the_password(#[case] input: &str) {
     let uri = input.parse::<Uri>().unwrap();
+    assert_eq!(uri.password(), Some("hunter2"));
+    let saved = uri.to_string().parse::<Uri>().unwrap();
+    assert_eq!(saved.password(), Some("***"));
     for printed in [uri.to_string(), format!("{uri:?}")] {
         assert!(
-            printed.contains("u:***@") && !printed.contains("hunter2"),
+            printed.contains("***") && !printed.contains("hunter2"),
             "{printed}"
         );
     }

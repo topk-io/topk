@@ -63,7 +63,7 @@ impl FromStr for File {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<File, Error> {
-        if s == "-" {
+        if matches!(s, "-" | "/dev/stdin" | "/dev/fd/0") {
             return Err(Error::InvalidArgument(
                 "import does not read stdin: save the input to a file with an extension \
                  (e.g. data.jsonl) and import that file"

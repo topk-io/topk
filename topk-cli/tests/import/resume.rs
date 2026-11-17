@@ -77,6 +77,20 @@ fn checkpoint_past_limit() {
 }
 
 #[rstest_ctx(Scratch)]
+async fn lock_needs_a_state_file(ctx: &Scratch) {
+    let directory = ctx.path("state");
+    let run = Run::start(&directory, state()).await.unwrap();
+    let lock = directory.join(format!("{}.lock", run.id));
+    assert!(lock.exists());
+    drop(run);
+    assert!(!lock.exists());
+    assert!(Run::load(&directory, "1234abcd".parse().unwrap())
+        .await
+        .is_err());
+    assert!(!directory.join("1234abcd.lock").exists());
+}
+
+#[rstest_ctx(Scratch)]
 #[case::key(Cursor::Key("42".into()))]
 #[case::sql_key(Cursor::Sql { column: "source_id".into(), value: "42".into() })]
 #[case::mongo_key(Cursor::Mongo(r#"{"$numberInt":"42"}"#.into()))]

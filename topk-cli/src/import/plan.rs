@@ -404,7 +404,7 @@ impl Target {
             .collect();
         if let Some(first) = unnamed.first() {
             return Err(Error::InvalidArgument(format!(
-                "{}: {} {} no name in the header (a blank header cell, a trailing comma, or rows with more fields than the header) — rename with `--rename {first}=<name>` or leave out with `--exclude {}`",
+                "{}: {} {} no name in the header (a blank header cell, a trailing comma, or rows with more fields than the header) — rename with `--rename {first}=<name>`, or drop the values with `--exclude {}`",
                 self.from,
                 unnamed.join(", "),
                 if unnamed.len() == 1 { "has" } else { "have" },

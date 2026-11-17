@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::import::error::Error;
 use crate::import::execution::WriteOptions;
@@ -181,6 +182,7 @@ impl Run {
                 )))
             })?
             .ok_or_else(|| {
+                let _ = std::fs::remove_file(path.with_extension("lock"));
                 Error::InvalidArgument(format!("no run {id} to resume ({})", path.display()))
             })?;
         state.validate()?;
@@ -211,13 +213,25 @@ impl Run {
     }
 
     pub fn remove(&self) -> Result<(), Error> {
-        for path in [self.path.clone(), self.path.with_extension("lock")] {
-            match std::fs::remove_file(path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == ErrorKind::NotFound => {}
-                Err(e) => return Err(e.into()),
-            }
+        match std::fs::remove_file(&self.path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
         }
-        Ok(())
+    }
+}
+
+impl Drop for Run {
+    /// A lock is kept only next to a state file, for the resume that will take it.
+    fn drop(&mut self) {
+        if self.path.exists() {
+            return;
+        }
+        match std::fs::remove_file(self.path.with_extension("lock")) {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                warn!(%error, "cannot remove run lock")
+            }
+            _ => {}
+        }
     }
 }

@@ -83,13 +83,15 @@ impl PlanArgs {
             .to
             .clone()
             .ok_or_else(|| Error::InvalidArgument("--to <collection> is required".into()))?;
-        let mut target = Target::new(
-            source
-                .discover()
-                .await
-                .context(format!("source {}", source.locator()))?,
-            self.id.as_deref(),
-        )?;
+        let table = source.discover().await.map_err(|error| {
+            match error.to_string().contains(source.locator()) {
+                true => error,
+                false => anyhow::Error::new(error)
+                    .context(format!("source {}", source.locator()))
+                    .into(),
+            }
+        })?;
+        let mut target = Target::new(table, self.id.as_deref())?;
         target.filter = self.filter.clone();
         target.limit = self.limit;
         target.partition = self.partition.clone();
@@ -147,7 +149,7 @@ impl WriteArgs {
 #[derive(Args, Debug)]
 #[command(
     override_usage = "topk import [OPTIONS] --to <COLLECTION> <SOURCE>\n       topk import --resume <RUN>",
-    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]\n\nGlobs: * matches files in one folder, ** also matches subfolders ('./data/**/*.csv')\n\nExamples:\n  topk import ./books.parquet --to books --dry-run\n  topk import './data/*.csv' --to books --id isbn -y\n  topk import books.jsonl --to books -f title=keyword,body=semantic\n  topk import postgres://user:pw@host/db#orders --to orders\n  topk import mongodb://host/shop#products --to products\n  topk import sqlite:./shop.db#orders --to orders\n  topk import es://localhost:9200/articles --to articles\n  topk import topk://books --to books_v2"
+    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]\n  A list of floats imports as float_list; choose vector to store and index an embedding\n\nGlobs: * matches files in one folder, ** also matches subfolders ('./data/**/*.csv')\n\nExamples:\n  topk import ./books.parquet --to books --dry-run\n  topk import './data/*.csv' --to books --id isbn -y\n  topk import books.jsonl --to books -f title=keyword,body=semantic\n  topk import docs.parquet --to docs -f embedding=vector:cosine\n  topk import postgres://user:pw@host/db#orders --to orders\n  topk import mongodb://host/shop#products --to products\n  topk import sqlite:./shop.db#orders --to orders\n  topk import es://localhost:9200/articles --to articles\n  topk import topk://books --to books_v2"
 )]
 pub struct ImportArgs {
     #[arg(
@@ -277,8 +279,8 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         return Ok(ExitCode::SUCCESS);
     }
     import.run().save()?;
-    let resume_hint = format!(
-        "Continue with: topk import {}--resume {}",
+    let resume = format!(
+        "topk import {}--resume {}",
         if args.source.as_ref().and_then(Uri::password).is_some() {
             "SOURCE "
         } else {
@@ -300,7 +302,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
                 continue;
             }
             _ = &mut interrupt => {
-                ui.message(format_args!("stopped; rows written so far stay. {resume_hint}"))?;
+                ui.message(format_args!("stopped; rows written so far stay. Continue with: {resume}"))?;
                 return Err(Interrupted.into());
             }
         };
@@ -308,10 +310,16 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             Ok(Some(event)) => ui.event(event)?,
             Ok(None) => break,
             Err(error) => {
-                if matches!(error, Error::Topk(SdkError::DocumentValidationError(_))) {
-                    let _ = ui.message("Use --continue-on-error to skip rejected documents.");
-                }
-                let _ = ui.message(&resume_hint);
+                let _ = match error {
+                    Error::Doc { .. }
+                    | Error::Oversized { .. }
+                    | Error::Topk(SdkError::DocumentValidationError(_)) => {
+                        ui.message(format_args!(
+                            "Skip rows that fail and continue with: {resume} --continue-on-error"
+                        ))
+                    }
+                    _ => ui.message(format_args!("Continue with: {resume}")),
+                };
                 return Err(error.into());
             }
         }

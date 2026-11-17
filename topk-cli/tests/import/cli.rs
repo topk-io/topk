@@ -568,6 +568,7 @@ async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
 #[case::empty_vector_metric(&["x.parquet", "-f", "value=vector:2:"], "invalid field choice", 2)]
 #[case::no_spec(&["x.parquet", "--spec", "a.toml"], "unexpected argument '--spec'", 2)]
 #[case::stdin_source(&["-", "--to", "c", "--id", "id", "--dry-run"], "import does not read stdin", 2)]
+#[case::stdin_device(&["/dev/stdin", "--to", "c", "--dry-run"], "import does not read stdin", 2)]
 #[case::missing_destination(&["x.parquet", "--dry-run"], "--to <COLLECTION>", 2)]
 #[case::invalid_destination(&["x.parquet", "--to", "a/b"], "collection names start with a letter or digit", 2)]
 #[case::object_argument(&["postgres://host/db#orders", "orders", "--to", "orders"], "put the table, collection or index in its URI", 2)]
@@ -707,12 +708,7 @@ async fn yes_required_without_tty(ctx: &Ctx) {
         .args(["-o", "json", "import", &from, "--to", &collection])
         .failure(1);
     assert!(run.stderr.contains("pass --yes"), "{run:?}");
-    let files: Vec<_> = std::fs::read_dir(&state)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect();
-    assert_eq!(files.len(), 1);
-    assert_eq!(files[0].extension().unwrap(), "lock");
+    assert_eq!(std::fs::read_dir(&state).unwrap().count(), 0);
     assert!(!ctx.exists(&collection).await);
 }
 
@@ -849,6 +845,12 @@ async fn skipped_rows_are_reported(ctx: &Ctx, #[case] format: &str) {
         }
         _ => unreachable!(),
     }
+    assert!(
+        output
+            .stderr
+            .contains("more rows skipped; every skipped row is listed in "),
+        "{output:?}"
+    );
     let report = output
         .stderr
         .lines()
@@ -936,12 +938,24 @@ async fn failure_prints_resume_command(ctx: &Ctx) {
         ])
         .failure(1);
     assert!(
-        output
-            .stderr
-            .contains(&format!("topk import --resume {}", output.id())),
+        output.stderr.contains(&format!(
+            "topk import --resume {} --continue-on-error",
+            output.id()
+        )),
         "{output:?}"
     );
     assert!(ctx.cli.state_path(output.id()).exists());
+    let resumed = ctx
+        .cli
+        .command()
+        .args(["import", "--resume", &output.id().to_string()])
+        .args(["--continue-on-error"])
+        .success();
+    assert!(
+        resumed.stderr.contains("0 rows written, 1 failed")
+            && resumed.stderr.contains("1 skipped rows are listed in "),
+        "{resumed:?}"
+    );
 }
 
 #[rstest_ctx(Ctx)]
@@ -1579,7 +1593,7 @@ async fn missing_file_is_readable(ctx: &Ctx) {
     assert!(
         output
             .stderr
-            .contains(&format!("error: source {path}: file not found: {path}")),
+            .contains(&format!("error: file not found: {path}\n")),
         "{}",
         output.stderr
     );
@@ -1631,6 +1645,7 @@ fn import_help_shows_examples(ctx: &Scratch) {
     assert!(help.contains("Examples:"), "{help}");
     assert!(help.contains("postgres://user:pw@host/db#orders"), "{help}");
     assert!(help.contains("es://localhost:9200/articles"), "{help}");
+    assert!(help.contains("-f embedding=vector:cosine"), "{help}");
 }
 
 #[test]

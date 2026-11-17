@@ -202,11 +202,15 @@ async fn read_errors_name_the_source(ctx: &Scratch) {
 
     let connected = source(&missing).await.unwrap();
     let message = refused(connected.discover().await);
-    assert!(
-        message.contains("reading") && message.contains("missing-*.parquet"),
+    assert_eq!(
+        message.matches("missing-*.parquet").count(),
+        1,
         "got: {message}"
     );
-    assert!(message.contains("No files found"), "got: {message}");
+    assert!(
+        message.contains("No files found") && !message.contains("LINE "),
+        "got: {message}"
+    );
 }
 
 #[rstest_ctx(Scratch)]

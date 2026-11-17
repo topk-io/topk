@@ -3,6 +3,8 @@ mod creds;
 mod read;
 mod select;
 
+use std::path::Path;
+
 use duckdb::Connection;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
@@ -184,6 +186,8 @@ impl Duckdb {
             };
             if let Some(file) = file { file.validate()?; }
             let conn = source.connect(file)?;
+            // A glob's schema is the union of its files' schemas, read one file per thread; order does not matter here.
+            if file.is_some() { conn.execute_batch("SET threads = 16;")?; }
             let (from, select, key) = match &source {
                 Duckdb::Files(file) => (SourceLocation::from(file), Select::file(file), None),
                 Duckdb::Postgres { object, .. } | Duckdb::Mysql { object, .. } | Duckdb::Sqlite { object, .. } => {
@@ -201,7 +205,18 @@ impl Duckdb {
                         .collect::<Result<Vec<_>, _>>()?;
                     let (schema, table) = match names.as_slice() {
                         [(schema, table)] => (schema, table),
-                        [] => return Err(Error::InvalidArgument(format!("source object {object:?} was not found"))),
+                        [] => {
+                            let mut stmt = conn.prepare(&format!(
+                                "SELECT schema_name || '.' || table_name FROM duckdb_tables() \
+                                 WHERE database_name = 'src' AND schema_name NOT IN ({hidden}) ORDER BY 1 LIMIT 21"
+                            ))?;
+                            let mut tables = stmt.query_map([], |row| row.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+                            if tables.len() > 20 { tables[20] = "…".into(); }
+                            return Err(Error::InvalidArgument(match tables.is_empty() {
+                                true => format!("source object {object:?} was not found: the database has no tables"),
+                                false => format!("source object {object:?} was not found — available: {}", tables.join(", ")),
+                            }));
+                        }
                         _ => return Err(Error::InvalidArgument(format!("source object {object:?} is ambiguous; qualify it with its schema"))),
                     };
                     if schema.contains('.') || table.contains('.') {
@@ -290,9 +305,22 @@ pub(super) fn extension_error(ext: &str, e: duckdb::Error) -> Error {
     ))
 }
 
+/// duckdb's message without the query it failed in, naming the source once.
 pub(super) fn read_error(from: &SourceLocation, filter: Option<&str>, e: duckdb::Error) -> Error {
-    Error::InvalidArgument(match filter {
-        Some(filter) => format!("reading {}: {e} (filter: {filter:?})", from),
-        None => format!("reading {}: {e}", from),
-    })
+    let e = e.to_string();
+    let mut message = e.split("\n\nLINE ").next().unwrap_or(&e).trim().to_string();
+    if !message.contains(&*from.value()) {
+        message = format!("reading {from}: {message}");
+    }
+    if let Some(filter) = filter {
+        message.push_str(&format!(" (filter: {filter:?})"));
+    }
+    // A private or gated dataset answers 401 or 404 without a token.
+    if from.value().starts_with("hf://")
+        && std::env::var_os("HF_TOKEN").is_none()
+        && !Path::new(&*shellexpand::tilde("~/.cache/huggingface/token")).exists()
+    {
+        message.push_str("; a private or gated dataset needs HF_TOKEN or `hf auth login`");
+    }
+    Error::InvalidArgument(message)
 }

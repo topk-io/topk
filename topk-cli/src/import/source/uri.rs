@@ -88,7 +88,7 @@ impl Uri {
             Uri::Postgres { url, .. }
             | Uri::Mysql { url, .. }
             | Uri::Elasticsearch { url, .. }
-            | Uri::Mongo { url, .. } => url.0.password(),
+            | Uri::Mongo { url, .. } => url.password(),
             _ => None,
         }
     }
@@ -307,17 +307,43 @@ impl fmt::Display for Uri {
     }
 }
 
-/// A source url whose password prints as `***`.
+/// A source url whose password prints as `***`, in the userinfo or as a
+/// `password` / `sslpassword` query parameter.
 #[derive(Clone)]
 pub struct SourceUrl(pub Url);
 
+impl SourceUrl {
+    pub fn password(&self) -> Option<&str> {
+        self.0.password().or_else(|| {
+            self.0
+                .query()?
+                .split('&')
+                .filter_map(|pair| pair.split_once('='))
+                .find(|(key, _)| secret(key))
+                .map(|(_, value)| value)
+        })
+    }
+}
+
 impl fmt::Display for SourceUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.password().is_none() {
+        if self.password().is_none() {
             return write!(f, "{}", self.0);
         }
         let mut url = self.0.clone();
-        let _ = url.set_password(Some("***"));
+        if url.password().is_some() {
+            let _ = url.set_password(Some("***"));
+        }
+        if let Some(query) = self.0.query() {
+            let query: Vec<_> = query
+                .split('&')
+                .map(|pair| match pair.split_once('=') {
+                    Some((key, _)) if secret(key) => format!("{key}=***"),
+                    _ => pair.to_string(),
+                })
+                .collect();
+            url.set_query(Some(&query.join("&")));
+        }
         write!(f, "{url}")
     }
 }
@@ -332,7 +358,15 @@ fn url(s: &str) -> Result<Url, Error> {
     Url::parse(s).map_err(|error| {
         Error::Setup(anyhow::Error::new(error).context(format!(
             "bad source uri {:?}",
-            if s.contains('@') { "<redacted>" } else { s }
+            if s.contains('@') || s.to_ascii_lowercase().contains("password=") {
+                "<redacted>"
+            } else {
+                s
+            }
         )))
     })
+}
+
+fn secret(key: &str) -> bool {
+    key.eq_ignore_ascii_case("password") || key.eq_ignore_ascii_case("sslpassword")
 }

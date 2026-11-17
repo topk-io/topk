@@ -152,6 +152,11 @@ fn fields_share_columns_and_the_id() {
     Value::r#struct([("bytes", Value::bytes(PNG.to_vec())), ("path", Value::string("p.png"))]),
     Value::png(PNG)
 )]
+#[case::timestamp_from_sql_text(
+    FieldSpec::timestamp(false),
+    Value::string("2024-02-29 12:34:56.000000+00"),
+    Value::i64(1_709_210_096_000)
+)]
 fn coerces(#[case] schema: FieldSpec, #[case] input: Value, #[case] expected: Value) {
     assert_eq!(Field::new(schema).coerce(input).expect("coerces"), expected);
 }

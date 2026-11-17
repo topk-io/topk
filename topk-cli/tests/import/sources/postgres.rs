@@ -42,7 +42,7 @@ async fn catalog_metadata(ctx: &Scratch) {
     let ambiguous = pg::source(&base).await.unwrap();
     assert!(refused(ambiguous.discover().await).contains("ambiguous; qualify"));
     let missing = pg::source(&format!("{base}_missing")).await.unwrap();
-    assert!(refused(missing.discover().await).contains("was not found"));
+    assert!(refused(missing.discover().await).contains("was not found — available: "));
     for (schema, name, key, columns) in [
         ("public", keyed.as_str(), Some("sku"), vec!["sku", "title"]),
         ("public", unique.as_str(), Some("sku"), vec!["sku", "title"]),

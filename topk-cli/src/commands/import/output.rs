@@ -164,7 +164,14 @@ impl ImportOutput {
                         "skipped {}{error}",
                         row.map(|row| format!("row {row}: ")).unwrap_or_default()
                     ))?,
-                    4 => self.message("skipping more failing rows; the summary lists where")?,
+                    4 => {
+                        if let Some((path, ..)) = &self.rejected {
+                            self.message(format_args!(
+                                "more rows skipped; every skipped row is listed in {}",
+                                path.display()
+                            ))?;
+                        }
+                    }
                     _ => {}
                 }
                 if let Some((path, listed, file)) = &mut self.rejected {
