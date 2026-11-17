@@ -1380,3 +1380,19 @@ fn count_rejects_ignored_modifiers(#[case] sql: &str, #[case] expected: &str) {
     let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
     assert_eq!(err.to_string(), expected);
 }
+
+#[rstest]
+#[case::aliases("SELECT title AS x, summary AS x FROM books", "x")]
+#[case::alias_and_column("SELECT title, summary AS title FROM books", "title")]
+#[case::repeated_column("SELECT title, title FROM books", "title")]
+#[case::group_by(
+    "SELECT published_year AS n, COUNT(*) AS n FROM books GROUP BY published_year",
+    "n"
+)]
+fn select_rejects_duplicate_output_names(#[case] sql: &str, #[case] name: &str) {
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        format!("Unsupported: Duplicate column name '{name}'")
+    );
+}
