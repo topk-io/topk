@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use oauth2::RedirectUrl;
 use tokio::net::TcpListener;
+use tracing::debug;
 use url::Url;
 
 use crate::auth::oauth::Authorization;
@@ -74,6 +75,7 @@ async fn callback_listener(ports: &[u16]) -> Result<(TcpListener, RedirectUrl)> 
     let listener = TcpListener::bind(addresses.as_slice())
         .await
         .context("listening for the login callback")?;
+    debug!(address = %listener.local_addr()?, "login callback listening");
     let redirect_uri = RedirectUrl::new(format!("http://{}/callback", listener.local_addr()?))?;
     Ok((listener, redirect_uri))
 }

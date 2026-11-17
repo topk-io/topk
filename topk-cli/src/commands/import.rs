@@ -4,6 +4,7 @@ use std::process::ExitCode;
 
 use anyhow::Context;
 use clap::Args;
+use tracing::{info, warn};
 
 use crate::client::ManagementClient;
 use crate::config::Config;
@@ -169,7 +170,7 @@ pub struct ImportArgs {
 }
 
 pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::Result<ExitCode> {
-    tracing::info!(?args, "import");
+    info!(?args, "import");
     let mut ui = ImportOutput::new(output);
     let directory = match std::env::var_os("TOPK_IMPORT_STATE_DIR") {
         Some(path) => PathBuf::from(path),
@@ -184,7 +185,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
                 run.state().plan.collections.len()
             ))?;
             if let Err(error) = run.remove() {
-                tracing::warn!(%error, "cannot remove run state");
+                warn!(%error, "cannot remove run state");
             }
             return ui.finish();
         }

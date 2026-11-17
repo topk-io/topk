@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use duckdb::Connection;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
+use tracing::{debug, warn};
 
 use crate::import::error::Error;
 use crate::import::plan::Target;
@@ -103,11 +104,13 @@ impl Duckdb {
                 .to_string())
         ))?;
         let install = |ext: &str| {
+            debug!(extension = ext, "loading DuckDB extension");
             conn.execute_batch(&format!("INSTALL {ext}; LOAD {ext};"))
                 .map_err(|e| extension_error(ext, e))
         };
         // Community extensions live in a separate repo; a duckdb bump can 404 one.
         let install_community = |ext: &str| {
+            debug!(extension = ext, "loading DuckDB community extension");
             conn.execute_batch(&format!("INSTALL {ext} FROM community; LOAD {ext};"))
                 .map_err(|e| extension_error(ext, e))
         };
@@ -290,7 +293,7 @@ impl Duckdb {
                     .map(|column| {
                         let field = arrow::ty(column.data_type());
                         if field.is_none() {
-                            tracing::warn!(
+                            warn!(
                                 "{from}: skipping column {:?}: {} has no equivalent in TopK",
                                 column.name(),
                                 column.data_type()

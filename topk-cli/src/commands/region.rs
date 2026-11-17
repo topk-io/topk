@@ -6,19 +6,20 @@ use clap::Subcommand;
 use colored::Colorize;
 use serde::Serialize;
 use serde_json::json;
+use tracing::info;
 
 use crate::client::ManagementClient;
 use crate::config::Config;
 use crate::output::{json_line, print_list, Output, Tabular};
 use crate::scope::pick_region;
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Debug)]
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Show the selected region
     Current,
@@ -52,6 +53,7 @@ pub async fn run(
     output: Output,
     out: &mut impl Write,
 ) -> Result<ExitCode> {
+    info!(?args, "region");
     let client = ManagementClient::new(config.clone())?;
     match &args.command {
         Command::Current => {

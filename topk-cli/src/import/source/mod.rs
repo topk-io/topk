@@ -13,6 +13,7 @@ use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::Value;
+use tracing::{debug, info};
 
 use crate::import::error::Error;
 use crate::import::plan::Target;
@@ -120,14 +121,17 @@ impl Source {
     pub async fn catalog(&self) -> Result<&Catalog, Error> {
         self.catalog
             .get_or_try_init(|| async {
-                match &self.backend {
+                info!("discovering source");
+                let catalog = match &self.backend {
                     Backend::Es(es) => es.catalog().await,
                     Backend::Duck(duck) => duck.catalog().await,
                     Backend::Mongo(mongo) => Ok(Catalog {
                         tables: mongo.catalog().await?,
                     }),
                     Backend::Topk(topk) => topk.catalog().await,
-                }
+                }?;
+                info!(objects = catalog.tables.len(), "source discovered");
+                Ok(catalog)
             })
             .await
     }
@@ -149,6 +153,12 @@ impl Source {
         target: &Target,
         after: Option<&Checkpoint>,
     ) -> Result<ReadStream, Error> {
+        debug!(
+            columns = target.fields.len(),
+            limit = target.limit,
+            resumed = after.is_some(),
+            "opening source scan"
+        );
         let consumed = after.map_or(0, |checkpoint| checkpoint.consumed);
         let mut remaining = target.clone();
         remaining.limit = target.limit.map(|limit| limit.saturating_sub(consumed));

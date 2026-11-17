@@ -2,7 +2,7 @@ use anyhow::Result;
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgQueryResult, PgRow, PgSslMode};
-use sqlx::{Connection, Either};
+use sqlx::{ConnectOptions, Connection, Either};
 use tracing::info;
 
 use crate::client::{AccessTokenProvider, ManagementClient};
@@ -32,6 +32,7 @@ impl SqlClient {
         .await?
         .token;
         let options = PgConnectOptions::new_without_pgpass()
+            .disable_statement_logging()
             .host(&host)
             .port(port)
             .username(USER)

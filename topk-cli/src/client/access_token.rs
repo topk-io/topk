@@ -5,7 +5,7 @@ use http::Request;
 use serde::{Deserialize, Serialize};
 use tonic::body::Body;
 use tonic::Code;
-use tracing::info;
+use tracing::debug;
 
 use topk_rs::client::AsyncInterceptor;
 
@@ -50,7 +50,7 @@ impl AccessTokenProvider {
     }
 
     async fn mint(&self) -> Result<AccessToken> {
-        info!(project_id = %self.project_id, "minting data access token");
+        debug!(project_id = %self.project_id, "minting data access token");
         self.mgmt
             .tokens()
             .mint(&self.project_id)
