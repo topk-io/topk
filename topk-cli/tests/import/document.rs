@@ -465,3 +465,14 @@ fn unplanned_key_collision_is_a_row_error() {
     let error = target.document(record).unwrap_err().to_string();
     assert!(error.contains("--exclude _lang"), "{error}");
 }
+
+#[test]
+fn coercion_error_names_the_value() {
+    let target = row([("price", Field::new(FieldSpec::float(false)))]);
+    let record = vec![
+        ("_id".to_string(), Value::string("3")),
+        ("price".to_string(), Value::string("abc")),
+    ];
+    let error = target.document(record).unwrap_err().to_string();
+    assert!(error.contains("cannot coerce \"abc\" to float"), "{error}");
+}

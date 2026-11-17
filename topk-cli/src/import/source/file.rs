@@ -94,25 +94,45 @@ impl FromStr for File {
                 let dir = s.trim_end_matches('/');
                 let hint = match store {
                     Some(ObjectStore::Http) => {
-                        ". For Elasticsearch, use elasticsearch://host or elasticsearch+https://host".into()
+                        let es = s
+                            .trim_end_matches('/')
+                            .replacen("https://", "es+https://", 1)
+                            .replacen("http://", "es://", 1);
+                        match es.matches('/').count() {
+                            2 => format!(". For an Elasticsearch index, use {es}/<index>"),
+                            _ => format!(". For an Elasticsearch index, use {es}"),
+                        }
                     }
                     // A dataset repo is a tree of files, not a file; name one.
                     Some(ObjectStore::HuggingFace) => {
                         ". A hugging face dataset holds <config>/<split>-*.parquet files, \
                          or read hugging face's converted copy at \
-                         hf://datasets/<org>/<name>@~parquet/<config>/<split>/*.parquet".into()
+                         hf://datasets/<org>/<name>@~parquet/<config>/<split>/*.parquet"
+                            .into()
                     }
                     _ if matches!(other, Some("db" | "sqlite" | "sqlite3")) => {
-                        ". For SQLite, use sqlite:<path>#table".into()
+                        format!(". For SQLite, use sqlite:{s}#<table>")
                     }
-                    Some(ObjectStore::S3 | ObjectStore::Gcs | ObjectStore::Azure) if other.is_none() => {
-                        format!(". A source is one file or one glob: for every parquet file under this prefix, use '{dir}/*.parquet'")
+                    Some(ObjectStore::S3 | ObjectStore::Gcs | ObjectStore::Azure)
+                        if other.is_none() =>
+                    {
+                        format!(". A source is one file or one glob: for the parquet files in this folder, use '{dir}/*.parquet', or '{dir}/**/*.parquet' to include subfolders")
                     }
                     None if Path::new(&*shellexpand::tilde(s)).is_dir() => {
                         let mut found = Vec::new();
                         for entry in std::fs::read_dir(&*shellexpand::tilde(s))? {
                             if let Some(ext) = extension(&entry?.path()) {
-                                if matches!(ext.as_str(), "csv" | "tsv" | "json" | "jsonl" | "ndjson" | "parquet" | "arrow" | "avro") {
+                                if matches!(
+                                    ext.as_str(),
+                                    "csv"
+                                        | "tsv"
+                                        | "json"
+                                        | "jsonl"
+                                        | "ndjson"
+                                        | "parquet"
+                                        | "arrow"
+                                        | "avro"
+                                ) {
                                     found.push(ext);
                                 }
                             }
@@ -121,14 +141,17 @@ impl FromStr for File {
                         found.dedup();
                         let globs = match found.as_slice() {
                             [] => format!("'{dir}/**/*.parquet'"),
-                            found => found.iter().map(|ext| format!("'{dir}/*.{ext}'")).collect::<Vec<_>>().join(" or "),
+                            found => found
+                                .iter()
+                                .map(|ext| format!("'{dir}/*.{ext}'"))
+                                .collect::<Vec<_>>()
+                                .join(" or "),
                         };
                         format!(". A source is one file or one glob: for the files in this folder, use {globs}")
                     }
-                    _ if s.contains("://") => {
-                        ". To read from a database, pass it as the source, \
-                         e.g. `topk import postgres://host/db#books --to books`".into()
-                    }
+                    _ if s.contains("://") => ". To read from a database, pass it as the source, \
+                         e.g. `topk import postgres://host/db#books --to books`"
+                        .into(),
                     _ => String::new(),
                 };
                 return Err(Error::InvalidArgument(format!(

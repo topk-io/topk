@@ -43,7 +43,7 @@ async fn skips_oversized_document(ctx: &Ctx) {
             "-o",
             "json",
         ])
-        .failure(3);
+        .success();
     let outcome = done.summary();
     assert_eq!((outcome.rows, outcome.failed), (2, 1));
     assert_eq!(
@@ -571,7 +571,7 @@ async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
 #[case::missing_destination(&["x.parquet", "--dry-run"], "--to <COLLECTION>", 2)]
 #[case::invalid_destination(&["x.parquet", "--to", "a/b"], "collection names start with a letter or digit", 2)]
 #[case::object_argument(&["postgres://host/db#orders", "orders", "--to", "orders"], "put the table, collection or index in its URI", 2)]
-#[case::old_syntax(&["postgres://host/db", "orders", "--to", "orders"], "requires #object", 2)]
+#[case::old_syntax(&["postgres://host/db", "orders", "--to", "orders"], "postgres source requires #<table>", 2)]
 #[case::bare_field(&["x.parquet", "--to", "c", "-f", "title"], "-f takes <field>=<type or index>", 2)]
 #[case::bucket_prefix(&["s3://bucket/events/", "--to", "c"], "use 's3://bucket/events/*.parquet'", 2)]
 fn rejected_arguments(
@@ -593,7 +593,7 @@ fn rejected_arguments(
 async fn resume_rejects_state_without_project(ctx: &Scratch) {
     ctx.file(
         "state/1234abcd.toml",
-        "source = \"\"\nregion = \"dev\"\n[plan]\ncollection = \"c\"\n[plan.target]\nfrom = { local = \"a.parquet\" }\nid = \"_id\"\nexclude = []\n[plan.target.fields]\n",
+        "source = \"\"\nregion = \"dev\"\n[plan]\ncollection = \"c\"\n[plan.target]\nfrom = { local = \"a.parquet\" }\nid = \"_id\"\nexclude = []\n[plan.target.fields]\n[write]\ncontinue_on_error = false\nconcurrency = 16\nbatch_bytes = 1048576\n",
     );
     let run = ctx
         .command()
@@ -797,7 +797,7 @@ async fn reimport_replaces_fields(ctx: &Ctx) {
 #[rstest_ctx(Ctx)]
 #[case::text("text")]
 #[case::json("json")]
-async fn skipped_rows_report_failure(ctx: &Ctx, #[case] format: &str) {
+async fn skipped_rows_are_reported(ctx: &Ctx, #[case] format: &str) {
     let from = ctx.cli.file(
         "bad-row.csv",
         "id,n\n1,5\n2,no\n3,7\n4,no\n5,no\n6,no\n7,no",
@@ -818,7 +818,7 @@ async fn skipped_rows_report_failure(ctx: &Ctx, #[case] format: &str) {
             "-o",
             format,
         ])
-        .failure(3);
+        .success();
     assert!(
         output
             .stderr
@@ -968,7 +968,7 @@ async fn resume_from_another_directory(ctx: &Ctx) {
             stopped.id(),
             "--continue-on-error",
         ])
-        .failure(3);
+        .success();
     assert!(stopped.stderr.contains("← visits.csv"), "{stopped:?}");
     assert!(resumed.stderr.contains("← data/visits.csv"), "{resumed:?}");
     assert_eq!(resumed.summary().failed, 1, "{resumed:?}");
@@ -1355,7 +1355,7 @@ async fn copy_skips_rows_without_required_field(ctx: &Ctx) {
         .command()
         .args(["-o", "json", "import", &format!("topk://{source}")])
         .args(["--to", &dest, "--continue-on-error", "--yes"])
-        .failure(3);
+        .success();
     assert_eq!((done.summary().rows, done.summary().failed), (1, 1));
     assert_eq!(
         ctx.docs(&dest, ["one", "two"]).await,
@@ -1521,11 +1521,11 @@ async fn partition_failure_resumes_saved_prefix(
             "-o",
             "json",
         ])
-        .failure(3);
+        .success();
     let summary = resumed.summary();
     assert_eq!(
-        (summary.rows, summary.failed),
-        ((consumed - 12) as usize, 1)
+        (summary.rows, summary.failed, summary.resumed_after),
+        ((consumed - 12) as usize, 1, 11)
     );
     for partition in 0..2 {
         let ids: Vec<_> = (0..consumed)
@@ -1623,6 +1623,14 @@ async fn dry_run_uses_destination(ctx: &Ctx, #[case] field: &[&str]) {
     assert!(
         topk::import::plan::Field::new(resolved.clone()).matches(&destination.schema["embedding"])
     );
+}
+
+#[rstest_ctx(Scratch)]
+fn import_help_shows_examples(ctx: &Scratch) {
+    let help = ctx.command().args(["import", "--help"]).success().stdout;
+    assert!(help.contains("Examples:"), "{help}");
+    assert!(help.contains("postgres://user:pw@host/db#orders"), "{help}");
+    assert!(help.contains("es://localhost:9200/articles"), "{help}");
 }
 
 #[test]

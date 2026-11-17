@@ -7,7 +7,7 @@ pub const MAX_IMAGE_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
-    #[error("{}: couldn't detect an id column — available: {} — pass --id <column>", .from, .columns.join(", "))]
+    #[error("{}: couldn't detect an id column — available: {} — pass --id {}", .from, .columns.join(", "), id_hint(.columns))]
     MissingId {
         from: SourceLocation,
         columns: Vec<String>,
@@ -68,4 +68,15 @@ pub enum Error {
          collection, or change -f, --exclude or --rename:\n  {0}"
     )]
     SchemaMismatch(String),
+}
+
+/// The only column ending in `_id`, else a placeholder.
+fn id_hint(columns: &[String]) -> &str {
+    let mut ids = columns
+        .iter()
+        .filter(|column| column.to_ascii_lowercase().ends_with("_id"));
+    match (ids.next(), ids.next()) {
+        (Some(column), None) => column,
+        _ => "<column>",
+    }
 }

@@ -81,9 +81,16 @@ impl Target {
                 None if field.schema.required => return Err(missing()),
                 None => continue,
             };
-            let value = field
-                .coerce(value.clone())
-                .map_err(|e| fail(Some(&id), Some(name), e))?;
+            let value = field.coerce(value.clone()).map_err(|e| {
+                let e = match (e, text(value.clone())) {
+                    (Error::CannotCoerce(to), Ok(shown)) => Error::InvalidArgument(format!(
+                        "cannot coerce {:?} to {to}",
+                        shown.chars().take(40).collect::<String>()
+                    )),
+                    (e, _) => e,
+                };
+                fail(Some(&id), Some(name), e)
+            })?;
             if field.schema.required && value.as_null().is_some() {
                 return Err(missing());
             }

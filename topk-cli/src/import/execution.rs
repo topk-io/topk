@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -27,6 +27,8 @@ pub struct Outcome {
     pub elapsed: Duration,
     #[serde(skip)]
     pub bytes: u64,
+    /// Source rows consumed before this invocation, by the run it resumed.
+    pub resumed_after: u64,
 }
 
 pub enum Event {
@@ -44,11 +46,12 @@ pub enum Event {
     },
 }
 
-#[derive(Debug)]
+/// Saved with the run, so a resume writes the way the run started.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct WriteOptions {
     pub continue_on_error: bool,
     pub concurrency: usize,
-    pub batch_bytes: bytesize::ByteSize,
+    pub batch_bytes: u64,
 }
 
 pub struct Import {
@@ -130,8 +133,9 @@ impl Import {
         }
     }
 
-    pub fn execute(self, options: WriteOptions) -> impl Stream<Item = Result<Event, Error>> {
+    pub fn execute(self) -> impl Stream<Item = Result<Event, Error>> {
         async_stream::try_stream! {
+            let options = self.run.state().write.clone();
             let name = self.run.state().plan.collection.clone();
             let target = self.run.state().plan.target.clone();
             let client = &self.client;
@@ -202,7 +206,7 @@ impl Import {
                 Self::create(client, &name, &target).await?;
             }
             state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::Done)?;
-            yield Event::Completed { outcome: Outcome { rows: written, failed, bytes, elapsed: started.elapsed() } };
+            yield Event::Completed { outcome: Outcome { rows: written, failed, bytes, resumed_after: consumed, elapsed: started.elapsed() } };
             let removed = state.lock().unwrap_or_else(|e| e.into_inner()).remove();
             if let Err(error) = removed { warn!(%error, "cannot remove run state"); }
         }
@@ -216,11 +220,13 @@ impl Import {
         options: &WriteOptions,
         mut consumed: u64,
     ) -> impl Stream<Item = Result<Feed, Error>> {
-        let batch_bytes = options.batch_bytes.as_u64();
+        let batch_bytes = options.batch_bytes;
         let window = batch_bytes.saturating_mul(options.concurrency as u64);
         let continue_on_error = options.continue_on_error;
         async_stream::try_stream! {
             let mut batches = IndexMap::<Option<String>, Batch>::new();
+            // Open batches, oldest first; an entry outlives a batch that went when full.
+            let mut opened = VecDeque::<(u64, Option<String>)>::new();
             let mut batched = 0;
             let mut chunk = 0;
             while let Some(event) = chunks.try_next().await? {
@@ -242,7 +248,14 @@ impl Import {
                     match row.and_then(|record| target.document(record)) {
                         Ok((partition, doc)) => {
                             let size = doc.encoded_len() as u64;
-                            let batch = batches.entry(partition).or_insert_with(|| Batch { opened: batched, ..Default::default() });
+                            let slot = match batches.get_index_of(&partition) {
+                                Some(slot) => slot,
+                                None => {
+                                    opened.push_back((batched, partition.clone()));
+                                    batches.insert_full(partition, Batch { opened: batched, ..Default::default() }).0
+                                }
+                            };
+                            let batch = &mut batches[slot];
                             batch.bytes += size;
                             batch.docs.push(doc);
                             match batch.chunks.last_mut() {
@@ -250,15 +263,24 @@ impl Import {
                                 _ => batch.chunks.push((chunk, 1)),
                             }
                             batched += size;
+                            if batch.bytes >= batch_bytes {
+                                if let Some((partition, batch)) = batches.swap_remove_index(slot) {
+                                    yield Feed::Batch { partition, batch };
+                                }
+                            }
                         }
                         Err(error) if continue_on_error => {
                             yield Feed::Skipped { chunk, row: first + index as u64 + 1, error };
                         }
                         Err(error) => Err(error)?,
                     }
-                    while let Some(index) = batches.values().position(|batch| batch.bytes >= batch_bytes || batched - batch.opened >= window) {
-                        if let Some((partition, batch)) = batches.swap_remove_index(index) {
-                            yield Feed::Batch { partition, batch };
+                    while opened.front().is_some_and(|(since, _)| batched - since >= window) {
+                        if let Some((since, partition)) = opened.pop_front() {
+                            if batches.get(&partition).is_some_and(|batch| batch.opened == since) {
+                                if let Some(batch) = batches.swap_remove(&partition) {
+                                    yield Feed::Batch { partition, batch };
+                                }
+                            }
                         }
                     }
                 }
@@ -539,7 +561,7 @@ mod tests {
         let options = WriteOptions {
             continue_on_error: false,
             concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1024),
+            batch_bytes: 1024,
         };
         let partitions: Vec<_> = Import::feed(chunks, target, &options, 0)
             .try_filter_map(|message| async move {
@@ -568,6 +590,11 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                WriteOptions {
+                    continue_on_error: false,
+                    concurrency: 1,
+                    batch_bytes: 1,
+                },
             ),
         )
         .await
@@ -587,11 +614,7 @@ mod tests {
             scan: chunks,
             create: false,
         };
-        let mut execution = Box::pin(import.execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1),
-        }));
+        let mut execution = Box::pin(import.execute());
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
@@ -624,6 +647,11 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                WriteOptions {
+                    continue_on_error: true,
+                    concurrency: 1,
+                    batch_bytes: 1024,
+                },
             ),
         )
         .await
@@ -645,11 +673,7 @@ mod tests {
             scan: chunks,
             create: false,
         };
-        let mut execution = Box::pin(import.execute(WriteOptions {
-            continue_on_error: true,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1024),
-        }));
+        let mut execution = Box::pin(import.execute());
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
@@ -671,6 +695,7 @@ mod tests {
             );
             assert!(execution.try_next().await.unwrap().is_none());
             assert!(!dir.path().join(format!("{id}.toml")).exists());
+            assert!(!dir.path().join(format!("{id}.lock")).exists());
         }
     }
 }

@@ -220,7 +220,13 @@ impl Duckdb {
             if columns.is_empty() {
                 return Err(Error::InvalidArgument(format!("no columns discovered for {from}")));
             }
-            Ok(Table { from, columns, key })
+            // CONVENTION: duckdb names a CSV column with no header cell `column<digits>`; in a headerless file every column is one
+            let mut unnamed: Vec<String> = columns.iter().map(|(name, _)| name)
+                .filter(|name| matches!(file, Some(File { format: Format::Csv, .. }))
+                    && name.strip_prefix("column").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())))
+                .cloned().collect();
+            if unnamed.len() == columns.len() { unnamed.clear(); }
+            Ok(Table { from, columns, key, unnamed })
         }).await?
     }
 

@@ -210,9 +210,22 @@ fn file_home_expands(#[case] path: &str) {
 #[case::missing_index("es://localhost", "requires one index")]
 #[case::multiple_indices("es://localhost/a,b", "requires one index")]
 #[case::encoded_glob("es://localhost/a%2A", "requires one index")]
-#[case::missing_selector("postgres://localhost/db", "requires #object")]
-#[case::empty_selector("mysql://localhost/db#", "requires #object")]
-#[case::sqlite_selector("sqlite:books.db", "requires #object")]
+#[case::missing_selector(
+    "postgres://localhost/db",
+    "postgres source requires #<table>, e.g. postgres://host/db#orders"
+)]
+#[case::empty_selector(
+    "mysql://localhost/db#",
+    "mysql source requires #<table>, e.g. mysql://host/db#orders"
+)]
+#[case::sqlite_selector(
+    "sqlite:books.db",
+    "sqlite source requires #<table>, e.g. sqlite:books.db#orders"
+)]
+#[case::mongo_selector(
+    "mongodb://localhost/shop",
+    "mongodb source requires #<collection>, e.g. mongodb://host/db#products"
+)]
 #[case::bad_escape("postgres://localhost/db#bad%2", "invalid percent encoding")]
 #[case::bad_hex("postgres://localhost/db#bad%zz", "invalid percent encoding")]
 #[case::invalid_utf8("mongodb://localhost/db#bad%FF", "not UTF-8")]
@@ -249,6 +262,9 @@ fn malformed_uri_redacts_password() {
 #[case::unknown_file_type("data.txt", "cannot tell the file type")]
 #[case::no_extension("data/books", "cannot tell the file type")]
 #[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
+#[case::elasticsearch_index("http://localhost:19200/articles", "use es://localhost:19200/articles")]
+#[case::elasticsearch_endpoint("https://es.example.com/", "use es+https://es.example.com/<index>")]
+#[case::sqlite_file("./notes.db", "use sqlite:./notes.db#<table>")]
 fn bad_files(#[case] input: &str, #[case] fragment: &str) {
     let message = input.parse::<File>().unwrap_err().to_string();
     assert!(message.contains(fragment), "got: {message}");

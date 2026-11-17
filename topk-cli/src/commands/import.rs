@@ -5,6 +5,7 @@ use std::time::Duration;
 use topk_rs::Error as SdkError;
 
 use anyhow::Context;
+use clap::builder::ArgPredicate;
 use clap::Args;
 use tracing::{info, warn};
 
@@ -100,7 +101,7 @@ impl PlanArgs {
 pub struct WriteArgs {
     #[arg(
         long,
-        help = "Skip row decoding, conversion, and document-validation failures, listing each in a file next to the run state; operational failures still stop the run. Exits 3 if any rows were skipped"
+        help = "Skip row decoding, conversion, and document-validation failures, listing each in a file next to the run state; operational failures still stop the run"
     )]
     pub continue_on_error: bool,
     #[arg(
@@ -108,24 +109,45 @@ pub struct WriteArgs {
         long,
         value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=1024),
         default_value = "16",
+        default_value_if("resume", ArgPredicate::IsPresent, None::<&str>),
         help = "Concurrent upserts in flight, budgeted across the whole run"
     )]
-    pub concurrency: usize,
+    pub concurrency: Option<usize>,
     #[arg(
         short = 'b',
         long,
         value_name = "SIZE",
         default_value = "1MiB",
+        default_value_if("resume", ArgPredicate::IsPresent, None::<&str>),
         value_parser = batch_bytes,
         help = "Target document bytes per partition batch"
     )]
-    pub batch_bytes: bytesize::ByteSize,
+    pub batch_bytes: Option<bytesize::ByteSize>,
+}
+
+impl WriteArgs {
+    /// With `--resume`, a flag left out keeps the saved run's value.
+    fn options(&self, saved: Option<&WriteOptions>) -> anyhow::Result<WriteOptions> {
+        Ok(WriteOptions {
+            continue_on_error: self.continue_on_error
+                || saved.is_some_and(|saved| saved.continue_on_error),
+            concurrency: self
+                .concurrency
+                .or(saved.map(|saved| saved.concurrency))
+                .context("--concurrency is required")?,
+            batch_bytes: self
+                .batch_bytes
+                .map(|size| size.as_u64())
+                .or(saved.map(|saved| saved.batch_bytes))
+                .context("--batch-bytes is required")?,
+        })
+    }
 }
 
 #[derive(Args, Debug)]
 #[command(
     override_usage = "topk import [OPTIONS] --to <COLLECTION> <SOURCE>\n       topk import --resume <RUN>",
-    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]"
+    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]\n\nGlobs: * matches files in one folder, ** also matches subfolders ('./data/**/*.csv')\n\nExamples:\n  topk import ./books.parquet --to books --dry-run\n  topk import './data/*.csv' --to books --id isbn -y\n  topk import books.jsonl --to books -f title=keyword,body=semantic\n  topk import postgres://user:pw@host/db#orders --to orders\n  topk import mongodb://host/shop#products --to products\n  topk import sqlite:./shop.db#orders --to orders\n  topk import es://localhost:9200/articles --to articles\n  topk import topk://books --to books_v2"
 )]
 pub struct ImportArgs {
     #[arg(
@@ -171,7 +193,8 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         None => Config::dir()?.join("import"),
     };
     let import = if let Some(id) = args.resume {
-        let run = Run::load(&directory, id).await?;
+        let mut run = Run::load(&directory, id).await?;
+        run.set_write(args.write.options(Some(&run.state().write))?);
         if run.state().done() {
             ui.message(format_args!(
                 "run {}: {} already imported",
@@ -181,7 +204,8 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             if let Err(error) = run.remove() {
                 warn!(%error, "cannot remove run state");
             }
-            return ui.finish();
+            ui.finish()?;
+            return Ok(ExitCode::SUCCESS);
         }
         let uri = run.state().source(args.source.as_ref())?;
         let source = args.source(uri, &config).await?;
@@ -239,7 +263,12 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         }
         let run = Run::start(
             &directory,
-            State::new(source.locator().to_string(), scope, plan),
+            State::new(
+                source.locator().to_string(),
+                scope,
+                plan,
+                args.write.options(None)?,
+            ),
         )
         .await?;
         Import::start(source, client, run, create).await?
@@ -257,15 +286,10 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         },
         import.run().id
     );
-    let options = WriteOptions {
-        continue_on_error: args.write.continue_on_error,
-        concurrency: args.write.concurrency,
-        batch_bytes: args.write.batch_bytes,
-    };
-    ui.start(directory.join(format!("{}.rejected.jsonl", import.run().id)));
+    ui.start(directory.join(format!("{}.rejected.jsonl", import.run().id)))?;
     let mut refresh = tokio::time::interval(Duration::from_millis(250));
     refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let execution = import.execute(options);
+    let execution = import.execute();
     let interrupt = tokio::signal::ctrl_c();
     futures::pin_mut!(execution, interrupt);
     loop {
@@ -292,7 +316,8 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
         }
     }
-    ui.finish()
+    ui.finish()?;
+    Ok(ExitCode::SUCCESS)
 }
 
 impl ImportArgs {
@@ -328,5 +353,44 @@ fn batch_bytes(raw: &str) -> Result<bytesize::ByteSize, String> {
     match raw.parse::<bytesize::ByteSize>()? {
         size if size.as_u64() == 0 => Err("must be at least 1B".into()),
         size => Ok(size),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+    use rstest::rstest;
+
+    use super::*;
+
+    #[derive(Parser)]
+    struct Cli {
+        #[command(flatten)]
+        import: ImportArgs,
+    }
+
+    #[rstest]
+    #[case::defaults(&["x.parquet", "--to", "c"], None, (false, 16, 1_048_576))]
+    #[case::flags(&["x.parquet", "--to", "c", "-c", "2", "-b", "32"], None, (false, 2, 32))]
+    #[case::resume_keeps_saved(&["--resume", "1234abcd"], Some((true, 2, 32)), (true, 2, 32))]
+    #[case::resume_flag_replaces(&["--resume", "1234abcd", "-c", "4"], Some((true, 2, 32)), (true, 4, 32))]
+    fn write_options(
+        #[case] args: &[&str],
+        #[case] saved: Option<(bool, usize, u64)>,
+        #[case] expected: (bool, usize, u64),
+    ) {
+        let saved = saved.map(
+            |(continue_on_error, concurrency, batch_bytes)| WriteOptions {
+                continue_on_error,
+                concurrency,
+                batch_bytes,
+            },
+        );
+        let cli = Cli::try_parse_from(["topk"].iter().chain(args).copied()).unwrap();
+        let got = cli.import.write.options(saved.as_ref()).unwrap();
+        assert_eq!(
+            (got.continue_on_error, got.concurrency, got.batch_bytes),
+            expected
+        );
     }
 }

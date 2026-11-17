@@ -131,6 +131,7 @@ impl Es {
                 .chain(fields)
                 .collect(),
             key: Some(ID.to_string()),
+            unnamed: Vec::new(),
         })
     }
 

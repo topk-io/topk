@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::import::error::Error;
+use crate::import::execution::WriteOptions;
 use crate::import::plan::Plan;
 use crate::import::source::{Checkpoint, Uri};
 use crate::scope::Scope;
@@ -57,6 +58,7 @@ pub struct State {
     /// Passwords are redacted.
     pub source: String,
     pub plan: Plan,
+    pub write: WriteOptions,
     #[serde(flatten)]
     pub destination: Scope,
     #[serde(default)]
@@ -64,10 +66,11 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(source: String, destination: Scope, plan: Plan) -> State {
+    pub fn new(source: String, destination: Scope, plan: Plan, write: WriteOptions) -> State {
         State {
             source,
             plan,
+            write,
             destination,
             progress: None,
         }
@@ -84,12 +87,17 @@ impl State {
     }
 
     pub fn source(&self, supplied: Option<&Uri>) -> Result<Uri, Error> {
+        let saved = || {
+            self.source.parse::<Uri>().map_err(|error| {
+                Error::InvalidArgument(format!("{error}; old saved runs need a new import"))
+            })
+        };
         let mut uri = match supplied {
             Some(uri) => {
                 if uri.to_string() == self.source {
                     uri.clone()
                 } else {
-                    let saved: Uri = self.source.parse()?;
+                    let saved = saved()?;
                     match (&saved, uri) {
                         (Uri::Files(a), Uri::Files(b))
                             if a.store.is_none()
@@ -108,7 +116,7 @@ impl State {
                     }
                 }
             }
-            None => self.source.parse()?,
+            None => saved()?,
         };
         if uri.password() == Some("***") {
             return Err(Error::InvalidArgument(
@@ -188,6 +196,10 @@ impl Run {
         &self.state
     }
 
+    pub fn set_write(&mut self, write: WriteOptions) {
+        self.state.write = write;
+    }
+
     pub fn save(&self) -> Result<(), Error> {
         storage::write_toml(&self.path, &self.state)?;
         Ok(())
@@ -199,10 +211,13 @@ impl Run {
     }
 
     pub fn remove(&self) -> Result<(), Error> {
-        match std::fs::remove_file(&self.path) {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.into()),
+        for path in [self.path.clone(), self.path.with_extension("lock")] {
+            match std::fs::remove_file(path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == ErrorKind::NotFound => {}
+                Err(e) => return Err(e.into()),
+            }
         }
+        Ok(())
     }
 }

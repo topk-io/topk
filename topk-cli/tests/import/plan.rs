@@ -14,6 +14,7 @@ fn table(columns: &[&str]) -> Table {
             .iter()
             .map(|name| ((*name).into(), FieldSpec::text(false)))
             .collect(),
+        unnamed: Vec::new(),
     }
 }
 
@@ -100,6 +101,15 @@ fn catalog_id(#[case] key: Option<&str>, #[case] id: Option<&str>, #[case] expec
     let target = Target::new(&metadata, id).unwrap();
     assert_eq!(target.id, expected);
     assert!(!target.fields.contains_key(expected));
+}
+
+#[rstest]
+#[case::one_candidate(&["event_id", "tenant"], "pass --id event_id")]
+#[case::two_candidates(&["event_id", "user_id"], "pass --id <column>")]
+#[case::no_candidate(&["sku", "title"], "pass --id <column>")]
+fn missing_id_names_a_candidate(#[case] columns: &[&str], #[case] hint: &str) {
+    let error = refused(Target::new(&table(columns), None));
+    assert!(error.contains(hint), "{error}");
 }
 
 #[test]

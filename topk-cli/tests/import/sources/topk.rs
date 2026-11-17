@@ -139,21 +139,24 @@ async fn copies_native_values(ctx: &Ctx) {
         .await
         .unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, plan))
-        .await
-        .unwrap();
+    let run = Run::start(
+        &directory,
+        ctx.state(
+            &source,
+            plan,
+            WriteOptions {
+                continue_on_error: false,
+                concurrency: 1,
+                batch_bytes: 1_000_000,
+            },
+        ),
+    )
+    .await
+    .unwrap();
     let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
-    import
-        .execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1_000_000),
-        })
-        .try_collect::<Vec<_>>()
-        .await
-        .unwrap();
+    import.execute().try_collect::<Vec<_>>().await.unwrap();
     let copied = ctx
         .client
         .collection(&dest)

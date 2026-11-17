@@ -197,9 +197,9 @@ impl FromStr for Uri {
                 .split_once('#')
                 .filter(|(_, object)| !object.is_empty())
                 .ok_or_else(|| {
-                    Error::InvalidArgument(
-                        "database source requires #object, e.g. sqlite:./shop.db#orders; old saved runs need a new import".into(),
-                    )
+                    Error::InvalidArgument(format!(
+                        "sqlite source requires #<table>, e.g. sqlite:{path}#orders"
+                    ))
                 })?;
             return Ok(Uri::Sqlite {
                 path: std::path::absolute(&*shellexpand::tilde(&decode(path)?))?
@@ -241,10 +241,14 @@ impl FromStr for Uri {
                 url.fragment()
                     .filter(|object| !object.is_empty())
                     .ok_or_else(|| {
-                        Error::InvalidArgument(
-                            "database source requires #object, e.g. postgres://host/db#orders; old saved runs need a new import"
-                                .into(),
-                        )
+                        let (object, sample) = match url.scheme() {
+                            "mongodb" | "mongodb+srv" => ("collection", "products"),
+                            _ => ("table", "orders"),
+                        };
+                        Error::InvalidArgument(format!(
+                            "{scheme} source requires #<{object}>, e.g. {scheme}://host/db#{sample}",
+                            scheme = url.scheme()
+                        ))
                     })?,
             )?;
             url.set_fragment(None);

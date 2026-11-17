@@ -20,7 +20,7 @@ use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
 use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
-use topk::import::Error;
+use topk::import::{Error, WriteOptions};
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
@@ -232,7 +232,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub fn state(&self, source: &Source, plan: Plan) -> State {
+    pub fn state(&self, source: &Source, plan: Plan, write: WriteOptions) -> State {
         State::new(
             source.locator().into(),
             Scope {
@@ -240,6 +240,7 @@ impl Ctx {
                 region: self.client.config().region().unwrap().into(),
             },
             plan,
+            write,
         )
     }
 

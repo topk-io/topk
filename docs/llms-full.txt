@@ -5880,7 +5880,7 @@ topk import --to <COLLECTION> <SOURCE> [OPTIONS]
 | `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
 | `--limit <LIMIT>` | Read at most this many rows |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
-| `--continue-on-error` | Skip rows that fail instead of stopping, listing each in a report file; exits `3` if any did |
+| `--continue-on-error` | Skip rows that fail instead of stopping, listing each in a report file |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
@@ -5914,7 +5914,7 @@ topk import 's3://bucket/books/*.parquet' --to books          # every parquet fi
 topk import gs://bucket/books.csv --to books                  # az:// hf:// http(s):// too
 ```
 
-A source is one file or one glob. For a folder or a bucket prefix, use a glob such as `'s3://bucket/books/*.parquet'`.
+A source is one file or one glob. For a folder or a bucket prefix, use a glob such as `'s3://bucket/books/*.parquet'`. `*` matches files in one folder; `**` also matches subfolders (`'s3://bucket/books/**/*.parquet'`).
 
 ###### Copy a TopK collection
 
@@ -5964,7 +5964,7 @@ Stop a run — `^C`, a lost connection — and pick it up where it left off:
 topk import postgres://host/db#orders --resume 1234abcd               # run id from the resume command
 ```
 
-Resume continues from the last source checkpoint, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+Resume continues from the last source checkpoint, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. A resumed run keeps its `--concurrency`, `--batch-bytes` and `--continue-on-error`; pass one again to change it. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
 MongoDB checkpoints use the source `_id`, independently of the destination ID mapping. Legacy checkpoints made with a custom ID column require a new import. Elasticsearch retains its point-in-time snapshot for interrupted scans and closes it before returning a final page.
 
@@ -6005,7 +6005,7 @@ Progress counts acknowledged writes. After 10 seconds without progress, the CLI 
 
 By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. CSV uses DuckDB’s inferred types and date formats; reader parsing and type-conversion errors stop the import even with `--continue-on-error`. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
 
-Summaries count acknowledged writes and skipped rows for the current invocation. Every skipped row is appended to `<run>.rejected.jsonl` next to the run state, with its row number in source order, document ID, field and error; the terminal shows the first three and the file's path. A run that completes with skipped rows exits `3`; a fatal error exits `1`. If the run state cannot be saved, the import stops. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
+Summaries count acknowledged writes and skipped rows for the current invocation. Every skipped row is listed once in `<run>.rejected.jsonl` next to the run state, with its row number in source order, document ID, field and error; the terminal shows the first three, and the count and path of the file for the whole run. A run that completes exits `0`, with or without skipped rows; a fatal error exits `1`. If the run state cannot be saved, the import stops. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
 
 - there is no schema migration: choices that differ from an existing collection's declared fields are rejected
 - an upsert replaces the whole document, so `--exclude` on an existing field clears it

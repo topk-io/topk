@@ -1,9 +1,8 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::fmt::{self, Display};
 use std::fs::{File, OpenOptions};
 use std::io::{self, IsTerminal, LineWriter, Write};
 use std::path::PathBuf;
-use std::process::ExitCode;
 use std::time::{Duration, Instant};
 use topk_rs::Error as SdkError;
 
@@ -29,8 +28,9 @@ pub struct ImportOutput {
     status: Span,
     progress: ProgressDisplay,
     outcome: Option<Outcome>,
-    /// Where every skipped row is appended, one JSON line each.
-    rejected: Option<(PathBuf, Option<LineWriter<File>>)>,
+    /// Where the run lists every skipped row once, one JSON line each, and the rows
+    /// already listed: a source row by its number, a destination rejection by its id.
+    rejected: Option<(PathBuf, Listed, Option<LineWriter<File>>)>,
 }
 
 impl ImportOutput {
@@ -114,13 +114,33 @@ impl ImportOutput {
         Ok(())
     }
 
-    pub fn start(&mut self, rejected: PathBuf) {
-        self.rejected = Some((rejected, None));
+    pub fn start(&mut self, rejected: PathBuf) -> Result<()> {
+        let mut listed = Listed::new();
+        match std::fs::read_to_string(&rejected) {
+            Ok(lines) => {
+                for line in lines.lines() {
+                    let line: serde_json::Value = serde_json::from_str(line)?;
+                    let row = line["row"].as_u64();
+                    listed.insert((
+                        row,
+                        line["id"]
+                            .as_str()
+                            .filter(|_| row.is_none())
+                            .map(str::to_string),
+                        line["field"].as_str().map(str::to_string),
+                    ));
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        self.rejected = Some((rejected, listed, None));
         self.progress = ProgressDisplay::new(Instant::now());
         if self.format == Output::Text && io::stderr().is_terminal() {
             self.status = tracing::info_span!(parent: None, "import_progress", indicatif.pb_show = tracing::field::Empty);
             self.status.pb_start();
         }
+        Ok(())
     }
 
     pub fn tick(&mut self) {
@@ -147,7 +167,7 @@ impl ImportOutput {
                     4 => self.message("skipping more failing rows; the summary lists where")?,
                     _ => {}
                 }
-                if let Some((path, file)) = &mut self.rejected {
+                if let Some((path, listed, file)) = &mut self.rejected {
                     let file = match file {
                         Some(file) => file,
                         None => file.insert(LineWriter::new(
@@ -196,16 +216,26 @@ impl ImportOutput {
                         },
                         _ => (None, None),
                     };
-                    json_line(
-                        file,
-                        &serde_json::json!({"row": row, "id": id, "field": field, "error": error.to_string()}),
-                    )?;
+                    if listed.insert((
+                        row,
+                        id.filter(|_| row.is_none()).map(str::to_string),
+                        field.map(str::to_string),
+                    )) {
+                        json_line(
+                            file,
+                            &serde_json::json!({"row": row, "id": id, "field": field, "error": error.to_string()}),
+                        )?;
+                    }
                 }
             }
             Event::Completed { outcome } => {
                 if self.format == Output::Text {
                     self.message(format_args!(
-                        "{} rows written, {} failed in {:.2?} · {:.0} rows/s · {:.1} MiB/s average",
+                        "{}{} rows written, {} failed in {:.2?} · {:.0} rows/s · {:.1} MiB/s average",
+                        match outcome.resumed_after {
+                            0 => String::new(),
+                            rows => format!("resumed after {rows} rows: "),
+                        },
                         outcome.rows,
                         outcome.failed,
                         outcome.elapsed,
@@ -221,22 +251,25 @@ impl ImportOutput {
         Ok(())
     }
 
-    /// Exit 3 when the run completed with skipped rows.
-    pub fn finish(mut self) -> Result<ExitCode> {
+    pub fn finish(mut self) -> Result<()> {
         self.status = Span::none();
         if let (Output::Json, Some(outcome)) = (self.format, &self.outcome) {
             json_line(&mut io::stdout().lock(), outcome)?;
         }
-        let failed = self.outcome.as_ref().map_or(0, |outcome| outcome.failed);
-        if let (true, Some((path, _))) = (failed != 0, &self.rejected) {
-            self.message(format_args!(
-                "{failed} skipped rows are listed in {}",
-                path.display()
-            ))?;
+        if let Some((path, listed, _)) = &self.rejected {
+            if !listed.is_empty() {
+                self.message(format_args!(
+                    "{} skipped rows are listed in {}",
+                    listed.len(),
+                    path.display()
+                ))?;
+            }
         }
-        Ok(ExitCode::from(if failed == 0 { 0 } else { 3 }))
+        Ok(())
     }
 }
+
+type Listed = HashSet<(Option<u64>, Option<String>, Option<String>)>;
 
 const LINE_EVERY: Duration = Duration::from_secs(10);
 
@@ -417,7 +450,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("rejected.jsonl");
         let mut output = ImportOutput::new(Output::Json);
-        output.start(path.clone());
+        output.start(path.clone()).unwrap();
         output.event(Event::Skipped { row: None, error }).unwrap();
         let report = std::fs::read_to_string(path).unwrap();
         assert_eq!(report.lines().count(), 1);
@@ -428,6 +461,30 @@ mod tests {
     }
 
     #[test]
+    fn rejected_rows_listed_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rejected.jsonl");
+        let skip = |output: &mut ImportOutput, row| {
+            let error = Error::InvalidArgument("bad".into());
+            output
+                .event(Event::Skipped {
+                    row: Some(row),
+                    error,
+                })
+                .unwrap()
+        };
+        let mut first = ImportOutput::new(Output::Json);
+        first.start(path.clone()).unwrap();
+        skip(&mut first, 3);
+        let mut resumed = ImportOutput::new(Output::Json);
+        resumed.start(path.clone()).unwrap();
+        skip(&mut resumed, 3);
+        skip(&mut resumed, 4);
+        let report = std::fs::read_to_string(path).unwrap();
+        assert_eq!(report.lines().count(), 2);
+    }
+
+    #[test]
     fn progress_output() {
         let subscriber = tracing_subscriber::registry().with(
             tracing_indicatif::IndicatifLayer::new()
@@ -435,7 +492,9 @@ mod tests {
         );
         let _guard = tracing::subscriber::set_default(subscriber);
         let mut output = ImportOutput::new(Output::Text);
-        output.start(std::env::temp_dir().join("unused.rejected.jsonl"));
+        output
+            .start(std::env::temp_dir().join("unused.rejected.jsonl"))
+            .unwrap();
         assert_eq!(!output.status.is_disabled(), io::stderr().is_terminal());
         output
             .event(Event::Progress {
@@ -452,12 +511,13 @@ mod tests {
                     rows: 100,
                     bytes: 1_048_576,
                     failed: 0,
+                    resumed_after: 0,
                     elapsed: Duration::from_secs(2),
                 },
             })
             .unwrap();
         assert_eq!(output.progress.written, (100, 1_048_576));
-        assert_eq!(output.finish().unwrap(), ExitCode::SUCCESS);
+        output.finish().unwrap();
     }
 
     #[test]

@@ -32,6 +32,8 @@ pub struct Table {
     pub from: SourceLocation,
     pub columns: Vec<(String, FieldSpec)>,
     pub key: Option<String>,
+    /// Columns the reader had to name: a CSV column with no header cell.
+    pub unnamed: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

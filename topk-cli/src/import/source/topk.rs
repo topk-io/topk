@@ -30,6 +30,7 @@ impl Topk {
                 .collect(),
             from: SourceLocation::Object(name),
             key: Some(ID.to_string()),
+            unnamed: Vec::new(),
         };
         Topk { client, table }
     }

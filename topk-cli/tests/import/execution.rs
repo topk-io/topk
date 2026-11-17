@@ -29,23 +29,26 @@ async fn prepares_then_executes(ctx: &Ctx) {
         .await
         .unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, plan))
-        .await
-        .unwrap();
+    let run = Run::start(
+        &directory,
+        ctx.state(
+            &source,
+            plan,
+            WriteOptions {
+                continue_on_error: false,
+                concurrency: 2,
+                batch_bytes: 32,
+            },
+        ),
+    )
+    .await
+    .unwrap();
     let path = directory.join(format!("{}.toml", run.id));
     let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
     assert!(!ctx.exists(&collection).await);
-    let events: Vec<_> = import
-        .execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 2,
-            batch_bytes: bytesize::ByteSize(32),
-        })
-        .try_collect()
-        .await
-        .unwrap();
+    let events: Vec<_> = import.execute().try_collect().await.unwrap();
     assert_eq!(
         events
             .iter()
@@ -85,7 +88,15 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
         collection: collection.clone(),
         target,
     };
-    let mut state = ctx.state(&source, plan);
+    let mut state = ctx.state(
+        &source,
+        plan,
+        WriteOptions {
+            continue_on_error: false,
+            concurrency: 2,
+            batch_bytes: 32,
+        },
+    );
     state.progress = Some(Progress::After(Checkpoint {
         cursor: Cursor::Offset {
             part: from,
@@ -102,15 +113,7 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
     let import = Import::resume(source, ctx.client.clone(), run)
         .await
         .unwrap();
-    let events: Vec<_> = import
-        .execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 2,
-            batch_bytes: bytesize::ByteSize(32),
-        })
-        .try_collect()
-        .await
-        .unwrap();
+    let events: Vec<_> = import.execute().try_collect().await.unwrap();
     assert_eq!(
         events
             .iter()
@@ -175,22 +178,26 @@ async fn backend_rejections(
         .await
         .unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, plan))
-        .await
-        .unwrap();
+    let run = Run::start(
+        &directory,
+        ctx.state(
+            &source,
+            plan,
+            WriteOptions {
+                continue_on_error,
+                concurrency: 2,
+                batch_bytes,
+            },
+        ),
+    )
+    .await
+    .unwrap();
     let id = run.id;
     let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
     import.run().save().unwrap();
-    let result: Result<Vec<_>, _> = import
-        .execute(WriteOptions {
-            continue_on_error,
-            concurrency: 2,
-            batch_bytes: bytesize::ByteSize(batch_bytes),
-        })
-        .try_collect()
-        .await;
+    let result: Result<Vec<_>, _> = import.execute().try_collect().await;
     assert_eq!(result.is_ok(), continue_on_error);
     match result {
         Ok(events) => {
@@ -259,9 +266,20 @@ async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
         .resolve(&source, &ctx.client, &[], &[], &[])
         .await
         .unwrap();
-    let run = Run::start(&ctx.cli.path("state"), ctx.state(&source, plan))
-        .await
-        .unwrap();
+    let run = Run::start(
+        &ctx.cli.path("state"),
+        ctx.state(
+            &source,
+            plan,
+            WriteOptions {
+                continue_on_error: false,
+                concurrency: 1,
+                batch_bytes: 1024,
+            },
+        ),
+    )
+    .await
+    .unwrap();
     let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
@@ -281,14 +299,7 @@ async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
         )
         .await
         .unwrap();
-    let result: Result<Vec<_>, _> = import
-        .execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1024),
-        })
-        .try_collect()
-        .await;
+    let result: Result<Vec<_>, _> = import.execute().try_collect().await;
     if conflict {
         assert!(matches!(result, Err(Error::SchemaMismatch(_))));
         assert!(ctx.docs(&collection, ["1"]).await.is_empty());
@@ -337,9 +348,20 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
         .await
         .unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&input, plan))
-        .await
-        .unwrap();
+    let run = Run::start(
+        &directory,
+        ctx.state(
+            &input,
+            plan,
+            WriteOptions {
+                continue_on_error: false,
+                concurrency: 1,
+                batch_bytes: 1024,
+            },
+        ),
+    )
+    .await
+    .unwrap();
     let id = run.id;
     let mut import = Import::start(input, ctx.client.clone(), run, create)
         .await
@@ -351,14 +373,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
     );
     import.run().save().unwrap();
     if resume {
-        let failed = import
-            .execute(WriteOptions {
-                continue_on_error: false,
-                concurrency: 1,
-                batch_bytes: bytesize::ByteSize(1024),
-            })
-            .try_collect::<Vec<_>>()
-            .await;
+        let failed = import.execute().try_collect::<Vec<_>>().await;
         assert!(failed.err().unwrap().to_string().contains("embedding"));
         ctx.cli.parquet(
             "vectors.parquet",
@@ -373,15 +388,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
             .await
             .unwrap();
     }
-    import
-        .execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1024),
-        })
-        .try_collect::<Vec<_>>()
-        .await
-        .unwrap();
+    import.execute().try_collect::<Vec<_>>().await.unwrap();
     assert_eq!(
         ctx.docs(&collection, ["one"]).await,
         [json!({"_id":"one","embedding":[1.0,0.0,0.0]})]

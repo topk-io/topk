@@ -394,6 +394,23 @@ impl Target {
             arg.apply(&mut field, dimension)?;
             self.fields.insert(arg.name.clone(), field);
         }
+        let unnamed: Vec<&str> = source
+            .discover()
+            .await?
+            .unnamed
+            .iter()
+            .map(String::as_str)
+            .filter(|name| self.fields.contains_key(*name))
+            .collect();
+        if let Some(first) = unnamed.first() {
+            return Err(Error::InvalidArgument(format!(
+                "{}: {} {} no name in the header (a blank header cell, a trailing comma, or rows with more fields than the header) — rename with `--rename {first}=<name>` or leave out with `--exclude {}`",
+                self.from,
+                unnamed.join(", "),
+                if unnamed.len() == 1 { "has" } else { "have" },
+                unnamed.join(",")
+            )));
+        }
         let untyped: Vec<&str> = self
             .fields
             .iter()

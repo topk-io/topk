@@ -80,6 +80,45 @@ async fn multiline_ragged_csv(ctx: &Scratch, #[case] newline: &str) {
 }
 
 #[rstest_ctx(Scratch)]
+#[case::extra_field(&["id,name\n1,a\n2,b,x\n"], "id", &[], &[], Some("column2 has no name"))]
+#[case::trailing_comma(&["id,name,\n1,a,\n2,b,\n"], "id", &[], &[], Some("column2 has no name"))]
+#[case::padded_names(&["a,b\n1,2,3,4,5,6,7,8,9,10,11,12\n"], "a", &[], &[], Some("column02, column03"))]
+#[case::glob_union(&["id,a,b\n1,2,3\n", "id,,c\n4,5,6\n"], "id", &[], &[], Some("column1 has no name"))]
+#[case::excluded(&["id,name\n1,a\n2,b,x\n"], "id", &[], &["column2"], None)]
+#[case::renamed(&["id,name\n1,a\n2,b,x\n"], "id", &["column2=extra"], &[], None)]
+#[case::headerless(&["1,a,1\n2,b,2\n"], "column0", &[], &[], None)]
+async fn unnamed_csv_columns(
+    ctx: &Scratch,
+    #[case] files: &[&str],
+    #[case] id: &str,
+    #[case] renames: &[&str],
+    #[case] exclude: &[&str],
+    #[case] error: Option<&str>,
+) {
+    let paths: Vec<_> = files
+        .iter()
+        .enumerate()
+        .map(|(n, csv)| ctx.file(&format!("csv/{n}.csv"), csv))
+        .collect();
+    let from = match paths.as_slice() {
+        [one] => one.clone(),
+        _ => ctx.path("csv/*.csv").to_str().unwrap().to_string(),
+    };
+    let source = source(&from).await.unwrap();
+    let mut target = Target::new(source.discover().await.unwrap(), Some(id)).unwrap();
+    let renames: Vec<_> = renames
+        .iter()
+        .map(|rename| rename.parse().unwrap())
+        .collect();
+    let exclude: Vec<_> = exclude.iter().map(|name| name.to_string()).collect();
+    let result = target.select(&source, &[], &renames, &exclude, None).await;
+    match error {
+        Some(error) => assert!(refused(result).contains(error)),
+        None => result.unwrap(),
+    }
+}
+
+#[rstest_ctx(Scratch)]
 async fn empty_unsupported_list_is_rejected(ctx: &Scratch) {
     let from = ctx.parquet("data.parquet", "SELECT 1 AS id, []::BOOLEAN[] AS flags");
     let error = json_documents(
