@@ -137,13 +137,6 @@ fn args(args: &[&str]) -> OAuthArgs {
     OAuthArgs::from_arg_matches(&matches).unwrap()
 }
 
-fn host(host: &str) -> Host {
-    Host {
-        host: host.into(),
-        https: true,
-    }
-}
-
 #[tokio::test]
 async fn given_settings_are_used_without_asking_the_host() {
     let given = [
@@ -157,7 +150,10 @@ async fn given_settings_are_used_without_asking_the_host() {
     ];
     let dir = TempDir::new().unwrap();
     let config = Config::load(
-        host("unreachable.invalid"),
+        Host {
+            host: "unreachable.invalid".into(),
+            https: true,
+        },
         args(&given),
         dir.path().to_owned(),
     )
@@ -171,7 +167,11 @@ async fn given_settings_are_used_without_asking_the_host() {
 async fn default_host_uses_the_built_in_settings() {
     // The default host is not asked and nothing is saved.
     let dir = TempDir::new().unwrap();
-    let config = Config::load(host(DEFAULT_HOST), args(&["test"]), dir.path().to_owned())
+    let host = Host {
+        host: DEFAULT_HOST.into(),
+        https: true,
+    };
+    let config = Config::load(host, args(&["test"]), dir.path().to_owned())
         .await
         .unwrap();
     assert_eq!(
