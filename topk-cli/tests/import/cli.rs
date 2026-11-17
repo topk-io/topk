@@ -1393,6 +1393,36 @@ async fn excluding_every_field_imports_ids(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
+async fn rare_partition_checkpoint_advances(ctx: &Ctx) {
+    let from = ctx.cli.parquet(
+        "skew.parquet",
+        "SELECT CASE WHEN i = 3999 THEN NULL ELSE i END AS id, CASE WHEN i = 0 THEN 'rare' ELSE 'hot' END AS tenant, repeat('x', 400) AS pad FROM range(0, 4000) t(i)",
+    );
+    let collection = ctx.collection("skew");
+    let stopped = ctx
+        .cli
+        .command()
+        .args([
+            "import",
+            &from,
+            "--to",
+            &collection,
+            "--partition",
+            "tenant",
+        ])
+        .args(["--batch-bytes", "16KB", "-c", "1", "--yes"])
+        .failure(1);
+    let state: topk::import::state::State =
+        toml::from_str(&std::fs::read_to_string(ctx.cli.state_path(stopped.id())).unwrap())
+            .unwrap();
+    let consumed = match &state.progress {
+        Some(topk::import::state::Progress::After(checkpoint)) => checkpoint.consumed,
+        _ => 0,
+    };
+    assert!(consumed > 0, "no checkpoint saved");
+}
+
+#[rstest_ctx(Ctx)]
 async fn untyped_columns_fail_the_plan(ctx: &Ctx) {
     let ctx = &ctx.cli;
     let from = ctx.file(
