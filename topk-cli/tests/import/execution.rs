@@ -7,6 +7,7 @@ use topk::import::source::{Checkpoint, Cursor};
 use topk::import::state::{Progress, Run};
 use topk::import::{Error, Event, Import, WriteOptions};
 use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType, VectorDistanceMetric};
+use topk_rs::Error as SdkError;
 
 use topk_rs::proto::v1::data::{stage::sort_stage::SortOrder, ConsistencyLevel};
 use topk_rs::query::{field, fns, select};
@@ -58,7 +59,7 @@ async fn prepares_then_executes(ctx: &Ctx) {
                 assert_eq!((outcome.rows, outcome.failed), (3, 0));
             }
             Event::Progress { written, .. } => assert!(written <= 3),
-            Event::Skipped { error } => panic!("{error}"),
+            Event::Skipped { error, .. } => panic!("{error}"),
         }
     }
     assert!(!path.exists());
@@ -181,6 +182,7 @@ async fn backend_rejections(
     let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
+    import.run().save().unwrap();
     let result: Result<Vec<_>, _> = import
         .execute(WriteOptions {
             continue_on_error,
@@ -202,13 +204,16 @@ async fn backend_rejections(
             let skipped: Vec<_> = events
                 .iter()
                 .filter_map(|event| match event {
-                    Event::Skipped { error } => Some(error),
+                    Event::Skipped { error, .. } => Some(error),
                     _ => None,
                 })
                 .collect();
             assert_eq!(skipped.len(), invalid);
             for error in skipped {
-                assert!(matches!(error, Error::RejectedDocuments(_)));
+                assert!(matches!(
+                    error,
+                    Error::Topk(SdkError::DocumentValidationError(_))
+                ));
             }
             assert_eq!(
                 events
@@ -221,7 +226,10 @@ async fn backend_rejections(
                 [(valid, invalid)]
             );
         }
-        Err(error) => assert!(matches!(error, Error::RejectedDocuments(_))),
+        Err(error) => assert!(matches!(
+            error,
+            Error::Topk(SdkError::DocumentValidationError(_))
+        )),
     }
     let expected: Vec<_> = (invalid..invalid + valid)
         .filter(|_| continue_on_error)
@@ -341,6 +349,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
         import.run().state().plan.target.fields["embedding"].schema,
         destination.schema["embedding"]
     );
+    import.run().save().unwrap();
     if resume {
         let failed = import
             .execute(WriteOptions {

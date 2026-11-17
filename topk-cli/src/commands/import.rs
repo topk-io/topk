@@ -2,6 +2,7 @@ use futures::TryStreamExt;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
+use topk_rs::Error as SdkError;
 
 use anyhow::Context;
 use clap::Args;
@@ -99,7 +100,7 @@ impl PlanArgs {
 pub struct WriteArgs {
     #[arg(
         long,
-        help = "Skip row decoding, conversion, and document-validation failures; operational failures still stop the run. Exits nonzero if any rows were skipped"
+        help = "Skip row decoding, conversion, and document-validation failures, listing each in a file next to the run state; operational failures still stop the run. Exits 3 if any rows were skipped"
     )]
     pub continue_on_error: bool,
     #[arg(
@@ -115,6 +116,7 @@ pub struct WriteArgs {
         long,
         value_name = "SIZE",
         default_value = "1MiB",
+        value_parser = batch_bytes,
         help = "Target document bytes per partition batch"
     )]
     pub batch_bytes: bytesize::ByteSize,
@@ -245,6 +247,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
     if !ui.confirm(import.run(), args.yes || args.resume.is_some())? {
         return Ok(ExitCode::SUCCESS);
     }
+    import.run().save()?;
     let resume_hint = format!(
         "Continue with: topk import {}--resume {}",
         if args.source.as_ref().and_then(Uri::password).is_some() {
@@ -259,7 +262,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         concurrency: args.write.concurrency,
         batch_bytes: args.write.batch_bytes,
     };
-    ui.start();
+    ui.start(directory.join(format!("{}.rejected.jsonl", import.run().id)));
     let mut refresh = tokio::time::interval(Duration::from_millis(250));
     refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let execution = import.execute(options);
@@ -281,7 +284,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             Ok(Some(event)) => ui.event(event)?,
             Ok(None) => break,
             Err(error) => {
-                if matches!(error, Error::RejectedDocuments(_)) {
+                if matches!(error, Error::Topk(SdkError::DocumentValidationError(_))) {
                     let _ = ui.message("Use --continue-on-error to skip rejected documents.");
                 }
                 let _ = ui.message(&resume_hint);
@@ -318,5 +321,12 @@ impl ImportArgs {
             ));
         }
         Ok(uri.connect().await?)
+    }
+}
+
+fn batch_bytes(raw: &str) -> Result<bytesize::ByteSize, String> {
+    match raw.parse::<bytesize::ByteSize>()? {
+        size if size.as_u64() == 0 => Err("must be at least 1B".into()),
+        size => Ok(size),
     }
 }

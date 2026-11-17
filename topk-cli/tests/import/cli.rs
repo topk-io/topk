@@ -43,7 +43,7 @@ async fn skips_oversized_document(ctx: &Ctx) {
             "-o",
             "json",
         ])
-        .failure(1);
+        .failure(3);
     let outcome = done.summary();
     assert_eq!((outcome.rows, outcome.failed), (2, 1));
     assert_eq!(
@@ -551,6 +551,7 @@ async fn dry_run_ignores_write_options(ctx: &Ctx, #[case] args: &[&str]) {
 
 #[rstest_ctx(Scratch)]
 #[case::concurrency_cap(&["missing.parquet", "-c", "1025"], "1025 is not in 1..=1024", 2)]
+#[case::zero_batch_bytes(&["x.parquet", "--to", "c", "-b", "0"], "must be at least 1B", 2)]
 #[case::preview_flag(&["x.parquet", "--preview"], "unexpected argument '--preview'", 2)]
 #[case::resume_partition(&["--resume", "1234abcd", "--partition", "tenant"], "cannot be used with", 2)]
 #[case::resume_fields(&["--resume", "1234abcd", "-f", "title=keyword"], "cannot be used with", 2)]
@@ -797,7 +798,10 @@ async fn reimport_replaces_fields(ctx: &Ctx) {
 #[case::text("text")]
 #[case::json("json")]
 async fn skipped_rows_report_failure(ctx: &Ctx, #[case] format: &str) {
-    let from = ctx.cli.file("bad-row.csv", "id,n\n1,5\n2,no\n3,7");
+    let from = ctx.cli.file(
+        "bad-row.csv",
+        "id,n\n1,5\n2,no\n3,7\n4,no\n5,no\n6,no\n7,no",
+    );
     let collection = ctx.collection("summary");
     let output = ctx
         .cli
@@ -814,24 +818,58 @@ async fn skipped_rows_report_failure(ctx: &Ctx, #[case] format: &str) {
             "-o",
             format,
         ])
-        .failure(1);
-    assert!(output.stderr.contains("skipped"), "{output:?}");
+        .failure(3);
+    assert!(
+        output
+            .stderr
+            .contains("skipped row 2: doc \"2\" field \"n\""),
+        "{output:?}"
+    );
+    assert_eq!(
+        output
+            .stderr
+            .lines()
+            .filter(|line| line.starts_with("skipped row "))
+            .count(),
+        3,
+        "{output:?}"
+    );
     match format {
         "text" => {
             assert!(output.stdout.is_empty(), "{output:?}");
             assert!(
-                output.stderr.contains("2 rows written, 1 failed"),
+                output.stderr.contains("2 rows written, 5 failed"),
                 "{output:?}"
             );
         }
         "json" => {
-            let summary = output.summary();
-            let outcome = &summary;
-            assert_eq!((outcome.rows, outcome.failed), (2, 1));
+            let outcome = output.summary();
+            assert_eq!((outcome.rows, outcome.failed), (2, 5));
             assert!(!output.stderr.contains("rows written"), "{output:?}");
         }
         _ => unreachable!(),
     }
+    let report = output
+        .stderr
+        .lines()
+        .find_map(|line| line.strip_prefix("5 skipped rows are listed in "))
+        .unwrap_or_else(|| panic!("{output:?}"));
+    let rejected: Vec<JsonValue> = std::fs::read_to_string(report)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(
+        rejected
+            .iter()
+            .map(|row| (row["row"].as_u64().unwrap(), row["id"].as_str().unwrap()))
+            .collect::<Vec<_>>(),
+        [(2, "2"), (4, "4"), (5, "5"), (6, "6"), (7, "7")]
+    );
+    assert!(
+        rejected.iter().all(|row| row["field"] == "n"),
+        "{rejected:?}"
+    );
     assert_eq!(
         ctx.docs(&collection, [1, 2, 3]).await,
         [json!({"_id": "1", "n": 5}), json!({"_id": "3", "n": 7})]
@@ -930,7 +968,7 @@ async fn resume_from_another_directory(ctx: &Ctx) {
             stopped.id(),
             "--continue-on-error",
         ])
-        .failure(1);
+        .failure(3);
     assert!(stopped.stderr.contains("← visits.csv"), "{stopped:?}");
     assert!(resumed.stderr.contains("← data/visits.csv"), "{resumed:?}");
     assert_eq!(resumed.summary().failed, 1, "{resumed:?}");
@@ -1128,6 +1166,32 @@ async fn failed_first_write_leaves_no_collection(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
+async fn csv_reader_failure_cannot_be_skipped(ctx: &Ctx) {
+    let mut csv = String::from("id,n\n");
+    for i in 0..25_000 {
+        csv.push_str(&format!("{i},{i}\n"));
+    }
+    csv.push_str("25000,n/a\n");
+    let from = ctx.cli.file("late.csv", &csv);
+    let collection = ctx.collection("late-value");
+    let skipped = ctx
+        .cli
+        .command()
+        .args([
+            "-o",
+            "json",
+            "import",
+            &from,
+            "--to",
+            &collection,
+            "--yes",
+            "--continue-on-error",
+        ])
+        .failure(1);
+    assert!(skipped.stderr.contains("Conversion Error"), "{skipped:?}");
+}
+
+#[rstest_ctx(Ctx)]
 #[case::keeps(
     vec![("title", FieldSpec::text(false))],
     None,
@@ -1224,6 +1288,7 @@ async fn copy_undeclared_fields(
         schema(expected_schema)
     );
 }
+
 #[rstest_ctx(Ctx)]
 async fn copy_onto_itself_is_refused(ctx: &Ctx) {
     let from = ctx.cli.seed_parquet("books", books());
@@ -1290,7 +1355,7 @@ async fn copy_skips_rows_without_required_field(ctx: &Ctx) {
         .command()
         .args(["-o", "json", "import", &format!("topk://{source}")])
         .args(["--to", &dest, "--continue-on-error", "--yes"])
-        .failure(1);
+        .failure(3);
     assert_eq!((done.summary().rows, done.summary().failed), (1, 1));
     assert_eq!(
         ctx.docs(&dest, ["one", "two"]).await,
@@ -1426,7 +1491,7 @@ async fn partition_failure_resumes_saved_prefix(
             "-o",
             "json",
         ])
-        .failure(1);
+        .failure(3);
     let summary = resumed.summary();
     assert_eq!(
         (summary.rows, summary.failed),

@@ -2,6 +2,8 @@ use crate::import::common::seed::{rustfs, Backend::S3};
 use futures::TryStreamExt;
 use serde_json::json;
 use test_macros::rstest_ctx;
+use topk::import::source::{Checkpoint, Cursor};
+use topk::import::Error;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::{field_type_matrix::MatrixValueType, FieldSpec};
 use topk_rs::proto::v1::data::Value;
@@ -264,5 +266,103 @@ async fn huggingface_image_column(ctx: &Scratch) {
     assert_eq!(
         docs[0].1.fields["image"],
         topk_rs::proto::v1::data::Value::png(b"\x89PNG\r\n\x1A\n".as_slice())
+    );
+}
+
+#[rstest_ctx(Scratch)]
+#[case::whole_file(None, None, 0)]
+#[case::limited_rows(Some(25_001), None, 0)]
+#[case::filtered_rows(None, Some("a > 25000"), 0)]
+#[case::resumed_rows(None, None, 25_000)]
+async fn csv_reader_errors_stop_stream(
+    ctx: &Scratch,
+    #[case] limit: Option<u64>,
+    #[case] filter: Option<&str>,
+    #[case] offset: u64,
+) {
+    let mut csv = String::from("id,a,b\n");
+    for i in 0..25_000 {
+        csv.push_str(&format!("{i},{i},{i}\n"));
+    }
+    csv.push_str("25000,bad,bad\n25001,25001,25001\n");
+    let from = ctx.file("late.csv", &csv);
+    let connected = source(&from).await.unwrap();
+    let mut target = target(
+        &from,
+        "id",
+        [
+            ("a", FieldSpec::integer(false)),
+            ("b", FieldSpec::integer(false)),
+        ],
+    );
+    target.limit = limit;
+    target.filter = filter.map(str::to_string);
+    let checkpoint = Checkpoint {
+        cursor: Cursor::Offset {
+            part: from,
+            rows: offset,
+        },
+        consumed: offset,
+    };
+    let mut stream = connected
+        .scan(&target, (offset != 0).then_some(&checkpoint))
+        .await
+        .unwrap();
+    loop {
+        match stream.try_next().await {
+            Err(Error::InvalidArgument(message)) => {
+                assert!(message.contains("late.csv"), "{message}");
+                break;
+            }
+            Err(error) => panic!("unexpected error: {error}"),
+            Ok(Some(_)) => {}
+            Ok(None) => panic!("reader error was swallowed"),
+        }
+    }
+}
+
+#[rstest_ctx(Scratch)]
+async fn csv_sniffed_timestamp_filter(ctx: &Scratch) {
+    let from = ctx.file(
+        "dates.csv",
+        "id,date,value\n1,01/02/2024 10:00:00,5\n2,02/02/2024 10:00:00,6\n",
+    );
+    let connected = source(&from).await.unwrap();
+    let mut target = target(
+        &from,
+        "id",
+        [
+            ("date", FieldSpec::timestamp(false)),
+            ("value", FieldSpec::integer(false)),
+        ],
+    );
+    target.filter = Some("value > 5 AND date > TIMESTAMP '2024-02-01'".into());
+    let docs = json_documents(&connected, &target).await.unwrap();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].1["_id"], "2");
+    assert!(docs[0].1["date"].as_i64().is_some());
+}
+
+#[rstest_ctx(Scratch)]
+#[case::exact_name("__topk_error")]
+#[case::uppercase_name("__TOPK_ERROR")]
+async fn csv_excludes_unread_columns(ctx: &Scratch, #[case] name: &str) {
+    let mut csv = format!("id,{name},n\n");
+    for i in 0..25_000 {
+        csv.push_str(&format!("{i},kept,{i}\n"));
+    }
+    csv.push_str("25000,kept,bad\n");
+    let from = ctx.file("excluded.csv", &csv);
+    let connected = source(&from).await.unwrap();
+    let mut target = Target::new(connected.discover().await.unwrap(), Some("id")).unwrap();
+    target
+        .select(&connected, &[], &[], &["n".into()], None)
+        .await
+        .unwrap();
+    let docs = json_documents(&connected, &target).await.unwrap();
+    assert_eq!(docs.len(), 25_001);
+    assert_eq!(
+        docs.last().unwrap().1,
+        json!({"_id": "25000", (name.trim_start_matches('_')): "kept"})
     );
 }

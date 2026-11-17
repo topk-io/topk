@@ -108,12 +108,12 @@ pub(super) fn files(
                 path,
                 ..file.clone()
             };
-            let plan = Plan::file(&file, target, offset, remaining);
+            let target = target.clone();
             readers.push_back((
                 file_rx,
                 thread::spawn(move || {
                     let conn = source.connect(Some(&file))?;
-                    plan.read(&conn, &file_tx)
+                    Plan::file(&file, &target, offset, remaining).read(&conn, &file_tx)
                 }),
             ));
         }

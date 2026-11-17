@@ -290,7 +290,7 @@ topk import --to <COLLECTION> <SOURCE> [OPTIONS]
 | `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
 | `--limit <LIMIT>` | Read at most this many rows |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
-| `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
+| `--continue-on-error` | Skip rows that fail instead of stopping, listing each in a report file; exits `3` if any did |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
@@ -389,7 +389,16 @@ MongoDB checkpoints use the source `_id`, independently of the destination ID ma
 
 SQL column names are literal, including dots. Dots inside schema or table names are not supported; source discovery rejects them explicitly.
 
-For a new collection, discovery takes the source's types; an explicit field choice can change its type or add an index. A collection's schema is set when it is created: for an existing collection, declared fields use its types and indexes, explicit choices must match them, and other fields are written without a declaration. An index on a field the collection does not declare, and a declared required field the source lacks, fail the plan. Dry-run resolves against the destination too, so it requires a project and authentication. `vector`, `matrix`, and `sparse` preserve an already typed source field. Float lists, text (`"[1,2,3]"`), and packed bytes become f32 vectors with `-f embedding=vector:768:cosine`. A sparse vector reads numeric keys or parallel `indices`/`values` lists. Conversions are exact or the document fails.
+For a new collection, discovery takes the source's types; an explicit field choice can change its type or add an index. A collection's schema is set when it is created: for an existing collection, declared fields use its types and indexes, explicit choices must match them, and other fields are written without a declaration. An index on a field the collection does not declare, and a declared required field the source lacks, fail the plan. Dry-run resolves against the destination too, so it requires a project and authentication. `vector`, `matrix`, and `sparse` preserve an already typed source field. Float lists, text (`"[1,2,3]"`), and packed bytes become f32 vectors with `-f embedding=vector:768:cosine`. A sparse vector reads numeric keys or parallel `indices`/`values` lists. A value converts exactly or its row fails, except for these conversions:
+
+| value | stored as |
+| --- | --- |
+| timestamp or date | epoch milliseconds; finer digits are dropped |
+| `float_list` | 32-bit floats |
+| vector, matrix or sparse vector | the declared element type |
+| decimal with more than 15 digits | text |
+| text with a semantic index | its first 32,768 characters |
+| JSON column mixing integers and fractions | 64-bit floats, so integers beyond 2^53 round |
 
 Image fields accept JPEG/PNG bytes, data URIs, and Hugging Face `{bytes, path}` structs. Each image must fit within 512 KiB.
 
@@ -401,12 +410,23 @@ Pending document buffers are bounded by `--batch-bytes × --concurrency`, indepe
 
 Progress counts acknowledged writes. After 10 seconds without progress, the CLI prints a waiting notice.
 
-By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
+By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. CSV uses DuckDB’s inferred types and date formats; reader parsing and type-conversion errors stop the import even with `--continue-on-error`. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
 
-Summaries count acknowledged writes and skipped rows for the current invocation. Any skipped rows or fatal error produce a nonzero exit. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
+Summaries count acknowledged writes and skipped rows for the current invocation. Every skipped row is appended to `<run>.rejected.jsonl` next to the run state, with its row number in source order, document ID, field and error; the terminal shows the first three and the file's path. A run that completes with skipped rows exits `3`; a fatal error exits `1`. If the run state cannot be saved, the import stops. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
 
 - there is no schema migration: choices that differ from an existing collection's declared fields are rejected
 - an upsert replaces the whole document, so `--exclude` on an existing field clears it
+
+## Exit codes
+
+| code | meaning |
+| --- | --- |
+| `0` | success |
+| `1` | error |
+| `2` | invalid arguments |
+| `3` | `topk import` completed and skipped rows; see [Failures and limits](#failures-and-limits) |
+| `130` | interrupted with `^C` |
+| `141` | stdout closed, for example by `\| head` |
 
 ## Global flags
 

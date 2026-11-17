@@ -1,10 +1,14 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{self, Display};
-use std::io::{self, IsTerminal, Write};
+use std::fs::{File, OpenOptions};
+use std::io::{self, IsTerminal, LineWriter, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
+use topk_rs::Error as SdkError;
 
 use anyhow::{Context, Result};
+use topk_rs::error::DocumentValidationError;
 use topk_rs::proto::v1::control::{
     field_index, field_type::DataType, field_type_list::ListValueType, KeywordIndexType,
     VectorDistanceMetric,
@@ -16,7 +20,7 @@ use tracing_indicatif::suspend_tracing_indicatif;
 
 use crate::import::plan::Plan;
 use crate::import::state::{Progress, Run};
-use crate::import::{Event, Outcome, SEMANTIC_TEXT_LIMIT};
+use crate::import::{Error, Event, Outcome, SEMANTIC_TEXT_LIMIT};
 use crate::output::{json_line, Output};
 use crate::scope::Scope;
 
@@ -25,6 +29,8 @@ pub struct ImportOutput {
     status: Span,
     progress: ProgressDisplay,
     outcome: Option<Outcome>,
+    /// Where every skipped row is appended, one JSON line each.
+    rejected: Option<(PathBuf, Option<LineWriter<File>>)>,
 }
 
 impl ImportOutput {
@@ -34,6 +40,7 @@ impl ImportOutput {
             status: Span::none(),
             progress: ProgressDisplay::new(Instant::now()),
             outcome: None,
+            rejected: None,
         }
     }
 
@@ -107,7 +114,8 @@ impl ImportOutput {
         Ok(())
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self, rejected: PathBuf) {
+        self.rejected = Some((rejected, None));
         self.progress = ProgressDisplay::new(Instant::now());
         if self.format == Output::Text && io::stderr().is_terminal() {
             self.status = tracing::info_span!(parent: None, "import_progress", indicatif.pb_show = tracing::field::Empty);
@@ -129,12 +137,69 @@ impl ImportOutput {
             Event::Progress { written, bytes } => {
                 self.progress.update(written, bytes, Instant::now());
             }
-            Event::Skipped { error } => {
+            Event::Skipped { row, error } => {
                 self.progress.failed += 1;
                 match self.progress.failed {
-                    1..=3 => self.message(format_args!("skipped {error}"))?,
-                    4 => self.message("skipping more failing rows; the summary counts them")?,
+                    1..=3 => self.message(format_args!(
+                        "skipped {}{error}",
+                        row.map(|row| format!("row {row}: ")).unwrap_or_default()
+                    ))?,
+                    4 => self.message("skipping more failing rows; the summary lists where")?,
                     _ => {}
+                }
+                if let Some((path, file)) = &mut self.rejected {
+                    let file = match file {
+                        Some(file) => file,
+                        None => file.insert(LineWriter::new(
+                            OpenOptions::new().create(true).append(true).open(&*path)?,
+                        )),
+                    };
+                    let (id, field) = match &error {
+                        Error::Doc { id, field, .. } => (id.as_deref(), field.as_deref()),
+                        Error::Oversized { id, field, .. } => {
+                            (Some(id.as_str()), Some(field.as_str()))
+                        }
+                        Error::Topk(SdkError::DocumentValidationError(errors)) => match errors
+                            .iter()
+                            .next()
+                        {
+                            Some(
+                                DocumentValidationError::MissingField { doc_id, field }
+                                | DocumentValidationError::ReservedFieldName { doc_id, field }
+                                | DocumentValidationError::InvalidFieldName { doc_id, field }
+                                | DocumentValidationError::InvalidDataType { doc_id, field, .. }
+                                | DocumentValidationError::InvalidVectorDimension {
+                                    doc_id,
+                                    field,
+                                    ..
+                                }
+                                | DocumentValidationError::InvalidMatrixDimension {
+                                    doc_id,
+                                    field,
+                                    ..
+                                }
+                                | DocumentValidationError::InvalidMatrix { doc_id, field, .. }
+                                | DocumentValidationError::InvalidSparseVector {
+                                    doc_id, field, ..
+                                }
+                                | DocumentValidationError::InvalidStructDepth {
+                                    doc_id, field, ..
+                                }
+                                | DocumentValidationError::InvalidImage { doc_id, field, .. }
+                                | DocumentValidationError::TextTooLong { doc_id, field, .. },
+                            ) => (Some(doc_id.as_str()), Some(field.as_str())),
+                            Some(
+                                DocumentValidationError::DocumentTooLarge { doc_id, .. }
+                                | DocumentValidationError::DocumentNotFound { doc_id },
+                            ) => (Some(doc_id.as_str()), None),
+                            _ => (None, None),
+                        },
+                        _ => (None, None),
+                    };
+                    json_line(
+                        file,
+                        &serde_json::json!({"row": row, "id": id, "field": field, "error": error.to_string()}),
+                    )?;
                 }
             }
             Event::Completed { outcome } => {
@@ -156,16 +221,20 @@ impl ImportOutput {
         Ok(())
     }
 
+    /// Exit 3 when the run completed with skipped rows.
     pub fn finish(mut self) -> Result<ExitCode> {
         self.status = Span::none();
         if let (Output::Json, Some(outcome)) = (self.format, &self.outcome) {
             json_line(&mut io::stdout().lock(), outcome)?;
         }
-        Ok(ExitCode::from(
-            self.outcome
-                .as_ref()
-                .is_some_and(|outcome| outcome.failed != 0) as u8,
-        ))
+        let failed = self.outcome.as_ref().map_or(0, |outcome| outcome.failed);
+        if let (true, Some((path, _))) = (failed != 0, &self.rejected) {
+            self.message(format_args!(
+                "{failed} skipped rows are listed in {}",
+                path.display()
+            ))?;
+        }
+        Ok(ExitCode::from(if failed == 0 { 0 } else { 3 }))
     }
 }
 
@@ -338,6 +407,26 @@ mod tests {
     use rstest::rstest;
     use tracing_subscriber::prelude::*;
 
+    #[rstest]
+    #[case::oversized_document(Error::Oversized { id: "bad".into(), field: "body".into(), size: 2_000_001 })]
+    #[case::server_validation(Error::from(topk_rs::Error::DocumentValidationError(topk_rs::error::ValidationErrorBag::new(vec![
+        DocumentValidationError::TextTooLong { doc_id: "bad".into(), field: "body".into(), max_length: 64, got_length: 65 },
+        DocumentValidationError::MissingField { doc_id: "bad".into(), field: "title".into() },
+    ]))))]
+    fn rejection_report_keeps_identity(#[case] error: Error) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rejected.jsonl");
+        let mut output = ImportOutput::new(Output::Json);
+        output.start(path.clone());
+        output.event(Event::Skipped { row: None, error }).unwrap();
+        let report = std::fs::read_to_string(path).unwrap();
+        assert_eq!(report.lines().count(), 1);
+        let row: serde_json::Value = serde_json::from_str(&report).unwrap();
+        assert_eq!(row["id"], "bad");
+        assert_eq!(row["field"], "body");
+        assert!(row["error"].as_str().is_some_and(|error| !error.is_empty()));
+    }
+
     #[test]
     fn progress_output() {
         let subscriber = tracing_subscriber::registry().with(
@@ -346,7 +435,7 @@ mod tests {
         );
         let _guard = tracing::subscriber::set_default(subscriber);
         let mut output = ImportOutput::new(Output::Text);
-        output.start();
+        output.start(std::env::temp_dir().join("unused.rejected.jsonl"));
         assert_eq!(!output.status.is_disabled(), io::stderr().is_terminal());
         output
             .event(Event::Progress {

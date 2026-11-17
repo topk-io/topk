@@ -8,7 +8,7 @@ use prost::Message;
 use tokio::task::JoinSet;
 use topk_rs::proto::v1::data::Document;
 use topk_rs::Client;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::import::ddl;
 use crate::import::error::Error;
@@ -30,9 +30,18 @@ pub struct Outcome {
 }
 
 pub enum Event {
-    Progress { written: usize, bytes: u64 },
-    Skipped { error: Error },
-    Completed { outcome: Outcome },
+    Progress {
+        written: usize,
+        bytes: u64,
+    },
+    /// `row` counts from 1 in source order; a destination rejection has none.
+    Skipped {
+        row: Option<u64>,
+        error: Error,
+    },
+    Completed {
+        outcome: Outcome,
+    },
 }
 
 #[derive(Debug)]
@@ -128,9 +137,6 @@ impl Import {
             }
             let buffer_bytes = options.batch_bytes.as_u64().checked_mul(options.concurrency as u64)
                 .ok_or_else(|| Error::InvalidArgument("batch size times concurrency is too large".into()))?;
-            if let Err(error) = self.run.save() {
-                error!(%error, "cannot save run state — this run cannot be resumed");
-            }
             let name = self.run.state().plan.collection.clone();
             let target = self.run.state().plan.target.clone();
             let client = &self.client;
@@ -156,8 +162,7 @@ impl Import {
             yield Event::Progress { written, bytes };
             loop {
                 if let Some(checkpoint) = checkpoints.ready() {
-                    let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint));
-                    if let Err(error) = saved { error!(%error, "cannot save run state"); }
+                    state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint))?;
                 }
                 if eof && batches.is_empty() && inflight.is_empty() { break; }
                 let ready = batches.iter().enumerate()
@@ -179,7 +184,7 @@ impl Import {
                         bytes += outcome.bytes;
                         failed += outcome.skipped.len();
                         for error in outcome.skipped {
-                            yield Event::Skipped { error };
+                            yield Event::Skipped { row: None, error };
                         }
                         yield Event::Progress { written, bytes };
                         outcome.result?;
@@ -260,7 +265,7 @@ impl Import {
                                 Err(error) if options.continue_on_error => {
                                     checkpoints.complete(chunk_id, 1)?;
                                     failed += 1;
-                                    yield Event::Skipped { error };
+                                    yield Event::Skipped { row: Some(consumed - rows.as_slice().len() as u64), error };
                                 }
                                 Err(error) => Err(error)?,
                             }
@@ -286,8 +291,7 @@ impl Import {
             if create && failed == 0 {
                 Self::create(client, &name, &target).await?;
             }
-            let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::Done);
-            if let Err(error) = saved { error!(%error, "cannot save run state"); }
+            state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::Done)?;
             yield Event::Completed { outcome: Outcome { rows: written, failed, bytes, elapsed: started.elapsed() } };
             let removed = state.lock().unwrap_or_else(|e| e.into_inner()).remove();
             if let Err(error) = removed { warn!(%error, "cannot remove run state"); }
