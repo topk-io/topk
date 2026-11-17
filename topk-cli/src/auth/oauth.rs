@@ -79,33 +79,40 @@ pub struct OAuthConfig {
     pub audience: String,
 }
 
+impl Default for OAuthConfig {
+    fn default() -> Self {
+        Self {
+            issuer: AUTH_ISSUER.parse().expect("valid issuer URL"),
+            client_id: AUTH_CLIENT_ID.into(),
+            audience: AUTH_AUDIENCE.into(),
+        }
+    }
+}
+
 impl OAuthConfig {
     pub async fn resolve(host: &Host) -> Result<Self> {
         match host.host.as_str() {
-            DEFAULT_HOST => Ok(Self {
-                issuer: AUTH_ISSUER.parse()?,
-                client_id: AUTH_CLIENT_ID.into(),
-                audience: AUTH_AUDIENCE.into(),
-            }),
-            _ => Self::fetch(&format!("{}/auth/config.json", host.api_url())).await,
+            DEFAULT_HOST => Ok(Self::default()),
+            _ => {
+                let url = format!("{}/auth/config.json", host.api_url());
+                Self::fetch(&url)
+                    .await
+                    .with_context(|| format!("cannot load login settings from {url}"))
+            }
         }
     }
 
-    async fn fetch(url: &str) -> Result<Self> {
-        let load = async {
-            HttpClient::builder()
-                .connect_timeout(CONNECT_TIMEOUT)
-                .timeout(REQUEST_TIMEOUT)
-                .build()?
-                .get(url)
-                .send()
-                .await?
-                .error_for_status()?
-                .json::<Self>()
-                .await
-        };
-        load.await
-            .with_context(|| format!("cannot load login settings from {url}"))
+    async fn fetch(url: &str) -> reqwest::Result<Self> {
+        HttpClient::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()?
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await
     }
 
     pub fn issuer_key(&self) -> String {

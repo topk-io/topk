@@ -1,6 +1,8 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 pub const DEFAULT_HOST: &str = "topk.io";
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Hash)]
 pub struct Host {
     /// API domain
     #[arg(
@@ -27,6 +29,12 @@ pub struct Host {
 }
 
 impl Host {
+    pub fn key(&self) -> String {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    }
+
     pub fn api_url(&self) -> String {
         let protocol = if self.https { "https" } else { "http" };
         format!("{protocol}://api.{}", self.host)

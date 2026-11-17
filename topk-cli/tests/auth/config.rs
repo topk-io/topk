@@ -157,8 +157,7 @@ async fn given_settings_are_used_without_asking_the_host() {
         args(&given),
         dir.path().to_owned(),
     )
-    .await
-    .unwrap();
+    .await;
     assert_eq!(config.oauth().client_id, "cli");
     assert!(dir.path().read_dir().unwrap().next().is_none());
 }
@@ -171,9 +170,22 @@ async fn default_host_uses_the_built_in_settings() {
         host: DEFAULT_HOST.into(),
         https: true,
     };
-    let config = Config::load(host, args(&["test"]), dir.path().to_owned())
-        .await
-        .unwrap();
+    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    assert_eq!(
+        config.oauth().issuer.as_str(),
+        "https://topk-prod.us.auth0.com/"
+    );
+    assert!(dir.path().read_dir().unwrap().next().is_none());
+}
+
+#[tokio::test]
+async fn unreachable_host_falls_back_to_the_built_in_settings() {
+    let dir = TempDir::new().unwrap();
+    let host = Host {
+        host: "unreachable.invalid".into(),
+        https: true,
+    };
+    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
     assert_eq!(
         config.oauth().issuer.as_str(),
         "https://topk-prod.us.auth0.com/"
@@ -203,12 +215,12 @@ async fn host_is_asked_once_and_its_answer_reused_until_logout() {
     let dir = TempDir::new().unwrap();
     let load = || Config::load(host.clone(), args(&["test"]), dir.path().to_owned());
 
-    let config = load().await.unwrap();
+    let config = load().await;
     assert_eq!(config.oauth().client_id, "cli");
-    load().await.unwrap();
+    load().await;
     assert_eq!(asked.load(Ordering::SeqCst), 1);
 
     Auth::new(config).unwrap().logout().await.unwrap();
-    load().await.unwrap();
+    load().await;
     assert_eq!(asked.load(Ordering::SeqCst), 2);
 }

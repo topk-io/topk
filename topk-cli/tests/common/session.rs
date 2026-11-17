@@ -300,7 +300,6 @@ async fn config(dir: PathBuf) -> Config {
         dir,
     )
     .await
-    .expect("login settings")
 }
 
 /// A directory shared by every test process on this machine for `key`.

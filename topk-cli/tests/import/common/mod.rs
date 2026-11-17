@@ -294,8 +294,7 @@ impl AsyncTestContext for Ctx {
             from_env::<OAuthArgs>(),
             Config::dir().expect("config directory"),
         )
-        .await
-        .expect("login settings");
+        .await;
         let mut cli = Scratch::default();
         cli.config_dir = Config::dir().expect("session config directory");
         Ctx {

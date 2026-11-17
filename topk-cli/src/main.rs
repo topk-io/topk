@@ -118,32 +118,27 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let config = Config::load(cli.host.clone(), cli.oauth.clone(), Config::dir()?);
+    let config = Config::load(cli.host.clone(), cli.oauth.clone(), Config::dir()?).await;
     match &cli.command {
         Some(Commands::Project(args)) => {
-            topk::commands::project::run(config.await?, args, cli.output, &mut std::io::stdout())
-                .await
+            topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
         }
         Some(Commands::Region(args)) => {
-            topk::commands::region::run(config.await?, args, cli.output, &mut std::io::stdout())
-                .await
+            topk::commands::region::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
         Some(Commands::Sql(args)) => {
-            topk::commands::sql::run(config.await?, args, cli.output, &mut std::io::stdout()).await
+            topk::commands::sql::run(config, args, cli.output, &mut std::io::stdout()).await
         }
         Some(Commands::Usage(args)) => {
-            topk::commands::usage::run(config.await?, args, cli.output, &mut std::io::stdout())
-                .await
+            topk::commands::usage::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
-        Some(Commands::Login(args)) => topk::commands::login::run(config.await?, args).await,
-        Some(Commands::Logout(args)) => topk::commands::logout::run(config.await?, args).await,
+        Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
+        Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,
 
         #[cfg(feature = "import")]
-        Some(Commands::Import(args)) => {
-            topk::commands::import::run(config.await?, args, cli.output).await
-        }
+        Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,
 
         Some(Commands::Completions { shell }) => {
             let mut script = Vec::new();

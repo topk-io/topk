@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use toml::Table;
+use tracing::warn;
 
 use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
@@ -35,23 +35,34 @@ impl Config {
         Self { dir, host, oauth }
     }
 
-    pub async fn load(host: Host, oauth: OAuthArgs, dir: PathBuf) -> Result<Self> {
+    pub async fn load(host: Host, oauth: OAuthArgs, dir: PathBuf) -> Self {
         let oauth = match oauth.config() {
             Some(oauth) => oauth,
-            None => match read_toml(&oauth_file(&dir, &host))? {
-                Some(cached) => cached,
-                None => {
-                    let config = OAuthConfig::resolve(&host).await?;
-                    match host.host.as_str() {
-                        // Using the default host, don't cache the oauth config.
-                        DEFAULT_HOST => {}
-                        _ => write_toml(&oauth_file(&dir, &host), &config)?,
-                    }
-                    config
+            None => match Self::resolve_oauth(&host, &dir).await {
+                Ok(oauth) => oauth,
+                Err(e) => {
+                    warn!("cannot load login settings for {}: {e:#}", host.host);
+                    OAuthConfig::default()
                 }
             },
         };
-        Ok(Self { dir, host, oauth })
+        Self { dir, host, oauth }
+    }
+
+    async fn resolve_oauth(host: &Host, dir: &Path) -> Result<OAuthConfig> {
+        let file = oauth_file(dir, host);
+        match read_toml(&file)? {
+            Some(cached) => Ok(cached),
+            None => {
+                let config = OAuthConfig::resolve(host).await?;
+                match host.host.as_str() {
+                    // Using the default host, don't cache the oauth config.
+                    DEFAULT_HOST => {}
+                    _ => write_toml(&file, &config)?,
+                }
+                Ok(config)
+            }
+        }
     }
 
     pub fn clear_oauth(&self) -> Result<()> {
@@ -141,7 +152,7 @@ impl Config {
     fn defaults_file(&self) -> PathBuf {
         self.tenant_dir()
             .join("defaults")
-            .join(format!("{}.toml", host_key(&self.host)))
+            .join(format!("{}.toml", self.host.key()))
     }
 
     /// Everything scoped to this issuer's session lives here.
@@ -260,15 +271,8 @@ impl Credentials {
     }
 }
 
-fn host_key(host: &Host) -> String {
-    format!(
-        "{:x}",
-        Sha256::digest(format!("{}:{}", host.https, host.host).as_bytes())
-    )
-}
-
 fn oauth_file(dir: &Path, host: &Host) -> PathBuf {
-    dir.join("hosts").join(format!("{}.toml", host_key(host)))
+    dir.join("hosts").join(format!("{}.toml", host.key()))
 }
 
 fn remove(path: &Path) -> Result<()> {
