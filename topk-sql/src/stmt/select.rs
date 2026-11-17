@@ -247,7 +247,7 @@ impl TryFrom<SqlQuery> for Statement {
                 .filter_map(|item| item.projection_name().ok())
                 .find(|name| !names.insert(name.clone()))
             {
-                sql_unsupported!("Duplicate column name '{name}'");
+                sql_unsupported!("field `{name}` selected more than once: use an alias");
             }
         }
 

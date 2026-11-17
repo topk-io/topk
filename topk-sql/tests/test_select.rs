@@ -1393,6 +1393,6 @@ fn select_rejects_duplicate_output_names(#[case] sql: &str, #[case] name: &str) 
     let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
     assert_eq!(
         err.to_string(),
-        format!("Unsupported: Duplicate column name '{name}'")
+        format!("Unsupported: field `{name}` selected more than once: use an alias")
     );
 }
