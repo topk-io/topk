@@ -45,6 +45,10 @@ impl Service<Request<Body>> for Transport {
             let mut header = HeaderValue::from_str(&format!("Bearer {token}"))?;
             header.set_sensitive(true);
             request.headers_mut().insert(AUTHORIZATION, header);
+            request.headers_mut().insert(
+                "x-topk-sdk-version",
+                HeaderValue::from_static(env!("CARGO_PKG_VERSION")),
+            );
             Ok(channel.oneshot(request).await?)
         })
     }
