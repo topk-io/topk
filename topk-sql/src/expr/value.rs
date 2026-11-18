@@ -40,6 +40,9 @@ impl FromSql<SqlExpr> for Value {
             },
             SqlExpr::Array(arr) => Value::from_sql(arr.elem),
             SqlExpr::Function(func) => Value::from_sql(func),
+            SqlExpr::Identifier(ident) if ident.quote_style == Some('"') => {
+                Err(Error::QuotedString(ident.value))
+            }
             SqlExpr::TypedString(ts) => match ts.data_type {
                 DataType::Timestamp(_, TimezoneInfo::None) => {
                     let s = ts.value.into_string().ok_or_else(|| {
