@@ -5983,6 +5983,13 @@ topk import gs://bucket/books.csv --to books                  # az:// hf:// http
 
 A source is one file or one glob. For a folder or a bucket prefix, use a glob such as `'s3://bucket/books/*.parquet'`. `*` matches files in one folder; `**` also matches subfolders (`'s3://bucket/books/**/*.parquet'`).
 
+```bash
+topk import 'data/{lang}/*.parquet' --to docs --partition lang   # data/sw/a.parquet → lang "sw"
+topk import 'data/*/*.parquet' --to docs --partition lang        # data/lang=sw/a.parquet → lang "sw"
+```
+
+A `{name}` folder in a glob matches like `*` and gives each row a text column `name` holding that folder's name; `key=value` folders add a `key` column the same way. Path columns work for local paths and buckets, not `http(s)://`, and can be used in `--partition`, `--id`, `-f` and `--filter`. A name the files already use as a column is refused. To match a folder literally named `{name}`, write `[{]name}`.
+
 ###### Copy a TopK collection
 
 ```bash
