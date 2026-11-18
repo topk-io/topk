@@ -1342,6 +1342,20 @@ fn folder_source_names_the_glob(ctx: &Scratch) {
     );
 }
 
+#[rstest_ctx(Scratch)]
+#[case::working_directory("data/books.csv")]
+#[case::home("~/data/books.csv")]
+fn braced_folder_above_source_is_literal(ctx: &Scratch, #[case] from: &str) {
+    ctx.file("{me}/data/books.csv", "a,b\nx,y");
+    let run = ctx
+        .command()
+        .current_dir(ctx.path("{me}"))
+        .envs([("HOME", ctx.path("{me}"))])
+        .args(["import", from, "--to", "c", "--dry-run"])
+        .failure(1);
+    assert!(run.stderr.contains("available: a, b —"), "{run:?}");
+}
+
 #[rstest_ctx(Ctx)]
 async fn copy_skips_rows_without_required_field(ctx: &Ctx) {
     let source = ctx.collection("required-rows");

@@ -190,7 +190,8 @@ fn files(#[case] input: &str, #[case] store: Option<ObjectStore>, #[case] format
                 Some(_) => input.into(),
             },
             store,
-            format
+            format,
+            path_columns: Vec::new(),
         }
     );
 }
@@ -206,6 +207,7 @@ fn file_home_expands(#[case] path: &str) {
             path: dirs::home_dir().unwrap().join(path).display().to_string(),
             store: None,
             format: Format::Parquet,
+            path_columns: Vec::new(),
         }
     );
 }

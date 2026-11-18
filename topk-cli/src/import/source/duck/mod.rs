@@ -8,6 +8,7 @@ use std::path::Path;
 use duckdb::Connection;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
+use topk_rs::proto::v1::control::FieldSpec;
 use tracing::debug;
 
 use crate::import::error::Error;
@@ -41,8 +42,8 @@ pub(super) fn lit(value: &str) -> String {
 const READER_MEMORY: u64 = 4 << 30;
 
 impl Duckdb {
-    /// A connection able to read `file`; attached sources ignore it and use their DSN.
-    fn connect(&self, file: Option<&File>) -> Result<Connection, Error> {
+    /// A connection able to read the files, or attached to the database.
+    fn connect(&self) -> Result<Connection, Error> {
         let conn = Connection::open_in_memory()?;
         // One thread, in order: rows arrive as stored, which makes a row offset
         // a resume point; more threads measured the same.
@@ -71,10 +72,7 @@ impl Duckdb {
             Duckdb::Postgres { url, .. } => ("postgres", url.0.as_str()),
             Duckdb::Mysql { url, .. } => ("mysql", url.0.as_str()),
             Duckdb::Sqlite { path, .. } => ("sqlite", path.as_str()),
-            Duckdb::Files(_) => {
-                let file = file.ok_or_else(|| {
-                    Error::InvalidArgument("no source: name a file to read".to_string())
-                })?;
+            Duckdb::Files(file) => {
                 match file.format {
                     Format::Avro => install("avro")?,
                     Format::Arrow => install_community("arrow")?,
@@ -185,11 +183,11 @@ impl Duckdb {
                 _ => None,
             };
             if let Some(file) = file { file.validate()?; }
-            let conn = source.connect(file)?;
+            let conn = source.connect()?;
             // A glob's schema is the union of its files' schemas, read one file per thread; order does not matter here.
             if file.is_some() { conn.execute_batch("SET threads = 16;")?; }
             let (from, select, key) = match &source {
-                Duckdb::Files(file) => (SourceLocation::from(file), Select::file(file), None),
+                Duckdb::Files(file) => (SourceLocation::from(file), Select::file(file.format, &file.glob()), None),
                 Duckdb::Postgres { object, .. } | Duckdb::Mysql { object, .. } | Duckdb::Sqlite { object, .. } => {
                     let hidden = match &source {
                         Duckdb::Postgres { .. } => "'information_schema', 'pg_catalog'",
@@ -230,7 +228,7 @@ impl Duckdb {
             let mut stmt = conn.prepare(&select.limit(Some(0)).into_sql())
                 .map_err(|e| read_error(&from, None, e))?;
             let schema = stmt.query_arrow([]).map_err(|e| read_error(&from, None, e))?.get_schema();
-            let columns: Vec<_> = schema.fields().iter()
+            let mut columns: Vec<_> = schema.fields().iter()
                 .map(|column| (column.name().clone(), arrow::ty(column.data_type()).unwrap_or_default())).collect();
             if columns.is_empty() {
                 return Err(Error::InvalidArgument(format!("no columns discovered for {from}")));
@@ -241,6 +239,14 @@ impl Duckdb {
                     && name.strip_prefix("column").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())))
                 .cloned().collect();
             if unnamed.len() == columns.len() { unnamed.clear(); }
+            for (name, _) in file.into_iter().flat_map(|file| &file.path_columns) {
+                if let Some((taken, _)) = columns.iter().find(|(column, _)| column.eq_ignore_ascii_case(name)) {
+                    return Err(Error::InvalidArgument(format!(
+                        "{{{name}}} in {from}: the files already have a {taken:?} column; give the path column another name"
+                    )));
+                }
+                columns.push((name.clone(), FieldSpec::text(false)));
+            }
             Ok(Table { from, columns, key, unnamed })
         }).await?
     }
@@ -262,12 +268,17 @@ impl Duckdb {
             }
         };
         Ok(self.stream(move |source, tx| {
-            let conn = source.connect(None)?;
+            let conn = source.connect()?;
             Plan::table(source, &target, &key, after.as_deref()).read(&conn, tx)
         }))
     }
 
-    pub fn files(&self, target: Target, after: Option<Cursor>) -> Result<ChunkStream, Error> {
+    pub fn files(
+        &self,
+        file: File,
+        target: Target,
+        after: Option<Cursor>,
+    ) -> Result<ChunkStream, Error> {
         let resume = match after {
             None => None,
             Some(Cursor::Offset { part, rows }) => Some((part, rows)),
@@ -278,7 +289,6 @@ impl Duckdb {
                 )))
             }
         };
-        let file: File = target.from.value().parse()?;
         Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, tx)))
     }
 

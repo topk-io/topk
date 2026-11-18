@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{is_separator, Path, PathBuf, MAIN_SEPARATOR};
 use std::str::FromStr;
 
 use crate::import::error::Error;
@@ -30,14 +30,42 @@ pub struct File {
     pub path: String,
     pub store: Option<ObjectStore>,
     pub format: Format,
+    pub path_columns: Vec<(String, Segment)>,
 }
 
 impl File {
+    pub fn glob(&self) -> String {
+        self.path
+            .split('/')
+            .map(|segment| match column_name(segment) {
+                Some(_) => "*",
+                None => segment,
+            })
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+
+    pub fn path_values<'a>(&'a self, path: &'a str) -> Result<Vec<(&'a str, &'a str)>, Error> {
+        self.path_columns
+            .iter()
+            .map(|(name, segment)| {
+                let value = match segment {
+                    Segment::FromStart(n) => path.split(is_separator).nth(*n),
+                    Segment::FromEnd(n) => path.rsplit(is_separator).nth(*n),
+                };
+                value.map(|value| (name.as_str(), value)).ok_or_else(|| {
+                    Error::InvalidArgument(format!("{path:?} has no segment for {{{name}}}"))
+                })
+            })
+            .collect()
+    }
+
     pub fn validate(&self) -> Result<(), Error> {
         if self.store.is_some() {
             return Ok(());
         }
-        let path = match local_path(&self.path) {
+        let glob = self.glob();
+        let path = match local_path(&glob) {
             Some(path) => path,
             None => return Ok(()),
         };
@@ -147,7 +175,8 @@ impl FromStr for File {
                                 .collect::<Vec<_>>()
                                 .join(" or "),
                         };
-                        format!(". A source is one file or one glob: for the files in this folder, use {globs}")
+                        format!(". A source is one file or one glob: for the files in this folder, use {globs}; \
+                         '{dir}/{{name}}/*.parquet' also makes each sub-folder's name a column")
                     }
                     _ if s.contains("://") => ". To read from a database, pass it as the source, \
                          e.g. `topk import postgres://host/db#books --to books`"
@@ -163,18 +192,96 @@ impl FromStr for File {
 
         let path = match store {
             // Absolute, so a saved run resumes from any directory.
-            None if !s.starts_with("file://") => std::path::absolute(&*shellexpand::tilde(s))?
-                .display()
-                .to_string(),
+            None => {
+                // `[{]name}` matches a folder literally named `{name}` in the working or home directory.
+                let literal = |dir: PathBuf| {
+                    dir.display()
+                        .to_string()
+                        .replace(MAIN_SEPARATOR, "/")
+                        .split('/')
+                        .map(|segment| match column_name(segment) {
+                            Some(_) => format!("[{{]{}", &segment[1..]),
+                            None => segment.to_string(),
+                        })
+                        .collect::<Vec<_>>()
+                        .join("/")
+                };
+                let typed =
+                    shellexpand::tilde_with_context(s.strip_prefix("file://").unwrap_or(s), || {
+                        dirs::home_dir().map(literal)
+                    });
+                std::path::absolute(Path::new(&literal(std::env::current_dir()?)).join(&*typed))?
+                    .display()
+                    .to_string()
+                    .replace(MAIN_SEPARATOR, "/")
+            }
             // `~` is meaningless in a bucket key.
-            _ => s.to_string(),
+            Some(_) => s.to_string(),
         };
+        let path_columns = path_columns(&path)?;
+        if let (Some(ObjectStore::Http), Some((name, _))) = (&store, path_columns.first()) {
+            return Err(Error::InvalidArgument(format!(
+                "{{{name}}} in {path:?}: http(s) cannot list folders; read from a bucket or a local path"
+            )));
+        }
         Ok(File {
             path,
             store,
             format,
+            path_columns,
         })
     }
+}
+
+/// Where a `{name}` column's value sits in a matched file's path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Segment {
+    FromStart(usize),
+    FromEnd(usize),
+}
+
+fn column_name(segment: &str) -> Option<&str> {
+    segment
+        .strip_prefix('{')
+        .and_then(|s| s.strip_suffix('}'))
+        .filter(|name| {
+            let mut ident = name.chars();
+            ident
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                && ident.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+}
+
+fn path_columns(path: &str) -> Result<Vec<(String, Segment)>, Error> {
+    let segments: Vec<&str> = path.split('/').collect();
+    let mut columns: Vec<(String, Segment)> = Vec::new();
+    for (i, segment) in segments.iter().enumerate() {
+        let name = match column_name(segment) {
+            Some(name) => name,
+            None => continue,
+        };
+        if columns.iter().any(|(column, _)| column == name) {
+            return Err(Error::InvalidArgument(format!(
+                "{{{name}}} appears twice in {path:?}"
+            )));
+        }
+        let at = match (
+            segments[..i].iter().any(|s| s.contains("**")),
+            segments[i + 1..].iter().any(|s| s.contains("**")),
+        ) {
+            (_, false) => Segment::FromEnd(segments.len() - 1 - i),
+            (false, true) => Segment::FromStart(i),
+            (true, true) => {
+                return Err(Error::InvalidArgument(format!(
+                    "{{{name}}} in {path:?} has `**` on both sides, so its segment is not fixed: \
+                     drop one `**`"
+                )))
+            }
+        };
+        columns.push((name.to_string(), at));
+    }
+    Ok(columns)
 }
 
 fn extension(path: &Path) -> Option<String> {
@@ -202,6 +309,37 @@ fn logical(path: &str) -> &str {
 
 /// A local, non-glob path — the only kind that can be stat'ed.
 pub(super) fn local_path(path: &str) -> Option<&str> {
-    let path = path.trim_start_matches("file://");
     (!path.contains(['*', '?', '['])).then_some(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::File;
+
+    #[rstest]
+    #[case::plain("/d/a.csv", "/d/a.csv", &[])]
+    #[case::from_the_end("/d/{lang}/*.csv", "/d/sw/a.csv", &[("lang", "sw")])]
+    #[case::bucket("s3://b/**/{lang}/x.csv", "s3://b/p/q/sw/x.csv", &[("lang", "sw")])]
+    #[case::double_star_after("/{year}/**/x.csv", "/2024/a/b/x.csv", &[("year", "2024")])]
+    #[case::double_star_empty("/{year}/**/x.csv", "/2024/x.csv", &[("year", "2024")])]
+    #[case::file_scheme("file:///d/{year}/**/x.csv", "/d/2024/a/x.csv", &[("year", "2024")])]
+    #[case::two_columns("/{year}/{lang}/x.csv", "/2024/sw/x.csv", &[("year", "2024"), ("lang", "sw")])]
+    #[case::not_an_identifier("/d/{1lang}/x.csv", "/d/{1lang}/x.csv", &[])]
+    #[case::part_of_a_segment("/d/lang={lang}/x.csv", "/d/lang={lang}/x.csv", &[])]
+    #[case::braced_file_name("/d/{lang}.csv", "/d/{lang}.csv", &[])]
+    fn values(#[case] pattern: &str, #[case] matched: &str, #[case] expected: &[(&str, &str)]) {
+        let file: File = pattern.parse().unwrap();
+        assert_eq!(file.path_values(matched).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::twice("{lang}/{lang}/x.csv", "appears twice")]
+    #[case::double_star_both_sides("**/{lang}/**/x.csv", "`**` on both sides")]
+    #[case::http("https://h/{lang}/x.csv", "http(s) cannot list folders")]
+    fn refuses(#[case] path: &str, #[case] error: &str) {
+        let err = path.parse::<File>().unwrap_err().to_string();
+        assert!(err.contains(error), "{err}");
+    }
 }
