@@ -1,21 +1,19 @@
+use crate::import::common::seed::sqlite;
 use crate::import::common::seed::Backend::Sqlite;
 use crate::import::common::{books, json_documents, refused, source, target, Scratch};
 use futures::TryStreamExt;
 use serde_json::json;
 use sqlx::{Executor, SqlitePool};
 use test_macros::rstest_ctx;
+use topk::import::plan::Target;
 use topk::import::source::{Checkpoint, Cursor, ReadEvent};
 use topk_rs::proto::v1::control::FieldSpec;
 
 #[rstest_ctx(Scratch)]
 async fn unqualified_table(ctx: &Scratch) {
     let seeded = ctx.seed(Sqlite, "books", books()).await;
-    let source = source(&seeded.url).await.unwrap();
-    let target = target(
-        seeded.from.rsplit('.').next().unwrap(),
-        "_id",
-        [("title", FieldSpec::text(false))],
-    );
+    let source = source(&seeded.url.replace("#main.", "#")).await.unwrap();
+    let target = target(&seeded.from, "_id", [("title", FieldSpec::text(false))]);
     let docs = json_documents(&source, &target).await.unwrap();
     assert_eq!(docs.len(), 3);
     assert!(docs
@@ -33,8 +31,8 @@ async fn quoted_columns(ctx: &Scratch, #[case] column: &str) {
         .unwrap();
     pool.execute(format!("CREATE TABLE records (\"{}\" TEXT NOT NULL PRIMARY KEY, title TEXT); INSERT INTO records VALUES ('one', 'book')", column.replace('"', "\"\"")).as_str()).await.unwrap();
     pool.close().await;
-    let source = source(&format!("sqlite:{path}")).await.unwrap();
-    let target = target("records", column, [("title", FieldSpec::text(false))]);
+    let source = sqlite::source(&path, "records").await.unwrap();
+    let target = target("main.records", column, [("title", FieldSpec::text(false))]);
     assert_eq!(
         json_documents(&source, &target).await.unwrap(),
         [(None, json!({"_id": "one", "title": "book"}))]
@@ -51,8 +49,8 @@ async fn dotted_table_rejected(ctx: &Scratch) {
         .await
         .unwrap();
     pool.close().await;
-    let source = source(&format!("sqlite:{path}")).await.unwrap();
-    assert!(refused(source.catalog().await).contains("dots inside schema or table names"));
+    let source = sqlite::source(&path, "a.b").await.unwrap();
+    assert!(refused(source.discover().await).contains("dots inside schema or table names"));
 }
 
 #[rstest_ctx(Scratch)]
@@ -72,10 +70,10 @@ async fn requires_unique_key(ctx: &Scratch, #[case] columns: &str, #[case] key: 
         .await
         .unwrap();
     pool.close().await;
-    let source = source(&format!("sqlite:{path}")).await.unwrap();
-    let catalog = source.catalog().await.unwrap();
-    assert_eq!(catalog.table("records").unwrap().key.as_deref(), key);
-    let target = target("records", "id", [("title", FieldSpec::text(false))]);
+    let source = sqlite::source(&path, "records").await.unwrap();
+    let catalog = source.discover().await.unwrap();
+    assert_eq!(catalog.key.as_deref(), key);
+    let target = target("main.records", "id", [("title", FieldSpec::text(false))]);
     let scan = source.scan(&target, None).await;
     match key {
         Some(_) => assert!(scan.is_ok()),
@@ -91,9 +89,9 @@ async fn resume_uses_source_key(ctx: &Scratch) {
         .unwrap();
     pool.execute("CREATE TABLE records (seq INTEGER PRIMARY KEY, external_id TEXT, title TEXT); INSERT INTO records VALUES (1, 'same', 'a'), (2, 'same', 'b'), (3, 'same', 'c')").await.unwrap();
     pool.close().await;
-    let source = source(&format!("sqlite:{path}")).await.unwrap();
+    let source = sqlite::source(&path, "records").await.unwrap();
     let target = target(
-        "records",
+        "main.records",
         "external_id",
         [("title", FieldSpec::text(false))],
     );
@@ -124,8 +122,8 @@ async fn resume_uses_source_key(ctx: &Scratch) {
     assert_eq!(
         documents,
         [
-            json!({"_id":"same", "title":"b"}),
-            json!({"_id":"same", "title":"c"})
+            json!({"_id":"same", "seq":2, "title":"b"}),
+            json!({"_id":"same", "seq":3, "title":"c"})
         ]
     );
     assert_eq!(
@@ -142,4 +140,23 @@ async fn resume_uses_source_key(ctx: &Scratch) {
     assert!(
         refused(source.scan(&target, Some(&legacy)).await).contains("does not match source key")
     );
+}
+
+#[rstest_ctx(Scratch)]
+async fn selected_table_controls_resume(ctx: &Scratch) {
+    let path = ctx.file("selected.db", "");
+    let pool = SqlitePool::connect(&format!("sqlite://{path}"))
+        .await
+        .unwrap();
+    pool.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE other (id INTEGER PRIMARY KEY, title TEXT); INSERT INTO orders VALUES (1, 'chosen'); INSERT INTO other VALUES (2, 'wrong')").await.unwrap();
+    pool.close().await;
+    let source = sqlite::source(&path, "orders").await.unwrap();
+    let selected = Target::new(source.discover().await.unwrap(), None).unwrap();
+    assert_eq!(selected.from.value(), "main.orders");
+    assert_eq!(
+        json_documents(&source, &selected).await.unwrap(),
+        [(None, json!({"_id":"1", "title":"chosen"}))]
+    );
+    let changed = target("main.other", "id", [("title", FieldSpec::text(false))]);
+    assert!(refused(source.scan(&changed, None).await).contains("saved plan reads"));
 }

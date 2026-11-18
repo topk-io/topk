@@ -1,6 +1,8 @@
 use crate::import::common::seed::pg;
 use crate::import::common::*;
+use sqlx::{Executor, PgPool};
 use test_macros::rstest_ctx;
+use topk::import::plan::Target;
 
 #[rstest_ctx(Scratch)]
 async fn catalog_metadata(ctx: &Scratch) {
@@ -37,8 +39,10 @@ async fn catalog_metadata(ctx: &Scratch) {
         (format!("public.\"{base} x\""), columns),
         (format!("public.{base}_x"), columns),
     ]);
-    let source = source(pg::Pg::URL).await.unwrap();
-    let catalog = &source.catalog().await.unwrap().tables;
+    let ambiguous = pg::source(&base).await.unwrap();
+    assert!(refused(ambiguous.discover().await).contains("ambiguous; qualify"));
+    let missing = pg::source(&format!("{base}_missing")).await.unwrap();
+    assert!(refused(missing.discover().await).contains("was not found — available: "));
     for (schema, name, key, columns) in [
         ("public", keyed.as_str(), Some("sku"), vec!["sku", "title"]),
         ("public", unique.as_str(), Some("sku"), vec!["sku", "title"]),
@@ -60,11 +64,8 @@ async fn catalog_metadata(ctx: &Scratch) {
         ),
     ] {
         let from = format!("{schema}.{name}");
-        let table = catalog
-            .iter()
-            .find(|table| table.from == from)
-            .expect(&from);
-        assert_eq!(table.collection_hint.as_deref(), Some(name), "{from}");
+        let source = pg::source(&from).await.unwrap();
+        let table = source.discover().await.unwrap();
         assert_eq!(table.key.as_deref(), key, "{from}");
         assert_eq!(
             table
@@ -80,8 +81,44 @@ async fn catalog_metadata(ctx: &Scratch) {
 
 #[tokio::test]
 async fn connect_errors_redact_the_password() {
-    let source = source("postgres://u:hunter2@127.0.0.1:1/db").await.unwrap();
-    let message = refused(source.catalog().await);
+    let source = source("postgres://u:hunter2@127.0.0.1:1/db#orders")
+        .await
+        .unwrap();
+    let message = refused(source.discover().await);
     assert!(!message.contains("hunter2"), "got: {message}");
     assert!(message.contains("***"), "got: {message}");
+}
+
+#[rstest_ctx(Scratch)]
+async fn selected_table_only_permissions(ctx: &Scratch) {
+    let name = ctx.name("selected");
+    let other = ctx.name("private");
+    let role = ctx.name("reader");
+    let _tables = pg::Pg::temp(&[
+        (
+            format!("public.{name}"),
+            "(id INTEGER PRIMARY KEY, title TEXT)",
+        ),
+        (
+            format!("public.{other}"),
+            "(id INTEGER PRIMARY KEY, title TEXT)",
+        ),
+    ]);
+    let admin = PgPool::connect(pg::Pg::URL).await.unwrap();
+    admin.execute(format!("CREATE ROLE {role} LOGIN PASSWORD 'reader'; GRANT USAGE ON SCHEMA public TO {role}; GRANT SELECT ON public.{name} TO {role}; INSERT INTO public.{name} VALUES (1, 'selected')").as_str()).await.unwrap();
+    let restricted = format!("postgres://{role}:reader@localhost:5433/demo?sslmode=disable");
+    let conn = PgPool::connect(&restricted).await.unwrap();
+    assert!(conn
+        .execute(format!("SELECT * FROM public.{other}").as_str())
+        .await
+        .is_err());
+    let selected = source(&format!("{restricted}#{name}")).await.unwrap();
+    let target = Target::new(selected.discover().await.unwrap(), None).unwrap();
+    assert_eq!(target.from.value(), format!("public.{name}"));
+    assert_eq!(json_documents(&selected, &target).await.unwrap().len(), 1);
+    conn.close().await;
+    admin
+        .execute(format!("DROP OWNED BY {role}; DROP ROLE {role}").as_str())
+        .await
+        .unwrap();
 }

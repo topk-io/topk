@@ -148,10 +148,10 @@ Tell the user it takes a few minutes, then run:
 
 ```bash
 topk import hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet \
-  --to wikipedia --limit 50000 -f title=keyword,text=semantic,url --region <REGION> --yes
+  --to wikipedia --limit 50000 -f title=keyword,text=semantic --region <REGION> --yes
 ```
 
-`-f` imports only the named fields: `title` gets a keyword index for exact word matches, `text` gets a semantic index for search by meaning, and `url` is stored as is. Article text over 32,768 characters is shortened before it is stored.
+`-f` sets indexes: `title` gets a keyword index for exact word matches and `text` a semantic index for search by meaning. Every other column, such as `url`, is stored as is. Article text over 32,768 characters is shortened before it is stored.
 
 The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `Continue with:`. It resumes the same run without asking for confirmation.
 

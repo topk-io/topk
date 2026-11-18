@@ -14,13 +14,13 @@ use test_context::AsyncTestContext;
 
 pub use crate::common::command::TestCommand;
 use crate::common::session::CliTestContext;
-use topk::auth::OAuthConfig;
+use topk::auth::OAuthArgs;
 use topk::config::Config;
 use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
-use topk::import::source::{Source, Uri};
+use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
-use topk::import::Error;
+use topk::import::{Error, WriteOptions};
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
@@ -102,7 +102,10 @@ pub fn target<'a>(
     fields: impl IntoIterator<Item = (&'a str, FieldSpec)>,
 ) -> Target {
     Target {
-        from: from.into(),
+        from: from
+            .parse::<File>()
+            .map(|file| SourceLocation::from(&file))
+            .unwrap_or_else(|_| SourceLocation::Object(from.into())),
         id: id.into(),
         fields: fields
             .into_iter()
@@ -111,6 +114,7 @@ pub fn target<'a>(
         filter: None,
         partition: None,
         limit: None,
+        exclude: Vec::new(),
     }
 }
 
@@ -228,7 +232,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub fn state(&self, source: &Source, plan: Plan) -> State {
+    pub fn state(&self, source: &Source, plan: Plan, write: WriteOptions) -> State {
         State::new(
             source.locator().into(),
             Scope {
@@ -236,6 +240,7 @@ impl Ctx {
                 region: self.client.config().region().unwrap().into(),
             },
             plan,
+            write,
         )
     }
 
@@ -289,11 +294,12 @@ impl AsyncTestContext for Ctx {
         session.login().await;
         let project_id = session.select_e2e_project();
         std::env::set_var("TOPK_PROJECT_ID", project_id.as_str());
-        let config = Config::new(
+        let config = Config::load(
             from_env::<Host>(),
-            from_env::<OAuthConfig>(),
+            from_env::<OAuthArgs>(),
             Config::dir().expect("config directory"),
-        );
+        )
+        .await;
         let mut cli = Scratch::default();
         cli.config_dir = Config::dir().expect("session config directory");
         Ctx {

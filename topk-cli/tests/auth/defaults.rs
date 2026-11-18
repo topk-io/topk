@@ -12,14 +12,12 @@ use topk::scope::ScopeArgs;
 use super::common::host;
 
 fn config(dir: &TempDir) -> Config {
-    let matches = OAuthConfig::augment_args(Command::new("test"))
-        .mut_args(|arg| arg.env(None::<&str>))
-        .get_matches_from(["test"]);
-    Config::new(
-        host(),
-        OAuthConfig::from_arg_matches(&matches).unwrap(),
-        dir.path().to_owned(),
-    )
+    let oauth = OAuthConfig {
+        issuer: "https://tenant.test/".parse().unwrap(),
+        client_id: "cli".into(),
+        audience: "https://api.test".into(),
+    };
+    Config::new(host(), oauth, dir.path().to_owned())
 }
 
 #[tokio::test]

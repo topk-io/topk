@@ -2,8 +2,18 @@ use std::fs::{create_dir_all, File};
 use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
-use topk::config::{lock, read, write_secret_file};
+use axum::routing::get;
+use axum::Router;
+use clap::{Args, Command, FromArgMatches};
+use tempfile::TempDir;
+use tokio::net::TcpListener;
+
+use topk::auth::{Auth, OAuthArgs};
+use topk::config::{lock, read, write_secret_file, Config};
+use topk::host::{Host, DEFAULT_HOST};
 
 #[test]
 fn replacement_preserves_open_readers() {
@@ -118,4 +128,99 @@ fn write_secret_file_uses_restrictive_permissions() {
         .mode()
         & 0o777;
     assert_eq!(mode, 0o600);
+}
+
+fn args(args: &[&str]) -> OAuthArgs {
+    let matches = OAuthArgs::augment_args(Command::new("test"))
+        .mut_args(|arg| arg.env(None::<&str>))
+        .get_matches_from(args);
+    OAuthArgs::from_arg_matches(&matches).unwrap()
+}
+
+#[tokio::test]
+async fn given_settings_are_used_without_asking_the_host() {
+    let given = [
+        "test",
+        "--auth-issuer",
+        "https://tenant.test/",
+        "--auth-client-id",
+        "cli",
+        "--auth-audience",
+        "https://api.test",
+    ];
+    let dir = TempDir::new().unwrap();
+    let config = Config::load(
+        Host {
+            host: "unreachable.invalid".into(),
+            https: true,
+        },
+        args(&given),
+        dir.path().to_owned(),
+    )
+    .await;
+    assert_eq!(config.oauth().client_id, "cli");
+    assert!(dir.path().read_dir().unwrap().next().is_none());
+}
+
+#[tokio::test]
+async fn default_host_uses_the_built_in_settings() {
+    // The default host is not asked and nothing is saved.
+    let dir = TempDir::new().unwrap();
+    let host = Host {
+        host: DEFAULT_HOST.into(),
+        https: true,
+    };
+    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    assert_eq!(
+        config.oauth().issuer.as_str(),
+        "https://topk-prod.us.auth0.com/"
+    );
+    assert!(dir.path().read_dir().unwrap().next().is_none());
+}
+
+#[tokio::test]
+async fn unreachable_host_falls_back_to_the_built_in_settings() {
+    let dir = TempDir::new().unwrap();
+    let host = Host {
+        host: "unreachable.invalid".into(),
+        https: true,
+    };
+    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    assert_eq!(
+        config.oauth().issuer.as_str(),
+        "https://topk-prod.us.auth0.com/"
+    );
+    assert!(dir.path().read_dir().unwrap().next().is_none());
+}
+
+#[tokio::test]
+async fn host_is_asked_once_and_its_answer_reused_until_logout() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let host = Host {
+        host: format!("localhost:{}", listener.local_addr().unwrap().port()),
+        https: false,
+    };
+    let asked = Arc::new(AtomicUsize::new(0));
+    let app = Router::new().route(
+        "/auth/config.json",
+        get({
+            let asked = asked.clone();
+            move || async move {
+                asked.fetch_add(1, Ordering::SeqCst);
+                r#"{"issuer":"https://tenant.test/","cli_client_id":"cli","audience":"https://api.test"}"#
+            }
+        }),
+    );
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let dir = TempDir::new().unwrap();
+    let load = || Config::load(host.clone(), args(&["test"]), dir.path().to_owned());
+
+    let config = load().await;
+    assert_eq!(config.oauth().client_id, "cli");
+    load().await;
+    assert_eq!(asked.load(Ordering::SeqCst), 1);
+
+    Auth::new(config).unwrap().logout().await.unwrap();
+    load().await;
+    assert_eq!(asked.load(Ordering::SeqCst), 2);
 }

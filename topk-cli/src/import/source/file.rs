@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use crate::import::error::Error;
 
+use super::SourceLocation;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ObjectStore {
     S3,
@@ -40,16 +42,17 @@ impl File {
             None => return Ok(()),
         };
         let meta = std::fs::metadata(path).map_err(|error| match error.kind() {
-            std::io::ErrorKind::NotFound => {
-                Error::InvalidArgument(format!("file not found: {path}"))
-            }
+            std::io::ErrorKind::NotFound => Error::InvalidArgument(format!(
+                "file not found: {}",
+                SourceLocation::Local(path.into())
+            )),
             _ => error.into(),
         })?;
         // An empty file reads as a synthetic `column0`.
         if meta.len() == 0 {
             return Err(Error::InvalidArgument(format!(
                 "{} is empty — nothing to import",
-                self.path
+                SourceLocation::from(self)
             )));
         }
         Ok(())
@@ -60,6 +63,13 @@ impl FromStr for File {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<File, Error> {
+        if matches!(s, "-" | "/dev/stdin" | "/dev/fd/0") {
+            return Err(Error::InvalidArgument(
+                "import does not read stdin: save the input to a file with an extension \
+                 (e.g. data.jsonl) and import that file"
+                    .into(),
+            ));
+        }
         let store = if s.starts_with("s3://") || s.starts_with("r2://") {
             Some(ObjectStore::S3)
         } else if s.starts_with("gs://") || s.starts_with("gcs://") {
@@ -81,24 +91,68 @@ impl FromStr for File {
             Some("arrow") => Format::Arrow,
             Some("avro") => Format::Avro,
             other => {
+                let dir = s.trim_end_matches('/');
                 let hint = match store {
                     Some(ObjectStore::Http) => {
-                        ". For Elasticsearch, use elasticsearch://host or elasticsearch+https://host"
+                        let es = s
+                            .trim_end_matches('/')
+                            .replacen("https://", "es+https://", 1)
+                            .replacen("http://", "es://", 1);
+                        match es.matches('/').count() {
+                            2 => format!(". For an Elasticsearch index, use {es}/<index>"),
+                            _ => format!(". For an Elasticsearch index, use {es}"),
+                        }
                     }
                     // A dataset repo is a tree of files, not a file; name one.
                     Some(ObjectStore::HuggingFace) => {
                         ". A hugging face dataset holds <config>/<split>-*.parquet files, \
                          or read hugging face's converted copy at \
                          hf://datasets/<org>/<name>@~parquet/<config>/<split>/*.parquet"
+                            .into()
                     }
                     _ if matches!(other, Some("db" | "sqlite" | "sqlite3")) => {
-                        ". For SQLite, use sqlite:<path>"
+                        format!(". For SQLite, use sqlite:{s}#<table>")
                     }
-                    _ if s.contains("://") => {
-                        ". To read from a database, pass it as the source, \
-                         e.g. `topk import postgres://host/db books`"
+                    Some(ObjectStore::S3 | ObjectStore::Gcs | ObjectStore::Azure)
+                        if other.is_none() =>
+                    {
+                        format!(". A source is one file or one glob: for the parquet files in this folder, use '{dir}/*.parquet', or '{dir}/**/*.parquet' to include subfolders")
                     }
-                    _ => "",
+                    None if Path::new(&*shellexpand::tilde(s)).is_dir() => {
+                        let mut found = Vec::new();
+                        for entry in std::fs::read_dir(&*shellexpand::tilde(s))? {
+                            if let Some(ext) = extension(&entry?.path()) {
+                                if matches!(
+                                    ext.as_str(),
+                                    "csv"
+                                        | "tsv"
+                                        | "json"
+                                        | "jsonl"
+                                        | "ndjson"
+                                        | "parquet"
+                                        | "arrow"
+                                        | "avro"
+                                ) {
+                                    found.push(ext);
+                                }
+                            }
+                        }
+                        found.sort();
+                        found.dedup();
+                        let globs = match found.as_slice() {
+                            [] => format!("'{dir}/**/*.parquet'"),
+                            found => found
+                                .iter()
+                                .map(|ext| format!("'{dir}/*.{ext}'"))
+                                .collect::<Vec<_>>()
+                                .join(" or "),
+                        };
+                        format!(". A source is one file or one glob: for the files in this folder, use {globs}")
+                    }
+                    _ if s.contains("://") => ". To read from a database, pass it as the source, \
+                         e.g. `topk import postgres://host/db#books --to books`"
+                        .into(),
+                    _ => String::new(),
                 };
                 return Err(Error::InvalidArgument(format!(
                     "cannot tell the file type of {s:?}: expected a csv, tsv, json, jsonl, \
@@ -107,12 +161,16 @@ impl FromStr for File {
             }
         };
 
-        Ok(File {
+        let path = match store {
+            // Absolute, so a saved run resumes from any directory.
+            None if !s.starts_with("file://") => std::path::absolute(&*shellexpand::tilde(s))?
+                .display()
+                .to_string(),
             // `~` is meaningless in a bucket key.
-            path: match store {
-                None => shellexpand::tilde(s).into_owned(),
-                Some(_) => s.to_string(),
-            },
+            _ => s.to_string(),
+        };
+        Ok(File {
+            path,
             store,
             format,
         })
@@ -146,11 +204,4 @@ fn logical(path: &str) -> &str {
 pub(super) fn local_path(path: &str) -> Option<&str> {
     let path = path.trim_start_matches("file://");
     (!path.contains(['*', '?', '['])).then_some(path)
-}
-
-pub(super) fn stem(path: &str) -> Option<String> {
-    Path::new(local_path(logical(path))?.trim_end_matches('/'))
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .map(str::to_string)
 }

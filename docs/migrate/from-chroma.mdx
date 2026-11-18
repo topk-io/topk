@@ -139,7 +139,7 @@ for col in chroma.list_collections():
         f"embedding=vector:{dim}:{METRICS[space]}",
     ])
     print(f"{col.name}: {count} records, {dim} dims, {space}")
-    print("  " + shlex.join(["topk", "import", f"{col.name}.jsonl", "-f", choices]))
+    print("  " + shlex.join(["topk", "import", f"{col.name}.jsonl", "--to", col.name, "-f", choices]))
 ```
 
 ```bash
@@ -151,9 +151,9 @@ python chroma_to_topk.py
 
 ```text Output
 docs: 120000 records, 1536 dims, cosine
-  topk import docs.jsonl -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
+  topk import docs.jsonl --to docs -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
 tickets: 48210 records, 768 dims, ip
-  topk import tickets.jsonl -f document=keyword,priority=int,embedding=vector:768:dot_product
+  topk import tickets.jsonl --to tickets -f document=keyword,priority=int,embedding=vector:768:dot_product
 ```
 
 <Note>
@@ -170,9 +170,9 @@ tickets: 48210 records, 768 dims, ip
 
 ## Step 2: Review the import commands
 
-Each command loads `<collection>.jsonl` into a new TopK collection with the same name, and uses the `id` column as each document's `_id`. `-f` lists the fields to import, separated by commas:
+Each command loads `<collection>.jsonl` into a new TopK collection with the same name, and uses the `id` column as each document's `_id`. Every field in the file is imported; `-f` sets the type or index of each one it names, separated by commas:
 
-| In `-f` | Imports |
+| In `-f` | Sets |
 | - | - |
 | `document=keyword` | The document text, with a keyword index for text search |
 | `source=text`, `year=int` | A metadata key, with the type the script found for it |
@@ -181,7 +181,7 @@ Each command loads `<collection>.jsonl` into a new TopK collection with the same
 [Select fields and indexes](/cli#select-fields-and-indexes) lists every choice. Two edits are worth considering before you import:
 
 - **Let TopK embed the text too.** Change `document=keyword` to `document=semantic` and TopK generates [multi-vector embeddings](/guides/semantic-search) for it, alongside your existing vectors. You can then query with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) and skip the query embedding call.
-- **Drop fields you don't query.** Only the fields `-f` names are imported, so remove the others from the list.
+- **Drop fields you don't query.** Remove them from the `-f` list and add `--exclude <field>,<field>`.
 
 ## Step 3: Import into TopK
 
@@ -198,7 +198,7 @@ topk region select <REGION>
 Then run each command the script printed:
 
 ```bash
-topk import docs.jsonl -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
+topk import docs.jsonl --to docs -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
 ```
 
 Each import shows the fields it will import and asks before writing. Documents are searchable as soon as they are written.
@@ -206,7 +206,7 @@ Each import shows the fields it will import and asks before writing. Documents a
 <Tip>
   - Add `--dry-run` to see the fields and sample documents without writing anything.
   - If an import stops, run the `topk import --resume <run-id>` command it prints to continue from its last checkpoint. Writes replace documents with the same `_id`, so starting over is safe too.
-  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export script, add `"tenant": col.name` to each record. Then add `--to <COLLECTION> --partition tenant` to every command, with the same collection name. Every command must name the same fields, because an import into an existing collection with a different schema is rejected.
+  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export script, add `"tenant": col.name` to each record. Then in every command, replace `--to <name>` with `--to <COLLECTION>`, the same collection each time, and add `--partition tenant`. The first import creates the collection; later imports must give the fields it declares the same type and index, and other fields are written without a declaration.
 </Tip>
 
 ## Step 4: Update your queries

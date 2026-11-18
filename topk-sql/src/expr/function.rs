@@ -56,13 +56,9 @@ impl TryFrom<SqlFunction> for Expr {
                     }
                     n => sql_invalid!("{name}: expected 2..=3 args, got {n}"),
                 };
-                let pattern = pattern.as_string().ok_or_else(|| {
-                    Error::Invalid(format!("{name}: pattern must be a string literal"))
-                })?;
+                let pattern = pattern.string_literal(&format!("{name}: pattern"))?;
                 let pg_flags = match pg_flags {
-                    Some(flags) => flags.as_string().ok_or_else(|| {
-                        Error::Invalid(format!("{name}: flags must be a string literal"))
-                    })?,
+                    Some(flags) => flags.string_literal(&format!("{name}: flags"))?,
                     None => String::new(),
                 };
                 let (pattern, flags) = regexp::translate(&pattern, &pg_flags)?;
@@ -73,16 +69,12 @@ impl TryFrom<SqlFunction> for Expr {
             "should" => Self::Text(text_should(args, &name)?),
             "date_part" => {
                 let [part, expr]: [SqlExpr; 2] = exact(args, &name)?;
-                let part = part.as_string().ok_or_else(|| {
-                    Error::Invalid(format!("{name}: part must be a string literal"))
-                })?;
+                let part = part.string_literal(&format!("{name}: part"))?;
                 Self::Logical(LogicalExpr::from_sql(expr)?.date_part(part))
             }
             "elapsed" => {
                 let [start, end, interval]: [SqlExpr; 3] = exact(args, &name)?;
-                let interval = interval.as_string().ok_or_else(|| {
-                    Error::Invalid(format!("{name}: interval must be a string literal"))
-                })?;
+                let interval = interval.string_literal(&format!("{name}: interval"))?;
                 Self::Logical(
                     LogicalExpr::from_sql(start)?.elapsed(LogicalExpr::from_sql(end)?, interval),
                 )
@@ -147,9 +139,7 @@ impl TryFrom<SqlFunction> for Expr {
                 let mut it = args.into_iter();
                 while let Some(k_expr) = it.next() {
                     let v_expr = it.next().unwrap();
-                    let k = k_expr.as_string().ok_or_else(|| {
-                        Error::Invalid(format!("{name}: field name must be a string literal"))
-                    })?;
+                    let k = k_expr.string_literal(&format!("{name}: field name"))?;
                     fields.push((k, Value::from_sql(v_expr)?));
                 }
                 Self::Literal(Value::r#struct(fields))
@@ -224,9 +214,7 @@ impl TryFrom<SqlFunction> for Expr {
             },
             "semantic_similarity" => {
                 let [field, query]: [SqlExpr; 2] = exact(args, &name)?;
-                let query = query.as_string().ok_or_else(|| {
-                    Error::Invalid(format!("{name}: query must be a string literal"))
-                })?;
+                let query = query.string_literal(&format!("{name}: query"))?;
                 let field = field.as_ident().ok_or_else(|| {
                     Error::Invalid(format!("{name}: field must be an identifier"))
                 })?;
@@ -281,9 +269,7 @@ fn text_match(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {
         n => sql_invalid!("{name}: expected 1..=4 args, got {n}"),
     };
 
-    let token = query
-        .as_string()
-        .ok_or_else(|| Error::Invalid(format!("{name}: query must be a string literal")))?;
+    let token = query.string_literal(&format!("{name}: query"))?;
 
     Ok(TextExpr::terms(
         all,
@@ -312,9 +298,7 @@ fn text_should(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {
         n => sql_invalid!("{name}: expected 1..=3 args, got {n}"),
     };
 
-    let token = query
-        .as_string()
-        .ok_or_else(|| Error::Invalid(format!("{name}: query must be a string literal")))?;
+    let token = query.string_literal(&format!("{name}: query"))?;
 
     Ok(TextExpr::should(vec![Term {
         token,

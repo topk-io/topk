@@ -52,10 +52,7 @@ impl Scratch {
             ),
             Backend::Mysql => (mysql::seed(&remote, docs).await.unwrap(), mysql::URL.into()),
             Backend::Mongo => (mongo::seed(&remote, docs).await.unwrap(), mongo::URL.into()),
-            Backend::Elasticsearch => (
-                es::seed(&remote, docs).await.unwrap(),
-                "es://localhost:19200".into(),
-            ),
+            Backend::Elasticsearch => (es::seed(&remote, docs).await.unwrap(), es::URL.into()),
             Backend::Parquet => {
                 let path = self.seed_parquet(name, docs);
                 (path.clone(), path)
@@ -65,6 +62,13 @@ impl Scratch {
                 let path = rustfs::seed(&remote, &input).unwrap();
                 (path.clone(), path)
             }
+        };
+        let url = match backend {
+            Backend::Postgres | Backend::Mysql | Backend::Sqlite | Backend::Mongo => {
+                format!("{url}#{from}")
+            }
+            Backend::Elasticsearch => format!("{url}/{from}"),
+            _ => url,
         };
         Seeded { from, url }
     }

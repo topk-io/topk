@@ -10,7 +10,7 @@ use crate::import::ID;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::Client;
 
-use super::{Catalog, Chunk, ChunkStream, Cursor as Checkpoint, Table};
+use super::{Chunk, ChunkStream, Cursor as Checkpoint, SourceLocation, Table};
 
 #[derive(Clone)]
 pub struct Topk {
@@ -27,19 +27,18 @@ impl Topk {
         let table = Table {
             columns: std::iter::once((ID.to_string(), FieldSpec::text(false)))
                 .chain(schema)
-                .map(|(name, field)| (name, Some(field)))
                 .collect(),
-            collection_hint: Some(name.clone()),
-            from: name,
+            from: SourceLocation::Object(name),
             key: Some(ID.to_string()),
+            unnamed: Vec::new(),
         };
         Topk { client, table }
     }
 
-    pub async fn catalog(&self) -> Result<Catalog, Error> {
+    pub async fn discover(&self) -> Result<Table, Error> {
         if self
             .client
-            .collection(&self.table.from)
+            .collection(self.table.from.value())
             .list_partitions(None)
             .await?
             .try_next()
@@ -51,28 +50,20 @@ impl Topk {
                 self.table.from
             )));
         }
-        Ok(Catalog {
-            tables: vec![self.table.clone()],
-        })
+        Ok(self.table.clone())
     }
 
     /// Keyset pages ordered by `_id`, so a page boundary is a resume point.
     /// `fetch` and not `select`: a select of an indexed vector is refused by the
     /// server, and returns the index's quantized copy where it is not.
     pub fn scan(&self, target: &Target, after: Option<Checkpoint>) -> Result<ChunkStream, Error> {
-        if target.from != self.table.from {
-            return Err(Error::InvalidArgument(format!(
-                "source is collection {:?}, not {:?}",
-                self.table.from, target.from
-            )));
-        }
         if target.filter.is_some() {
             return Err(Error::InvalidArgument(
                 "--filter is not supported for topk:// sources".into(),
             ));
         }
         let mut cursor = after.map(Checkpoint::key).transpose()?.unwrap_or_default();
-        let collection = self.client.collection(&target.from);
+        let collection = self.client.collection(target.from.value());
         // 10k is the server's cap on a sorted `limit`, and the resume granularity.
         let size = target.limit.map_or(10_000, |limit| limit.min(10_000));
 

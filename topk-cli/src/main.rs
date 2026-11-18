@@ -4,10 +4,12 @@ use std::process::ExitCode;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
-use tracing_indicatif::{filter::IndicatifFilter, style::ProgressStyle, IndicatifLayer};
+use tracing_indicatif::{
+    filter::IndicatifFilter, style::ProgressStyle, IndicatifLayer, TickSettings,
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
-use topk::auth::OAuthConfig;
+use topk::auth::OAuthArgs;
 use topk::config::Config;
 use topk::host::Host;
 use topk::output::Output;
@@ -43,7 +45,7 @@ struct Cli {
     host: Host,
 
     #[command(flatten)]
-    oauth: OAuthConfig,
+    oauth: OAuthArgs,
 }
 
 #[derive(Subcommand)]
@@ -118,7 +120,7 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let config = Config::new(cli.host.clone(), cli.oauth.clone(), Config::dir()?);
+    let config = Config::load(cli.host.clone(), cli.oauth.clone(), Config::dir()?).await;
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
@@ -162,7 +164,13 @@ fn init_logging(verbose: u8) {
             1 => tracing_subscriber::EnvFilter::new("warn,topk=info,topk_rs=warn,topk_es=warn"),
             _ => tracing_subscriber::EnvFilter::new("warn,topk=debug,topk_rs=warn,topk_es=warn"),
         });
-    let progress = IndicatifLayer::new().with_progress_style(ProgressStyle::default_spinner());
+    let progress = IndicatifLayer::new()
+        .with_progress_style(ProgressStyle::default_spinner())
+        .with_tick_settings(TickSettings {
+            term_draw_hz: 4,
+            default_tick_interval: Some(std::time::Duration::from_millis(250)),
+            ..Default::default()
+        });
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()

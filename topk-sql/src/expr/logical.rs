@@ -38,9 +38,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     _ => None,
                 };
                 if let Some((pg_flags, negated)) = regexp_op {
-                    let pat = right.as_string().ok_or(Error::Unsupported(
-                        "regex pattern must be a string literal".to_string(),
-                    ))?;
+                    let pat = right.string_literal("regex pattern")?;
                     let (pattern, flags) = regexp::translate(&pat, pg_flags)?;
                     let expr = LogicalExpr::from_sql(*left)?;
                     let matches = expr.clone().regexp_match(pattern, flags);

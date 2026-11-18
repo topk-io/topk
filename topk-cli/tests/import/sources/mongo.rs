@@ -1,5 +1,6 @@
 use futures::TryStreamExt;
 use mongodb::bson::{doc, Bson, Document};
+use rstest::rstest;
 use serde_json::json;
 use test_macros::rstest_ctx;
 use topk::import::source::{Checkpoint, Cursor, ReadEvent};
@@ -7,6 +8,7 @@ use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::common::seed::mongo;
 use crate::import::common::*;
+use topk::import::plan::Target;
 
 #[rstest_ctx(Scratch)]
 async fn mongo_binary(ctx: &Scratch) {
@@ -24,16 +26,9 @@ async fn mongo_binary(ctx: &Scratch) {
         })
         .await
         .unwrap();
-    let source = source(mongo::URL).await.unwrap();
-    let plan = source
-        .catalog()
-        .await
-        .unwrap()
-        .discover(&[name.clone()], None, None)
-        .unwrap();
-    let docs = json_documents(&source, &plan.collections[&name])
-        .await
-        .unwrap();
+    let source = mongo::source(&name).await.unwrap();
+    let target = Target::new(source.discover().await.unwrap(), None).unwrap();
+    let docs = json_documents(&source, &target).await.unwrap();
 
     assert_eq!(
         docs,
@@ -60,7 +55,7 @@ async fn resume_uses_native_id(ctx: &Scratch) {
         .insert_many(docs)
         .await
         .unwrap();
-    let source = source(mongo::URL).await.unwrap();
+    let source = mongo::source(&name).await.unwrap();
     let target = target(&name, "external_id", [("n", FieldSpec::integer(false))]);
     let mut scan = source.scan(&target, None).await.unwrap();
     let first = match scan.try_next().await.unwrap().unwrap() {
@@ -85,7 +80,7 @@ async fn resume_uses_native_id(ctx: &Scratch) {
         .unwrap();
     assert_eq!(
         serde_json::Value::Object(json(&document)),
-        json!({"_id": "same", "n": 1000})
+        json!({"_id": "same", "id": "tail", "n": 1000})
     );
     assert!(scan.try_next().await.unwrap().is_none());
 }
@@ -94,8 +89,9 @@ async fn resume_uses_native_id(ctx: &Scratch) {
 #[case::native_id("_id", true)]
 #[case::custom_id("external_id", false)]
 async fn legacy_resume_key(ctx: &Scratch, #[case] id: &str, #[case] accepted: bool) {
-    let source = source(mongo::URL).await.unwrap();
-    let target = target(&ctx.name("legacy"), id, [("n", FieldSpec::integer(false))]);
+    let name = ctx.name("legacy");
+    let source = mongo::source(&name).await.unwrap();
+    let target = target(&name, id, [("n", FieldSpec::integer(false))]);
     let checkpoint = Checkpoint {
         cursor: Cursor::Key("42".into()),
         consumed: 1,
@@ -106,4 +102,55 @@ async fn legacy_resume_key(ctx: &Scratch, #[case] id: &str, #[case] accepted: bo
     } else {
         assert!(refused(result).contains("legacy Mongo checkpoint"));
     }
+}
+
+#[rstest]
+#[case::same_collection("orders", true)]
+#[case::changed_collection("other", false)]
+#[tokio::test]
+async fn scan_checks_selector_without_sampling(#[case] name: &str, #[case] accepted: bool) {
+    let source = source("mongodb://127.0.0.1:1/db?serverSelectionTimeoutMS=50#orders")
+        .await
+        .unwrap();
+    let target = target(name, "_id", [("title", FieldSpec::text(false))]);
+    let checkpoint = Checkpoint {
+        cursor: Cursor::Mongo("\"42\"".into()),
+        consumed: 10,
+    };
+    let scan = source.scan(&target, Some(&checkpoint)).await;
+    if accepted {
+        assert!(scan.is_ok(), "{}", refused(scan));
+    } else {
+        assert!(refused(scan).contains("saved plan reads"));
+    }
+}
+
+#[rstest_ctx(Scratch)]
+async fn undiscovered_field_is_selectable(ctx: &Scratch) {
+    let name = ctx.name("nulls");
+    mongo::client()
+        .await
+        .database("demo")
+        .collection::<Document>(&name)
+        .insert_one(doc! {"_id": "a", "title": "x", "notes": Bson::Null, "draft": Bson::Null})
+        .await
+        .unwrap();
+    let source = mongo::source(&name).await.unwrap();
+    let mut target = Target::new(source.discover().await.unwrap(), None).unwrap();
+    assert!(!target.fields.contains_key("notes"));
+    target
+        .select(
+            &source,
+            &["notes=text".parse().unwrap()],
+            &[],
+            &["draft".into()],
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(target.fields["notes"].schema, FieldSpec::text(false));
+    assert_eq!(
+        json_documents(&source, &target).await.unwrap(),
+        [(None, json!({"_id": "a", "title": "x", "notes": null}))]
+    );
 }

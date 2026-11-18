@@ -36,6 +36,8 @@ fn command(dir: &TempDir) -> Command {
         cmd.env_remove(key);
     }
     cmd.env("TOPK_AUTH_ISSUER", AUTH_ISSUER)
+        .env("TOPK_AUTH_CLIENT_ID", "cli")
+        .env("TOPK_AUTH_AUDIENCE", "https://api.example.test")
         .env("TOPK_CONFIG_DIR", dir.path().join("topk"))
         .env("TOPK_AUTH_CALLBACK_PORTS", "0");
     cmd

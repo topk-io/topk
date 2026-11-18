@@ -13,7 +13,7 @@ use tempfile::TempDir;
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
-use topk::auth::{OAuthConfig, Session};
+use topk::auth::{OAuthArgs, OAuthConfig, Session};
 use topk::config::Config;
 use topk::host::Host;
 use topk::ProjectId;
@@ -108,12 +108,13 @@ impl CliTestContext {
     /// nextest runs each test in its own process, and the tenant counts every
     /// rejected grant as a failed login, which can block the e2e user.
     async fn login_with_password(&self, user: &str, password: &str) {
-        let home = config(Config::dir().expect("config directory"));
+        let home = config(Config::dir().expect("config directory")).await;
         let oauth = home.oauth();
         let cache = config(machine_dir(&format!(
             "session{}{}{user}",
             oauth.client_id, oauth.audience
-        )));
+        )))
+        .await;
         let session = {
             let cached = cache.session().await.expect("lock cached session");
             let fresh = cached.load().expect("cached session").filter(|session| {
@@ -290,14 +291,15 @@ struct Token {
 }
 
 /// The configuration the spawned CLI reads from this environment, over `dir`.
-fn config(dir: PathBuf) -> Config {
-    let matches = OAuthConfig::augment_args(Host::augment_args(clap::Command::new("topk")))
+async fn config(dir: PathBuf) -> Config {
+    let matches = OAuthArgs::augment_args(Host::augment_args(clap::Command::new("topk")))
         .get_matches_from(["topk"]);
-    Config::new(
+    Config::load(
         Host::from_arg_matches(&matches).expect("host from the environment"),
-        OAuthConfig::from_arg_matches(&matches).expect("auth from the environment"),
+        OAuthArgs::from_arg_matches(&matches).expect("auth from the environment"),
         dir,
     )
+    .await
 }
 
 /// A directory shared by every test process on this machine for `key`.

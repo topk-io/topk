@@ -81,13 +81,38 @@ impl Target {
                 None if field.schema.required => return Err(missing()),
                 None => continue,
             };
-            let value = field
-                .coerce(value.clone())
-                .map_err(|e| fail(Some(&id), Some(name), e))?;
+            let value = field.coerce(value.clone()).map_err(|e| {
+                let e = match (e, text(value.clone())) {
+                    (Error::CannotCoerce(to), Ok(shown)) => Error::InvalidArgument(format!(
+                        "cannot coerce {:?} to {to}",
+                        shown.chars().take(40).collect::<String>()
+                    )),
+                    (e, _) => e,
+                };
+                fail(Some(&id), Some(name), e)
+            })?;
             if field.schema.required && value.as_null().is_some() {
                 return Err(missing());
             }
             doc.fields.insert(name.clone(), value);
+        }
+        let mut planned = self.source_columns();
+        planned.extend(self.exclude.iter().map(String::as_str));
+        for (key, value) in record {
+            if planned.contains(key.as_str()) {
+                continue;
+            }
+            let name = key.trim_start_matches('_');
+            if name.is_empty() || doc.fields.contains_key(name) {
+                return Err(fail(
+                    Some(&id),
+                    Some(&key),
+                    Error::InvalidArgument(format!(
+                        "unplanned field collides with another field name; leave it out with `--exclude {key}`"
+                    )),
+                ));
+            }
+            doc.fields.insert(name.to_string(), value);
         }
 
         doc.fields.insert(ID.to_string(), Value::string(id.clone()));

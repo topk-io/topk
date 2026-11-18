@@ -63,6 +63,14 @@ await client.collection("books", "tenant-1234").upsert([
 ]);
 ```
 
+
+```sql SQL
+INSERT INTO "books$tenant-1234" (_id, title, author)
+VALUES
+  ('doc-1', 'The Great Gatsby', 'F. Scott Fitzgerald'),
+  ('doc-2', 'To Kill a Mockingbird', 'Harper Lee');
+```
+
 </CodeGroup>
 
 
@@ -91,7 +99,49 @@ await client.collection("books", "tenant-1234").query(
 );
 ```
 
+
+```sql SQL
+SELECT title
+FROM "books$tenant-1234"
+WHERE match('gatsby')
+LIMIT 10;
+```
+
 </CodeGroup>
+
+<Warning>
+Documents written to a partition are only visible when you query that partition. A client created without a `partition_name` reads the collection's unpartitioned documents.
+</Warning>
+
+### Deleting documents for a specific tenant
+To delete all documents for a specific tenant, call the [`delete_partition(name)`](/sdk/topk-py#delete_partition) method with the tenant ID as the partition name.
+Deleting a partition will remove all the documents associated with it.
+
+<CodeGroup>
+
+```python Python
+client.collection("books").delete_partition("tenant-1234")
+```
+
+
+```typescript Javascript
+await client.collection("books").deletePartition("tenant-1234");
+```
+
+
+```sql SQL
+DELETE FROM "books$tenant-1234";
+```
+
+</CodeGroup>
+
+<Warning>
+  This operation is irreversible and will permanently delete all data in the partition.
+</Warning>
+
+<Warning>
+  **Re-creating a partition with the same name:** for up to a minute after a delete, queries on the partition can still return the old documents instead of new writes to the same partition name.
+</Warning>
 
 ## Read Consistency
 TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
@@ -114,6 +164,12 @@ await client.collection("my_collection").query(
   query
   // no need to specify the consistency mode
 );
+```
+
+
+```sql SQL
+-- no need to specify the consistency mode
+SELECT title FROM my_collection LIMIT 10;
 ```
 
 </CodeGroup>
@@ -146,6 +202,11 @@ await client
   .query(query, { consistency: "indexed" });
 ```
 
+
+```sql SQL
+SELECT title FROM my_collection WITH (consistency = 'indexed') LIMIT 10;
+```
+
 </CodeGroup>
 
 **How It Works:**
@@ -173,6 +234,11 @@ client.collection("my_collection").query(
 await client
   .collection("my_collection")
   .query(query, { consistency: "strong" });
+```
+
+
+```sql SQL
+SELECT title FROM my_collection WITH (consistency = 'strong') LIMIT 10;
 ```
 
 </CodeGroup>

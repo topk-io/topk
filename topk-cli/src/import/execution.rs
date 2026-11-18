@@ -1,15 +1,14 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures::{stream, Stream, StreamExt, TryStreamExt};
+use futures::{Stream, TryStreamExt};
 use indexmap::IndexMap;
 use prost::Message;
-use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use topk_rs::proto::v1::data::Document;
-use topk_rs::Client;
-use tracing::{debug, error, info, warn};
+use topk_rs::{Client, CollectionClient};
+use tracing::{debug, info, warn};
 
 use crate::import::ddl;
 use crate::import::error::Error;
@@ -17,8 +16,6 @@ use crate::import::plan::Target;
 use crate::import::source::Checkpoint;
 use crate::import::source::{ReadEvent, ReadStream, Source};
 use crate::import::state::{Progress, Run};
-
-const OBJECT_CONCURRENCY: usize = 8;
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 pub struct Outcome {
@@ -28,36 +25,40 @@ pub struct Outcome {
     pub failed: usize,
     #[serde(skip)]
     pub elapsed: Duration,
+    #[serde(skip)]
+    pub bytes: u64,
+    /// Source rows consumed before this invocation, by the run it resumed.
+    pub resumed_after: u64,
 }
 
 pub enum Event {
     Progress {
-        collection: String,
         written: usize,
+        bytes: u64,
     },
+    /// `row` counts from 1 in source order; a destination rejection has none.
     Skipped {
-        collection: String,
+        row: Option<u64>,
         error: Error,
     },
     Completed {
-        collection: String,
         outcome: Outcome,
     },
 }
 
-#[derive(Debug)]
+/// Saved with the run, so a resume writes the way the run started.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct WriteOptions {
     pub continue_on_error: bool,
     pub concurrency: usize,
-    pub batch_bytes: bytesize::ByteSize,
+    pub batch_bytes: u64,
 }
 
 pub struct Import {
     run: Run,
     client: Client,
-    source: Source,
-    scans: Vec<(String, Target, ReadStream, u64)>,
-    to_create: Vec<String>,
+    scan: ReadStream,
+    create: bool,
 }
 
 impl Import {
@@ -69,32 +70,35 @@ impl Import {
         source: Source,
         client: Client,
         run: Run,
-        to_create: Vec<String>,
+        create: bool,
     ) -> Result<Self, Error> {
         Self::validate(&source, &client, &run)?;
-        Self::open(source, client, run, to_create).await
+        let resumed = match &run.state().progress {
+            Some(Progress::After(checkpoint)) => Some(checkpoint),
+            _ => None,
+        };
+        let scan = source.scan(&run.state().plan.target, resumed).await?;
+        Ok(Self {
+            run,
+            client,
+            scan,
+            create,
+        })
     }
 
     pub async fn resume(source: Source, client: Client, run: Run) -> Result<Self, Error> {
         Self::validate(&source, &client, &run)?;
-        let to_create = stream::iter(run.state().pending().map(|(name, target)| {
-            let client = &client;
-            async move {
-                match client.collections().get(name).await {
-                    Ok(collection) => {
-                        target.validate_schema(name, &collection.schema)?;
-                        Ok(None)
-                    }
-                    Err(topk_rs::Error::CollectionNotFound) => Ok(Some(name.clone())),
-                    Err(error) => Err(Error::from(error)),
-                }
+        let plan = &run.state().plan;
+        let create = match client.collections().get(&plan.collection).await {
+            Ok(collection) => {
+                plan.target
+                    .validate_schema(&plan.collection, &collection.schema)?;
+                false
             }
-        }))
-        .buffered(8)
-        .try_filter_map(|name| async { Ok(name) })
-        .try_collect()
-        .await?;
-        Self::open(source, client, run, to_create).await
+            Err(topk_rs::Error::CollectionNotFound) => true,
+            Err(error) => return Err(error.into()),
+        };
+        Self::start(source, client, run, create).await
     }
 
     fn validate(source: &Source, client: &Client, run: &Run) -> Result<(), Error> {
@@ -111,240 +115,264 @@ impl Import {
         Ok(())
     }
 
-    async fn open(
-        source: Source,
-        client: Client,
-        run: Run,
-        to_create: Vec<String>,
-    ) -> Result<Self, Error> {
-        let mut scans = Vec::new();
-        for (name, target) in run.state().pending() {
-            let resumed = match run.state().progress.get(name) {
-                Some(Progress::After(checkpoint)) => Some(checkpoint),
-                _ => None,
-            };
-            let chunks = source.scan(target, resumed).await?;
-            scans.push((
-                name.clone(),
-                target.clone(),
-                chunks,
-                resumed.map_or(0, |c| c.consumed),
-            ));
+    /// Called before the first write, so a run that fails before writing leaves no collection.
+    async fn create(client: &Client, name: &str, target: &Target) -> Result<(), Error> {
+        let schema: ddl::Schema = target
+            .fields
+            .iter()
+            .map(|(name, field)| (name.clone(), field.schema.clone()))
+            .collect();
+        info!(collection = %name, "creating collection");
+        match client.collections().create(name, schema, None).await {
+            Ok(_) => Ok(()),
+            Err(topk_rs::Error::CollectionAlreadyExists) => {
+                let existing = client.collections().get(name).await?;
+                target.validate_schema(name, &existing.schema)
+            }
+            Err(error) => Err(error.into()),
         }
-        Ok(Self {
-            run,
-            client,
-            source,
-            scans,
-            to_create,
-        })
     }
 
-    pub fn execute(self, options: WriteOptions) -> impl Stream<Item = Result<Event, Error>> {
+    pub fn execute(self) -> impl Stream<Item = Result<Event, Error>> {
         async_stream::try_stream! {
-            if options.concurrency == 0 || options.concurrency > 1024 || options.batch_bytes.as_u64() == 0 {
-                Err(Error::InvalidArgument("concurrency must be 1..=1024 and batch size must be positive".into()))?;
-            }
-            let buffer_bytes = options.batch_bytes.as_u64().checked_mul(options.concurrency as u64)
-                .ok_or_else(|| Error::InvalidArgument("batch size times concurrency is too large".into()))?;
-            if let Err(error) = self.run.save() {
-                error!(%error, "cannot save run state — this run cannot be resumed");
-            }
-            let readers = self.scans.len().min(OBJECT_CONCURRENCY)
-                .min(self.source.concurrency_limit(self.run.state().pending().map(|(_, target)| target))).max(1);
-            info!(run = %self.run.id, readers, buffer_bytes, "import started");
+            let options = self.run.state().write.clone();
+            let name = self.run.state().plan.collection.clone();
+            let target = self.run.state().plan.target.clone();
             let client = &self.client;
-            for name in self.to_create {
-                let target = self.run.state().plan.collections.get(&name)
-                    .ok_or_else(|| Error::InvalidArgument(format!("no import target for {name}")))?;
-                let schema: ddl::Schema = target.fields.iter()
-                    .map(|(name, field)| (name.clone(), field.schema.clone())).collect();
-                info!(collection = %name, "creating collection");
-                match client.collections().create(&name, schema, None).await {
-                    Ok(_) => {}
-                    Err(topk_rs::Error::CollectionAlreadyExists) => {
-                        let existing = client.collections().get(&name).await?;
-                        target.validate_schema(&name, &existing.schema)?;
-                    }
-                    Err(error) => Err(Error::from(error))?,
-                }
-            }
+            let consumed = match &self.run.state().progress {
+                Some(Progress::After(checkpoint)) => checkpoint.consumed,
+                _ => 0,
+            };
+            info!(run = %self.run.id, collection = %name, consumed, ?options, "import started");
+            let mut create = self.create;
             let state = Arc::new(Mutex::new(self.run));
-            let budget = Arc::new(Semaphore::new(options.concurrency));
-            let streams = stream::iter(self.scans).map(|(name, target, mut chunks, mut consumed)| -> futures::stream::BoxStream<'_, Result<Event, Error>> {
-                let state = &state;
-                let budget = &budget;
-                let options = &options;
-                async_stream::try_stream! {
-                    info!(collection = %name, consumed, "reading collection");
-                    let started = Instant::now();
-                    let mut written = 0;
-                    let mut failed = 0;
-                    let mut batches = IndexMap::<Option<String>, Batch>::new();
-                    let mut buffered = 0;
-                    let mut inflight = JoinSet::new();
-                    let mut checkpoints = Checkpoints::default();
-                    let mut rows = Vec::<Result<crate::import::source::Record, Error>>::new().into_iter();
-                    let mut chunk_id = 0;
-                    let mut eof = false;
-                    yield Event::Progress { collection: name.clone(), written };
-                    loop {
-                        if let Some(checkpoint) = checkpoints.ready() {
-                            let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(&name, Progress::After(checkpoint));
-                            if let Err(error) = saved { error!(collection = %name, %error, "cannot save run state"); }
+            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, consumed));
+            let started = Instant::now();
+            let mut written = 0;
+            let mut bytes = 0;
+            let mut failed = 0;
+            let mut inflight = JoinSet::new();
+            let mut checkpoints = Checkpoints::default();
+            let mut eof = false;
+            yield Event::Progress { written, bytes };
+            loop {
+                if let Some(checkpoint) = checkpoints.ready() {
+                    state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint))?;
+                }
+                if eof && inflight.is_empty() { break; }
+                let next = tokio::select! {
+                    biased;
+                    completed = inflight.join_next(), if !inflight.is_empty() => Next::Written(completed),
+                    next = feed.try_next(), if !eof && inflight.len() < options.concurrency => Next::Feed(next),
+                };
+                match next {
+                    Next::Written(completed) => {
+                        let outcome = completed
+                            .ok_or_else(|| Error::InvalidArgument("missing completed batch".into()))??;
+                        written += outcome.written;
+                        bytes += outcome.bytes;
+                        failed += outcome.skipped.len();
+                        for error in outcome.skipped {
+                            yield Event::Skipped { row: None, error };
                         }
-                        if eof && batches.is_empty() && inflight.is_empty() { break; }
-                        let ready = batches.iter().enumerate()
-                            .filter(|(_, (_, batch))| eof || buffered >= buffer_bytes || batch.bytes >= options.batch_bytes.as_u64())
-                            .max_by_key(|(_, (_, batch))| batch.bytes)
-                            .map(|(index, _)| index);
-                        let next = tokio::select! {
-                            biased;
-                            completed = inflight.join_next(), if !inflight.is_empty() => Ready::Written(completed),
-                            permit = budget.clone().acquire_owned(), if ready.is_some() && inflight.len() < options.concurrency => Ready::Permit(permit),
-                            row = async { rows.next() }, if ready.is_none() && !rows.as_slice().is_empty() => Ready::Row(row),
-                            event = chunks.try_next(), if ready.is_none() && rows.as_slice().is_empty() && !eof => Ready::Read(event),
-                        };
-                        match next {
-                            Ready::Written(completed) => {
-                                let outcome = completed
-                                    .ok_or_else(|| Error::InvalidArgument("missing completed batch".into()))??;
-                                written += outcome.written;
-                                failed += outcome.skipped.len();
-                                for error in outcome.skipped {
-                                    yield Event::Skipped { collection: name.clone(), error };
-                                }
-                                yield Event::Progress { collection: name.clone(), written };
-                                outcome.result?;
-                                for (id, count) in outcome.chunks { checkpoints.complete(id, count)?; }
-                            }
-                            Ready::Permit(permit) => {
-                                let permit = permit.map_err(|e| Error::InvalidArgument(e.to_string()))?;
-                                if let Some((partition, batch)) = ready.and_then(|index| batches.swap_remove_index(index)) {
-                                    buffered -= batch.bytes;
-                                    let mut collection = client.collection(&name);
-                                    if let Some(partition) = partition { collection = collection.partition(partition); }
-                                    let run = Arc::clone(state);
-                                    let continue_on_error = options.continue_on_error;
-                                    inflight.spawn(async move {
-                                        let _run = run;
-                                        let _permit = permit;
-                                        let docs = batch.docs;
-                                        let mut outcome = BatchOutcome {
-                                            chunks: batch.chunks,
-                                            written: 0,
-                                            skipped: Vec::new(),
-                                            result: Ok(()),
-                                        };
-                                        let count = docs.len();
-                                        let retry = continue_on_error.then(|| docs.clone());
-                                        match collection.upsert(docs).await {
-                                            Ok(_) => outcome.written = count,
-                                            Err(error @ topk_rs::Error::DocumentValidationError(_)) if continue_on_error => {
-                                                if count == 1 {
-                                                    outcome.skipped.push(error.into());
-                                                } else if let Some(docs) = retry {
-                                                    debug!(count, "retrying rejected batch individually");
-                                                    for doc in docs {
-                                                        match collection.upsert(vec![doc]).await {
-                                                            Ok(_) => outcome.written += 1,
-                                                            Err(error @ topk_rs::Error::DocumentValidationError(_)) => {
-                                                                outcome.skipped.push(error.into())
-                                                            }
-                                                            Err(error) => {
-                                                                outcome.result = Err(error.into());
-                                                                break;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            Err(error) => outcome.result = Err(error.into()),
-                                        }
-                                        outcome
-                                    });
-                                }
-                            }
-                            Ready::Row(row) => {
-                                if let Some(row) = row {
-                                    match row.and_then(|record| target.document(record)) {
-                                        Ok((partition, doc)) => {
-                                            let batch = batches.entry(partition).or_default();
-                                            let size = doc.encoded_len() as u64;
-                                            batch.bytes += size;
-                                            buffered += size;
-                                            batch.docs.push(doc);
-                                            if let Some((_, count)) = batch.chunks.last_mut().filter(|(id, _)| *id == chunk_id) {
-                                                *count += 1;
-                                            } else {
-                                                batch.chunks.push((chunk_id, 1));
-                                            }
-                                        }
-                                        Err(error) if options.continue_on_error => {
-                                            checkpoints.complete(chunk_id, 1)?;
-                                            failed += 1;
-                                            yield Event::Skipped { collection: name.clone(), error };
-                                        }
-                                        Err(error) => Err(error)?,
-                                    }
-                                }
-                            }
-                            Ready::Read(event) => {
-                                match event? {
-                                    Some(ReadEvent::Restarted) => {
-                                        consumed = 0;
-                                        warn!(collection = %name, "resume cursor expired, restarting from the beginning");
-                                    }
-                                    Some(ReadEvent::Chunk(chunk)) => {
-                                        consumed += chunk.rows.len() as u64;
-                                        chunk_id = checkpoints.push(chunk.rows.len(), chunk.cursor.map(|cursor| Checkpoint { cursor, consumed }));
-                                        if chunk.rows.is_empty() { checkpoints.complete(chunk_id, 0)?; }
-                                        rows = chunk.rows.into_iter();
-                                    }
-                                    None => eof = true,
-                                }
-                            }
+                        yield Event::Progress { written, bytes };
+                        if let Some(error) = outcome.error { Err(error)?; }
+                        for (id, count) in outcome.chunks { checkpoints.complete(id, count)?; }
+                    }
+                    Next::Feed(message) => match message? {
+                        None => eof = true,
+                        Some(Feed::Chunk { rows, checkpoint }) => {
+                            let id = checkpoints.push(rows, checkpoint);
+                            if rows == 0 { checkpoints.complete(id, 0)?; }
                         }
-                    }
-                    let saved = state.lock().unwrap_or_else(|e| e.into_inner()).mark(&name, Progress::Done);
-                    if let Err(error) = saved { error!(collection = %name, %error, "cannot save run state"); }
-                    yield Event::Completed { collection: name, outcome: Outcome { rows: written, failed, elapsed: started.elapsed() } };
-                }.boxed()
-            }).flatten_unordered(readers);
-            let mut streams = Box::pin(streams);
-            while let Some(event) = streams.next().await {
-                match event {
-                    Ok(event) => yield event,
-                    Err(error) => {
-                        drop(streams);
-                        Err(error)?;
-                        return;
-                    }
+                        Some(Feed::Skipped { chunk, row, error }) => {
+                            checkpoints.complete(chunk, 1)?;
+                            failed += 1;
+                            yield Event::Skipped { row: Some(row), error };
+                        }
+                        Some(Feed::Batch { partition, batch }) => {
+                            if create {
+                                Self::create(client, &name, &target).await?;
+                                create = false;
+                            }
+                            let mut collection = client.collection(&name);
+                            if let Some(partition) = partition { collection = collection.partition(partition); }
+                            inflight.spawn(Self::write(collection, batch, options.continue_on_error, Arc::clone(&state)));
+                        }
+                    },
                 }
             }
+            if create && failed == 0 {
+                Self::create(client, &name, &target).await?;
+            }
+            state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::Done)?;
+            yield Event::Completed { outcome: Outcome { rows: written, failed, bytes, resumed_after: consumed, elapsed: started.elapsed() } };
             let removed = state.lock().unwrap_or_else(|e| e.into_inner()).remove();
             if let Err(error) = removed { warn!(%error, "cannot remove run state"); }
         }
     }
+
+    /// Documents batched per partition. A batch goes when full, once `window` bytes were batched
+    /// since its first document, or at the end; this bounds both buffered bytes and checkpoint lag.
+    fn feed(
+        mut chunks: ReadStream,
+        target: Target,
+        options: &WriteOptions,
+        mut consumed: u64,
+    ) -> impl Stream<Item = Result<Feed, Error>> {
+        let batch_bytes = options.batch_bytes;
+        let window = batch_bytes.saturating_mul(options.concurrency as u64);
+        let continue_on_error = options.continue_on_error;
+        async_stream::try_stream! {
+            let mut batches = IndexMap::<Option<String>, Batch>::new();
+            // Open batches, oldest first; an entry outlives a batch that went when full.
+            let mut opened = VecDeque::<(u64, Option<String>)>::new();
+            let mut batched = 0;
+            let mut chunk = 0;
+            while let Some(event) = chunks.try_next().await? {
+                let read = match event {
+                    ReadEvent::Chunk(read) => read,
+                    ReadEvent::Restarted => {
+                        consumed = 0;
+                        warn!("resume cursor expired, restarting from the beginning");
+                        continue;
+                    }
+                };
+                let first = consumed;
+                consumed += read.rows.len() as u64;
+                yield Feed::Chunk {
+                    rows: read.rows.len(),
+                    checkpoint: read.cursor.map(|cursor| Checkpoint { cursor, consumed }),
+                };
+                for (index, row) in read.rows.into_iter().enumerate() {
+                    match row.and_then(|record| target.document(record)) {
+                        Ok((partition, doc)) => {
+                            let size = doc.encoded_len() as u64;
+                            let slot = match batches.get_index_of(&partition) {
+                                Some(slot) => slot,
+                                None => {
+                                    opened.push_back((batched, partition.clone()));
+                                    batches.insert_full(partition, Batch { opened: batched, ..Default::default() }).0
+                                }
+                            };
+                            let batch = &mut batches[slot];
+                            batch.bytes += size;
+                            batch.docs.push(doc);
+                            match batch.chunks.last_mut() {
+                                Some((id, count)) if *id == chunk => *count += 1,
+                                _ => batch.chunks.push((chunk, 1)),
+                            }
+                            batched += size;
+                            if batch.bytes >= batch_bytes {
+                                if let Some((partition, batch)) = batches.swap_remove_index(slot) {
+                                    yield Feed::Batch { partition, batch };
+                                }
+                            }
+                        }
+                        Err(error) if continue_on_error => {
+                            yield Feed::Skipped { chunk, row: first + index as u64 + 1, error };
+                        }
+                        Err(error) => Err(error)?,
+                    }
+                    while opened.front().is_some_and(|(since, _)| batched - since >= window) {
+                        if let Some((since, partition)) = opened.pop_front() {
+                            if batches.get(&partition).is_some_and(|batch| batch.opened == since) {
+                                if let Some(batch) = batches.swap_remove(&partition) {
+                                    yield Feed::Batch { partition, batch };
+                                }
+                            }
+                        }
+                    }
+                }
+                chunk += 1;
+            }
+            for (partition, batch) in batches {
+                yield Feed::Batch { partition, batch };
+            }
+        }
+    }
+
+    /// `_run` keeps the run locked until the write ends, even when the import is dropped.
+    async fn write(
+        collection: CollectionClient,
+        batch: Batch,
+        continue_on_error: bool,
+        _run: Arc<Mutex<Run>>,
+    ) -> BatchOutcome {
+        let mut outcome = BatchOutcome {
+            chunks: batch.chunks,
+            ..Default::default()
+        };
+        let count = batch.docs.len();
+        let retry = continue_on_error.then(|| batch.docs.clone());
+        match (collection.upsert(batch.docs).await, retry) {
+            (Ok(_), _) => {
+                outcome.written = count;
+                outcome.bytes = batch.bytes;
+            }
+            (Err(error @ topk_rs::Error::DocumentValidationError(_)), Some(_)) if count == 1 => {
+                outcome.skipped.push(error.into())
+            }
+            (Err(topk_rs::Error::DocumentValidationError(_)), Some(docs)) => {
+                debug!(count, "retrying rejected batch individually");
+                for doc in docs {
+                    let bytes = doc.encoded_len() as u64;
+                    match collection.upsert(vec![doc]).await {
+                        Ok(_) => {
+                            outcome.written += 1;
+                            outcome.bytes += bytes;
+                        }
+                        Err(error @ topk_rs::Error::DocumentValidationError(_)) => {
+                            outcome.skipped.push(error.into())
+                        }
+                        Err(error) => {
+                            outcome.error = Some(error.into());
+                            break;
+                        }
+                    }
+                }
+            }
+            (Err(error), _) => outcome.error = Some(error.into()),
+        }
+        outcome
+    }
 }
 
-enum Ready {
+enum Feed {
+    Chunk {
+        rows: usize,
+        checkpoint: Option<Checkpoint>,
+    },
+    Skipped {
+        chunk: u64,
+        row: u64,
+        error: Error,
+    },
+    Batch {
+        partition: Option<String>,
+        batch: Batch,
+    },
+}
+
+enum Next {
     Written(Option<Result<BatchOutcome, tokio::task::JoinError>>),
-    Permit(Result<tokio::sync::OwnedSemaphorePermit, tokio::sync::AcquireError>),
-    Row(Option<Result<crate::import::source::Record, Error>>),
-    Read(Result<Option<ReadEvent>, Error>),
+    Feed(Result<Option<Feed>, Error>),
 }
 
+#[derive(Default)]
 struct BatchOutcome {
     chunks: Vec<(u64, usize)>,
     written: usize,
+    bytes: u64,
     skipped: Vec<Error>,
-    result: Result<(), Error>,
+    error: Option<Error>,
 }
 
 #[derive(Default)]
 struct Batch {
     bytes: u64,
+    /// Bytes batched before its first document.
+    opened: u64,
     docs: Vec<Document>,
     chunks: Vec<(u64, usize)>,
 }
@@ -412,7 +440,7 @@ impl Checkpoints {
 mod tests {
     use std::fs::{File, TryLockError};
 
-    use futures::FutureExt;
+    use futures::{stream, FutureExt, StreamExt};
     use rstest::rstest;
     use topk_rs::proto::v1::control::FieldSpec;
     use topk_rs::ClientConfig;
@@ -421,21 +449,20 @@ mod tests {
 
     fn test_plan() -> crate::import::plan::Plan {
         crate::import::plan::Plan {
-            collections: indexmap::IndexMap::from([(
-                "c".into(),
-                crate::import::plan::Target {
-                    from: "unused".into(),
-                    id: "_id".into(),
-                    filter: None,
-                    partition: None,
-                    limit: None,
-                    fields: [(
-                        "title".into(),
-                        crate::import::plan::Field::new(FieldSpec::text(false)),
-                    )]
-                    .into(),
-                },
-            )]),
+            collection: "c".into(),
+            target: crate::import::plan::Target {
+                from: crate::import::source::SourceLocation::Object("unused".into()),
+                id: "_id".into(),
+                filter: None,
+                partition: None,
+                limit: None,
+                exclude: Vec::new(),
+                fields: [(
+                    "title".into(),
+                    crate::import::plan::Field::new(FieldSpec::text(false)),
+                )]
+                .into(),
+            },
         }
     }
 
@@ -509,10 +536,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rare_partition_flushes_within_window() {
+        let mut target = test_plan().target;
+        target.partition = Some("tenant".into());
+        let rows = std::iter::once("rare")
+            .chain(std::iter::repeat_n("hot", 50))
+            .enumerate()
+            .map(|(id, tenant)| {
+                Ok(vec![
+                    (
+                        "_id".into(),
+                        topk_rs::proto::v1::data::Value::string(id.to_string()),
+                    ),
+                    ("tenant".into(), tenant.into()),
+                    ("title".into(), "x".repeat(100).as_str().into()),
+                ])
+            })
+            .collect();
+        let chunks = stream::iter([Ok(ReadEvent::Chunk(crate::import::source::Chunk {
+            rows,
+            cursor: None,
+        }))])
+        .boxed();
+        let options = WriteOptions {
+            continue_on_error: false,
+            concurrency: 1,
+            batch_bytes: 1024,
+        };
+        let partitions: Vec<_> = Import::feed(chunks, target, &options, 0)
+            .try_filter_map(|message| async move {
+                Ok(match message {
+                    Feed::Batch { partition, .. } => partition,
+                    _ => None,
+                })
+            })
+            .try_collect()
+            .await
+            .unwrap();
+        let rare = partitions.iter().position(|p| p == "rare").unwrap();
+        assert!(rare < partitions.len() - 1, "{partitions:?}");
+    }
+
+    #[tokio::test]
     async fn cancelled_writes_hold_lock() {
         let dir = tempfile::tempdir().unwrap();
         let plan = test_plan();
-        let target = plan.collections["c"].clone();
         let run = Run::start(
             dir.path(),
             crate::import::state::State::new(
@@ -522,6 +590,11 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                WriteOptions {
+                    continue_on_error: false,
+                    concurrency: 1,
+                    batch_bytes: 1,
+                },
             ),
         )
         .await
@@ -538,18 +611,10 @@ mod tests {
         let import = Import {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
-            source: crate::import::source::Uri::Files("docs.parquet".parse().unwrap())
-                .connect()
-                .await
-                .unwrap(),
-            scans: vec![("c".into(), target, chunks, 0)],
-            to_create: Vec::new(),
+            scan: chunks,
+            create: false,
         };
-        let mut execution = Box::pin(import.execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1),
-        }));
+        let mut execution = Box::pin(import.execute());
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
@@ -573,7 +638,6 @@ mod tests {
     async fn source_error_boundary(#[case] stream_error: bool) {
         let dir = tempfile::tempdir().unwrap();
         let plan = test_plan();
-        let target = plan.collections["c"].clone();
         let run = Run::start(
             dir.path(),
             crate::import::state::State::new(
@@ -583,6 +647,11 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                WriteOptions {
+                    continue_on_error: true,
+                    concurrency: 1,
+                    batch_bytes: 1024,
+                },
             ),
         )
         .await
@@ -601,18 +670,10 @@ mod tests {
         let import = Import {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
-            source: crate::import::source::Uri::Files("docs.parquet".parse().unwrap())
-                .connect()
-                .await
-                .unwrap(),
-            scans: vec![("c".into(), target, chunks, 0)],
-            to_create: Vec::new(),
+            scan: chunks,
+            create: false,
         };
-        let mut execution = Box::pin(import.execute(WriteOptions {
-            continue_on_error: true,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1024),
-        }));
+        let mut execution = Box::pin(import.execute());
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
@@ -627,13 +688,14 @@ mod tests {
             );
             drop(execution);
             let run = Run::load(dir.path(), id).await.unwrap();
-            assert!(matches!(&run.state().progress["c"], Progress::After(c) if c.consumed == 1));
+            assert!(matches!(&run.state().progress, Some(Progress::After(c)) if c.consumed == 1));
         } else {
             assert!(
-                matches!(execution.try_next().await.unwrap(), Some(Event::Completed { outcome, .. }) if outcome.rows == 0 && outcome.failed == 1)
+                matches!(execution.try_next().await.unwrap(), Some(Event::Completed { outcome }) if outcome.rows == 0 && outcome.failed == 1)
             );
             assert!(execution.try_next().await.unwrap().is_none());
             assert!(!dir.path().join(format!("{id}.toml")).exists());
+            assert!(!dir.path().join(format!("{id}.lock")).exists());
         }
     }
 }

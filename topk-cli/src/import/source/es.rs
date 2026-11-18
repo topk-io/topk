@@ -4,19 +4,18 @@ use std::str::FromStr;
 use elasticsearch::auth::Credentials;
 use elasticsearch::http::response::Response;
 use elasticsearch::http::transport::{SingleNodeConnectionPool, TransportBuilder};
-use elasticsearch::indices::{IndicesExistsParts, IndicesGetMappingParts};
+use elasticsearch::indices::IndicesGetMappingParts;
 use elasticsearch::{Elasticsearch, OpenPointInTimeParts, SearchParts};
 use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
 
 use topk_rs::proto::v1::control::FieldSpec;
-use tracing::warn;
 
 use crate::import::error::Error;
 use crate::import::plan::Target;
 use crate::import::ID;
 
-use super::{Catalog, Chunk, ReadEvent, ReadStream, Table};
+use super::{Chunk, ReadEvent, ReadStream, SourceLocation, Table};
 
 // Renewed per page; also how long a stopped run's cursor stays resumable (ES's ceiling).
 const KEEP_ALIVE: &str = "24h";
@@ -69,9 +68,7 @@ impl TryFrom<super::Cursor> for Cursor {
 }
 
 impl Es {
-    pub fn new(mut endpoint: url::Url) -> Result<Es, Error> {
-        let index = endpoint.path().trim_matches('/').to_string();
-        endpoint.set_path("/");
+    pub fn new(mut endpoint: url::Url, index: String) -> Result<Es, Error> {
         let user = endpoint.username().to_string();
         let pass = endpoint.password().map(str::to_string);
         let _ = endpoint.set_username("");
@@ -101,74 +98,41 @@ impl Es {
         })
     }
 
-    pub async fn catalog(&self) -> Result<Catalog, Error> {
-        // Bare GET /_mapping: naming indices in the URL overflows the 4KB request
-        // line. Deserialized per index so one unreadable mapping skips one index.
-        let index = [self.index.as_str()];
-        let mappings: HashMap<String, JsonValue> = self
+    pub async fn discover(&self) -> Result<Table, Error> {
+        let mappings: HashMap<String, topk_es::api::IndexMapping> = self
             .client
             .indices()
-            .get_mapping(if self.index.is_empty() {
-                IndicesGetMappingParts::None
-            } else {
-                IndicesGetMappingParts::Index(&index)
-            })
+            .get_mapping(IndicesGetMappingParts::Index(&[self.index.as_str()]))
             .send()
             .await?
             .error_for_status_code()?
             .json()
             .await?;
-        // Sorted for deterministic specs.
-        let mut indices: Vec<(String, JsonValue)> = mappings
-            .into_iter()
-            .filter(|(name, _)| !name.starts_with('.'))
-            .collect();
-        indices.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-        let tables = indices
-            .into_iter()
-            .filter_map(|(from, raw)| {
-                let fields: BTreeMap<String, FieldSpec> =
-                    match serde_json::from_value::<topk_es::api::IndexMapping>(raw)
-                        .map_err(|e| e.to_string())
-                        .and_then(|index| {
-                            HashMap::<String, FieldSpec>::try_from(index).map_err(|e| e.to_string())
-                        }) {
-                        Ok(fields) => fields.into_iter().collect(),
-                        Err(error) => {
-                            warn!("skipping index {from:?}: unreadable mapping: {error}");
-                            return None;
-                        }
-                    };
-                let columns = std::iter::once((ID.to_string(), FieldSpec::text(false)))
-                    .chain(fields)
-                    .map(|(name, field)| (name, Some(field)))
-                    .collect();
-                Some(Table {
-                    collection_hint: Some(from.clone()),
-                    from,
-                    columns,
-                    key: Some(ID.to_string()),
-                })
-            })
-            .collect();
-        Ok(Catalog { tables })
-    }
-
-    pub async fn validate(&self, from: &str) -> Result<(), Error> {
-        let response = self
-            .client
-            .indices()
-            .exists(IndicesExistsParts::Index(&[from]))
-            .send()
-            .await?;
-        if response.status_code().as_u16() == 404 {
+        if mappings.len() != 1 {
             return Err(Error::InvalidArgument(format!(
-                "source index {from:?} was not found"
+                "index {:?} resolves to {} indices; select exactly one",
+                self.index,
+                mappings.len()
             )));
         }
-        response.error_for_status_code()?;
-        Ok(())
+        let (from, mapping) = mappings
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::InvalidArgument("index has no mapping".into()))?;
+        let fields: BTreeMap<_, _> = HashMap::<String, FieldSpec>::try_from(mapping)
+            .map_err(|error| {
+                Error::InvalidArgument(format!("index {from:?}: unreadable mapping: {error}"))
+            })?
+            .into_iter()
+            .collect();
+        Ok(Table {
+            from: SourceLocation::Object(from),
+            columns: std::iter::once((ID.to_string(), FieldSpec::text(false)))
+                .chain(fields)
+                .collect(),
+            key: Some(ID.to_string()),
+            unnamed: Vec::new(),
+        })
     }
 
     pub fn chunks(
@@ -185,7 +149,7 @@ impl Es {
             .unwrap_or_default();
         let after = after.map(Cursor::try_from).transpose()?;
         let client = self.client.clone();
-        let from = target.from.clone();
+        let from = target.from.value().into_owned();
         let limit = target.limit;
         let unfiltered = target.filter.is_none();
 
