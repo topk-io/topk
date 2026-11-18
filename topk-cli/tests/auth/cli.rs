@@ -87,6 +87,41 @@ async fn no_browser_prints_login_url_without_saving_credentials() {
     assert!(!tenant_path(&dir).join("credentials.toml").exists());
 }
 
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn login_asks_for_the_login_code_when_browser_fails_to_open() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
+    let mut command = command(&dir);
+    command
+        .arg("login")
+        .env_remove("SSH_CONNECTION")
+        .env_remove("SSH_TTY")
+        .env("DISPLAY", ":0")
+        // No browser launcher can be found.
+        .env("PATH", "");
+    let mut child = tokio::process::Command::from(command)
+        .kill_on_drop(true)
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stderr = BufReader::new(child.stderr.take().unwrap()).lines();
+    let mut output = String::new();
+    while !output.contains("Open this URL in any browser") {
+        let line = timeout(Duration::from_secs(10), stderr.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_or_else(|| panic!("login exited early: {output}"));
+        output.push_str(&line);
+        output.push('\n');
+    }
+    child.kill().await.unwrap();
+    child.wait().await.unwrap();
+    assert!(output.contains("Failed opening a web browser"), "{output}");
+    assert!(!tenant_path(&dir).join("credentials.toml").exists());
+}
+
 #[test]
 fn invalid_authentication_configuration_is_rejected_during_parsing() {
     let dir = TempDir::new().unwrap();
