@@ -16,7 +16,7 @@ use crate::scope::pick_region;
 #[derive(clap::Args, Debug)]
 pub struct Args {
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -55,7 +55,7 @@ pub async fn run(
 ) -> Result<ExitCode> {
     info!(?args, "region");
     let client = ManagementClient::new(config.clone())?;
-    match &args.command {
+    match args.command.as_ref().unwrap_or(&Command::List) {
         Command::Current => {
             let region = config
                 .defaults()?

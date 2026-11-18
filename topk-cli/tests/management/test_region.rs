@@ -16,6 +16,8 @@ async fn list_regions(ctx: &mut CliTestContext) {
     let text = ctx.ok(&["region", "list"]);
     assert!(text.contains("Name"), "{text}");
     assert!(names.iter().all(|name| text.contains(name)), "{text}");
+
+    assert_eq!(ctx.ok(&["region"]), text);
 }
 
 #[test_context(CliTestContext)]
