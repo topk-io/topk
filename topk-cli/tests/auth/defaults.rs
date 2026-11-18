@@ -114,28 +114,21 @@ async fn region_current_and_clear_work_offline() {
         let config = config.clone();
         async move {
             let mut out = Vec::new();
-            region::run(
-                config,
-                &region::Args {
-                    command: Some(command),
-                },
-                Output::Json,
-                &mut out,
-            )
-            .await
-            .map(|_| out)
+            region::run(config, &region::Args { command }, Output::Json, &mut out)
+                .await
+                .map(|_| out)
         }
     };
-    let out = run(region::Command::Current).await.unwrap();
+    let out = run(Some(region::Command::Current)).await.unwrap();
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&out).unwrap()["region"],
         "r1"
     );
-    run(region::Command::Clear).await.unwrap();
+    run(Some(region::Command::Clear)).await.unwrap();
     let defaults = config.defaults().unwrap();
     assert!(defaults.region.is_none());
     assert_eq!(defaults.project_id.unwrap().as_str(), "p1");
-    let error = run(region::Command::Current).await.unwrap_err();
+    let error = run(Some(region::Command::Current)).await.unwrap_err();
     assert!(error.to_string().contains("no region selected"), "{error}");
 }
 
