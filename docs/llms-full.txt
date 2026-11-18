@@ -40,7 +40,7 @@ Simple example to get you started with TopK. Check out our [guides](/guides) for
 
 #### Security & Compliance
 
-TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.io) for full details.
+TopK is **SOC 2 Type II** certified and **HIPAA** compliant. Visit the [trust center](https://trust.topk.io) for audit reports, security controls, and the list of [subprocessors](https://trust.topk.io/subprocessors).
 
 <CardGroup cols={1}>
   <Card title="Data encryption" icon="lock" horizontal>
