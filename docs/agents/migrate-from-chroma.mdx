@@ -99,13 +99,13 @@ Read the printed `-f` lists and tell the user about two kinds of field the scrip
 Run each printed command with `--region <REGION> --dry-run` appended first, and check the plan it prints:
 
 ```bash
-topk import <COLLECTION>.jsonl -f <FIELDS> --region <REGION> --dry-run
+topk import <COLLECTION>.jsonl --to <COLLECTION> -f <FIELDS> --region <REGION> --dry-run
 ```
 
 Then run each command with `--region <REGION> --yes` appended:
 
 ```bash
-topk import <COLLECTION>.jsonl -f <FIELDS> --region <REGION> --yes
+topk import <COLLECTION>.jsonl --to <COLLECTION> -f <FIELDS> --region <REGION> --yes
 ```
 
 If an import stops partway, run the command the CLI prints after `Continue with:`. It resumes the run from its last checkpoint.

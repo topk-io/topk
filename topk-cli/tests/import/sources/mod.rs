@@ -25,15 +25,12 @@ use crate::import::common::{books, json_documents, source, target, Scratch};
 async fn catalog_types(ctx: &Scratch, #[case] backend: Backend, #[case] in_print: FieldSpec) {
     let seeded = ctx.seed(backend, "books", books()).await;
     let source = source(&seeded.url).await.unwrap();
-    let catalog = &source.catalog().await.unwrap().tables;
-    let table = catalog
-        .iter()
-        .find(|table| table.from == seeded.from)
-        .expect("seeded object in catalog");
+    let table = source.discover().await.unwrap();
+    assert_eq!(table.from.value(), seeded.from);
     let types: BTreeMap<_, _> = table
         .columns
         .iter()
-        .map(|(name, field)| (name.as_str(), field.clone().unwrap()))
+        .map(|(name, field)| (name.as_str(), field.clone()))
         .collect();
     let mut text = FieldSpec::text(false);
     if matches!(backend, Backend::Elasticsearch) {
@@ -115,6 +112,14 @@ async fn limits_documents(ctx: &Scratch, #[case] backend: Backend) {
         json!({"_id": "nineteen_eighty_four", "title": "1984"}),
         json!({"_id": "pride", "title": "Pride and Prejudice"}),
     ];
+    let expected = if matches!(backend, Backend::Mongo | Backend::Elasticsearch) {
+        books()
+            .iter()
+            .map(|doc| serde_json::Value::Object(crate::import::common::json(doc)))
+            .collect()
+    } else {
+        expected.to_vec()
+    };
     for (partition, doc) in docs {
         assert_eq!(partition, None);
         assert!(expected.contains(&doc), "unexpected document: {doc}");

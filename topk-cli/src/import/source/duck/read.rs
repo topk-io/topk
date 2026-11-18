@@ -8,7 +8,7 @@ use crate::import::document::id_string;
 use crate::import::error::Error;
 use crate::import::plan::Target;
 use crate::import::source::file::local_path;
-use crate::import::source::{Chunk, Cursor, File, Record};
+use crate::import::source::{Chunk, Cursor, File, Record, SourceLocation};
 
 use super::arrow;
 use super::select::Select;
@@ -21,7 +21,7 @@ type Receiver = mpsc::Receiver<Chunk>;
 /// in an error, its filter for context, and how the cursor advances.
 pub(super) struct Plan {
     sql: String,
-    from: String,
+    from: SourceLocation,
     filter: Option<String>,
     position: Position,
 }
@@ -55,8 +55,8 @@ impl Position {
 /// Files decoded ahead of the one being upserted. A single-row-group parquet is
 /// read whole before its first row, so each file boundary stalls the sink (s3:
 /// 29 → 41 MiB/s with one ahead; two measured the same for another row group
-/// of memory). Each holds a `READER_MEMORY` connection, budgeted by `max_readers`.
-pub(super) const READ_AHEAD: usize = 1;
+/// of memory). Each holds a `READER_MEMORY` connection.
+const READ_AHEAD: usize = 1;
 
 /// Files in glob order, one query each, read `READ_AHEAD` deep and forwarded in
 /// order. The cursor is `<file>:<rows read>`: resuming skips files before it and
@@ -78,10 +78,10 @@ pub(super) fn files(
                     "SELECT file FROM glob('{}') ORDER BY 1",
                     lit(path)
                 ))
-                .map_err(|e| read_error(path, None, e))?;
+                .map_err(|e| read_error(&SourceLocation::from(file), None, e))?;
             stmt.query_map([], |row| row.get(0))?
                 .collect::<Result<_, _>>()
-                .map_err(|e| read_error(path, None, e))?
+                .map_err(|e| read_error(&SourceLocation::from(file), None, e))?
         }
     };
     // Globs list in byte order, which is how the cursor compares.
@@ -108,12 +108,12 @@ pub(super) fn files(
                 path,
                 ..file.clone()
             };
-            let plan = Plan::file(&file, target, offset, remaining);
+            let target = target.clone();
             readers.push_back((
                 file_rx,
                 thread::spawn(move || {
                     let conn = source.connect(Some(&file))?;
-                    plan.read(&conn, &file_tx)
+                    Plan::file(&file, &target, offset, remaining).read(&conn, &file_tx)
                 }),
             ));
         }
@@ -145,7 +145,7 @@ impl Plan {
         // A table has one validated schema, and for postgres the list has to be
         // plain anyway: the query runs on the server.
         let sql = source
-            .select(&target.from)
+            .select(&target.from.value())
             .columns(columns)
             .filter(target.filter.as_deref())
             .after(key, after)
@@ -171,7 +171,7 @@ impl Plan {
                 .limit(limit)
                 .offset(offset)
                 .into_sql(),
-            from: file.path.clone(),
+            from: SourceLocation::from(file),
             filter: target.filter.clone(),
             position: Position::Offset(offset),
         }
@@ -204,7 +204,7 @@ impl Plan {
                 })
                 .collect();
             read += rows.len() as u64;
-            let mark = self.position.advance(&self.from, read, &rows);
+            let mark = self.position.advance(&self.from.value(), read, &rows);
             if tx.blocking_send(Chunk { rows, cursor: mark }).is_err() {
                 return Ok(read);
             }

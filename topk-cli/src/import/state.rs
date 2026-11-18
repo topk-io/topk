@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io::ErrorKind;
@@ -7,9 +6,11 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::import::error::Error;
-use crate::import::plan::{Plan, Target};
+use crate::import::execution::WriteOptions;
+use crate::import::plan::Plan;
 use crate::import::source::{Checkpoint, Uri};
 use crate::scope::Scope;
 use crate::storage;
@@ -43,7 +44,7 @@ impl fmt::Display for RunId {
     }
 }
 
-/// Where a collection's import stands.
+/// Where the import stands.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Progress {
@@ -57,42 +58,47 @@ pub enum Progress {
 pub struct State {
     /// Passwords are redacted.
     pub source: String,
-    /// The whole plan, done collections included.
     pub plan: Plan,
+    pub write: WriteOptions,
     #[serde(flatten)]
     pub destination: Scope,
-    #[serde(default, rename = "cursors")]
-    pub progress: BTreeMap<String, Progress>,
+    #[serde(default)]
+    pub progress: Option<Progress>,
 }
 
 impl State {
-    pub fn new(source: String, destination: Scope, plan: Plan) -> State {
+    pub fn new(source: String, destination: Scope, plan: Plan, write: WriteOptions) -> State {
         State {
             source,
             plan,
+            write,
             destination,
-            progress: BTreeMap::new(),
+            progress: None,
         }
     }
 
-    pub fn pending(&self) -> impl Iterator<Item = (&String, &Target)> {
-        self.plan
-            .collections
-            .iter()
-            .filter(|(name, target)| match self.progress.get(*name) {
-                Some(Progress::Done) => false,
-                Some(Progress::After(checkpoint)) => target.limit != Some(checkpoint.consumed),
-                None => true,
-            })
+    pub fn done(&self) -> bool {
+        match &self.progress {
+            Some(Progress::Done) => true,
+            Some(Progress::After(checkpoint)) => {
+                self.plan.target.limit == Some(checkpoint.consumed)
+            }
+            None => false,
+        }
     }
 
     pub fn source(&self, supplied: Option<&Uri>) -> Result<Uri, Error> {
+        let saved = || {
+            self.source.parse::<Uri>().map_err(|error| {
+                Error::InvalidArgument(format!("{error}; old saved runs need a new import"))
+            })
+        };
         let mut uri = match supplied {
             Some(uri) => {
                 if uri.to_string() == self.source {
                     uri.clone()
                 } else {
-                    let saved: Uri = self.source.parse()?;
+                    let saved = saved()?;
                     match (&saved, uri) {
                         (Uri::Files(a), Uri::Files(b))
                             if a.store.is_none()
@@ -111,7 +117,7 @@ impl State {
                     }
                 }
             }
-            None => self.source.parse()?,
+            None => saved()?,
         };
         if uri.password() == Some("***") {
             return Err(Error::InvalidArgument(
@@ -128,19 +134,14 @@ impl State {
 
     pub fn validate(&self) -> Result<(), Error> {
         self.plan.validate()?;
-        for (name, mark) in &self.progress {
-            let target = self.plan.collections.get(name).ok_or_else(|| {
-                Error::InvalidArgument(format!(
-                    "saved run has a checkpoint for unknown collection {name:?}"
-                ))
-            })?;
-            if let (Progress::After(checkpoint), Some(limit)) = (mark, target.limit) {
-                if checkpoint.consumed > limit {
-                    return Err(Error::InvalidArgument(format!(
-                        "{name}: checkpoint consumed {} rows, exceeding limit {limit}",
-                        checkpoint.consumed
-                    )));
-                }
+        if let (Some(Progress::After(checkpoint)), Some(limit)) =
+            (&self.progress, self.plan.target.limit)
+        {
+            if checkpoint.consumed > limit {
+                return Err(Error::InvalidArgument(format!(
+                    "checkpoint consumed {} rows, exceeding limit {limit}",
+                    checkpoint.consumed
+                )));
             }
         }
         Ok(())
@@ -181,6 +182,7 @@ impl Run {
                 )))
             })?
             .ok_or_else(|| {
+                let _ = std::fs::remove_file(path.with_extension("lock"));
                 Error::InvalidArgument(format!("no run {id} to resume ({})", path.display()))
             })?;
         state.validate()?;
@@ -196,13 +198,17 @@ impl Run {
         &self.state
     }
 
+    pub fn set_write(&mut self, write: WriteOptions) {
+        self.state.write = write;
+    }
+
     pub fn save(&self) -> Result<(), Error> {
         storage::write_toml(&self.path, &self.state)?;
         Ok(())
     }
 
-    pub(super) fn mark(&mut self, name: &str, mark: Progress) -> Result<(), Error> {
-        self.state.progress.insert(name.to_string(), mark);
+    pub(super) fn mark(&mut self, mark: Progress) -> Result<(), Error> {
+        self.state.progress = Some(mark);
         self.save()
     }
 
@@ -211,6 +217,21 @@ impl Run {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
             Err(e) => Err(e.into()),
+        }
+    }
+}
+
+impl Drop for Run {
+    /// A lock is kept only next to a state file, for the resume that will take it.
+    fn drop(&mut self) {
+        if self.path.exists() {
+            return;
+        }
+        match std::fs::remove_file(self.path.with_extension("lock")) {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                warn!(%error, "cannot remove run lock")
+            }
+            _ => {}
         }
     }
 }

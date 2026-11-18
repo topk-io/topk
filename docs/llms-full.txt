@@ -684,10 +684,10 @@ Tell the user it takes a few minutes, then run:
 
 ```bash
 topk import hf://datasets/wikimedia/wikipedia/20231101.en/train-00000-of-00041.parquet \
-  --to wikipedia --limit 50000 -f title=keyword,text=semantic,url --region <REGION> --yes
+  --to wikipedia --limit 50000 -f title=keyword,text=semantic --region <REGION> --yes
 ```
 
-`-f` imports only the named fields: `title` gets a keyword index for exact word matches, `text` gets a semantic index for search by meaning, and `url` is stored as is. Article text over 32,768 characters is shortened before it is stored.
+`-f` sets indexes: `title` gets a keyword index for exact word matches and `text` a semantic index for search by meaning. Every other column, such as `url`, is stored as is. Article text over 32,768 characters is shortened before it is stored.
 
 The CLI streams the rows from Hugging Face, creates the `wikipedia` collection, and shows progress. When it finishes, tell the user how many articles were imported and how long it took. If the import stops partway, run the command the CLI prints after `Continue with:`. It resumes the same run without asking for confirmation.
 
@@ -827,13 +827,13 @@ Read the printed `-f` lists and tell the user about two kinds of field the scrip
 Run each printed command with `--region <REGION> --dry-run` appended first, and check the plan it prints:
 
 ```bash
-topk import <COLLECTION>.jsonl -f <FIELDS> --region <REGION> --dry-run
+topk import <COLLECTION>.jsonl --to <COLLECTION> -f <FIELDS> --region <REGION> --dry-run
 ```
 
 Then run each command with `--region <REGION> --yes` appended:
 
 ```bash
-topk import <COLLECTION>.jsonl -f <FIELDS> --region <REGION> --yes
+topk import <COLLECTION>.jsonl --to <COLLECTION> -f <FIELDS> --region <REGION> --yes
 ```
 
 If an import stops partway, run the command the CLI prints after `Continue with:`. It resumes the run from its last checkpoint.
@@ -5392,7 +5392,7 @@ for col in chroma.list_collections():
         f"embedding=vector:{dim}:{METRICS[space]}",
     ])
     print(f"{col.name}: {count} records, {dim} dims, {space}")
-    print("  " + shlex.join(["topk", "import", f"{col.name}.jsonl", "-f", choices]))
+    print("  " + shlex.join(["topk", "import", f"{col.name}.jsonl", "--to", col.name, "-f", choices]))
 ```
 
 ```bash
@@ -5404,9 +5404,9 @@ python chroma_to_topk.py
 
 ```text Output
 docs: 120000 records, 1536 dims, cosine
-  topk import docs.jsonl -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
+  topk import docs.jsonl --to docs -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
 tickets: 48210 records, 768 dims, ip
-  topk import tickets.jsonl -f document=keyword,priority=int,embedding=vector:768:dot_product
+  topk import tickets.jsonl --to tickets -f document=keyword,priority=int,embedding=vector:768:dot_product
 ```
 
 <Note>
@@ -5423,9 +5423,9 @@ tickets: 48210 records, 768 dims, ip
 
 #### Step 2: Review the import commands
 
-Each command loads `<collection>.jsonl` into a new TopK collection with the same name, and uses the `id` column as each document's `_id`. `-f` lists the fields to import, separated by commas:
+Each command loads `<collection>.jsonl` into a new TopK collection with the same name, and uses the `id` column as each document's `_id`. Every field in the file is imported; `-f` sets the type or index of each one it names, separated by commas:
 
-| In `-f` | Imports |
+| In `-f` | Sets |
 | - | - |
 | `document=keyword` | The document text, with a keyword index for text search |
 | `source=text`, `year=int` | A metadata key, with the type the script found for it |
@@ -5434,7 +5434,7 @@ Each command loads `<collection>.jsonl` into a new TopK collection with the same
 [Select fields and indexes](/cli#select-fields-and-indexes) lists every choice. Two edits are worth considering before you import:
 
 - **Let TopK embed the text too.** Change `document=keyword` to `document=semantic` and TopK generates [multi-vector embeddings](/guides/semantic-search) for it, alongside your existing vectors. You can then query with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) and skip the query embedding call.
-- **Drop fields you don't query.** Only the fields `-f` names are imported, so remove the others from the list.
+- **Drop fields you don't query.** Remove them from the `-f` list and add `--exclude <field>,<field>`.
 
 #### Step 3: Import into TopK
 
@@ -5451,7 +5451,7 @@ topk region select <REGION>
 Then run each command the script printed:
 
 ```bash
-topk import docs.jsonl -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
+topk import docs.jsonl --to docs -f document=keyword,source=text,year=int,embedding=vector:1536:cosine
 ```
 
 Each import shows the fields it will import and asks before writing. Documents are searchable as soon as they are written.
@@ -5459,7 +5459,7 @@ Each import shows the fields it will import and asks before writing. Documents a
 <Tip>
   - Add `--dry-run` to see the fields and sample documents without writing anything.
   - If an import stops, run the `topk import --resume <run-id>` command it prints to continue from its last checkpoint. Writes replace documents with the same `_id`, so starting over is safe too.
-  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export script, add `"tenant": col.name` to each record. Then add `--to <COLLECTION> --partition tenant` to every command, with the same collection name. Every command must name the same fields, because an import into an existing collection with a different schema is rejected.
+  - To merge per-tenant collections into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export script, add `"tenant": col.name` to each record. Then in every command, replace `--to <name>` with `--to <COLLECTION>`, the same collection each time, and add `--partition tenant`. The first import creates the collection; later imports must give the fields it declares the same type and index, and other fields are written without a declaration.
 </Tip>
 
 #### Step 4: Update your queries
@@ -5586,8 +5586,8 @@ brew install topk
 
 ```bash
 topk login
-topk import ./books.parquet
-topk import postgres://user:pw@host/db 'public.*'
+topk import ./books.parquet --to books
+topk import postgres://user:pw@host/db#orders --to orders
 ```
 
 <Note>
@@ -5859,28 +5859,28 @@ Without `--project-id`, usage covers your whole organization.
 
 ##### import
 
-Bulk import into TopK collections. Every run previews the selected fields and asks before writing; collections are created right after.
+Bulk import into a TopK collection. Every run previews the selected fields and asks before writing; a new collection is created with the first write, so a run that fails before writing leaves none behind.
 
 ```bash
-topk import [SOURCE] [OBJECTS]... [OPTIONS]
+topk import --to <COLLECTION> <SOURCE> [OPTIONS]
 ```
 
 | argument | description |
 | --- | --- |
-| `[SOURCE]` | Source URL, file path, or glob; with `--resume`, needed only when credentials were in the source URL |
-| `[OBJECTS]...` | Source objects to import; exact names, globs, or `<object>=<collection>` |
+| `<SOURCE>` | Source URL, file path, or glob; with `--resume`, needed only when credentials were in the source URL |
 | `--region <REGION>` | Region to import into (env `TOPK_REGION`); defaults to the region selected with `topk region select`. See https://docs.topk.io/regions |
-| `--to <COLLECTION>` | Name the target collection; required when it cannot be derived |
+| `--to <COLLECTION>` | Collection to import into; created when it does not exist |
 | `--id <COLUMN>` | Column to use as the document id (`_id`); use when it can't be auto-detected |
 | `--dry-run` | Preview the plan and a sample of documents, without importing |
-| `-f`, `--field <FIELD>` | Import only the named fields; repeatable and comma-separated. `name`, `name=semantic`, `name=image:semantic`, `name=keyword`, `name=ngram`, `name=vector:<dimension>:<metric>`; omit the dimension when it can be inferred. All choices: [Select fields and indexes](#select-fields-and-indexes) |
-| `--rename <SOURCE=TARGET>` | Rename a source column before selecting fields; repeatable |
+| `-f`, `--field <FIELD>` | Set a field's type or index; repeatable and comma-separated. `name=semantic`, `name=image:semantic`, `name=keyword`, `name=ngram`, `name=vector:<dimension>:<metric>`; omit the dimension when it can be inferred. Every other field imports as discovered. All choices: [Select fields and indexes](#select-fields-and-indexes) |
+| `--exclude <FIELD>` | Leave fields out; repeatable and comma-separated |
+| `--rename <SOURCE=TARGET>` | Rename a source column before `--exclude` and `-f` apply; repeatable |
 | `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
 | `--resume <RUN>` | Continue the saved plan by its run ID |
 | `--filter <FILTER>` | Only read rows matching a filter, in the source's language: SQL `WHERE` for files and databases, a JSON query for mongodb/elasticsearch |
-| `--limit <LIMIT>` | Read at most this many rows per object |
+| `--limit <LIMIT>` | Read at most this many rows |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
-| `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
+| `--continue-on-error` | Skip rows that fail instead of stopping, listing each in a report file |
 | `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
 | `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
@@ -5891,45 +5891,45 @@ Log in, then import:
 
 ```bash
 topk login
-topk import ./books.parquet
+topk import ./books.parquet --to books
 ```
 
 ###### Import a database
 
 ```bash
-topk import postgres://user:pw@host/db 'public.*'
-topk import mysql://root@host/shop orders
-topk import mongodb://host/shop products
-topk import es+https://user:pw@es.example.com 'products*'
-topk import postgres://host/db orders --filter "created_at > '2024-01-01'"
+topk import postgres://user:pw@host/db#public.orders --to orders
+topk import mysql://root@host/shop#orders --to orders
+topk import mongodb://host/shop#products --to products
+topk import es+https://user:pw@es.example.com/products --to products
+topk import postgres://host/db#orders --to orders --filter "created_at > '2024-01-01'"
 ```
 
-Objects are exact names, globs, or `<object>=<collection>` renames.
+One import reads one table, collection or index into one collection. PostgreSQL, MySQL, SQLite and MongoDB require `#object` in the source URI; Elasticsearch requires an index path. For example, `sqlite:./shop.db#orders` or `es://host/orders`. Connection options precede the selector: `postgres://host/db?sslmode=require#public.orders`.
 
 ###### Import files
 
 ```bash
-topk import ./books.parquet                                   # .csv .tsv .json(l) .arrow .avro
-topk import 's3://bucket/books/*.parquet' --to books          # a glob needs --to
-topk import gs://bucket/books.csv                             # az:// hf:// http(s):// too
+topk import ./books.parquet --to books                        # .csv .tsv .json(l) .arrow .avro
+topk import 's3://bucket/books/*.parquet' --to books          # every parquet file under a prefix
+topk import gs://bucket/books.csv --to books                  # az:// hf:// http(s):// too
 ```
 
-A single file names its collection.
+A source is one file or one glob. For a folder or a bucket prefix, use a glob such as `'s3://bucket/books/*.parquet'`. `*` matches files in one folder; `**` also matches subfolders (`'s3://bucket/books/**/*.parquet'`).
 
 ###### Copy a TopK collection
 
 ```bash
-topk import topk://<project-id>/books --to books-v2                        # copy under a new name
-topk import topk://<project-id>/books --region aws-eu-central-1-monstera   # copy across regions
-topk import topk://<project-id>/books --project-id <other-project-id>      # copy to another project
+topk import topk://<project-id>/books --to books-v2                                   # copy under a new name
+topk import topk://<project-id>/books --to books --region aws-eu-central-1-monstera   # copy across regions
+topk import topk://<project-id>/books --to books --project-id <other-project-id>      # copy to another project
 ```
 
-The source region is resolved from the source collection. `--region` selects the destination region. Schema and indexes copy as-is; the copy is additive. Sources with named partitions are rejected before the destination is created; partitioned collection copies are not supported.
+A copy onto the source collection itself is refused. The source region is resolved from the source collection. `--region` selects the destination region. Schema and indexes copy as-is, and fields the source does not declare copy too; the copy is additive. Sources with named partitions are rejected before the destination is created; partitioned collection copies are not supported.
 
 ###### Split rows across partitions
 
 ```bash
-topk import ./events.parquet --partition tenant               # one partition per `tenant` value
+topk import ./events.parquet --to events --partition tenant   # one partition per `tenant` value
 ```
 
 Each row goes to the partition named by that column, so one source stream writes into as many partitions as the column has values.
@@ -5945,7 +5945,7 @@ The column only has to exist in the source. It does not have to be an imported f
 ```bash
 topk import books.parquet --to books -f title=keyword,body=semantic --dry-run
 topk import books.parquet --to books -f title=keyword,body=semantic --yes
-topk import books.parquet --to books --rename raw_body=body -f title,body=semantic
+topk import books.parquet --to books --rename raw_body=body -f body=semantic --exclude notes
 ```
 
 | choice | values |
@@ -5954,17 +5954,17 @@ topk import books.parquet --to books --rename raw_body=body -f title,body=semant
 | index | `keyword` `semantic` `ngram`, alone or after a type: `text_list:keyword`, `image:semantic` |
 | vector | `vector[:<dim>][:cosine\|euclidean\|dot_product\|hamming]`, `matrix[:<cols>][:maxsim]`, `sparse[:dot_product]` |
 
-Without `-f`, all supported fields are imported. With `-f`, only named fields are imported, and the document ID is always read separately. Field names in `-f` refer to names after `--rename`. A semantic index on text shortens stored values over 32,768 characters; the preview warns about this. Other text is not shortened.
+Every column is imported. `-f` sets a field's type or index, and `--exclude` leaves fields out. Both use names after `--rename`; `--exclude` also accepts the source column name. A column with no TopK type, such as a list of booleans, structs or timestamps, fails the plan until it is excluded, or given a type with `-f` where one applies. The document ID is always read separately. A field name cannot start with `_`, so a source field such as `_lang` imports as `lang` and the plan shows `lang ← _lang`; `--rename` gives it another name. For MongoDB, Elasticsearch and TopK sources, a field outside the plan, such as one the discovery sample or the index mapping missed, is written as read; `--exclude`, `-f` and `--rename` accept such fields, and an existing collection's declared fields are read from each row, so a row without a required one fails. Files and databases list every column, so a name that is not a column is an error. A semantic index on text shortens stored values over 32,768 characters; the preview warns about this. Other text is not shortened.
 
 ###### Resume a stopped run
 
 Stop a run — `^C`, a lost connection — and pick it up where it left off:
 
 ```bash
-topk import postgres://host/db --resume 1234abcd               # run id from the resume command
+topk import postgres://host/db#orders --resume 1234abcd               # run id from the resume command
 ```
 
-Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+Resume continues from the last source checkpoint, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. A resumed run keeps its `--concurrency`, `--batch-bytes` and `--continue-on-error`; pass one again to change it. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
 MongoDB checkpoints use the source `_id`, independently of the destination ID mapping. Legacy checkpoints made with a custom ID column require a new import. Elasticsearch retains its point-in-time snapshot for interrupted scans and closes it before returning a final page.
 
@@ -5982,7 +5982,16 @@ MongoDB checkpoints use the source `_id`, independently of the destination ID ma
 
 SQL column names are literal, including dots. Dots inside schema or table names are not supported; source discovery rejects them explicitly.
 
-For a new collection, discovery takes the source's types; an explicit field choice can change its type or add an index. For an existing collection, untouched fields use the destination's types and indexes, and explicit choices must match its schema. Dry-run resolves against the destination too, so it requires a project and authentication. `vector`, `matrix`, and `sparse` preserve an already typed source field. Float lists, text (`"[1,2,3]"`), and packed bytes become f32 vectors with `-f embedding=vector:768:cosine`. A sparse vector reads numeric keys or parallel `indices`/`values` lists. Conversions are exact or the document fails.
+For a new collection, discovery takes the source's types; an explicit field choice can change its type or add an index. A collection's schema is set when it is created: for an existing collection, declared fields use its types and indexes, explicit choices must match them, and other fields are written without a declaration. An index on a field the collection does not declare, and a declared required field the source lacks, fail the plan. Dry-run resolves against the destination too, so it requires a project and authentication. `vector`, `matrix`, and `sparse` preserve an already typed source field. Without a choice, a list of floats in a file imports as `float_list`. Float lists, text (`"[1,2,3]"`), and packed bytes become f32 vectors with `-f embedding=vector:768:cosine`. A sparse vector reads numeric keys or parallel `indices`/`values` lists. A value converts exactly or its row fails, except for these conversions:
+
+| value | stored as |
+| --- | --- |
+| timestamp or date | epoch milliseconds; finer digits are dropped |
+| `float_list` | 32-bit floats |
+| vector, matrix or sparse vector | the declared element type |
+| decimal with more than 15 digits | text |
+| text with a semantic index | its first 32,768 characters |
+| JSON column mixing integers and fractions | 64-bit floats, so integers beyond 2^53 round |
 
 Image fields accept JPEG/PNG bytes, data URIs, and Hugging Face `{bytes, path}` structs. Each image must fit within 512 KiB.
 
@@ -5990,16 +5999,27 @@ Select an already typed image with `-f page=semantic`. For a data URI or image b
 
 ###### Failures and limits
 
-Pending document buffers are bounded per active collection by `--batch-bytes × --concurrency`, independently of in-flight writes and source read-ahead. Under pressure, the importer sends individual partial batches to free space.
+Pending document buffers are bounded by `--batch-bytes × --concurrency`, independently of in-flight writes and source read-ahead. Under pressure, the importer sends individual partial batches to free space.
 
 Progress counts acknowledged writes. After 10 seconds without progress, the CLI prints a waiting notice.
 
-By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
+By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. CSV uses DuckDB’s inferred types and date formats; reader parsing and type-conversion errors stop the import even with `--continue-on-error`. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
 
-Summaries count acknowledged writes and skipped rows for the current invocation. Any skipped rows or fatal error produce a nonzero exit. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
+Summaries count acknowledged writes and skipped rows for the current invocation. Every skipped row is listed once in `<run>.rejected.jsonl` next to the run state, with its row number in source order, document ID, field and error; the terminal shows the first three, and the count and path of the file for the whole run. A run that completes exits `0`, with or without skipped rows; a fatal error exits `1`. If the run state cannot be saved, the import stops. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
 
-- there is no schema migration: an existing collection whose schema differs is rejected
-- an upsert replaces the whole document, so `-f` omitting an existing field clears it
+- there is no schema migration: choices that differ from an existing collection's declared fields are rejected
+- an upsert replaces the whole document, so `--exclude` on an existing field clears it
+
+#### Exit codes
+
+| code | meaning |
+| --- | --- |
+| `0` | success |
+| `1` | error |
+| `2` | invalid arguments |
+| `3` | `topk import` completed and skipped rows; see [Failures and limits](#failures-and-limits) |
+| `130` | interrupted with `^C` |
+| `141` | stdout closed, for example by `\| head` |
 
 #### Global flags
 

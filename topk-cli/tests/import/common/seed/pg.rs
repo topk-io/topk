@@ -1,8 +1,14 @@
 use duckdb::Connection;
 use sqlx::{Executor, PgPool};
+use topk::import::source::Source;
+use topk::import::Error;
 use topk_rs::proto::v1::data::Document;
 
 use super::sql;
+
+pub async fn source(table: &str) -> Result<Source, Error> {
+    crate::import::common::source(&format!("{}#{table}", Pg::URL)).await
+}
 
 pub struct Pg {
     pub conn: Connection,

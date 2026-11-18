@@ -1,94 +1,122 @@
 use rstest::rstest;
-use topk::import::source::{File, Uri};
+use topk::import::source::{File, SourceLocation, Uri};
 use topk::import::source::{Format, ObjectStore};
 
 #[rstest]
-#[case::postgres("postgres://u:p@localhost/db", "postgres://u:p@localhost/db")]
-#[case::postgresql("postgresql://localhost/db", "postgresql://localhost/db")]
-#[case::bare_postgres("postgres://", "postgres://")]
-#[case::surrounding_space("  postgres://localhost/db  ", "postgres://localhost/db")]
-fn postgres_urls(#[case] input: &str, #[case] expected: &str) {
-    match input.parse::<Uri>().unwrap() {
-        Uri::Postgres(url) => assert_eq!(url.0.as_str(), expected),
-        uri => panic!("expected PostgreSQL, got {uri:?}"),
-    }
-}
-
-#[rstest]
-#[case::mysql("mysql://root@localhost:3307/demo")]
-#[case::mariadb("mariadb://localhost/demo")]
-fn mysql_urls(#[case] input: &str) {
-    match input.parse::<Uri>().unwrap() {
-        Uri::Mysql(url) => assert_eq!(url.0.as_str(), input),
-        uri => panic!("expected MySQL, got {uri:?}"),
-    }
-}
-
-#[rstest]
-#[case::mongo("mongodb://localhost:27017/demo")]
-#[case::mongo_srv("mongodb+srv://cluster.example.com/demo")]
-fn mongo_urls(#[case] input: &str) {
-    match input.parse::<Uri>().unwrap() {
-        Uri::Mongo(url) => assert_eq!(url.0.as_str(), input),
-        uri => panic!("expected MongoDB, got {uri:?}"),
-    }
-}
-
-#[rstest]
-#[case::long_http("elasticsearch://localhost:19200", "http://localhost:19200/")]
-#[case::explicit_http("elasticsearch+http://localhost:19200", "http://localhost:19200/")]
-#[case::long_https("elasticsearch+https://es.example.com", "https://es.example.com/")]
-#[case::short_http("es://localhost:19200", "http://localhost:19200/")]
-#[case::short_https("es+https://es.example.com", "https://es.example.com/")]
-#[case::short_explicit_http("es+http://localhost:19200", "http://localhost:19200/")]
-#[case::elastic_cloud(
-    "https://demo.es.us-east-1.aws.cloud.es.io",
-    "https://demo.es.us-east-1.aws.cloud.es.io/"
+#[case::postgres(
+    "postgres://u:p@localhost/db?sslmode=require#public.orders",
+    "public.orders"
 )]
-#[case::elastic_serverless(
-    "https://demo.es.us-east-1.aws.elastic.cloud",
-    "https://demo.es.us-east-1.aws.elastic.cloud/"
+#[case::postgresql("postgresql://localhost/db#orders", "orders")]
+#[case::bare_postgres("postgres://#orders", "orders")]
+#[case::mysql("mysql://root@localhost:3307/demo#orders", "orders")]
+#[case::mariadb("mariadb://localhost/demo#orders", "orders")]
+#[case::mongo("mongodb://localhost:27017/demo#orders", "orders")]
+#[case::mongo_srv("mongodb+srv://cluster.example.com/demo#orders", "orders")]
+#[case::encoded_name("postgres://localhost/db#orders%20%23%25%C3%A9", "orders #%é")]
+fn database_urls(#[case] input: &str, #[case] expected: &str) {
+    let uri: Uri = input.parse().unwrap();
+    match &uri {
+        Uri::Postgres { url, object } | Uri::Mysql { url, object } | Uri::Mongo { url, object } => {
+            assert_eq!(object, expected);
+            assert_eq!(url.0.as_str(), input.split_once('#').unwrap().0);
+            assert_eq!(url.0.fragment(), None);
+        }
+        uri => panic!("expected database, got {uri:?}"),
+    }
+    assert_eq!(
+        uri.to_string().parse::<Uri>().unwrap().to_string(),
+        uri.to_string()
+    );
+}
+
+#[rstest]
+#[case::long_http(
+    "elasticsearch://localhost:19200/orders",
+    "http://localhost:19200/orders"
+)]
+#[case::explicit_http(
+    "elasticsearch+http://localhost:19200/orders",
+    "http://localhost:19200/orders"
+)]
+#[case::long_https(
+    "elasticsearch+https://es.example.com/orders",
+    "https://es.example.com/orders"
+)]
+#[case::short_http("es://localhost:19200/orders", "http://localhost:19200/orders")]
+#[case::short_https("es+https://es.example.com/orders", "https://es.example.com/orders")]
+#[case::elastic_cloud(
+    "https://demo.es.us-east-1.aws.cloud.es.io/orders",
+    "https://demo.es.us-east-1.aws.cloud.es.io/orders"
 )]
 fn elasticsearch_urls(#[case] input: &str, #[case] expected: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Elasticsearch(url) => assert_eq!(url.0.as_str(), expected),
+        Uri::Elasticsearch { url, index } => {
+            assert_eq!(index, "orders");
+            assert_eq!(url.0.as_str(), expected.strip_suffix("orders").unwrap());
+        }
         uri => panic!("expected Elasticsearch, got {uri:?}"),
     }
 }
 
 #[rstest]
-#[case::postgres("postgres://u:hunter2@localhost/db")]
-#[case::mysql("mysql://u:hunter2@localhost/db")]
-#[case::mongo("mongodb://u:hunter2@localhost/db")]
-#[case::elasticsearch("es+https://u:hunter2@es.example.com")]
+#[case::postgres("postgres://u:hunter2@localhost/db#orders")]
+#[case::mysql("mysql://u:hunter2@localhost/db#orders")]
+#[case::mongo("mongodb://u:hunter2@localhost/db#orders")]
+#[case::elasticsearch("es+https://u:hunter2@es.example.com/orders")]
+#[case::query_parameter("postgres://u@localhost/db?sslmode=require&password=hunter2#orders")]
 fn printing_hides_the_password(#[case] input: &str) {
     let uri = input.parse::<Uri>().unwrap();
+    assert_eq!(uri.password(), Some("hunter2"));
+    let saved = uri.to_string().parse::<Uri>().unwrap();
+    assert_eq!(saved.password(), Some("***"));
     for printed in [uri.to_string(), format!("{uri:?}")] {
         assert!(
-            printed.contains("u:***@") && !printed.contains("hunter2"),
+            printed.contains("***") && !printed.contains("hunter2"),
             "{printed}"
         );
     }
 }
 
 #[rstest]
-#[case::absolute_path("sqlite:///tmp/books.db", std::path::PathBuf::from("/tmp/books.db"))]
-#[case::relative_path("sqlite:books.db", std::env::current_dir().unwrap().join("books.db"))]
-#[case::home_path("sqlite:~/books.db", dirs::home_dir().unwrap().join("books.db"))]
+#[case::absolute_path(
+    "sqlite:///tmp/books.db#books",
+    std::path::PathBuf::from("/tmp/books.db")
+)]
+#[case::relative_path("sqlite:books.db#books", std::env::current_dir().unwrap().join("books.db"))]
+#[case::home_path("sqlite:~/books.db#books", dirs::home_dir().unwrap().join("books.db"))]
+#[case::encoded_path("sqlite:books%23%25.db#books", std::env::current_dir().unwrap().join("books#%.db"))]
 fn sqlite_paths(#[case] input: &str, #[case] expected: std::path::PathBuf) {
-    match input.parse::<Uri>().unwrap() {
-        Uri::Sqlite(path) => assert_eq!(std::path::Path::new(&path), expected),
+    let uri: Uri = input.parse().unwrap();
+    match &uri {
+        Uri::Sqlite { path, object } => {
+            assert_eq!(std::path::Path::new(path), expected);
+            assert_eq!(object, "books");
+        }
         uri => panic!("expected SQLite, got {uri:?}"),
     }
+    assert_eq!(
+        uri.to_string().parse::<Uri>().unwrap().to_string(),
+        uri.to_string()
+    );
 }
 
 #[rstest]
+#[case::local_fragment("./books#edition.parquet")]
+#[case::http_fragment("https://example.com/books.parquet?token=x#part")]
+#[case::huggingface_file("hf://datasets/org/name@~parquet/default/train/*.parquet")]
 #[case::local_file("./books.parquet")]
 #[case::http_file("https://example.com/books.parquet")]
 #[case::bucket_file("s3://bucket/books.parquet")]
 fn routes_to_files(#[case] input: &str) {
     match input.parse::<Uri>().unwrap() {
-        Uri::Files(file) => assert_eq!(file.path, input),
+        Uri::Files(file) => assert_eq!(
+            file.path,
+            match file.store {
+                None => std::path::absolute(input).unwrap().display().to_string(),
+                Some(_) => input.to_string(),
+            }
+        ),
         uri => panic!("expected a file, got {uri:?}"),
     }
 }
@@ -157,7 +185,10 @@ fn files(#[case] input: &str, #[case] store: Option<ObjectStore>, #[case] format
     assert_eq!(
         input.parse::<File>().unwrap(),
         File {
-            path: input.into(),
+            path: match store {
+                None => std::path::absolute(input).unwrap().display().to_string(),
+                Some(_) => input.into(),
+            },
             store,
             format
         }
@@ -180,6 +211,28 @@ fn file_home_expands(#[case] path: &str) {
 }
 
 #[rstest]
+#[case::missing_index("es://localhost", "requires one index")]
+#[case::multiple_indices("es://localhost/a,b", "requires one index")]
+#[case::encoded_glob("es://localhost/a%2A", "requires one index")]
+#[case::missing_selector(
+    "postgres://localhost/db",
+    "postgres source requires #<table>, e.g. postgres://host/db#orders"
+)]
+#[case::empty_selector(
+    "mysql://localhost/db#",
+    "mysql source requires #<table>, e.g. mysql://host/db#orders"
+)]
+#[case::sqlite_selector(
+    "sqlite:books.db",
+    "sqlite source requires #<table>, e.g. sqlite:books.db#orders"
+)]
+#[case::mongo_selector(
+    "mongodb://localhost/shop",
+    "mongodb source requires #<collection>, e.g. mongodb://host/db#products"
+)]
+#[case::bad_escape("postgres://localhost/db#bad%2", "invalid percent encoding")]
+#[case::bad_hex("postgres://localhost/db#bad%zz", "invalid percent encoding")]
+#[case::invalid_utf8("mongodb://localhost/db#bad%FF", "not UTF-8")]
 #[case::empty("", "empty source uri")]
 #[case::only_space("   ", "empty source uri")]
 #[case::mongo_without_a_database("mongodb://localhost:27017", "must include a database")]
@@ -213,7 +266,31 @@ fn malformed_uri_redacts_password() {
 #[case::unknown_file_type("data.txt", "cannot tell the file type")]
 #[case::no_extension("data/books", "cannot tell the file type")]
 #[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
+#[case::elasticsearch_index("http://localhost:19200/articles", "use es://localhost:19200/articles")]
+#[case::elasticsearch_endpoint("https://es.example.com/", "use es+https://es.example.com/<index>")]
+#[case::sqlite_file("./notes.db", "use sqlite:./notes.db#<table>")]
 fn bad_files(#[case] input: &str, #[case] fragment: &str) {
     let message = input.parse::<File>().unwrap_err().to_string();
     assert!(message.contains(fragment), "got: {message}");
+}
+
+#[test]
+fn location_display_preserves_identity() {
+    let path = std::env::current_dir().unwrap().join("books.csv");
+    let path = path.to_str().unwrap();
+    for (location, display) in [
+        (
+            SourceLocation::from(&path.parse::<File>().unwrap()),
+            "books.csv",
+        ),
+        (SourceLocation::Object(path.into()), path),
+    ] {
+        assert_eq!(location.value(), path);
+        assert_eq!(location.to_string(), display);
+        let encoded = serde_json::to_string(&location).unwrap();
+        assert_eq!(
+            serde_json::from_str::<SourceLocation>(&encoded).unwrap(),
+            location
+        );
+    }
 }

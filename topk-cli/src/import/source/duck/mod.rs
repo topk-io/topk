@@ -3,12 +3,12 @@ mod creds;
 mod read;
 mod select;
 
-use std::collections::HashMap;
+use std::path::Path;
 
 use duckdb::Connection;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::import::error::Error;
 use crate::import::plan::Target;
@@ -16,18 +16,17 @@ use crate::import::plan::Target;
 use super::uri::SourceUrl;
 use super::{ChunkStream, Cursor, Table};
 
-use super::file::{local_path, stem};
-use super::{File, Format};
+use super::{File, Format, SourceLocation};
 pub use creds::aws_process_profile;
 use creds::secret;
-use read::{Plan, Sender, READ_AHEAD};
+use read::{Plan, Sender};
 use select::Select;
 
 #[derive(Clone, Debug)]
 pub enum Duckdb {
-    Postgres(SourceUrl),
-    Mysql(SourceUrl),
-    Sqlite(String),
+    Postgres { url: SourceUrl, object: String },
+    Mysql { url: SourceUrl, object: String },
+    Sqlite { path: String, object: String },
     Files(File),
 }
 
@@ -41,54 +40,7 @@ pub(super) fn lit(value: &str) -> String {
 /// parquet needs the whole column chunk resident.
 const READER_MEMORY: u64 = 4 << 30;
 
-/// Bytes all readers may hold together. duckdb's default `memory_limit` is 80% of
-/// RAM (cgroup-aware), which is how RAM is read without a dependency.
-fn reader_budget() -> Option<u64> {
-    let conn = Connection::open_in_memory().ok()?;
-    let mut stmt = conn
-        .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
-        .ok()?;
-    let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
-    let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    // Two thirds of RAM: batches, arrow copies and proto encoding live outside
-    // duckdb's accounting. 10/8 × 2/3 = 5/6.
-    Some(reported * 5 / 6)
-}
-
-/// A reader holds about one decoded row group: at most 8× a local file's size,
-/// `READER_MEMORY` for anything that can't be stat'ed.
-fn reader_memory(from: &str) -> u64 {
-    local_path(from)
-        .and_then(|path| std::fs::metadata(path).ok())
-        .map_or(READER_MEMORY, |meta| (meta.len() * 8).min(READER_MEMORY))
-}
-
 impl Duckdb {
-    /// Each duckdb scan holds a row group; too many OOM-kill the process
-    /// regardless of the per-connection `memory_limit`.
-    pub fn concurrency_limit<'a>(&self, targets: impl IntoIterator<Item = &'a Target>) -> usize {
-        let budget = match reader_budget() {
-            Some(budget) => budget,
-            None => return usize::MAX,
-        };
-        let mut need: Vec<u64> = targets
-            .into_iter()
-            .map(|target| match self {
-                Duckdb::Files(_) => reader_memory(&target.from) * (1 + READ_AHEAD as u64),
-                _ => READER_MEMORY,
-            })
-            .collect();
-        need.sort_unstable_by(|a, b| b.cmp(a));
-        need.iter()
-            .scan(0, |held, n| {
-                *held += n;
-                Some(*held)
-            })
-            .take_while(|held| *held <= budget)
-            .count()
-            .max(1)
-    }
-
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
     fn connect(&self, file: Option<&File>) -> Result<Connection, Error> {
         let conn = Connection::open_in_memory()?;
@@ -116,9 +68,9 @@ impl Duckdb {
         };
 
         let (ext, dsn) = match self {
-            Duckdb::Postgres(url) => ("postgres", url.0.as_str()),
-            Duckdb::Mysql(url) => ("mysql", url.0.as_str()),
-            Duckdb::Sqlite(path) => ("sqlite", path.as_str()),
+            Duckdb::Postgres { url, .. } => ("postgres", url.0.as_str()),
+            Duckdb::Mysql { url, .. } => ("mysql", url.0.as_str()),
+            Duckdb::Sqlite { path, .. } => ("sqlite", path.as_str()),
             Duckdb::Files(_) => {
                 let file = file.ok_or_else(|| {
                     Error::InvalidArgument("no source: name a file to read".to_string())
@@ -153,7 +105,7 @@ impl Duckdb {
         // Duckdb echoes the DSN verbatim, password included.
         .map_err(|e| {
             let redacted = match self {
-                Duckdb::Postgres(url) | Duckdb::Mysql(url) => url.to_string(),
+                Duckdb::Postgres { url, .. } | Duckdb::Mysql { url, .. } => url.to_string(),
                 _ => dsn.to_string(),
             };
             Error::InvalidArgument(e.to_string().replace(dsn, &redacted))
@@ -166,159 +118,131 @@ impl Duckdb {
     /// so mysql reads through duckdb like sqlite.
     fn select(&self, from: &str) -> Select {
         match self {
-            Duckdb::Postgres(_) => Select::table(from).pushdown("src"),
+            Duckdb::Postgres { .. } => Select::table(from).pushdown("src"),
             _ => Select::table(from),
         }
     }
 
-    fn list(&self, conn: &Connection) -> Result<Vec<(String, Option<String>)>, Error> {
-        let hidden = match self {
-            Duckdb::Postgres(_) => "'information_schema', 'pg_catalog'",
-            Duckdb::Mysql(_) => "'information_schema', 'mysql', 'sys', 'performance_schema'",
-            Duckdb::Sqlite(_) | Duckdb::Files(_) => "''",
-        };
-        let mut stmt = conn.prepare(&format!(
-            "SELECT schema_name, table_name FROM duckdb_tables() \
-             WHERE database_name = 'src' AND schema_name NOT IN ({hidden}) \
-             ORDER BY 1, 2",
-        ))?;
-        let names = stmt
-            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
-            .collect::<Result<Vec<_>, _>>()?;
-        names.into_iter().map(|(schema, table)| {
-            if schema.contains('.') || table.contains('.') {
-                return Err(Error::InvalidArgument(format!(
-                    "schema {schema:?}, table {table:?}: dots inside schema or table names are not supported"
-                )));
-            }
-            Ok((format!("{schema}.{table}"), Some(table)))
-        }).collect()
-    }
-
-    fn keys(&self, conn: &Connection) -> Result<HashMap<String, String>, Error> {
+    fn key(&self, conn: &Connection, schema: &str, table: &str) -> Result<Option<String>, Error> {
         let sql = match self {
-            Duckdb::Files(_) => return Ok(HashMap::new()),
-            Duckdb::Sqlite(_) => format!(
+            Duckdb::Files(_) => return Ok(None),
+            Duckdb::Sqlite { .. } => format!(
                 "SELECT * FROM sqlite_query('src', '{}')",
-                lit(r#"
-                SELECT 'main.' || t.name AS object, c.name AS column_name, 0 AS priority
+                lit(&format!(r#"
+                SELECT c.name AS column_name, 0 AS priority
                 FROM sqlite_master t JOIN pragma_table_info(t.name) c
-                WHERE t.type = 'table' AND c.pk > 0
+                WHERE t.type = 'table' AND t.name = '{}' AND c.pk > 0
                   AND (SELECT count(*) FROM pragma_table_info(t.name) WHERE pk > 0) = 1
                   AND (c."notnull" = 1 OR (upper(c.type) = 'INTEGER'
                        AND NOT EXISTS (SELECT 1 FROM pragma_index_list(t.name) WHERE origin = 'pk')))
                 UNION ALL
-                SELECT 'main.' || t.name, min(c.name), 1
+                SELECT min(c.name), 1
                 FROM sqlite_master t JOIN pragma_index_list(t.name) i
                 JOIN pragma_index_info(i.name) k JOIN pragma_table_info(t.name) c ON c.cid = k.cid
-                WHERE t.type = 'table' AND i."unique" = 1 AND i.partial = 0
+                WHERE t.type = 'table' AND t.name = '{}' AND i."unique" = 1 AND i.partial = 0
                 GROUP BY t.name, i.name
                 HAVING count(*) = 1 AND min(c."notnull") = 1
                    AND (SELECT count(*) FROM pragma_index_info(i.name)) = 1
                 ORDER BY priority, column_name
-            "#)
+            "#, lit(table), lit(table)))
             ),
-            Duckdb::Postgres(_) => format!(
+            Duckdb::Postgres { .. } => format!(
                 "SELECT * FROM postgres_query('src', '{}')",
-                lit("SELECT n.nspname || '.' || t.relname, a.attname \
+                lit(&format!("SELECT a.attname \
                  FROM pg_catalog.pg_index i \
                  JOIN pg_catalog.pg_class t ON t.oid = i.indrelid \
                  JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace \
                  JOIN pg_catalog.pg_attribute a ON a.attrelid = t.oid AND a.attnum = i.indkey[0] \
-                 WHERE i.indisunique AND i.indisvalid AND i.indnkeyatts = 1 \
+                 WHERE n.nspname = '{}' AND t.relname = '{}' AND i.indisunique AND i.indisvalid AND i.indnkeyatts = 1 \
                    AND i.indpred IS NULL AND i.indexprs IS NULL AND a.attnotnull \
-                 ORDER BY i.indisprimary DESC, a.attname")
+                 ORDER BY i.indisprimary DESC, a.attname", lit(schema), lit(table)))
             ),
-            Duckdb::Mysql(_) => String::from(
-                "SELECT s.table_schema || '.' || s.table_name, min(s.column_name) AS column_name \
+            Duckdb::Mysql { .. } => format!(
+                "SELECT min(s.column_name) AS column_name \
                  FROM src.information_schema.statistics s \
                  LEFT JOIN src.information_schema.columns c \
                    ON c.table_schema = s.table_schema AND c.table_name = s.table_name \
                   AND c.column_name = s.column_name \
-                 WHERE s.non_unique = 0 \
+                 WHERE s.table_schema = '{}' AND s.table_name = '{}' AND s.non_unique = 0 \
                  GROUP BY s.table_schema, s.table_name, s.index_name \
                  HAVING count(*) = 1 AND min(c.is_nullable) = 'NO' \
-                 ORDER BY CASE WHEN s.index_name = 'PRIMARY' THEN 0 ELSE 1 END, column_name",
+                 ORDER BY CASE WHEN s.index_name = 'PRIMARY' THEN 0 ELSE 1 END, column_name", lit(schema), lit(table),
             ),
         };
         let transaction = conn.unchecked_transaction()?;
         let mut stmt = transaction.prepare(&sql)?;
-        let mut keys = HashMap::new();
-        for key in stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })? {
-            let (table, column) = key?;
-            keys.entry(table).or_insert(column);
-        }
-        Ok(keys)
+        Ok(stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .next()
+            .transpose()?)
     }
 
-    pub async fn catalog(&self) -> Result<super::Catalog, Error> {
+    pub async fn discover(&self) -> Result<Table, Error> {
         let source = self.clone();
-        spawn_blocking(move || -> Result<super::Catalog, Error> {
+        spawn_blocking(move || -> Result<Table, Error> {
             let file = match &source {
-                Duckdb::Files(file) => Some(file.clone()),
+                Duckdb::Files(file) => Some(file),
                 _ => None,
             };
-            if let Some(file) = &file {
-                file.validate()?;
-            }
-            let conn = source.connect(file.as_ref())?;
-            // (object, collection hint, what to SELECT from)
-            let objects: Vec<(String, Option<String>, Select)> = match &file {
-                // A file source's one object is the uri it was given.
-                Some(file) => vec![(file.path.clone(), stem(&file.path), Select::file(file))],
-                None => source
-                    .list(&conn)?
-                    .into_iter()
-                    .map(|(from, hint)| {
-                        let select = Select::table(&from);
-                        (from, hint, select)
-                    })
-                    .collect(),
-            };
-            let mut keys = source.keys(&conn)?;
-            let mut tables = Vec::with_capacity(objects.len());
-            for (from, collection_hint, select) in objects {
-                let mut stmt = conn
-                    .prepare(&select.limit(Some(0)).into_sql())
-                    .map_err(|e| read_error(&from, None, e))?;
-                let schema = stmt
-                    .query_arrow([])
-                    .map_err(|e| read_error(&from, None, e))?
-                    .get_schema();
-                let columns: Vec<_> = schema
-                    .fields()
-                    .iter()
-                    .map(|column| {
-                        let field = arrow::ty(column.data_type());
-                        if field.is_none() {
-                            warn!(
-                                "{from}: skipping column {:?}: {} has no equivalent in TopK",
-                                column.name(),
-                                column.data_type()
-                            );
+            if let Some(file) = file { file.validate()?; }
+            let conn = source.connect(file)?;
+            // A glob's schema is the union of its files' schemas, read one file per thread; order does not matter here.
+            if file.is_some() { conn.execute_batch("SET threads = 16;")?; }
+            let (from, select, key) = match &source {
+                Duckdb::Files(file) => (SourceLocation::from(file), Select::file(file), None),
+                Duckdb::Postgres { object, .. } | Duckdb::Mysql { object, .. } | Duckdb::Sqlite { object, .. } => {
+                    let hidden = match &source {
+                        Duckdb::Postgres { .. } => "'information_schema', 'pg_catalog'",
+                        Duckdb::Mysql { .. } => "'information_schema', 'mysql', 'sys', 'performance_schema'",
+                        _ => "''",
+                    };
+                    let mut stmt = conn.prepare(&format!(
+                        "SELECT schema_name, table_name FROM duckdb_tables() \
+                         WHERE database_name = 'src' AND schema_name NOT IN ({hidden}) \
+                         AND (schema_name || '.' || table_name = ? OR table_name = ?) ORDER BY 1, 2"
+                    ))?;
+                    let names = stmt.query_map([object, object], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let (schema, table) = match names.as_slice() {
+                        [(schema, table)] => (schema, table),
+                        [] => {
+                            let mut stmt = conn.prepare(&format!(
+                                "SELECT schema_name || '.' || table_name FROM duckdb_tables() \
+                                 WHERE database_name = 'src' AND schema_name NOT IN ({hidden}) ORDER BY 1 LIMIT 21"
+                            ))?;
+                            let mut tables = stmt.query_map([], |row| row.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+                            if tables.len() > 20 { tables[20] = "…".into(); }
+                            return Err(Error::InvalidArgument(match tables.is_empty() {
+                                true => format!("source object {object:?} was not found: the database has no tables"),
+                                false => format!("source object {object:?} was not found — available: {}", tables.join(", ")),
+                            }));
                         }
-                        (column.name().clone(), field)
-                    })
-                    .collect();
-
-                if columns.is_empty() {
-                    return Err(Error::InvalidArgument(format!(
-                        "no columns discovered for {from}"
-                    )));
+                        _ => return Err(Error::InvalidArgument(format!("source object {object:?} is ambiguous; qualify it with its schema"))),
+                    };
+                    if schema.contains('.') || table.contains('.') {
+                        return Err(Error::InvalidArgument(format!("schema {schema:?}, table {table:?}: dots inside schema or table names are not supported")));
+                    }
+                    let from = format!("{schema}.{table}");
+                    let select = Select::table(&from);
+                    (SourceLocation::Object(from), select, source.key(&conn, schema, table)?)
                 }
-                let key = keys.remove(&from);
-                tables.push(Table {
-                    from,
-                    collection_hint,
-                    columns,
-                    key,
-                });
+            };
+            let mut stmt = conn.prepare(&select.limit(Some(0)).into_sql())
+                .map_err(|e| read_error(&from, None, e))?;
+            let schema = stmt.query_arrow([]).map_err(|e| read_error(&from, None, e))?.get_schema();
+            let columns: Vec<_> = schema.fields().iter()
+                .map(|column| (column.name().clone(), arrow::ty(column.data_type()).unwrap_or_default())).collect();
+            if columns.is_empty() {
+                return Err(Error::InvalidArgument(format!("no columns discovered for {from}")));
             }
-            Ok(super::Catalog { tables })
-        })
-        .await?
+            // CONVENTION: duckdb names a CSV column with no header cell `column<digits>`; in a headerless file every column is one
+            let mut unnamed: Vec<String> = columns.iter().map(|(name, _)| name)
+                .filter(|name| matches!(file, Some(File { format: Format::Csv, .. }))
+                    && name.strip_prefix("column").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())))
+                .cloned().collect();
+            if unnamed.len() == columns.len() { unnamed.clear(); }
+            Ok(Table { from, columns, key, unnamed })
+        }).await?
     }
 
     pub fn table(
@@ -354,7 +278,7 @@ impl Duckdb {
                 )))
             }
         };
-        let file: File = target.from.parse()?;
+        let file: File = target.from.value().parse()?;
         Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, tx)))
     }
 
@@ -381,9 +305,22 @@ pub(super) fn extension_error(ext: &str, e: duckdb::Error) -> Error {
     ))
 }
 
-pub(super) fn read_error(from: &str, filter: Option<&str>, e: duckdb::Error) -> Error {
-    Error::InvalidArgument(match filter {
-        Some(filter) => format!("reading {from}: {e} (filter: {filter:?})"),
-        None => format!("reading {from}: {e}"),
-    })
+/// duckdb's message without the query it failed in, naming the source once.
+pub(super) fn read_error(from: &SourceLocation, filter: Option<&str>, e: duckdb::Error) -> Error {
+    let e = e.to_string();
+    let mut message = e.split("\n\nLINE ").next().unwrap_or(&e).trim().to_string();
+    if !message.contains(&*from.value()) {
+        message = format!("reading {from}: {message}");
+    }
+    if let Some(filter) = filter {
+        message.push_str(&format!(" (filter: {filter:?})"));
+    }
+    // A private or gated dataset answers 401 or 404 without a token.
+    if from.value().starts_with("hf://")
+        && std::env::var_os("HF_TOKEN").is_none()
+        && !Path::new(&*shellexpand::tilde("~/.cache/huggingface/token")).exists()
+    {
+        message.push_str("; a private or gated dataset needs HF_TOKEN or `hf auth login`");
+    }
+    Error::InvalidArgument(message)
 }

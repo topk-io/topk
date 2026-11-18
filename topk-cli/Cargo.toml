@@ -27,7 +27,6 @@ import = [
     "dep:indexmap",
     "dep:strum",
     "dep:topk-es",
-    "dep:wildmatch",
 ]
 
 [dependencies]
@@ -44,9 +43,9 @@ prost = { version = "0.14" }
 strum = { version = "0.26", features = ["derive"], optional = true }
 thiserror = "1"
 topk-es = { path = "../topk-es", optional = true }
+percent-encoding = "2"
 url = { version = "2", features = ["serde"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "query", "tokio"] }
-wildmatch = { version = "2", optional = true }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = { version = "4" }
 clap-stdin = "0.8"

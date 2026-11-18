@@ -1,12 +1,17 @@
 use thiserror::Error as ThisError;
 
+use crate::import::source::SourceLocation;
+
 pub const MAX_DOC_BYTES: usize = 2_000_000;
 pub const MAX_IMAGE_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, ThisError)]
 pub enum Error {
-    #[error("{0}: couldn't detect an id column")]
-    MissingId(String),
+    #[error("{}: couldn't detect an id column — available: {} — pass --id {}", .from, .columns.join(", "), id_hint(.columns))]
+    MissingId {
+        from: SourceLocation,
+        columns: Vec<String>,
+    },
     #[error(transparent)]
     Setup(#[from] anyhow::Error),
 
@@ -32,10 +37,7 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 
     #[error(transparent)]
-    Topk(topk_rs::Error),
-
-    #[error("{0}")]
-    RejectedDocuments(String),
+    Topk(#[from] topk_rs::Error),
 
     #[error("{0}")]
     InvalidArgument(String),
@@ -62,24 +64,19 @@ pub enum Error {
     },
 
     #[error(
-        "schema mismatch; requested fields differ from the collection (drop added or changed fields), \
-         use a new collection name, or delete the collection and re-run:\n  {0}"
+        "the collection's schema is set when it is created and cannot change; import into a new \
+         collection, or change -f, --exclude or --rename:\n  {0}"
     )]
     SchemaMismatch(String),
 }
 
-impl From<topk_rs::Error> for Error {
-    fn from(error: topk_rs::Error) -> Self {
-        match error {
-            topk_rs::Error::DocumentValidationError(errors) => Error::RejectedDocuments(
-                errors.into_iter().map(|error| match error {
-                    topk_rs::error::DocumentValidationError::TextTooLong { doc_id, field, max_length, got_length } => format!(
-                        "doc {doc_id:?}, field {field:?}: text length {got_length} exceeds {max_length}; use --continue-on-error or select a different field"
-                    ),
-                    error => format!("{error:?}"),
-                }).collect::<Vec<_>>().join("\n")
-            ),
-            error => Error::Topk(error),
-        }
+/// The only column ending in `_id`, else a placeholder.
+fn id_hint(columns: &[String]) -> &str {
+    let mut ids = columns
+        .iter()
+        .filter(|column| column.to_ascii_lowercase().ends_with("_id"));
+    match (ids.next(), ids.next()) {
+        (Some(column), None) => column,
+        _ => "<column>",
     }
 }

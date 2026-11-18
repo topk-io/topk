@@ -2,6 +2,7 @@ use crate::import::common::{refused, Ctx};
 use futures::TryStreamExt;
 use std::collections::HashMap;
 use test_macros::rstest_ctx;
+use topk::import::plan::{Plan, Target};
 use topk::import::source::Source;
 use topk::import::state::Run;
 use topk::import::{Import, WriteOptions};
@@ -129,29 +130,33 @@ async fn copies_native_values(ctx: &Ctx) {
         name,
         schema.clone(),
     );
-    let mut plan = source
-        .catalog()
+    let mut plan = Plan {
+        collection: dest.clone(),
+        target: Target::new(source.discover().await.unwrap(), None).unwrap(),
+    };
+    let create = plan
+        .resolve(&source, &ctx.client, &[], &[], &[])
         .await
-        .unwrap()
-        .discover(&[], Some(&dest), None)
         .unwrap();
-    let to_create = plan.resolve(&source, &ctx.client, &[], &[]).await.unwrap();
     let directory = ctx.cli.path("state");
-    let run = Run::start(&directory, ctx.state(&source, plan))
+    let run = Run::start(
+        &directory,
+        ctx.state(
+            &source,
+            plan,
+            WriteOptions {
+                continue_on_error: false,
+                concurrency: 1,
+                batch_bytes: 1_000_000,
+            },
+        ),
+    )
+    .await
+    .unwrap();
+    let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
-    let import = Import::start(source, ctx.client.clone(), run, to_create)
-        .await
-        .unwrap();
-    import
-        .execute(WriteOptions {
-            continue_on_error: false,
-            concurrency: 1,
-            batch_bytes: bytesize::ByteSize(1_000_000),
-        })
-        .try_collect::<Vec<_>>()
-        .await
-        .unwrap();
+    import.execute().try_collect::<Vec<_>>().await.unwrap();
     let copied = ctx
         .client
         .collection(&dest)
@@ -185,5 +190,5 @@ async fn rejects_partitioned_copy(ctx: &Ctx) {
         name,
         HashMap::new(),
     );
-    assert!(refused(source.catalog().await).contains("named partitions"));
+    assert!(refused(source.discover().await).contains("named partitions"));
 }

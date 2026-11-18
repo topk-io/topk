@@ -11,20 +11,28 @@ use crate::import::plan::{Field, Target};
 pub type Schema = HashMap<String, FieldSpec>;
 
 impl Target {
+    /// The collection's schema was chosen at create: declared fields must match it, undeclared
+    /// fields are written without one, and a declared required field must come from the source.
     pub fn validate_schema(&self, name: &str, got: &Schema) -> Result<(), Error> {
         let mut drift = Vec::new();
         for (field, want) in &self.fields {
             match got.get(field) {
                 Some(got) if !want.matches(got) => drift.push(format!(
-                    "{name}.{field}: want {}, got {}",
+                    "{name}.{field}: want {}, the collection declares {}",
                     serde_json::to_string(&want.schema)?,
                     serde_json::to_string(got)?,
                 )),
-                None => drift.push(format!(
-                    "{name}.{field}: want {}, field is missing",
-                    serde_json::to_string(&want.schema)?,
+                None if want.schema.index.is_some() => drift.push(format!(
+                    "{name}.{field}: an index needs the field declared, and the collection does not declare it"
                 )),
                 _ => {}
+            }
+        }
+        for (field, spec) in got {
+            if spec.required && !self.fields.contains_key(field) {
+                drift.push(format!(
+                    "{name}.{field}: the collection requires it, and this import leaves it out"
+                ));
             }
         }
         if !drift.is_empty() {
