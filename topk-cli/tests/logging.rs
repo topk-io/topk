@@ -59,7 +59,7 @@ fn import_logs_hide_the_source_password() {
         .args([
             "-vv",
             "import",
-            "postgres://u:secret-marker@127.0.0.1:1/db",
+            "postgres://u:secret-marker@127.0.0.1:1/db#t",
             "--to",
             "c",
             "--dry-run",
