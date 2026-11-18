@@ -35,15 +35,17 @@ impl Select {
     pub(super) fn file(file: &File) -> Self {
         // Take the union of every file a glob matches, so a column present in only
         // some files is kept, not dropped to the first file's schema.
-        let (reader, opts) = match file.format {
-            Format::Csv => (
-                "read_csv_auto",
-                ", union_by_name=true, null_padding=true, parallel=false",
-            ),
-            Format::Json => ("read_json_auto", ", union_by_name=true"),
-            Format::Parquet => ("read_parquet", ", union_by_name=true"),
-            Format::Arrow => ("read_arrow", ""),
-            Format::Avro => ("read_avro", ""),
+        let opts = match file.format {
+            Format::Csv => ", union_by_name=true, null_padding=true, parallel=false",
+            Format::Json | Format::Parquet => ", union_by_name=true",
+            Format::Arrow | Format::Avro => "",
+        };
+        let reader = match file.format {
+            Format::Csv => "read_csv_auto",
+            Format::Json => "read_json_auto",
+            Format::Parquet => "read_parquet",
+            Format::Arrow => "read_arrow",
+            Format::Avro => "read_avro",
         };
         Self::new(format!("{reader}('{}'{opts})", lit(&file.path)))
     }
@@ -129,7 +131,7 @@ impl Select {
     }
 }
 
-fn quoted(name: &str) -> String {
+pub(super) fn quoted(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
 

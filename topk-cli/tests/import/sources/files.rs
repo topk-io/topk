@@ -2,11 +2,14 @@ use crate::import::common::seed::{rustfs, Backend::S3};
 use futures::TryStreamExt;
 use serde_json::json;
 use test_macros::rstest_ctx;
+use topk::import::source::{Checkpoint, Cursor};
+use topk::import::Error;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::{field_type_matrix::MatrixValueType, FieldSpec};
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::common::*;
+use topk::import::plan::Target;
 
 #[rstest_ctx(Scratch)]
 #[case::decimal_list(
@@ -77,6 +80,45 @@ async fn multiline_ragged_csv(ctx: &Scratch, #[case] newline: &str) {
 }
 
 #[rstest_ctx(Scratch)]
+#[case::extra_field(&["id,name\n1,a\n2,b,x\n"], "id", &[], &[], Some("column2 has no name"))]
+#[case::trailing_comma(&["id,name,\n1,a,\n2,b,\n"], "id", &[], &[], Some("column2 has no name"))]
+#[case::padded_names(&["a,b\n1,2,3,4,5,6,7,8,9,10,11,12\n"], "a", &[], &[], Some("column02, column03"))]
+#[case::glob_union(&["id,a,b\n1,2,3\n", "id,,c\n4,5,6\n"], "id", &[], &[], Some("column1 has no name"))]
+#[case::excluded(&["id,name\n1,a\n2,b,x\n"], "id", &[], &["column2"], None)]
+#[case::renamed(&["id,name\n1,a\n2,b,x\n"], "id", &["column2=extra"], &[], None)]
+#[case::headerless(&["1,a,1\n2,b,2\n"], "column0", &[], &[], None)]
+async fn unnamed_csv_columns(
+    ctx: &Scratch,
+    #[case] files: &[&str],
+    #[case] id: &str,
+    #[case] renames: &[&str],
+    #[case] exclude: &[&str],
+    #[case] error: Option<&str>,
+) {
+    let paths: Vec<_> = files
+        .iter()
+        .enumerate()
+        .map(|(n, csv)| ctx.file(&format!("csv/{n}.csv"), csv))
+        .collect();
+    let from = match paths.as_slice() {
+        [one] => one.clone(),
+        _ => ctx.path("csv/*.csv").to_str().unwrap().to_string(),
+    };
+    let source = source(&from).await.unwrap();
+    let mut target = Target::new(source.discover().await.unwrap(), Some(id)).unwrap();
+    let renames: Vec<_> = renames
+        .iter()
+        .map(|rename| rename.parse().unwrap())
+        .collect();
+    let exclude: Vec<_> = exclude.iter().map(|name| name.to_string()).collect();
+    let result = target.select(&source, &[], &renames, &exclude, None).await;
+    match error {
+        Some(error) => assert!(refused(result).contains(error)),
+        None => result.unwrap(),
+    }
+}
+
+#[rstest_ctx(Scratch)]
 async fn empty_unsupported_list_is_rejected(ctx: &Scratch) {
     let from = ctx.parquet("data.parquet", "SELECT 1 AS id, []::BOOLEAN[] AS flags");
     let error = json_documents(
@@ -119,12 +161,11 @@ async fn inferred_types(ctx: &Scratch) {
     );
 
     let connected = crate::import::common::source(&source).await.unwrap();
-    let catalog = &connected.catalog().await.unwrap().tables;
-    assert_eq!(catalog.len(), 1);
-    let fields: indexmap::IndexMap<_, _> = catalog[0]
+    let table = connected.discover().await.unwrap();
+    let fields: indexmap::IndexMap<_, _> = table
         .columns
         .iter()
-        .map(|(name, field)| (name.as_str(), field.as_ref().unwrap()))
+        .map(|(name, field)| (name.as_str(), field))
         .collect();
 
     assert_eq!(
@@ -144,16 +185,14 @@ async fn ragged_float_lists_stay_lists(ctx: &Scratch) {
          FROM range(3) t(i)",
     );
     let connected = crate::import::common::source(&source).await.unwrap();
-    let catalog = &connected.catalog().await.unwrap().tables;
-    assert_eq!(catalog.len(), 1);
-    let field = catalog[0]
+    let table = connected.discover().await.unwrap();
+    let field = &table
         .columns
         .iter()
         .find(|(name, _)| name == "embedding")
         .unwrap()
-        .1
-        .as_ref()
-        .unwrap();
+        .1;
+
     assert_eq!(field, &FieldSpec::list(false, ListValueType::Float));
 }
 
@@ -162,51 +201,27 @@ async fn read_errors_name_the_source(ctx: &Scratch) {
     let missing = format!("{}/missing-*.parquet", ctx.scratch().display());
 
     let connected = source(&missing).await.unwrap();
-    let message = refused(connected.catalog().await);
-    assert!(
-        message.contains("reading") && message.contains("missing-*.parquet"),
+    let message = refused(connected.discover().await);
+    assert_eq!(
+        message.matches("missing-*.parquet").count(),
+        1,
         "got: {message}"
     );
-    assert!(message.contains("No files found"), "got: {message}");
+    assert!(
+        message.contains("No files found") && !message.contains("LINE "),
+        "got: {message}"
+    );
 }
 
 #[rstest_ctx(Scratch)]
-async fn glob_has_no_collection_hint(ctx: &Scratch) {
+async fn glob_is_one_object(ctx: &Scratch) {
     for i in 0..2 {
         ctx.seed_parquet(&format!("part_{i}"), books());
     }
     let pattern = format!("{}/part_*.parquet", ctx.scratch().display());
     let connected = source(&pattern).await.unwrap();
-    let catalog = &connected.catalog().await.unwrap().tables;
-    assert_eq!(catalog.len(), 1);
-    assert_eq!(catalog[0].from, pattern);
-    assert_eq!(catalog[0].collection_hint, None);
-}
-
-#[rstest_ctx(Scratch)]
-#[case::missing_id("nope", None, "title", r#"id column "nope""#)]
-#[case::missing_partition("id", Some("nope"), "title", r#"partition column "nope""#)]
-#[case::missing_field_source(
-    "id",
-    None,
-    "nonexistent_col",
-    r#"field "title" reads column "nonexistent_col""#
-)]
-async fn missing_columns(
-    ctx: &Scratch,
-    #[case] id: &str,
-    #[case] partition: Option<&str>,
-    #[case] field: &str,
-    #[case] fragment: &str,
-) {
-    let from = ctx.file("books.csv", "id,title\n1,dune");
-    let mut target = target(&from, id, [("title", FieldSpec::text(false))]);
-    target.partition = partition.map(str::to_string);
-    target.fields["title"].from = Some(field.into());
-    let source = source(&from).await.unwrap();
-    let message = refused(source.scan(&target, None).await);
-    assert!(message.contains(fragment), "{message}");
-    assert!(message.contains("available: id, title"), "{message}");
+    let table = connected.discover().await.unwrap();
+    assert_eq!(table.from.value(), pattern);
 }
 
 #[rstest_ctx(Scratch)]
@@ -282,18 +297,10 @@ async fn huggingface_image_column(ctx: &Scratch) {
         "SELECT 1 AS id, {'bytes': from_hex('89504e470d0a1a0a'), 'path': 'page.png'} AS image",
     );
     let connected = source(&from).await.unwrap();
-    let plan = connected
-        .catalog()
-        .await
-        .unwrap()
-        .discover(&[], Some("images"), Some("id"))
-        .unwrap();
-    assert_eq!(
-        plan.collections["images"].fields["image"].schema,
-        FieldSpec::image(false)
-    );
+    let target = Target::new(connected.discover().await.unwrap(), Some("id")).unwrap();
+    assert_eq!(target.fields["image"].schema, FieldSpec::image(false));
     let docs = connected
-        .documents(&plan.collections["images"])
+        .documents(&target)
         .await
         .unwrap()
         .try_collect::<Vec<_>>()
@@ -302,5 +309,103 @@ async fn huggingface_image_column(ctx: &Scratch) {
     assert_eq!(
         docs[0].1.fields["image"],
         topk_rs::proto::v1::data::Value::png(b"\x89PNG\r\n\x1A\n".as_slice())
+    );
+}
+
+#[rstest_ctx(Scratch)]
+#[case::whole_file(None, None, 0)]
+#[case::limited_rows(Some(25_001), None, 0)]
+#[case::filtered_rows(None, Some("a > 25000"), 0)]
+#[case::resumed_rows(None, None, 25_000)]
+async fn csv_reader_errors_stop_stream(
+    ctx: &Scratch,
+    #[case] limit: Option<u64>,
+    #[case] filter: Option<&str>,
+    #[case] offset: u64,
+) {
+    let mut csv = String::from("id,a,b\n");
+    for i in 0..25_000 {
+        csv.push_str(&format!("{i},{i},{i}\n"));
+    }
+    csv.push_str("25000,bad,bad\n25001,25001,25001\n");
+    let from = ctx.file("late.csv", &csv);
+    let connected = source(&from).await.unwrap();
+    let mut target = target(
+        &from,
+        "id",
+        [
+            ("a", FieldSpec::integer(false)),
+            ("b", FieldSpec::integer(false)),
+        ],
+    );
+    target.limit = limit;
+    target.filter = filter.map(str::to_string);
+    let checkpoint = Checkpoint {
+        cursor: Cursor::Offset {
+            part: from,
+            rows: offset,
+        },
+        consumed: offset,
+    };
+    let mut stream = connected
+        .scan(&target, (offset != 0).then_some(&checkpoint))
+        .await
+        .unwrap();
+    loop {
+        match stream.try_next().await {
+            Err(Error::InvalidArgument(message)) => {
+                assert!(message.contains("late.csv"), "{message}");
+                break;
+            }
+            Err(error) => panic!("unexpected error: {error}"),
+            Ok(Some(_)) => {}
+            Ok(None) => panic!("reader error was swallowed"),
+        }
+    }
+}
+
+#[rstest_ctx(Scratch)]
+async fn csv_sniffed_timestamp_filter(ctx: &Scratch) {
+    let from = ctx.file(
+        "dates.csv",
+        "id,date,value\n1,01/02/2024 10:00:00,5\n2,02/02/2024 10:00:00,6\n",
+    );
+    let connected = source(&from).await.unwrap();
+    let mut target = target(
+        &from,
+        "id",
+        [
+            ("date", FieldSpec::timestamp(false)),
+            ("value", FieldSpec::integer(false)),
+        ],
+    );
+    target.filter = Some("value > 5 AND date > TIMESTAMP '2024-02-01'".into());
+    let docs = json_documents(&connected, &target).await.unwrap();
+    assert_eq!(docs.len(), 1);
+    assert_eq!(docs[0].1["_id"], "2");
+    assert!(docs[0].1["date"].as_i64().is_some());
+}
+
+#[rstest_ctx(Scratch)]
+#[case::exact_name("__topk_error")]
+#[case::uppercase_name("__TOPK_ERROR")]
+async fn csv_excludes_unread_columns(ctx: &Scratch, #[case] name: &str) {
+    let mut csv = format!("id,{name},n\n");
+    for i in 0..25_000 {
+        csv.push_str(&format!("{i},kept,{i}\n"));
+    }
+    csv.push_str("25000,kept,bad\n");
+    let from = ctx.file("excluded.csv", &csv);
+    let connected = source(&from).await.unwrap();
+    let mut target = Target::new(connected.discover().await.unwrap(), Some("id")).unwrap();
+    target
+        .select(&connected, &[], &[], &["n".into()], None)
+        .await
+        .unwrap();
+    let docs = json_documents(&connected, &target).await.unwrap();
+    assert_eq!(docs.len(), 25_001);
+    assert_eq!(
+        docs.last().unwrap().1,
+        json!({"_id": "25000", (name.trim_start_matches('_')): "kept"})
     );
 }

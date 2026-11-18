@@ -18,9 +18,9 @@ use topk::auth::OAuthArgs;
 use topk::config::Config;
 use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
-use topk::import::source::{Source, Uri};
+use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
-use topk::import::Error;
+use topk::import::{Error, WriteOptions};
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
@@ -102,7 +102,10 @@ pub fn target<'a>(
     fields: impl IntoIterator<Item = (&'a str, FieldSpec)>,
 ) -> Target {
     Target {
-        from: from.into(),
+        from: from
+            .parse::<File>()
+            .map(|file| SourceLocation::from(&file))
+            .unwrap_or_else(|_| SourceLocation::Object(from.into())),
         id: id.into(),
         fields: fields
             .into_iter()
@@ -111,6 +114,7 @@ pub fn target<'a>(
         filter: None,
         partition: None,
         limit: None,
+        exclude: Vec::new(),
     }
 }
 
@@ -228,7 +232,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub fn state(&self, source: &Source, plan: Plan) -> State {
+    pub fn state(&self, source: &Source, plan: Plan, write: WriteOptions) -> State {
         State::new(
             source.locator().into(),
             Scope {
@@ -236,6 +240,7 @@ impl Ctx {
                 region: self.client.config().region().unwrap().into(),
             },
             plan,
+            write,
         )
     }
 

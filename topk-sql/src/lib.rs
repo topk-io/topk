@@ -46,6 +46,9 @@ pub enum Error {
     #[error("Invalid: {0}")]
     InvalidLiteral(String),
 
+    #[error("Invalid: \"{0}\" is an identifier; use single quotes for strings: '{0}'")]
+    QuotedString(String),
+
     #[error("Unknown function: {0}")]
     UnknownFunction(String),
 

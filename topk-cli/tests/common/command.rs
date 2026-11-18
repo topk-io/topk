@@ -41,6 +41,11 @@ impl TestCommand {
         self
     }
 
+    pub fn current_dir(mut self, dir: impl AsRef<std::path::Path>) -> Self {
+        self.command.current_dir(dir);
+        self
+    }
+
     pub fn stdin(mut self, input: Option<&str>) -> Self {
         self.stdin = input.map(str::to_owned);
         self

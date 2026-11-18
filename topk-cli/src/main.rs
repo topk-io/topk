@@ -4,7 +4,9 @@ use std::process::ExitCode;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
-use tracing_indicatif::{filter::IndicatifFilter, style::ProgressStyle, IndicatifLayer};
+use tracing_indicatif::{
+    filter::IndicatifFilter, style::ProgressStyle, IndicatifLayer, TickSettings,
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 use topk::auth::OAuthArgs;
@@ -162,7 +164,13 @@ fn init_logging(verbose: u8) {
             1 => tracing_subscriber::EnvFilter::new("warn,topk=info,topk_rs=warn,topk_es=warn"),
             _ => tracing_subscriber::EnvFilter::new("warn,topk=debug,topk_rs=warn,topk_es=warn"),
         });
-    let progress = IndicatifLayer::new().with_progress_style(ProgressStyle::default_spinner());
+    let progress = IndicatifLayer::new()
+        .with_progress_style(ProgressStyle::default_spinner())
+        .with_tick_settings(TickSettings {
+            term_draw_hz: 4,
+            default_tick_interval: Some(std::time::Duration::from_millis(250)),
+            ..Default::default()
+        });
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()

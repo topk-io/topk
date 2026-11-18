@@ -74,10 +74,15 @@ impl Field {
                 value
                     .as_string()
                     .and_then(|text| {
-                        // Milliseconds since the epoch from a rendered date: RFC 3339 first, then a
-                        // bare date, which is midnight UTC.
+                        // Milliseconds since the epoch from a rendered date: RFC 3339 first, then
+                        // the form `topk sql` prints (2024-02-29 12:34:56.000000+00), then a bare
+                        // date, which is midnight UTC.
                         let text = text.trim();
-                        if let Ok(stamp) = chrono::DateTime::parse_from_rfc3339(text) {
+                        if let Ok(stamp) =
+                            chrono::DateTime::parse_from_rfc3339(text).or_else(|_| {
+                                chrono::DateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S%.f%#z")
+                            })
+                        {
                             return Some(stamp.timestamp_millis());
                         }
                         let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
