@@ -122,12 +122,40 @@ Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CR
 The primary query interface. Compute search scores in the projection, filter by metadata or text predicates in `WHERE`, and rank results by any scoring expression in `ORDER BY`.
 
 ```sql
-SELECT <projection> FROM <table>
+SELECT <projection> FROM <table> [WITH (<option> = <value> [, ...])]
   [WHERE <filter>]
   [ORDER BY <expr> [ASC | DESC] LIMIT <n> [OFFSET <m>]]
 ```
 
 `OFFSET` requires a `LIMIT` — `OFFSET` alone is not supported.
+
+#### Read options
+
+To set read options for a `SELECT`, add `WITH (...)` after the table name.
+
+| Option | Values | Behavior |
+|--------|--------|----------|
+| `consistency` | `'indexed'`, `'strong'` | Read consistency mode. Omit it to use balanced consistency (the default). |
+| `required_lsn` | integer | Only returns results that are at least as recent as the write with this LSN. |
+
+> [!IMPORTANT]
+> There is no session-level setting. Read options must be set on each statement.
+
+```sql
+SELECT title FROM books WITH (consistency = 'strong') LIMIT 10;
+```
+
+For read-after-write consistency, get the LSN of a write with [`RETURNING _lsn`](#returning-_lsn) and pass it as `required_lsn` in subsequent queries:
+
+```sql
+INSERT INTO books (_id, title) VALUES ('book-1', 'Dune') RETURNING _lsn;
+-- returns _lsn = 1
+
+SELECT title FROM books WITH (required_lsn = 1) WHERE _id = 'book-1';
+```
+
+> [!IMPORTANT]
+> An unknown option or an invalid value returns an error.
 
 #### Projection
 
@@ -501,6 +529,17 @@ DELETE FROM <collection>$<partition>;
 ```
 
 
+### RETURNING _lsn
+
+`INSERT`, `UPDATE` and `DELETE` accept `RETURNING _lsn`, which returns the LSN of the write. Pass it as `required_lsn` in subsequent [queries](#read-options) to ensure read-after-write consistency. `_lsn` is the only column `RETURNING` supports.
+
+```sql
+INSERT INTO books (_id, title) VALUES ('book-1', 'Dune') RETURNING _lsn;
+UPDATE books SET title = 'Dune Messiah' WHERE _id = 'book-1' RETURNING _lsn;
+DELETE FROM books WHERE _id = 'book-1' RETURNING _lsn;
+```
+
+
 ### CREATE TABLE
 
 Schema is defined once at collection creation. Indexes are declared inline on each column using a TopK-specific `INDEX` clause — standalone `CREATE INDEX` statements are not supported.
@@ -683,14 +722,9 @@ EXPLAIN VERBOSE <statement>;
 
 ### Session commands
 
-| Command | Behavior |
-|---------|----------|
-| `SET consistency_level = 'indexed'` | Indexed consistency for subsequent reads |
-| `SET consistency_level = 'strong'` | Strong consistency for subsequent reads |
-| `SET consistency_level = 'default'` | Clears the session override (router default) |
-| `SHOW consistency_level` | Returns the current consistency level |
+Session variables are not supported — `SET <variable>` and `SHOW <variable>` return an error.
 
-`SET`/`SHOW` only recognize `consistency_level`; all other variable names return an error.
+To set read consistency, use [read options](#read-options) on each statement.
 
 The following commands are accepted and silently succeed:
 
@@ -725,7 +759,7 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 
 ### Writes
 
-**Upsert-only `INSERT`** — `INSERT` always replaces a document when `_id` already exists, so `ON CONFLICT` is built-in and not needed. `INSERT … SELECT` and `RETURNING` are not supported.
+**Upsert-only `INSERT`** — `INSERT` always replaces a document when `_id` already exists, so `ON CONFLICT` is built-in and not needed. `INSERT … SELECT` is not supported, and `RETURNING` only supports [`RETURNING _lsn`](#returning-_lsn).
 
 **`::topk_type` casts in `VALUES`** — Standard PostgreSQL casts (`::float8`, `CAST(… AS text)`) aren't supported inside `INSERT`/`UPDATE` values. Use TopK-native casts (`::f32_vector`, `::f32_sparse_vector`, …) instead — see [Type System](#type-system).
 
