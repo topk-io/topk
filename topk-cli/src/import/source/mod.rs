@@ -211,7 +211,7 @@ impl Source {
         let cursor = after.map(|checkpoint| checkpoint.cursor.clone());
         let mut events: ReadStream = match &self.backend {
             Backend::Duck(duck @ Duckdb::Files(file)) => Box::pin(
-                duck.files(file, remaining, cursor)?
+                duck.files(file.clone(), remaining, cursor)?
                     .map_ok(ReadEvent::Chunk),
             ),
             Backend::Duck(duck) => {
@@ -308,7 +308,7 @@ mod tests {
         };
         let file: File = "docs.parquet".parse().unwrap();
         let error = Duckdb::Files(file.clone())
-            .files(&file, target.clone(), Some(Cursor::Key("42".into())))
+            .files(file, target.clone(), Some(Cursor::Key("42".into())))
             .err()
             .expect("files accepted a key cursor");
         assert!(error.to_string().contains("does not fit"));

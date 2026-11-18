@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{is_separator, Path, PathBuf, MAIN_SEPARATOR};
 use std::str::FromStr;
 
 use crate::import::error::Error;
@@ -50,8 +50,8 @@ impl File {
             .iter()
             .map(|(name, segment)| {
                 let value = match segment {
-                    Segment::FromStart(n) => path.split('/').nth(*n),
-                    Segment::FromEnd(n) => path.rsplit('/').nth(*n),
+                    Segment::FromStart(n) => path.split(is_separator).nth(*n),
+                    Segment::FromEnd(n) => path.rsplit(is_separator).nth(*n),
                 };
                 value.map(|value| (name.as_str(), value)).ok_or_else(|| {
                     Error::InvalidArgument(format!("{path:?} has no segment for {{{name}}}"))
@@ -193,14 +193,37 @@ impl FromStr for File {
         let path = match store {
             // Absolute, so a saved run resumes from any directory.
             None => {
-                std::path::absolute(&*shellexpand::tilde(s.strip_prefix("file://").unwrap_or(s)))?
+                // `[{]name}` matches a folder literally named `{name}` in the working or home directory.
+                let literal = |dir: PathBuf| {
+                    dir.display()
+                        .to_string()
+                        .replace(MAIN_SEPARATOR, "/")
+                        .split('/')
+                        .map(|segment| match column_name(segment) {
+                            Some(_) => format!("[{{]{}", &segment[1..]),
+                            None => segment.to_string(),
+                        })
+                        .collect::<Vec<_>>()
+                        .join("/")
+                };
+                let typed =
+                    shellexpand::tilde_with_context(s.strip_prefix("file://").unwrap_or(s), || {
+                        dirs::home_dir().map(literal)
+                    });
+                std::path::absolute(Path::new(&literal(std::env::current_dir()?)).join(&*typed))?
                     .display()
                     .to_string()
+                    .replace(MAIN_SEPARATOR, "/")
             }
             // `~` is meaningless in a bucket key.
             Some(_) => s.to_string(),
         };
         let path_columns = path_columns(&path)?;
+        if let (Some(ObjectStore::Http), Some((name, _))) = (&store, path_columns.first()) {
+            return Err(Error::InvalidArgument(format!(
+                "{{{name}}} in {path:?}: http(s) cannot list folders; read from a bucket or a local path"
+            )));
+        }
         Ok(File {
             path,
             store,
@@ -293,7 +316,7 @@ pub(super) fn local_path(path: &str) -> Option<&str> {
 mod tests {
     use rstest::rstest;
 
-    use super::{path_columns, File};
+    use super::File;
 
     #[rstest]
     #[case::plain("/d/a.csv", "/d/a.csv", &[])]
@@ -314,8 +337,9 @@ mod tests {
     #[rstest]
     #[case::twice("{lang}/{lang}/x.csv", "appears twice")]
     #[case::double_star_both_sides("**/{lang}/**/x.csv", "`**` on both sides")]
+    #[case::http("https://h/{lang}/x.csv", "http(s) cannot list folders")]
     fn refuses(#[case] path: &str, #[case] error: &str) {
-        let err = path_columns(path).unwrap_err().to_string();
+        let err = path.parse::<File>().unwrap_err().to_string();
         assert!(err.contains(error), "{err}");
     }
 }

@@ -275,7 +275,7 @@ impl Duckdb {
 
     pub fn files(
         &self,
-        file: &File,
+        file: File,
         target: Target,
         after: Option<Cursor>,
     ) -> Result<ChunkStream, Error> {
@@ -289,7 +289,6 @@ impl Duckdb {
                 )))
             }
         };
-        let file = file.clone();
         Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, tx)))
     }
 

@@ -217,14 +217,16 @@ async fn read_errors_name_the_source(ctx: &Scratch) {
 #[case::named_segment("{dir}/{lang}/*.parquet", "{lang}")]
 #[case::hive_folder("{dir}/*/*.parquet", "lang={lang}")]
 async fn partition_from_path(ctx: &Scratch, #[case] pattern: &str, #[case] folder: &str) {
-    let dir = ctx.scratch().strip_prefix("/").unwrap();
     for (lang, id) in [("sw", 1), ("yo", 2)] {
         ctx.parquet(
             &format!("{}/part-0.parquet", folder.replace("{lang}", lang)),
             &format!("SELECT '{id}' AS id, 't{id}' AS text"),
         );
     }
-    let from = format!("/{}", pattern.replace("{dir}", &dir.display().to_string()));
+    let from = pattern.replace(
+        "{dir}",
+        &ctx.scratch().display().to_string().replace('\\', "/"),
+    );
     let connected = source(&from).await.unwrap();
     let table = connected.discover().await.unwrap();
     assert_eq!(table.from.value(), from);
@@ -245,10 +247,11 @@ async fn partition_from_path(ctx: &Scratch, #[case] pattern: &str, #[case] folde
 }
 
 #[rstest_ctx(Scratch)]
-#[case::matched_folder("{dir}/*/p.parquet", &["1", "2"])]
+#[case::matched_folder("{dir}/*/p.parquet", &["1", "2", "6"])]
 #[case::matched_file("{dir}/d/*.parquet", &["3", "4"])]
 #[case::literal_file("{dir}/d/x{1}.parquet", &["3"])]
 #[case::beside_path_column("{dir}/{lang}/x{1}.parquet", &["3", "5"])]
+#[case::escaped_folder("{dir}/[{]e}/p.parquet", &["6"])]
 async fn braces_are_literal(ctx: &Scratch, #[case] pattern: &str, #[case] ids: &[&str]) {
     for (id, file) in [
         ("1", "a{1}/p.parquet"),
@@ -256,6 +259,7 @@ async fn braces_are_literal(ctx: &Scratch, #[case] pattern: &str, #[case] ids: &
         ("3", "d/x{1}.parquet"),
         ("4", "d/y.parquet"),
         ("5", "sw/x{1}.parquet"),
+        ("6", "{e}/p.parquet"),
     ] {
         ctx.parquet(file, &format!("SELECT '{id}' AS id, 't' AS text"));
     }
