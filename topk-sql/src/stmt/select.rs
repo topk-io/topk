@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
@@ -237,6 +237,17 @@ impl TryFrom<SqlQuery> for Statement {
                     .into_iter()
                     .map(Stage::filter),
             );
+        }
+
+        // reject duplicate selection
+        let mut names = HashSet::new();
+        if let Some(name) = select
+            .projection
+            .iter()
+            .filter_map(|item| item.projection_name().ok())
+            .find(|name| !names.insert(name.clone()))
+        {
+            sql_unsupported!("field `{name}` selected more than once: use an alias");
         }
 
         let mut post_group_projection = None;
