@@ -27,6 +27,10 @@ struct Services {
 
 impl Services {
     fn record<T>(&self, method: &str, request: &Request<T>) {
+        assert_eq!(
+            request.metadata().get("x-topk-sdk-version").unwrap(),
+            env!("CARGO_PKG_VERSION")
+        );
         self.requests
             .send((
                 method.into(),
