@@ -161,7 +161,8 @@ test-cli:
     FROM +rust-base
 
     # docker for WITH DOCKER; g++/cmake for bundled duckdb
-    RUN apt-get update && apt-get install -y protobuf-compiler jq curl docker.io pkg-config libssl-dev g++ cmake
+    # libnss-myhostname resolves `*.localhost`, which the tests reach as `api.localhost`.
+    RUN apt-get update && apt-get install -y protobuf-compiler jq curl docker.io pkg-config libssl-dev g++ cmake libnss-myhostname
     ARG compose_version=v5.5.0
     RUN mkdir -p /usr/local/lib/docker/cli-plugins && \
         curl -fsSL https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-$(uname -m) \

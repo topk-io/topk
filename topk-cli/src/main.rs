@@ -9,7 +9,7 @@ use tracing_indicatif::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
-use topk::auth::OAuthConfig;
+use topk::auth::OAuthArgs;
 use topk::config::Config;
 use topk::host::Host;
 use topk::output::Output;
@@ -45,7 +45,7 @@ struct Cli {
     host: Host,
 
     #[command(flatten)]
-    oauth: OAuthConfig,
+    oauth: OAuthArgs,
 }
 
 #[derive(Subcommand)]
@@ -120,7 +120,7 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let config = Config::new(cli.host.clone(), cli.oauth.clone(), Config::dir()?);
+    let config = Config::load(cli.host.clone(), cli.oauth.clone(), Config::dir()?).await;
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await

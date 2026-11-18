@@ -1,10 +1,14 @@
-#[derive(clap::Args, Clone, Debug)]
+use std::hash::{DefaultHasher, Hash, Hasher};
+
+pub const DEFAULT_HOST: &str = "topk.io";
+
+#[derive(clap::Args, Clone, Debug, Hash)]
 pub struct Host {
     /// API domain
     #[arg(
         long,
         env = "TOPK_HOST",
-        default_value = "topk.io",
+        default_value = DEFAULT_HOST,
         value_parser = parse_host,
         global = true,
         hide = true
@@ -22,6 +26,19 @@ pub struct Host {
         hide = true
     )]
     pub https: bool,
+}
+
+impl Host {
+    pub fn key(&self) -> String {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    }
+
+    pub fn api_url(&self) -> String {
+        let protocol = if self.https { "https" } else { "http" };
+        format!("{protocol}://api.{}", self.host)
+    }
 }
 
 /// `name[:port]`. With a port, every service is reached on it; without one, on its own default.
