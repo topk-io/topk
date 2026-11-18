@@ -114,9 +114,16 @@ async fn region_current_and_clear_work_offline() {
         let config = config.clone();
         async move {
             let mut out = Vec::new();
-            region::run(config, &region::Args { command }, Output::Json, &mut out)
-                .await
-                .map(|_| out)
+            region::run(
+                config,
+                &region::Args {
+                    command: Some(command),
+                },
+                Output::Json,
+                &mut out,
+            )
+            .await
+            .map(|_| out)
         }
     };
     let out = run(region::Command::Current).await.unwrap();
