@@ -591,7 +591,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 > `NOT NULL` marks a field as required. All columns are optional by default.
 
 > [!NOTE]
-> `IMAGE` values are used for semantic indexing and are not stored. Selecting an `IMAGE` column returns `NULL`.
+> `IMAGE` columns can't be selected in queries. To fetch the raw document, use the [Get API](https://docs.topk.io/collections/get).
 
 #### Index types
 
