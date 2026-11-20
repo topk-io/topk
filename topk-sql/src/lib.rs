@@ -55,6 +55,9 @@ pub enum Error {
     #[error("Invalid JSON: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
+    #[error("Invalid hex: {0}")]
+    Hex(#[from] hex::FromHexError),
+
     #[error("Internal: {0}")]
     Internal(String),
 }
