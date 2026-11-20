@@ -3833,9 +3833,7 @@ URL: https://docs.topk.io/guides/semantic-search
   - TopK API key ([Get an API key here](https://console.topk.io/api-key))
 </Info>
 
-TopK enables you to add state-of-the-art semantic search over text and images to your documents with just a few lines of code.
-
-With TopK&apos;s semantic search, there is no embedding pipeline to build, no vector store to operate, and no reranking service to maintain. It's as simple as adding [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a text or image field in your collection schema and querying with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity):
+TopK enables you to search the text and images in your documents by meaning with just a few lines of code. There is no embedding pipeline to build, no vector store to operate, and no reranking service to maintain. It's as simple as adding [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a field in your collection schema and querying with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity):
 
 <Tabs>
   <Tab title="Search text by meaning">
