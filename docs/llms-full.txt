@@ -3833,9 +3833,12 @@ URL: https://docs.topk.io/guides/semantic-search
   - TopK API key ([Get an API key here](https://console.topk.io/api-key))
 </Info>
 
-TopK enables you to add state-of-the-art semantic search to your documents with just a few lines of code.
+TopK enables you to add state-of-the-art semantic search over text and images to your documents with just a few lines of code.
 
-With TopK&apos;s semantic search, there is no embedding pipeline to build, no vector store to operate, and no reranking service to maintain. It's as simple as adding [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to your collection schema and querying with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity):
+With TopK&apos;s semantic search, there is no embedding pipeline to build, no vector store to operate, and no reranking service to maintain. It's as simple as adding [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a text or image field in your collection schema and querying with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity):
+
+<Tabs>
+  <Tab title="Search text by meaning">
 
 <CodeGroup>
 
@@ -3888,6 +3891,57 @@ LIMIT 10;
 
 </CodeGroup>
 
+  </Tab>
+  <Tab title="Search images by meaning">
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import image, semantic_index
+from topk_sdk.query import select, field, fn
+
+client.collections().create("books", schema={
+    "cover": image().index(semantic_index()),
+})
+
+docs = client.collection("books").query(
+    select(cover_similarity=fn.semantic_similarity("cover", "a green light across the bay"))
+    .sort(field("cover_similarity"), asc=False)
+    .limit(10)
+)
+```
+
+```typescript Javascript
+import { image, semanticIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+await client.collections().create("books", {
+  cover: image().index(semanticIndex()),
+});
+
+const docs = await client.collection("books").query(
+  select({ cover_similarity: fn.semanticSimilarity("cover", "a green light across the bay") })
+    .sort(field("cover_similarity"), false)
+    .limit(10)
+);
+```
+
+```sql SQL
+CREATE TABLE books (
+  cover IMAGE INDEX semantic_index()
+);
+
+SELECT _id, semantic_similarity(cover, 'a green light across the bay') AS cover_similarity
+FROM books
+ORDER BY cover_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+  </Tab>
+</Tabs>
+
 Under the hood, `semantic_index()` is powered by the production model of [topk-embed-v1](https://www.topk.io/blog/topk-embed-v1), TopK's own family of multi-vector embedding models, combined with [Sparse Multi-Vector Encoding (SMVE)](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) for scalable retrieval and quantized *MaxSim* reranking.
 
 Learn more about the smaller models in the family, [topk-embed-v1-xsmall](https://huggingface.co/topk-io/topk-embed-v1-xsmall) and [topk-embed-v1-small](https://huggingface.co/topk-io/topk-embed-v1-small).
@@ -3907,7 +3961,7 @@ In the following example, we'll:
 <Steps>
   <Step title="Define a collection schema">Create a collection configured for semantic search.</Step>
   <Step title="Add documents">Insert documents into the collection.</Step>
-  <Step title="Run a semantic query">Retrieve documents using a free-form text query.</Step>
+  <Step title="Run a semantic query">Search the `title` text field by meaning with a free-form query.</Step>
 </Steps>
 
 ##### Define a collection schema
@@ -3945,7 +3999,7 @@ CREATE TABLE books (
 
 </CodeGroup>
 
-This configuration automatically generates multi-vector embeddings for the field and enables keyword search. Documents are indexed with sub-second lag — they are searchable as soon as they are written.
+This configuration automatically generates multi-vector embeddings for the field and enables keyword search. Documents are indexed within a second — they are searchable as soon as they are written.
 
 <Tip>
   If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/guides/vector-search) guide.
@@ -4062,11 +4116,184 @@ LIMIT 10;
 
 Let's break down the example above:
 
-1. The `semantic_similarity()` function encodes the query `"classic American novel"` into multi-vector token embeddings using the topk-embed-v1 production model and scores each document via quantized *MaxSim* — comparing every query token against every document token to find the best alignment.
-2. Candidate retrieval is accelerated by [SMVE](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval), which uses fast sparse approximations to identify a small set of candidates before the full MaxSim pass.
-3. The results are ranked by their MaxSim score and the top 10 most relevant documents are returned.
+<Steps>
+  <Step title="Encode and score">
+    The `semantic_similarity()` function encodes the query `"classic American novel"` into multi-vector token embeddings using the topk-embed-v1 production model and scores each document via quantized *MaxSim* — comparing every query token against every document token to find the best alignment.
+  </Step>
+  <Step title="Retrieve candidates">
+    Candidate retrieval is accelerated by [SMVE](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval), which uses fast sparse approximations to identify a small set of candidates before the full MaxSim pass.
+  </Step>
+  <Step title="Rank results">
+    The results are ranked by their MaxSim score and the top 10 most relevant documents are returned.
+  </Step>
+</Steps>
 
 This works **out of the box**—no embedding pipeline, no vector store, no reranking service to manage.
+
+#### Searching images
+
+`semantic_index()` also works on [`image()`](/sdk/topk-py/schema#image) fields, so you can search images with a free-form text query. TopK embeds the images for you with the same model it uses for text: topk-embed-v1 is multimodal.
+
+##### Define an image field
+
+Add a [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to an [`image()`](/sdk/topk-py/schema#image) field:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, image, semantic_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(semantic_index()),
+        "cover": image().index(semantic_index()),
+    },
+)
+```
+
+```typescript Javascript
+import { text, image, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required().index(semanticIndex()),
+  cover: image().index(semanticIndex()),
+});
+```
+
+```sql SQL
+CREATE TABLE books (
+  title TEXT NOT NULL INDEX semantic_index(),
+  cover IMAGE INDEX semantic_index()
+);
+```
+
+</CodeGroup>
+
+##### Add images
+
+Images are stored as JPEG or PNG, up to 512KB each (see [limits](/limits)).
+
+<CodeGroup>
+
+```python Python
+from PIL import Image
+from topk_sdk.data import image
+
+client.collection("books").upsert(
+    [
+        # PIL image
+        {"_id": "gatsby", "title": "The Great Gatsby", "cover": Image.open("gatsby.jpg")},
+        # Encoded JPEG or PNG bytes
+        {"_id": "1984", "title": "1984", "cover": image(open("1984.png", "rb").read())},
+        # Image fields are optional unless marked as required
+        {"_id": "catcher", "title": "The Catcher in the Rye"},
+    ],
+)
+```
+
+```typescript Javascript
+import { readFileSync } from "fs";
+import { image } from "topk-js/data";
+
+await client.collection("books").upsert([
+  { _id: "gatsby", title: "The Great Gatsby", cover: image(readFileSync("gatsby.jpg")) },
+  { _id: "1984", title: "1984", cover: image(readFileSync("1984.png")) },
+  // Image fields are optional unless marked as required
+  { _id: "catcher", title: "The Catcher in the Rye" },
+]);
+```
+
+```sql SQL
+INSERT INTO books (_id, title, cover)
+VALUES
+  -- PNG or JPEG data URI
+  ('gatsby',  'The Great Gatsby', image('data:image/jpeg;base64,/9j/4AAQSkZJRg…')),
+  -- Hex-encoded PNG bytes; use image_jpeg() for JPEG
+  ('1984',    '1984', image_png('89504e470d0a1a0a…')),
+  -- Image columns are optional unless marked NOT NULL
+  ('catcher', 'The Catcher in the Rye', NULL);
+```
+
+</CodeGroup>
+
+##### Query images with text
+
+Pass the image field to [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) together with a text query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        cover_similarity=fn.semantic_similarity("cover", "a green light across the bay"),
+    )
+    .sort(field("cover_similarity"), asc=False)
+    .limit(10)
+)
+```
+
+```typescript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    cover_similarity: fn.semanticSimilarity("cover", "a green light across the bay"),
+  })
+    .sort(field("cover_similarity"), false)
+    .limit(10)
+);
+```
+
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(cover, 'a green light across the bay') AS cover_similarity
+FROM books
+ORDER BY cover_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+<Note>
+  Stored raw images can't be selected in queries. To fetch the raw document, use the [Get API](/collections/get) with the `_id`s returned by the query:
+
+  <CodeGroup>
+
+```python Python
+books = client.collection("books").get([doc["_id"] for doc in docs])
+
+cover = books["gatsby"]["cover"]  # topk_sdk.data.Image
+cover.format    # "jpeg" or "png"
+cover.data      # encoded bytes
+cover.to_pil()  # decode into a PIL image
+```
+
+```typescript Javascript
+const books = await client.collection("books").get(docs.map((doc) => doc._id));
+
+const cover = books["gatsby"].cover; // Image
+cover.format; // "jpeg" or "png"
+cover.data;   // encoded bytes
+```
+
+  </CodeGroup>
+</Note>
+
+#### Inference
+
+##### Model version
+
+Adding a `semantic_index()` does not specify a model or a model version. For embedding, the latest generation of topk-embed models ([topk-embed-v1](https://www.topk.io/blog/topk-embed-v1)) is used.
+
+<Note>
+  Text and image fields are embedded by the same model.
+</Note>
 
 #### Combining semantic and keyword search
 
