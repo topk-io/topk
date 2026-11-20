@@ -17,7 +17,7 @@ TopK is a **retrieval engine**, not just a vector store. Keyword search, vector 
 | **Retrieval types** | Usually dense vectors, with keyword search added separately | Dense, sparse and multi-vector (late-interaction) search, BM25, regex and substring search, filters, and custom scoring expressions in the same query |
 | **Storage** | Often memory- or disk-bound nodes you size and scale | Object storage is the only durable storage, with caching in memory and on NVMe ([architecture](https://docs.topk.io/architecture)). TopK states this gives 10x lower cost ([introduction](https://docs.topk.io/introduction)) |
 | **Multi-tenancy** | Often a `tenant_id` filter | Fully isolated partitions per tenant, each scaling independently ([concepts](https://docs.topk.io/concepts#multi-tenancy)) |
-| **Interfaces** | One proprietary API | Python, TypeScript and Rust SDKs, SQL over the Postgres wire protocol, and an Elasticsearch-compatible API ([TopK vs Elasticsearch](https://www.topk.io/topk-vs-elasticsearch)) |
+| **Interfaces** | One proprietary API | The `topk` CLI (SQL and bulk import from databases, files and object storage), SQL over the Postgres wire protocol, Python, TypeScript and Rust SDKs, and an Elasticsearch-compatible API ([TopK vs Elasticsearch](https://www.topk.io/topk-vs-elasticsearch)) |
 
 ## Published numbers
 
@@ -31,7 +31,7 @@ Retrieval-quality benchmarks are at [topk.io/benchmarks](https://www.topk.io/ben
 
 ## Trade-offs
 
-- **Writes are batched for throughput,** so individual writes take longer: about 300ms p99 for requests under 1MB. Use the returned LSN to read your own writes.
-- **Built-in embeddings are text-only through the API today.** `semantic_index()` can't be put on image fields. For page images, embed them yourself (for example with the open-source topk-embed-v1 models) and use multi-vector search.
-- **TopK indexes text, not files.** Extract text from PDFs and Word files first (see pattern 5).
+- **Writes are batched for throughput,** so individual writes take longer: about 300ms p99 for requests under 1MB. Use `INSERT … RETURNING _lsn` and `WITH (required_lsn = …)` to read your own writes.
+- **Built-in embeddings cover text and images.** `semantic_index()` takes text up to 32,768 characters per value and JPEG/PNG images up to 512KB. Other media need your own embeddings and a vector index.
+- **TopK indexes text, not files.** Extract text from PDFs and Word files first (see pattern 4).
 - **It's a retrieval engine, not a transactional database.** Keep your system of record elsewhere and index into TopK.

@@ -1,5 +1,7 @@
 # TopK TypeScript reference (`topk-js`)
 
+For application code that reads and writes TopK. To load existing data, inspect collections or run one-off queries, use the CLI instead ([cli.md](cli.md)). The rules in SKILL.md apply here too. Applications authenticate with an API key from the [console](https://console.topk.io/api-key); `topk login` only logs in the CLI.
+
 ## Contents
 - Install and client
 - Create a collection
@@ -34,7 +36,7 @@ import { text, int, float, bool, keywordIndex, semanticIndex } from "topk-js/sch
 
 try {
   await client.collections().create("products", {
-    name: text().required().index(semanticIndex()),        // semantic + BM25, max 4,096 chars
+    name: text().required().index(semanticIndex()),        // semantic + BM25, max 32,768 chars
     description: text().index(semanticIndex()),
     category: text().required().index(keywordIndex()),
     price_cents: int().required(),  // see "Numbers" below
@@ -74,7 +76,7 @@ const lsn = await client.collection("products").upsert(
 
 - To merge fields into existing documents: `update(docs)`. Pass `update(docs, true)` to fail on unknown ids.
 - To delete by id: `delete(["p1", "p2"])`. To delete by filter: `delete(field("in_stock").eq(false))`.
-- Batch large loads (8MB per request). Chunk text in `semanticIndex()` fields to 4,096 characters or less (see the Python reference for a chunking helper; the logic is identical).
+- Batch large loads (8MB per request). Text in a `semanticIndex()` field is at most 32,768 characters; split longer text into chunks (the Python reference has a helper, and [`scripts/chunk.py`](../scripts/chunk.py) chunks files for `topk import`).
 
 ## Query
 
