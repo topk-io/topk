@@ -1,4 +1,5 @@
 use std::error::Error as StdError;
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,7 +35,7 @@ pub enum Error {
     #[error("{0}")]
     DocumentNotFound(String),
 
-    #[error("invalid collection schema: {0:?}")]
+    #[error("invalid collection schema: {0}")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
     #[error("document validation error: {0:?}")]
@@ -403,6 +404,13 @@ impl<T: Serialize + DeserializeOwned + Clone> ValidationErrorBag<T> {
 
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.0.iter()
+    }
+}
+
+impl<T: Serialize + Clone + fmt::Display> fmt::Display for ValidationErrorBag<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let errors: Vec<_> = self.0.iter().map(ToString::to_string).collect();
+        f.write_str(&errors.join("; "))
     }
 }
 
