@@ -40,6 +40,7 @@ infer = "0.16"
 mime_guess = "2.0.5"
 chrono = { version = "0.4.35" }
 base64 = { version = "0.23.1" }
+regex-syntax = { version = "0.8" }
 
 [dev-dependencies]
 tokio = { version = "1.35", features = ["test-util"] }

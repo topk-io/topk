@@ -7,6 +7,7 @@ pub use error::Error;
 pub mod json;
 
 pub mod client;
+pub mod search;
 pub use client::Client;
 pub use client::ClientConfig;
 pub use client::CollectionClient;
