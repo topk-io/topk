@@ -1849,3 +1849,25 @@ fn import_help_shows_examples(ctx: &Scratch) {
 fn import_argument_schema() {
     ImportArgs::augment_args(Command::new("import")).debug_assert();
 }
+
+#[rstest_ctx(Scratch)]
+#[case::unknown_function(&["--set", r#"x=joinn(authors, "; ")"#], "unknown function joinn")]
+#[case::sql(&["--set", "x=paper||page"], "unexpected \"||page\"")]
+#[case::no_name(&["--set", "paper"], "set must be field=expression")]
+#[case::with_resume(&["--resume", "1234abcd", "--set", "x=paper"], "cannot be used with")]
+async fn set_is_refused_before_reading(
+    ctx: &Scratch,
+    #[case] flags: &[&str],
+    #[case] message: &str,
+) {
+    let source: &[&str] = match flags.contains(&"--resume") {
+        true => &[],
+        false => &["./papers.parquet", "--to", "c"],
+    };
+    let run = (ctx.command())
+        .args(["import"])
+        .args(source)
+        .args(flags)
+        .failure(2);
+    assert!(run.stderr.contains(message), "{run:?}");
+}

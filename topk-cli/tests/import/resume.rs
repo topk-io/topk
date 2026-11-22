@@ -9,7 +9,7 @@ use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric};
 use crate::import::common::{refused, target, Scratch};
 
 fn state() -> State {
-    let plan = Plan {
+    let mut plan = Plan {
         collection: "a".into(),
         target: target(
             "a.parquet",
@@ -24,6 +24,8 @@ fn state() -> State {
             ],
         ),
     };
+    let set = r#"concat(title, "-", join(tags, '"'))"#.parse().unwrap();
+    plan.target.set = [("key".to_string(), set)].into();
     State::new(
         "books.parquet".into(),
         Scope {

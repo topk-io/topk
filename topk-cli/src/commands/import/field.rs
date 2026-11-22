@@ -4,7 +4,7 @@ use topk_rs::proto::v1::control::{
     FieldIndex, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric, VectorDistanceMetric,
 };
 
-use crate::import::plan::{Field, FieldSelection, Rename, Type};
+use crate::import::plan::{Field, FieldSelection, Rename, Set, Type};
 use crate::import::Error;
 
 impl FromStr for FieldSelection {
@@ -172,6 +172,25 @@ impl FromStr for Rename {
         Ok(Self {
             source: source.into(),
             target: target.into(),
+        })
+    }
+}
+
+impl FromStr for Set {
+    type Err = Error;
+
+    fn from_str(raw: &str) -> Result<Self, Error> {
+        let (name, expr) = raw
+            .split_once('=')
+            .ok_or_else(|| Error::InvalidArgument("set must be field=expression".into()))?;
+        if name.is_empty() || name.starts_with('_') {
+            return Err(Error::InvalidArgument(format!(
+                "{name:?}: a set field needs a name that does not start with `_`"
+            )));
+        }
+        Ok(Self {
+            name: name.into(),
+            expr: expr.parse()?,
         })
     }
 }

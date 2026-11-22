@@ -11,7 +11,7 @@ use tracing::{info, warn};
 
 use crate::client::ManagementClient;
 use crate::config::Config;
-use crate::import::plan::{collection_name, FieldSelection, Plan, Rename, Target};
+use crate::import::plan::{collection_name, FieldSelection, Plan, Rename, Set, Target};
 use crate::import::source::{Readers, Shard, Source, Uri};
 use crate::import::state::{Run, RunId, State};
 use crate::import::{Aimd, Error, Import, ReadOptions, WriteOptions};
@@ -47,6 +47,12 @@ pub struct PlanArgs {
         help = "Rename a source column before --exclude and -f apply. Repeatable"
     )]
     pub renames: Vec<Rename>,
+    #[arg(
+        long = "set",
+        value_name = "FIELD=EXPR",
+        help = "Add a field computed from each row: name=join(list, \"; \"), name=concat(a, \"-\", b), or name=field to copy one; read after --rename. Repeatable"
+    )]
+    pub set: Vec<Set>,
     #[arg(
         long,
         value_name = "COLLECTION",
@@ -92,6 +98,18 @@ impl PlanArgs {
             }
         })?;
         let mut target = Target::new(table, self.id.as_deref())?;
+        for set in &self.set {
+            if target
+                .set
+                .insert(set.name.clone(), set.expr.clone())
+                .is_some()
+            {
+                return Err(Error::InvalidArgument(format!(
+                    "field {:?} is set twice",
+                    set.name
+                )));
+            }
+        }
         target.filter = self.filter.clone();
         target.limit = self.limit;
         target.partition = self.partition.clone();
@@ -224,7 +242,7 @@ impl WriteArgs {
 #[derive(Args, Debug)]
 #[command(
     override_usage = "topk import [OPTIONS] --to <COLLECTION> <SOURCE>\n       topk import --resume <RUN>",
-    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]\n  A list of floats imports as float_list; choose vector to store and index an embedding\n\nField names cannot start with _: a source field _lang imports as lang, or as the name --rename gives it\n\nGlobs: * matches files in one folder, ** also matches subfolders ('./data/**/*.csv')\n\nExamples:\n  topk import ./books.parquet --to books --dry-run\n  topk import './data/*.csv' --to books --id isbn -y\n  topk import books.jsonl --to books -f title=keyword,body=semantic\n  topk import docs.parquet --to docs -f embedding=vector:cosine\n  topk import postgres://user:pw@host/db#orders --to orders\n  topk import mongodb://host/shop#products --to products\n  topk import sqlite:./shop.db#orders --to orders\n  topk import es://localhost:9200/articles --to articles\n  topk import topk://books --to books_v2"
+    after_help = "Field choices (-f name=<choice>):\n  types    text int float bool bytes image timestamp text_list int_list float_list\n  indexes  keyword semantic ngram, alone or after a type (text_list:keyword, image:semantic)\n  vectors  vector[:<dim>][:cosine|euclidean|dot_product|hamming], matrix[:<cols>][:maxsim], sparse[:dot_product]\n  A list of floats imports as float_list; choose vector to store and index an embedding\n\nField names cannot start with _: a source field _lang imports as lang, or as the name --rename gives it\n\nSet expressions (--set name=<expr>): a field, text in quotes, join(list, separator) or concat(a, b, …)\n  concat takes text and int and skips null parts; a value that comes out null or empty leaves the field off\n\nGlobs: * matches files in one folder, ** also matches subfolders ('./data/**/*.csv')\n\nExamples:\n  topk import ./books.parquet --to books --dry-run\n  topk import './data/*.csv' --to books --id isbn -y\n  topk import books.jsonl --to books -f title=keyword,body=semantic\n  topk import docs.parquet --to docs -f embedding=vector:cosine\n  topk import papers.parquet --to papers --set authors_text='join(authors, \"; \")' -f authors_text=ngram\n  topk import postgres://user:pw@host/db#orders --to orders\n  topk import mongodb://host/shop#products --to products\n  topk import sqlite:./shop.db#orders --to orders\n  topk import es://localhost:9200/articles --to articles\n  topk import topk://books --to books_v2"
 )]
 pub struct ImportArgs {
     #[arg(
@@ -241,7 +259,7 @@ pub struct ImportArgs {
     #[arg(
         long,
         value_name = "RUN",
-        conflicts_with_all = ["to", "id", "filter", "limit", "partition", "fields", "exclude", "renames", "dry_run"],
+        conflicts_with_all = ["to", "id", "filter", "limit", "partition", "fields", "exclude", "renames", "set", "dry_run"],
         help = "Continue the saved plan from its last checkpoint, using the printed resume command"
     )]
     pub resume: Option<RunId>,

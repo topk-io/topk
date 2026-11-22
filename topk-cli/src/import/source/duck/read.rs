@@ -137,6 +137,7 @@ impl Plan {
     /// resume point.
     pub(super) fn table(source: &Duckdb, target: &Target, key: &str, after: Option<&str>) -> Plan {
         let mut columns = target.source_columns();
+        columns.retain(|column| !target.set.contains_key(*column));
         columns.insert(key);
         // The resume key is fetched alongside the mapped source columns.
         // A table has one validated schema, and for postgres the list has to be
@@ -170,7 +171,10 @@ impl Plan {
         Ok(Plan {
             sql: Select::file(file.format, std::slice::from_ref(&path))
                 .constants(file.path_values(&path)?)
-                .except(target.exclude.iter().map(String::as_str))
+                .except(
+                    (target.exclude.iter().map(String::as_str))
+                        .filter(|column| target.reads().all(|read| read != *column)),
+                )
                 .filter(target.filter.as_deref())
                 .limit(limit)
                 .offset(offset)

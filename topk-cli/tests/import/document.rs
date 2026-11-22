@@ -17,6 +17,7 @@ fn row<const N: usize>(fields: [(&str, Field); N]) -> Target {
             .into_iter()
             .map(|(name, field)| (name.into(), field))
             .collect(),
+        set: Default::default(),
         filter: None,
         partition: None,
         limit: None,

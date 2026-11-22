@@ -9,7 +9,8 @@ use topk_rs::proto::v1::control::{field_type_matrix::MatrixValueType, FieldSpec}
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::common::*;
-use topk::import::plan::Target;
+use topk::import::plan::{Set, Target};
+use topk::import::source::Source;
 
 #[rstest_ctx(Scratch)]
 #[case::decimal_list(
@@ -757,5 +758,102 @@ async fn csv_excludes_unread_columns(ctx: &Scratch, #[case] name: &str) {
     assert_eq!(
         docs.last().unwrap().1,
         json!({"_id": "25000", (name.trim_start_matches('_')): "kept"})
+    );
+}
+
+async fn set_target(ctx: &Scratch, select: &str, id: &str, sets: &[&str]) -> (Source, Target) {
+    let from = ctx.parquet("set.parquet", select);
+    let source = source(&from).await.unwrap();
+    let mut target = Target::new(source.discover().await.unwrap(), Some(id)).unwrap();
+    target.set = (sets.iter())
+        .map(|set| set.parse::<Set>().unwrap())
+        .map(|set| (set.name, set.expr))
+        .collect();
+    (source, target)
+}
+
+#[rstest_ctx(Scratch)]
+async fn set_fields_come_from_each_row(ctx: &Scratch) {
+    let (source, mut target) = set_target(
+        ctx,
+        "SELECT * FROM (VALUES ('a', 1, ['Ann Lee', 'Bo Chen'], 'On Rain', 'Wet.'), ('b', 2, []::VARCHAR[], 'On Sun', NULL)) \
+         t(paper, page, authors, \"Full Title\", abstract)",
+        "key",
+        &[
+            r#"key=concat(paper, "-p", page)"#,
+            r#"authors_text=join(authors, "; ")"#,
+            r#"blurb=concat(title, ". ", abstract)"#,
+            "copy=paper",
+        ],
+    )
+    .await;
+    let renames = ["Full Title=title".parse().unwrap()];
+    (target
+        .select(&source, &[], &renames, &["authors".into()], None)
+        .await)
+        .unwrap();
+    assert_eq!(target.fields["authors_text"].schema, FieldSpec::text(false));
+    let documents = json_documents(&source, &target).await.unwrap();
+    let seen: Vec<_> = documents
+        .iter()
+        .map(|(_, document)| {
+            ["_id", "authors_text", "blurb", "copy", "authors"]
+                .map(|key| document.get(key).cloned())
+        })
+        .collect();
+    assert_eq!(
+        seen,
+        [
+            [
+                Some(json!("a-p1")),
+                Some(json!("Ann Lee; Bo Chen")),
+                Some(json!("On Rain. Wet.")),
+                Some(json!("a")),
+                None
+            ],
+            [
+                Some(json!("b-p2")),
+                None,
+                Some(json!("On Sun. ")),
+                Some(json!("b")),
+                None
+            ],
+        ],
+        "{documents:?}"
+    );
+}
+
+#[rstest_ctx(Scratch)]
+#[case::taken_name("title=paper", "already exists")]
+#[case::unknown_field(r#"x=concat(nope, "-")"#, "\"nope\" was not found")]
+#[case::reads_a_set_field("x=y", "is set too")]
+#[case::join_of_text(r#"x=join(title, ", ")"#, "text list")]
+#[case::concat_of_list("x=concat(paper, authors)", "takes text and int")]
+async fn set_is_checked_with_the_plan(ctx: &Scratch, #[case] set: &str, #[case] message: &str) {
+    let (source, mut target) = set_target(
+        ctx,
+        "SELECT 'a' AS paper, ['Ann'] AS authors, 'On Rain' AS title",
+        "paper",
+        &[set, "y=paper"],
+    )
+    .await;
+    let error = refused(target.select(&source, &[], &[], &[], None).await);
+    assert!(error.contains(message), "{error}");
+}
+
+#[rstest_ctx(Scratch)]
+async fn id_with_a_missing_part_fails_the_row(ctx: &Scratch) {
+    let (source, mut target) = set_target(
+        ctx,
+        "SELECT 'a' AS paper, NULL::INTEGER AS page",
+        "key",
+        &[r#"key=concat(paper, "-p", page)"#],
+    )
+    .await;
+    target.select(&source, &[], &[], &[], None).await.unwrap();
+    let error = refused(json_documents(&source, &target).await);
+    assert!(
+        error.contains("id part \"page\" is missing or null"),
+        "{error}"
     );
 }

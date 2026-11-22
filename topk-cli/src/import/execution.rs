@@ -990,6 +990,7 @@ mod tests {
                 partition: None,
                 limit: None,
                 exclude: Vec::new(),
+                set: Default::default(),
                 fields: [(
                     "title".into(),
                     crate::import::plan::Field::new(FieldSpec::text(false)),

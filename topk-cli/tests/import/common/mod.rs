@@ -120,6 +120,7 @@ pub fn target<'a>(
             .into_iter()
             .map(|(name, schema)| (name.into(), Field::new(schema)))
             .collect(),
+        set: Default::default(),
         filter: None,
         partition: None,
         limit: None,

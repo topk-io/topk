@@ -425,6 +425,7 @@ mod tests {
             from: SourceLocation::Local("docs.parquet".into()),
             id: "_id".into(),
             fields: Default::default(),
+            set: Default::default(),
             filter: None,
             partition: None,
             limit: None,

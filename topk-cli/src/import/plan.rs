@@ -12,6 +12,7 @@ use tracing::{debug, info};
 
 use crate::import::ddl::Schema;
 use crate::import::error::Error;
+use crate::import::expr::Expr;
 use crate::import::source::{ReadEvent, Source, SourceLocation, Table};
 
 #[derive(Clone, Deserialize, PartialEq, Serialize)]
@@ -174,6 +175,9 @@ pub struct Target {
     pub partition: Option<String>,
     pub limit: Option<u64>,
     pub fields: IndexMap<String, Field>,
+    /// Fields `--set` computes for each row; the id, the partition and `fields` read them like
+    /// source columns.
+    pub set: IndexMap<String, Expr>,
     /// Source columns left out with `--exclude`; any other unplanned key passes through.
     pub exclude: Vec<String>,
 }
@@ -220,6 +224,7 @@ impl Target {
         }
         Ok(Self {
             fields,
+            set: IndexMap::new(),
             exclude: Vec::new(),
             from: table.from.clone(),
             id: id.to_string(),
@@ -229,7 +234,7 @@ impl Target {
         })
     }
 
-    /// Every column imports; `--rename`, then `--exclude`, then `-f` adjust the set.
+    /// Every column imports; `--rename`, then `--set`, then `--exclude`, then `-f` adjust the set.
     pub async fn select(
         &mut self,
         source: &Source,
@@ -239,19 +244,21 @@ impl Target {
         existing: Option<&Schema>,
     ) -> Result<(), Error> {
         let typed = source.discover().await?.complete;
+        let columns: Vec<&str> = source
+            .discover()
+            .await?
+            .columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect();
         if typed {
-            let columns: Vec<&str> = source
-                .discover()
-                .await?
-                .columns
-                .iter()
-                .map(|(name, _)| name.as_str())
-                .collect();
             for (what, column) in [
                 ("id", Some(&self.id)),
                 ("partition", self.partition.as_ref()),
             ] {
-                if let Some(column) = column.filter(|column| !columns.contains(&column.as_str())) {
+                if let Some(column) = column.filter(|column| {
+                    !columns.contains(&column.as_str()) && !self.set.contains_key(column.as_str())
+                }) {
                     return Err(Error::InvalidArgument(format!(
                         "{what} column {column:?} is not in {:?} — available: {}",
                         self.from.to_string(),
@@ -292,6 +299,39 @@ impl Target {
             field.from = Some(rename.source.clone());
             self.fields.insert(rename.target.clone(), field);
         }
+        let mut computed = Vec::with_capacity(self.set.len());
+        for (name, expr) in &self.set {
+            let invalid =
+                |message: String| Error::InvalidArgument(format!("--set {name}: {message}"));
+            if self.fields.contains_key(name) || (typed && columns.contains(&name.as_str())) {
+                return Err(invalid(
+                    "the field already exists; a set field takes a new name".into(),
+                ));
+            }
+            for field in expr.fields() {
+                if self.set.contains_key(field) {
+                    return Err(invalid(format!(
+                        "{field:?} is set too; a set field reads source fields"
+                    )));
+                }
+                if typed && !columns.contains(&self.column(field)) {
+                    return Err(invalid(format!(
+                        "field {field:?} was not found — available: {}",
+                        self.fields
+                            .keys()
+                            .map(String::as_str)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )));
+                }
+            }
+            let spec = expr
+                .spec(&|field| self.fields.get(field).map(|field| &field.schema))
+                .map_err(|error| invalid(error.to_string()))?;
+            computed.push((name.clone(), Field::new(spec)));
+        }
+        self.fields
+            .extend(computed.into_iter().filter(|(name, _)| *name != self.id));
         for excluded in exclude {
             if fields.iter().any(|arg| arg.name == *excluded) {
                 return Err(Error::InvalidArgument(format!(
@@ -468,11 +508,28 @@ impl Target {
         }
     }
 
+    /// Every column a row is read by, the `--set` names included.
     pub(super) fn source_columns(&self) -> IndexSet<&str> {
         std::iter::once(self.id.as_str())
             .chain(self.fields.iter().map(|(name, field)| field.source(name)))
             .chain(self.partition.as_deref())
+            .chain(self.reads())
             .collect()
+    }
+
+    /// The source columns `--set` reads, also the excluded ones.
+    pub(super) fn reads(&self) -> impl Iterator<Item = &str> {
+        self.set
+            .values()
+            .flat_map(Expr::fields)
+            .map(|field| self.column(field))
+    }
+
+    /// A renamed field is read by its new name.
+    pub(super) fn column<'a>(&'a self, field: &'a str) -> &'a str {
+        self.fields
+            .get(field)
+            .map_or(field, |found| found.source(field))
     }
 }
 
@@ -631,6 +688,12 @@ impl FieldSelection {
 pub struct Rename {
     pub source: String,
     pub target: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct Set {
+    pub name: String,
+    pub expr: Expr,
 }
 
 pub fn collection_name(name: &str) -> Result<String, Error> {

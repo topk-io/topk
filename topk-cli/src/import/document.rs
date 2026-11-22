@@ -11,12 +11,32 @@ use crate::import::ID;
 
 impl Target {
     /// This row's partition, from the value of the `partition` column, and its document.
-    pub fn document(&self, record: Record) -> Result<(Option<String>, Document), Error> {
+    pub fn document(&self, mut record: Record) -> Result<(Option<String>, Document), Error> {
         let fail = |id: Option<&str>, field: Option<&str>, source: Error| Error::Doc {
             id: id.map(str::to_string),
             field: field.map(str::to_string),
             source: Box::new(source),
         };
+        for (name, expr) in &self.set {
+            let read = |field: &str| {
+                record
+                    .iter()
+                    .find(|(key, _)| key == self.column(field))
+                    .map(|(_, value)| value)
+            };
+            let null = |field: &&str| read(field).is_none_or(|value| value.as_null().is_some());
+            let absent = (*name == self.id).then(|| expr.fields().into_iter().find(null));
+            if let Some(field) = absent.flatten() {
+                return Err(fail(
+                    None,
+                    Some(name),
+                    Error::InvalidArgument(format!("id part {field:?} is missing or null")),
+                ));
+            }
+            if let Some(value) = expr.eval(&read).map_err(|e| fail(None, Some(name), e))? {
+                record.push((name.clone(), value));
+            }
+        }
         let partition = if let Some(column) = self.partition.as_deref() {
             let value = record
                 .iter()

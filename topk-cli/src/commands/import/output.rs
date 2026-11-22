@@ -357,7 +357,10 @@ impl Display for Plan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (collection, target) = (&self.collection, &self.target);
         writeln!(f, "{collection} ← {}", target.from)?;
-        writeln!(f, "  _id ← {}", target.id)?;
+        match target.set.get(&target.id) {
+            Some(expr) => writeln!(f, "  _id ← {expr}")?,
+            None => writeln!(f, "  _id ← {}", target.id)?,
+        }
         if let Some(partition) = &target.partition {
             writeln!(f, "  partition ← {partition}")?;
         }
@@ -428,9 +431,8 @@ impl Display for Plan {
             writeln!(
                 f,
                 "  {name}{}: {ty}{}{}",
-                field
-                    .from
-                    .as_ref()
+                (field.from.as_ref().map(|from| from.to_string()))
+                    .or_else(|| target.set.get(name).map(|expr| expr.to_string()))
                     .map(|from| format!(" ← {from}"))
                     .unwrap_or_default(),
                 if index.is_empty() { "" } else { ", " },
@@ -449,6 +451,41 @@ mod tests {
     use super::*;
     use rstest::rstest;
     use tracing_subscriber::prelude::*;
+
+    #[test]
+    fn plan_shows_what_set_fields_read() {
+        let set = |source: &str| source.parse().unwrap();
+        let plan = Plan {
+            collection: "papers".into(),
+            target: crate::import::plan::Target {
+                from: crate::import::source::SourceLocation::Local("papers.parquet".into()),
+                id: "key".into(),
+                fields: [(
+                    "authors_text".into(),
+                    crate::import::plan::Field::new(topk_rs::proto::v1::control::FieldSpec::text(
+                        false,
+                    )),
+                )]
+                .into(),
+                set: [
+                    ("key".into(), set(r#"concat(paper, "-p", page)"#)),
+                    ("authors_text".into(), set(r#"join(authors, "; ")"#)),
+                ]
+                .into(),
+                filter: None,
+                partition: None,
+                limit: None,
+                exclude: Vec::new(),
+            },
+        };
+        let shown = plan.to_string();
+        for line in [
+            r#"  _id ← concat(paper, "-p", page)"#,
+            r#"  authors_text ← join(authors, "; "): text"#,
+        ] {
+            assert!(shown.lines().any(|shown| shown == line), "{shown}");
+        }
+    }
 
     #[rstest]
     #[case::oversized_document(Error::Oversized { id: "bad".into(), field: "body".into(), size: 2_000_001 })]
