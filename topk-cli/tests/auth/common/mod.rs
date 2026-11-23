@@ -8,6 +8,7 @@ use axum::routing::post;
 use axum::Router;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use clap::{Args, Command, FromArgMatches};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
@@ -17,7 +18,7 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
 use url::Url;
 
-use topk::auth::{Auth, OAuthConfig};
+use topk::auth::{Auth, OAuthArgs, OAuthConfig};
 use topk::config::Config;
 use topk::host::Host;
 
@@ -140,8 +141,15 @@ pub fn response(expires_in: u64, refresh: Option<&str>) -> Value {
     json!({"token_type": "Bearer", "access_token": ACCESS_TOKEN, "refresh_token": refresh, "expires_in": expires_in})
 }
 
+pub fn args(args: &[&str]) -> OAuthArgs {
+    let matches = OAuthArgs::augment_args(Command::new("test"))
+        .mut_args(|arg| arg.env(None::<&str>))
+        .get_matches_from(args);
+    OAuthArgs::from_arg_matches(&matches).unwrap()
+}
+
 pub fn tenant_dir(config_dir: &Path, issuer: &Url) -> PathBuf {
     config_dir
-        .join("tenants")
+        .join("profiles/default/tenants")
         .join(format!("{:x}", Sha256::digest(issuer.as_str().as_bytes())))
 }

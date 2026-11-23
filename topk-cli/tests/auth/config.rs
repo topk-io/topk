@@ -7,13 +7,15 @@ use std::sync::Arc;
 
 use axum::routing::get;
 use axum::Router;
-use clap::{Args, Command, FromArgMatches};
 use tempfile::TempDir;
 use tokio::net::TcpListener;
 
-use topk::auth::{Auth, OAuthArgs};
+use topk::auth::Auth;
 use topk::config::{lock, read, write_secret_file, Config};
 use topk::host::{Host, DEFAULT_HOST};
+use topk::profile::{Profile, ProfileName};
+
+use super::common::args;
 
 #[test]
 fn replacement_preserves_open_readers() {
@@ -130,13 +132,6 @@ fn write_secret_file_uses_restrictive_permissions() {
     assert_eq!(mode, 0o600);
 }
 
-fn args(args: &[&str]) -> OAuthArgs {
-    let matches = OAuthArgs::augment_args(Command::new("test"))
-        .mut_args(|arg| arg.env(None::<&str>))
-        .get_matches_from(args);
-    OAuthArgs::from_arg_matches(&matches).unwrap()
-}
-
 #[tokio::test]
 async fn given_settings_are_used_without_asking_the_host() {
     let given = [
@@ -155,7 +150,7 @@ async fn given_settings_are_used_without_asking_the_host() {
             https: true,
         },
         args(&given),
-        dir.path().to_owned(),
+        Profile::new(dir.path().to_owned(), ProfileName::default()),
     )
     .await;
     assert_eq!(config.oauth().client_id, "cli");
@@ -170,7 +165,12 @@ async fn default_host_uses_the_built_in_settings() {
         host: DEFAULT_HOST.into(),
         https: true,
     };
-    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    let config = Config::load(
+        host,
+        args(&["test"]),
+        Profile::new(dir.path().to_owned(), ProfileName::default()),
+    )
+    .await;
     assert_eq!(
         config.oauth().issuer.as_str(),
         "https://topk-prod.us.auth0.com/"
@@ -185,7 +185,12 @@ async fn unreachable_host_falls_back_to_the_built_in_settings() {
         host: "unreachable.invalid".into(),
         https: true,
     };
-    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    let config = Config::load(
+        host,
+        args(&["test"]),
+        Profile::new(dir.path().to_owned(), ProfileName::default()),
+    )
+    .await;
     assert_eq!(
         config.oauth().issuer.as_str(),
         "https://topk-prod.us.auth0.com/"
@@ -213,7 +218,13 @@ async fn host_is_asked_once_and_its_answer_reused_until_logout() {
     );
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let dir = TempDir::new().unwrap();
-    let load = || Config::load(host.clone(), args(&["test"]), dir.path().to_owned());
+    let load = || {
+        Config::load(
+            host.clone(),
+            args(&["test"]),
+            Profile::new(dir.path().to_owned(), ProfileName::default()),
+        )
+    };
 
     let config = load().await;
     assert_eq!(config.oauth().client_id, "cli");

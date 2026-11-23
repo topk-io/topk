@@ -46,13 +46,15 @@ impl Auth {
         self.config.session().await?.save(session)?;
         // Clear cached access tokens
         self.config.access_tokens().clear()?;
+        self.config.save_profile()?;
         Ok(claims)
     }
 
     pub async fn logout(&self) -> Result<()> {
         self.config.session().await?.delete()?;
         self.config.access_tokens().clear()?;
-        self.config.clear_oauth()
+        self.config.clear_oauth()?;
+        self.config.profile().forget()
     }
 
     pub async fn access_token(&self) -> Result<String> {

@@ -8,6 +8,7 @@ pub mod import;
 pub mod management;
 pub mod meta;
 pub mod output;
+pub mod profile;
 pub mod prompt;
 pub mod scope;
 mod storage;

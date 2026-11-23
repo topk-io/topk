@@ -7,21 +7,21 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
-use toml::Table;
 use tracing::warn;
 
 use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
 use crate::host::{Host, DEFAULT_HOST};
+use crate::profile::{Profile, ProfileName};
 use crate::ProjectId;
 
-pub use crate::storage::{lock, read, read_toml, write_secret_file, write_toml};
+pub use crate::storage::{config_dir, lock, read, read_toml, write_secret_file, write_toml};
 
 #[derive(Clone)]
 pub struct Config {
-    dir: PathBuf,
     host: Host,
     oauth: OAuthConfig,
+    profile: Profile,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -32,13 +32,17 @@ pub struct Defaults {
 
 impl Config {
     pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
-        Self { dir, host, oauth }
+        Self {
+            host,
+            oauth,
+            profile: Profile::new(dir, ProfileName::default()),
+        }
     }
 
-    pub async fn load(host: Host, oauth: OAuthArgs, dir: PathBuf) -> Self {
+    pub async fn load(host: Host, oauth: OAuthArgs, profile: Profile) -> Self {
         let oauth = match oauth.config() {
             Some(oauth) => oauth,
-            None => match Self::resolve_oauth(&host, &dir).await {
+            None => match Self::resolve_oauth(&host, &profile.dir()).await {
                 Ok(oauth) => oauth,
                 Err(e) => {
                     warn!("cannot load login settings for {}: {e:#}", host.host);
@@ -46,7 +50,15 @@ impl Config {
                 }
             },
         };
-        Self { dir, host, oauth }
+        Self {
+            host,
+            oauth,
+            profile,
+        }
+    }
+
+    pub fn save_profile(&self) -> Result<()> {
+        self.profile.save(&self.host)
     }
 
     async fn resolve_oauth(host: &Host, dir: &Path) -> Result<OAuthConfig> {
@@ -66,7 +78,7 @@ impl Config {
     }
 
     pub fn clear_oauth(&self) -> Result<()> {
-        remove(&oauth_file(&self.dir, &self.host))
+        remove(&oauth_file(&self.profile.dir(), &self.host))
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -82,11 +94,8 @@ impl Config {
         }
     }
 
-    pub fn dir() -> Result<PathBuf> {
-        std::env::var_os("TOPK_CONFIG_DIR")
-            .map(PathBuf::from)
-            .or_else(|| dirs::config_dir().map(|d| d.join("topk")))
-            .context("no config directory")
+    pub fn import_dir(&self) -> PathBuf {
+        self.profile.dir().join("import")
     }
 
     pub fn host(&self) -> &str {
@@ -119,6 +128,10 @@ impl Config {
         &self.oauth
     }
 
+    pub fn profile(&self) -> &Profile {
+        &self.profile
+    }
+
     pub fn defaults(&self) -> Result<Defaults> {
         Ok(read_toml(&self.defaults_file())
             .context("invalid saved defaults")?
@@ -145,10 +158,6 @@ impl Config {
         )
     }
 
-    fn config_file(&self) -> PathBuf {
-        self.dir.join("config.toml")
-    }
-
     fn defaults_file(&self) -> PathBuf {
         self.tenant_dir()
             .join("defaults")
@@ -157,7 +166,10 @@ impl Config {
 
     /// Everything scoped to this issuer's session lives here.
     fn tenant_dir(&self) -> PathBuf {
-        self.dir.join("tenants").join(self.oauth.issuer_key())
+        self.profile
+            .dir()
+            .join("tenants")
+            .join(self.oauth.issuer_key())
     }
 
     fn credentials_file(&self) -> PathBuf {
@@ -184,22 +196,14 @@ impl LockedSession<'_> {
     }
 
     pub fn save(&self, session: Session) -> Result<()> {
-        let mut config: Table = read_toml(&self.config.config_file())
-            .context("invalid config.toml")?
-            .unwrap_or_default();
         write_toml(
             &self.config.credentials_file(),
             &Credentials::new(&self.config.oauth, session),
-        )?;
-        if config.remove("api_key").is_some() {
-            write_toml(&self.config.config_file(), &config)?;
-        }
-        Ok(())
+        )
     }
 
     pub fn delete(&self) -> Result<()> {
-        remove(&self.config.credentials_file())?;
-        remove(&self.config.config_file())
+        remove(&self.config.credentials_file())
     }
 }
 
