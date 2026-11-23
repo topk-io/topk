@@ -6,14 +6,14 @@ use sqlparser::ast::{
     FunctionArgExpr, FunctionArguments,
 };
 use topk_rs::proto::v1::control::{
-    field_type_list::ListValueType, field_type_matrix::MatrixValueType, FieldIndex, FieldSpec,
-    FieldType, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
-    VectorDistanceMetric,
+    field_index::Index, field_type::DataType as FieldDataType, field_type_list::ListValueType,
+    field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, FieldType, KeywordIndexType,
+    MultiVectorDistanceMetric, MultiVectorQuantization, VectorDistanceMetric,
 };
 
 use crate::{
     parse_args, parse_kwargs, sql_invalid, sql_unsupported, util::Kwargs, Error, FromSql,
-    SqlExprExt, Statement, Table,
+    SqlExprExt, Statement, Table, ToSql,
 };
 
 impl TryFrom<SqlCreateTable> for Statement {
@@ -257,5 +257,155 @@ impl FromSql<Function> for FieldIndex {
         };
 
         Ok(index)
+    }
+}
+
+impl ToSql for FieldType {
+    fn to_sql(&self) -> String {
+        // a field with no declared type holds any value, which the wire carries as JSON
+        let Some(data_type) = &self.data_type else {
+            return "JSONB".to_string();
+        };
+
+        match data_type {
+            FieldDataType::Text(_) => "TEXT".to_string(),
+            FieldDataType::Integer(_) => "INTEGER".to_string(),
+            FieldDataType::Float(_) => "FLOAT".to_string(),
+            FieldDataType::Boolean(_) => "BOOLEAN".to_string(),
+            FieldDataType::Bytes(_) => "BYTEA".to_string(),
+            FieldDataType::Timestamp(_) => "TIMESTAMP".to_string(),
+            FieldDataType::Image(_) => "image".to_string(),
+            FieldDataType::Struct(_) => "JSONB".to_string(),
+            FieldDataType::List(list) => match list.value_type() {
+                ListValueType::String => "TEXT[]",
+                ListValueType::Integer => "INTEGER[]",
+                ListValueType::Float => "FLOAT[]",
+                ListValueType::Unspecified => "JSONB",
+            }
+            .to_string(),
+            FieldDataType::F32Vector(v) => format!("f32_vector({})", v.dimension),
+            FieldDataType::F16Vector(v) => format!("f16_vector({})", v.dimension),
+            FieldDataType::F8Vector(v) => format!("f8_vector({})", v.dimension),
+            FieldDataType::U8Vector(v) => format!("u8_vector({})", v.dimension),
+            FieldDataType::I8Vector(v) => format!("i8_vector({})", v.dimension),
+            FieldDataType::BinaryVector(v) => format!("binary_vector({})", v.dimension),
+            FieldDataType::F32SparseVector(_) => "f32_sparse_vector".to_string(),
+            FieldDataType::F16SparseVector(_) => "f16_sparse_vector".to_string(),
+            FieldDataType::F8SparseVector(_) => "f8_sparse_vector".to_string(),
+            FieldDataType::U8SparseVector(_) => "u8_sparse_vector".to_string(),
+            FieldDataType::I8SparseVector(_) => "i8_sparse_vector".to_string(),
+            FieldDataType::Matrix(matrix) => {
+                let value_type = match matrix.value_type() {
+                    MatrixValueType::F32 | MatrixValueType::Unspecified => "f32",
+                    MatrixValueType::F16 => "f16",
+                    MatrixValueType::F8 => "f8",
+                    MatrixValueType::U8 => "u8",
+                    MatrixValueType::I8 => "i8",
+                };
+                format!("{value_type}_matrix({})", matrix.dimension)
+            }
+        }
+    }
+}
+
+impl ToSql for Index {
+    fn to_sql(&self) -> String {
+        match self {
+            Index::KeywordIndex(keyword) => match keyword.index_type() {
+                KeywordIndexType::Exact => "keyword_index(type = 'exact')".to_string(),
+                KeywordIndexType::Text | KeywordIndexType::Unspecified => {
+                    "keyword_index()".to_string()
+                }
+            },
+            Index::SemanticIndex(_) => "semantic_index()".to_string(),
+            Index::NgramIndex(_) => "ngram_index()".to_string(),
+            Index::VectorIndex(vector) => format!("vector_index(metric = '{}')", vector.metric()),
+            Index::MultiVectorIndex(multi) => {
+                let mut options = vec![format!("metric = '{}'", multi.metric())];
+                if multi.quantization.is_some() {
+                    options.push(format!("quantization = '{}'", multi.quantization()));
+                }
+                if let Some(width) = multi.width {
+                    options.push(format!("width = '{width}'"));
+                }
+                if let Some(top_k) = multi.top_k {
+                    options.push(format!("top_k = '{top_k}'"));
+                }
+                format!("multi_vector_index({})", options.join(", "))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{convert_sql, parse_sql, Statement, ToSql};
+
+    // Every type and index `CREATE TABLE` takes, written back as SQL, reads back the same.
+    #[test]
+    fn to_sql_reads_back() {
+        let sql = "CREATE TABLE books (
+            title TEXT NOT NULL INDEX keyword_index(),
+            genre TEXT INDEX keyword_index(type = 'exact'),
+            body TEXT INDEX semantic_index(),
+            code TEXT INDEX ngram_index(),
+            year INTEGER,
+            price FLOAT,
+            in_stock BOOLEAN,
+            raw BYTEA,
+            published TIMESTAMP,
+            cover image INDEX semantic_index(),
+            tags TEXT[],
+            counts INTEGER[],
+            scores FLOAT[],
+            metadata JSONB,
+            f32 f32_vector(3) INDEX vector_index(metric = 'cosine'),
+            f16 f16_vector(3) INDEX vector_index(metric = 'euclidean'),
+            f8 f8_vector(3) INDEX vector_index(metric = 'dot_product'),
+            u8 u8_vector(3),
+            i8 i8_vector(3),
+            bits binary_vector(8) INDEX vector_index(metric = 'hamming'),
+            sparse f32_sparse_vector INDEX vector_index(metric = 'dot_product'),
+            sparse16 f16_sparse_vector,
+            sparse8 f8_sparse_vector,
+            sparse_u8 u8_sparse_vector,
+            sparse_i8 i8_sparse_vector,
+            colbert f32_matrix(4) INDEX multi_vector_index(metric = 'maxsim'),
+            colbert16 f16_matrix(4) INDEX multi_vector_index(metric = 'maxsim', quantization = '1bit', width = '16', top_k = '100'),
+            colbert8 f8_matrix(4),
+            colbert_u8 u8_matrix(4),
+            colbert_i8 i8_matrix(4)
+        )";
+        let Statement::CreateTable { schema, .. } =
+            convert_sql(parse_sql(sql).unwrap()).unwrap().remove(0).0
+        else {
+            panic!("not a CREATE TABLE");
+        };
+
+        let columns = schema
+            .iter()
+            .map(|(name, spec)| {
+                let data_type = spec.data_type.as_ref().unwrap().to_sql();
+                let not_null = if spec.required { " NOT NULL" } else { "" };
+                let index = spec
+                    .index
+                    .as_ref()
+                    .and_then(|index| index.index.as_ref())
+                    .map(|index| format!(" INDEX {}", index.to_sql()))
+                    .unwrap_or_default();
+                format!("{name} {data_type}{not_null}{index}")
+            })
+            .collect::<Vec<_>>();
+        let Statement::CreateTable { schema: read, .. } = convert_sql(
+            parse_sql(&format!("CREATE TABLE books ({})", columns.join(", "))).unwrap(),
+        )
+        .unwrap()
+        .remove(0)
+        .0
+        else {
+            panic!("not a CREATE TABLE");
+        };
+
+        assert_eq!(read, schema);
     }
 }

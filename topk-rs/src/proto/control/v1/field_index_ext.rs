@@ -1,3 +1,4 @@
+use std::fmt::{self, Display};
 use std::str::FromStr;
 
 use crate::Error;
@@ -123,5 +124,37 @@ impl FromStr for MultiVectorQuantization {
                 "invalid multi-vector quantization `{other}`, expected: 1bit | 2bit | scalar"
             ))),
         }
+    }
+}
+
+impl Display for VectorDistanceMetric {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Unspecified => "unspecified",
+            Self::Cosine => "cosine",
+            Self::Euclidean => "euclidean",
+            Self::DotProduct => "dot_product",
+            Self::Hamming => "hamming",
+        })
+    }
+}
+
+impl Display for MultiVectorDistanceMetric {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Unspecified => "unspecified",
+            Self::Maxsim => "maxsim",
+        })
+    }
+}
+
+impl Display for MultiVectorQuantization {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Unspecified => "unspecified",
+            Self::Binary1bit => "1bit",
+            Self::Binary2bit => "2bit",
+            Self::Scalar => "scalar",
+        })
     }
 }

@@ -1,8 +1,8 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
-    ShowObjects, ShowStatementIn, ShowStatementInClause, ShowStatementInParentType,
+    visit_expressions, AssignmentTarget, DescribeAlias, Expr as SqlExpr, FromTable, SelectItem,
+    SetExpr, ShowObjects, ShowStatementIn, ShowStatementInClause, ShowStatementInParentType,
     ShowStatementOptions, Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
@@ -104,6 +104,11 @@ impl SqlStatementExt for SqlStatement {
                     },
                 ..
             }) => name,
+            SqlStatement::ExplainTable {
+                describe_alias: DescribeAlias::Describe | DescribeAlias::Desc,
+                table_name,
+                ..
+            } => table_name,
             _ => return Ok(None),
         };
 
