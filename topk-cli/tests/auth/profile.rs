@@ -24,11 +24,11 @@ fn profiles(dir: &TempDir, names: &[&str]) -> Profiles {
 }
 
 /// The config of a profile logged in to `host`.
-async fn config(dir: &TempDir, profile: &str, host: &str) -> Config {
+async fn config(dir: &TempDir, profile: &str, host: &str, https: bool) -> Config {
     Config::load(
         Host {
             host: host.into(),
-            https: true,
+            https,
         },
         args(&[
             "test",
@@ -127,7 +127,7 @@ async fn profile_keeps_its_own_defaults_and_host() {
     profiles(&dir, &["one", "two"]);
     // Same host and issuer, so only the profile tells the two apart.
     for (profile, region) in [("one", "r1"), ("two", "r2")] {
-        config(&dir, profile, "stage.test")
+        config(&dir, profile, "stage.test", true)
             .await
             .set_region(Some(region.into()))
             .unwrap();
@@ -167,7 +167,7 @@ async fn host_given_does_not_inherit_the_profile_scheme() {
             https: false,
         })
         .unwrap();
-    config(&dir, "plain", "other.test")
+    config(&dir, "plain", "other.test", true)
         .await
         .set_region(Some("r1".into()))
         .unwrap();
@@ -178,6 +178,24 @@ async fn host_given_does_not_inherit_the_profile_scheme() {
             .ok(),
         "Default region: r1\n"
     );
+}
+
+#[tokio::test]
+async fn https_given_applies_to_the_profile_host() {
+    let dir = TempDir::new().unwrap();
+    profiles(&dir, &["stage"]);
+    config(&dir, "stage", "stage.test", false)
+        .await
+        .set_region(Some("r1".into()))
+        .unwrap();
+    let region = |args: &[&str]| {
+        topk(&dir)
+            .args(["--profile", "stage"])
+            .args(args)
+            .args(["region", "current"])
+    };
+    assert_eq!(region(&["--https", "false"]).ok(), "Default region: r1\n");
+    assert!(region(&[]).fails().contains("no region selected"));
 }
 
 #[test]

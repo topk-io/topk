@@ -11,7 +11,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 use topk::auth::OAuthArgs;
 use topk::config::Config;
-use topk::host::HostArgs;
+use topk::host::{Host, HostArgs};
 use topk::output::Output;
 use topk::profile::{ProfileName, Profiles};
 use topk::util::Interrupted;
@@ -63,7 +63,10 @@ impl Cli {
         });
         // The host a profile is logged in to applies when none is given.
         let host = match (&self.host.host, profile.host()?) {
-            (None, Some(saved)) => saved,
+            (None, Some(saved)) => Host {
+                https: self.host.https.unwrap_or(saved.https),
+                ..saved
+            },
             _ => self.host.clone().into(),
         };
         Ok(Config::load(host, self.oauth.clone(), profile).await)
