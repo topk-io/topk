@@ -18,9 +18,6 @@ pub trait SqlStatementExt {
     /// Get the table name from the statement, if present.
     fn table(&self) -> Result<Option<Table>, Error>;
 
-    /// `DESCRIBE <table>` or `DESC <table>`, not `EXPLAIN <table>`.
-    fn is_describe(&self) -> bool;
-
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
     fn assignment_placeholders(&self) -> Vec<(usize, &str)>;
@@ -58,16 +55,6 @@ impl SqlStatementExt for SqlStatement {
             }
         }
         count
-    }
-
-    fn is_describe(&self) -> bool {
-        matches!(
-            self,
-            SqlStatement::ExplainTable {
-                describe_alias: DescribeAlias::Describe | DescribeAlias::Desc,
-                ..
-            }
-        )
     }
 
     fn table(&self) -> Result<Option<Table>, Error> {
@@ -117,7 +104,11 @@ impl SqlStatementExt for SqlStatement {
                     },
                 ..
             }) => name,
-            SqlStatement::ExplainTable { table_name, .. } if self.is_describe() => table_name,
+            SqlStatement::ExplainTable {
+                describe_alias: DescribeAlias::Describe | DescribeAlias::Desc,
+                table_name,
+                ..
+            } => table_name,
             _ => return Ok(None),
         };
 

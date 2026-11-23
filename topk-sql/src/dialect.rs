@@ -98,13 +98,7 @@ impl Dialect for TopKDialect {
             return Some(parse_drop_collection(parser));
         }
         if let Some(keyword) = parser.parse_one_of_keywords(&[Keyword::DESCRIBE, Keyword::DESC]) {
-            if parser
-                .parse_one_of_keywords(&[Keyword::TABLE, Keyword::COLLECTION])
-                .is_some()
-            {
-                return Some(parse_describe_table(parser, keyword));
-            }
-            parser.prev_token();
+            return Some(parse_describe(parser, keyword));
         }
         if parser.parse_keyword(Keyword::SHOW) {
             match parser.next_token().token {
@@ -210,18 +204,17 @@ fn parse_show_partitions(parser: &mut Parser) -> Result<SqlStatement, ParserErro
     )
 }
 
-// `DESCRIBE TABLE <name>` and `DESCRIBE COLLECTION <name>`
-fn parse_describe_table(
-    parser: &mut Parser,
-    keyword: Keyword,
-) -> Result<SqlStatement, ParserError> {
+// `DESCRIBE [TABLE | COLLECTION] <name>`
+fn parse_describe(parser: &mut Parser, keyword: Keyword) -> Result<SqlStatement, ParserError> {
     Ok(SqlStatement::ExplainTable {
         describe_alias: match keyword {
             Keyword::DESC => DescribeAlias::Desc,
             _ => DescribeAlias::Describe,
         },
         hive_format: None,
-        has_table_keyword: true,
+        has_table_keyword: parser
+            .parse_one_of_keywords(&[Keyword::TABLE, Keyword::COLLECTION])
+            .is_some(),
         table_name: parser.parse_object_name(false)?,
     })
 }

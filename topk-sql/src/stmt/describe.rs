@@ -1,19 +1,20 @@
-use sqlparser::ast::Statement as SqlStatement;
+use sqlparser::ast::{DescribeAlias, Statement as SqlStatement};
 
-use crate::{sql_invalid, sql_unsupported, Error, SqlStatementExt, Statement, Table};
+use crate::{sql_invalid, sql_unsupported, Error, Statement, Table};
 
 pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
-    sql_unsupported!(!stmt.is_describe(), "EXPLAIN <table>; use DESCRIBE <table>");
     let SqlStatement::ExplainTable {
-        hive_format,
+        describe_alias,
         table_name,
         ..
     } = stmt
     else {
         sql_unsupported!("statement: {stmt}");
     };
-
-    sql_unsupported!(hive_format.is_some(), "DESCRIBE EXTENDED or FORMATTED");
+    sql_unsupported!(
+        describe_alias == DescribeAlias::Explain,
+        "EXPLAIN <table>; use DESCRIBE <table>"
+    );
 
     let table = Table::new(table_name)?;
     sql_invalid!(
@@ -56,6 +57,8 @@ mod tests {
     #[case::explain("EXPLAIN books")]
     #[case::partition("DESCRIBE books$p1")]
     #[case::extended("DESCRIBE EXTENDED books")]
+    #[case::statement("DESCRIBE SELECT title FROM books")]
+    #[case::desc_statement("DESC SELECT title FROM books")]
     #[case::table_keyword_only("DESCRIBE TABLE")]
     #[case::collection_partition("DESCRIBE COLLECTION books$p1")]
     #[case::trailing("DESCRIBE TABLE books extra")]
