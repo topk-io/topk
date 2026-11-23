@@ -1,8 +1,8 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
-    ShowObjects, ShowStatementIn, ShowStatementInClause, ShowStatementInParentType,
+    visit_expressions, AssignmentTarget, DescribeAlias, Expr as SqlExpr, FromTable, SelectItem,
+    SetExpr, ShowObjects, ShowStatementIn, ShowStatementInClause, ShowStatementInParentType,
     ShowStatementOptions, Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
@@ -17,6 +17,9 @@ pub trait SqlStatementExt {
 
     /// Get the table name from the statement, if present.
     fn table(&self) -> Result<Option<Table>, Error>;
+
+    /// `DESCRIBE <table>` or `DESC <table>`, not `EXPLAIN <table>`.
+    fn is_describe(&self) -> bool;
 
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
@@ -55,6 +58,16 @@ impl SqlStatementExt for SqlStatement {
             }
         }
         count
+    }
+
+    fn is_describe(&self) -> bool {
+        matches!(
+            self,
+            SqlStatement::ExplainTable {
+                describe_alias: DescribeAlias::Describe | DescribeAlias::Desc,
+                ..
+            }
+        )
     }
 
     fn table(&self) -> Result<Option<Table>, Error> {
@@ -104,6 +117,7 @@ impl SqlStatementExt for SqlStatement {
                     },
                 ..
             }) => name,
+            SqlStatement::ExplainTable { table_name, .. } if self.is_describe() => table_name,
             _ => return Ok(None),
         };
 

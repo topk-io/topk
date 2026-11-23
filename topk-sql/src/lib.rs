@@ -29,6 +29,10 @@ pub trait FromSql<S>: Sized {
     fn from_sql(value: S) -> Result<Self, Error>;
 }
 
+pub trait ToSql {
+    fn to_sql(&self) -> String;
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Parse error: {0}")]

@@ -9,6 +9,7 @@ use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt, Table};
 
 mod create_table;
 mod delete;
+mod describe;
 mod drop;
 mod explain;
 mod insert;
@@ -101,6 +102,11 @@ pub enum Statement {
         /// Maximum number of collections to list.
         limit: Option<u64>,
     },
+    /// `DESCRIBE <collection>`
+    Describe {
+        /// Table name (`<collection>`).
+        table: Table,
+    },
 
     Explain {
         /// Statement to explain.
@@ -134,7 +140,8 @@ impl Statement {
             | Statement::DeletePartition { table }
             | Statement::CreateTable { table, .. }
             | Statement::DropTable { table, .. }
-            | Statement::ShowPartitions { table, .. } => Some(table),
+            | Statement::ShowPartitions { table, .. }
+            | Statement::Describe { table } => Some(table),
             Statement::Explain { stmt, .. } => stmt.table(),
             _ => None,
         }
@@ -156,6 +163,7 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::Update(update) => Statement::try_from(update),
             SqlStatement::Delete(delete) => Statement::try_from(delete),
             SqlStatement::Explain { .. } => explain::try_from_sql(stmt),
+            SqlStatement::ExplainTable { .. } => describe::try_from_sql(stmt),
             SqlStatement::CreateTable(ct) => Statement::try_from(ct),
             SqlStatement::Drop { .. } => drop::try_from_sql(stmt),
             SqlStatement::ShowObjects(_) => show::try_from_sql(stmt),

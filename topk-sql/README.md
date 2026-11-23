@@ -96,6 +96,7 @@ Statements use `<table>` as either a collection name or a collection plus partit
 > | --- | --- |
 > | `CREATE TABLE` | `CREATE COLLECTION` |
 > | `DROP TABLE` | `DROP COLLECTION` |
+> | `DESCRIBE TABLE` | `DESCRIBE COLLECTION` |
 > | `SHOW TABLES` | `SHOW COLLECTIONS` |
 > | `SHOW PARTITIONS FROM TABLE` | `SHOW PARTITIONS FROM COLLECTION` |
 
@@ -114,7 +115,7 @@ Partitions can be specified with `$` or the `PARTITION` keyword:
 > [!WARNING]
 > A `/` in a table name is not a partition separator.
 
-Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE`, `DROP TABLE` and `SHOW PARTITIONS` name collections without partitions; partitions are created implicitly on first write.
+Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE`, `DROP TABLE`, `DESCRIBE` and `SHOW PARTITIONS` name collections without partitions; partitions are created implicitly on first write.
 
 
 ### SELECT
@@ -646,6 +647,26 @@ Lists the project's collections, one row per collection with its `table_name` an
 ```sql
 SHOW TABLES [STARTS WITH '<prefix>'] [LIMIT <n>];
 ```
+
+
+### DESCRIBE
+
+Lists a collection's fields, one row per field.
+
+```sql
+DESCRIBE [TABLE] <collection>;
+```
+
+```text
+ column_name | data_type     | nullable | index
+-------------+---------------+----------+----------------------------------
+ _id         | TEXT          | f        |
+ embedding   | f32_vector(4) | t        | vector_index(metric = 'cosine')
+ title       | TEXT          | f        | keyword_index()
+```
+
+> [!IMPORTANT]
+> `DESC` is an alias for `DESCRIBE`.
 
 
 ### SHOW PARTITIONS
