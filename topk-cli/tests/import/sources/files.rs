@@ -387,6 +387,58 @@ async fn files_read_side_by_side(ctx: &Scratch, #[case] count: usize) {
 }
 
 #[rstest_ctx(Scratch)]
+#[case::every_row(None, 6)]
+#[case::across_files(Some(3), 3)]
+#[case::exact_file(Some(2), 2)]
+async fn parallel_reader_limits(ctx: &Scratch, #[case] limit: Option<u64>, #[case] rows: usize) {
+    for file in ["a", "b", "c"] {
+        ctx.parquet(
+            &format!("limited/{file}.parquet"),
+            &format!("SELECT '{file}' || range::VARCHAR AS id, 't' AS text FROM range(2)"),
+        );
+    }
+    let from = ctx.path("limited/*.parquet").display().to_string();
+    let mut source = source(&from).await.unwrap();
+    source.readers.count = 3;
+    let mut target = Target::new(source.discover().await.unwrap(), Some("id")).unwrap();
+    target.limit = limit;
+    let documents = json_documents(&source, &target).await.unwrap();
+    assert_eq!(documents.len(), rows);
+    if limit.is_some() {
+        let ids: Vec<_> = documents
+            .iter()
+            .map(|(_, doc)| doc["_id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["a0", "a1", "b0"][..rows]);
+    }
+}
+
+#[rstest_ctx(Scratch)]
+async fn parallel_reader_errors(ctx: &Scratch) {
+    for file in ["a", "c"] {
+        ctx.parquet(
+            &format!("broken/{file}.parquet"),
+            "SELECT range::VARCHAR AS id, 't' AS text FROM range(100)",
+        );
+    }
+    let bad = ctx.file("broken/b.parquet", "invalid parquet");
+    let from = ctx.path("broken/*.parquet").display().to_string();
+    let mut source = source(&from).await.unwrap();
+    source.readers.count = 3;
+    source.readers.sample_files = 2;
+    let target = Target::new(source.discover().await.unwrap(), Some("id")).unwrap();
+    let error = refused(
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            json_documents(&source, &target),
+        )
+        .await
+        .unwrap(),
+    );
+    assert!(error.contains(&bad), "{error}");
+}
+
+#[rstest_ctx(Scratch)]
 #[case::every_file(usize::MAX, true)]
 #[case::sampled_ends(2, false)]
 async fn unseen_columns_pass_through(

@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-use std::thread::{self, JoinHandle};
-
 use duckdb::Connection;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc;
+use tokio::task::JoinSet;
 
 use crate::import::document::id_string;
 use crate::import::error::Error;
@@ -81,8 +80,7 @@ pub(super) fn files(
         None => settings.count,
     };
     let mut remaining = target.limit;
-    let (ended_tx, ended) = std::sync::mpsc::channel();
-    let mut readers: HashMap<String, (u64, JoinHandle<Result<u64, Error>>)> = HashMap::new();
+    let mut readers = JoinSet::new();
     loop {
         while readers.len() < count && remaining != Some(0) {
             let (path, offset) = match planned.next() {
@@ -103,22 +101,15 @@ pub(super) fn files(
             }
             let plan = Plan::file(file, path.clone(), target, offset, remaining)?;
             let (source, tx) = (source.clone(), tx.clone());
-            let ended = Ended(ended_tx.clone(), path.clone());
-            let reader = thread::spawn(move || {
-                let _ended = ended;
-                plan.read(&source.connect()?, &tx, settings.chunk_bytes)
+            readers.spawn_blocking(move || {
+                let read = plan.read(&source.connect()?, &tx, settings.chunk_bytes)?;
+                Ok::<_, Error>((path, offset, read))
             });
-            readers.insert(path, (offset, reader));
         }
-        if readers.is_empty() {
-            break;
-        }
-        let stopped = || Error::InvalidArgument("file reader stopped".to_string());
-        let part = ended.recv().map_err(|_| stopped())?;
-        let (offset, reader) = readers.remove(&part).ok_or_else(stopped)?;
-        let read = reader
-            .join()
-            .map_err(|_| Error::InvalidArgument("file reader panicked".to_string()))??;
+        let (part, offset, read) = match Handle::current().block_on(readers.join_next()) {
+            Some(reader) => reader??,
+            None => break,
+        };
         // A file the limit cut short has rows left.
         if remaining.is_none_or(|n| read < n) {
             let end = Cursor::Offset {
@@ -139,15 +130,6 @@ pub(super) fn files(
         }
     }
     Ok(())
-}
-
-/// Reports its reader's file when the reader ends, also by a panic.
-struct Ended(std::sync::mpsc::Sender<String>, String);
-
-impl Drop for Ended {
-    fn drop(&mut self) {
-        let _ = self.0.send(std::mem::take(&mut self.1));
-    }
 }
 
 impl Plan {
