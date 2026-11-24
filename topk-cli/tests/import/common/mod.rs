@@ -20,7 +20,7 @@ use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
 use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
-use topk::import::{Aimd, Error, WriteOptions};
+use topk::import::{Aimd, Error, ReadOptions, WriteOptions};
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
@@ -249,6 +249,7 @@ impl Ctx {
                 region: self.client.config().region().unwrap().into(),
             },
             plan,
+            ReadOptions { max_memory: None },
             write,
         )
     }

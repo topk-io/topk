@@ -146,7 +146,7 @@ async fn copies_native_values(ctx: &Ctx) {
             plan,
             WriteOptions {
                 continue_on_error: false,
-                concurrency: 1,
+                concurrency: Some(1),
                 batch_bytes: 1_000_000,
             },
         ),

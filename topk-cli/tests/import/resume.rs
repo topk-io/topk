@@ -2,7 +2,7 @@ use test_macros::rstest_ctx;
 use topk::import::plan::Plan;
 use topk::import::source::{Cursor, Resume};
 use topk::import::state::{Progress, Run, State};
-use topk::import::WriteOptions;
+use topk::import::{ReadOptions, WriteOptions};
 use topk::scope::Scope;
 use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric};
 
@@ -31,9 +31,10 @@ fn state() -> State {
             region: "dev".into(),
         },
         plan,
+        ReadOptions { max_memory: None },
         WriteOptions {
             continue_on_error: false,
-            concurrency: 16,
+            concurrency: Some(16),
             batch_bytes: 1_048_576,
         },
     )
