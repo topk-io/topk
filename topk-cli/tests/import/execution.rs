@@ -36,7 +36,7 @@ async fn prepares_then_executes(ctx: &Ctx) {
             plan,
             WriteOptions {
                 continue_on_error: false,
-                concurrency: 2,
+                concurrency: Some(2),
                 batch_bytes: 32,
             },
         ),
@@ -93,7 +93,7 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
         plan,
         WriteOptions {
             continue_on_error: false,
-            concurrency: 2,
+            concurrency: Some(2),
             batch_bytes: 32,
         },
     );
@@ -186,7 +186,7 @@ async fn backend_rejections(
             plan,
             WriteOptions {
                 continue_on_error,
-                concurrency: 2,
+                concurrency: Some(2),
                 batch_bytes,
             },
         ),
@@ -274,7 +274,7 @@ async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
             plan,
             WriteOptions {
                 continue_on_error: false,
-                concurrency: 1,
+                concurrency: Some(1),
                 batch_bytes: 1024,
             },
         ),
@@ -356,7 +356,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
             plan,
             WriteOptions {
                 continue_on_error: false,
-                concurrency: 1,
+                concurrency: Some(1),
                 batch_bytes: 1024,
             },
         ),

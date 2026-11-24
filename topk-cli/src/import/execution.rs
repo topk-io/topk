@@ -49,11 +49,19 @@ pub enum Event {
     },
 }
 
+/// Saved with the run, so a resume reads the way the run started.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct ReadOptions {
+    /// Bytes for open file readers and upserts in flight; half of the machine's when unset.
+    pub max_memory: Option<u64>,
+}
+
 /// Saved with the run, so a resume writes the way the run started.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct WriteOptions {
     pub continue_on_error: bool,
-    pub concurrency: usize,
+    /// Most upserts in flight; unset takes what the memory budget allows.
+    pub concurrency: Option<usize>,
     pub batch_bytes: u64,
 }
 
@@ -161,15 +169,16 @@ impl Import {
             let client = &self.client;
             let retry = client.config().retry_config().clone();
             let upserts = Client::new(client.config().clone().with_retry_config(RetryConfig { max_retries: 0, ..retry.clone() }));
-            let window = Arc::new(Mutex::new(Window::new(options.concurrency, aimd)));
+            let concurrency = options.concurrency.unwrap_or(aimd.max);
+            let window = Arc::new(Mutex::new(Window::new(concurrency, aimd)));
             let consumed = match &self.run.state().progress {
                 Some(Progress::After(checkpoint)) => checkpoint.consumed,
                 _ => 0,
             };
-            info!(run = %self.run.id, collection = %name, consumed, ?options, "import started");
+            info!(run = %self.run.id, collection = %name, consumed, ?options, concurrency, mappers = self.mappers, "import started");
             let mut create = self.create;
             let state = Arc::new(Mutex::new(self.run));
-            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, consumed, self.mappers));
+            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, concurrency, consumed, self.mappers));
             let started = Instant::now();
             let mut written = 0;
             let mut bytes = 0;
@@ -263,11 +272,12 @@ impl Import {
         mut chunks: ReadStream,
         target: Target,
         options: &WriteOptions,
+        concurrency: usize,
         mut consumed: u64,
         mappers: usize,
     ) -> impl Stream<Item = Result<Feed, Error>> {
         let batch_bytes = options.batch_bytes;
-        let window = batch_bytes.saturating_mul(options.concurrency as u64);
+        let window = batch_bytes.saturating_mul(concurrency as u64);
         let continue_on_error = options.continue_on_error;
         async_stream::try_stream! {
             let target = Arc::new(target);
@@ -1137,10 +1147,10 @@ mod tests {
         .boxed();
         let options = WriteOptions {
             continue_on_error: false,
-            concurrency: 1,
+            concurrency: Some(1),
             batch_bytes: 1024,
         };
-        let partitions: Vec<_> = Import::feed(chunks, target, &options, 0, 1)
+        let partitions: Vec<_> = Import::feed(chunks, target, &options, 1, 0, 1)
             .try_filter_map(|message| async move {
                 Ok(match message {
                     Feed::Batch { partition, .. } => partition,
@@ -1167,9 +1177,10 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                ReadOptions { max_memory: None },
                 WriteOptions {
                     continue_on_error: false,
-                    concurrency: 1,
+                    concurrency: Some(1),
                     batch_bytes: 1,
                 },
             ),
@@ -1230,9 +1241,10 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                ReadOptions { max_memory: None },
                 WriteOptions {
                     continue_on_error: true,
-                    concurrency: 1,
+                    concurrency: Some(1),
                     batch_bytes: 1024,
                 },
             ),

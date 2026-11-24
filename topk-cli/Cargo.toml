@@ -84,6 +84,7 @@ sqlx = { version = "0.8", default-features = false, features = [
     "json",
     "tls-rustls-ring-native-roots",
 ] }
+sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14.2"

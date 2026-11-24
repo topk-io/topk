@@ -14,7 +14,7 @@ use crate::config::Config;
 use crate::import::plan::{collection_name, FieldSelection, Plan, Rename, Target};
 use crate::import::source::{Readers, Source, Uri};
 use crate::import::state::{Run, RunId, State};
-use crate::import::{Aimd, Error, Import, WriteOptions};
+use crate::import::{Aimd, Error, Import, ReadOptions, WriteOptions};
 use crate::output::Output;
 use crate::scope::ScopeArgs;
 use crate::util::Interrupted;
@@ -101,10 +101,59 @@ impl PlanArgs {
 
 #[derive(clap::Args, Debug)]
 pub struct ReadArgs {
-    #[arg(long, hide = true, default_value = "1", value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=256))]
-    pub readers: usize,
+    #[arg(
+        long,
+        value_name = "SIZE",
+        value_parser = batch_bytes,
+        help = "Memory for reading files and for upserts in flight; half of this machine's by default. More reads more files at once and sends more upserts at once"
+    )]
+    pub max_memory: Option<bytesize::ByteSize>,
+    #[arg(long, hide = true, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=256))]
+    pub readers: Option<usize>,
+    #[arg(long, hide = true, value_name = "SIZE", default_value = "1GiB", value_parser = batch_bytes)]
+    pub reader_memory: bytesize::ByteSize,
     #[arg(long, hide = true, value_name = "SIZE", default_value = "32MiB", value_parser = batch_bytes)]
     pub chunk_bytes: bytesize::ByteSize,
+}
+
+impl ReadArgs {
+    /// With `--resume`, a flag left out keeps the saved run's value.
+    fn options(&self, saved: Option<&ReadOptions>) -> ReadOptions {
+        ReadOptions {
+            max_memory: self
+                .max_memory
+                .map(|size| size.as_u64())
+                .or(saved.and_then(|saved| saved.max_memory)),
+        }
+    }
+
+    /// Half of the memory budget goes to file readers, a quarter to upserts in flight; an
+    /// upsert in flight holds its batch about three times. A reader mostly waits on its
+    /// file, so there may be four per core.
+    fn budget(&self, read: &ReadOptions, write: &WriteOptions) -> anyhow::Result<(Readers, usize)> {
+        let memory = match read.max_memory {
+            Some(memory) => memory,
+            None => {
+                let system = sysinfo::System::new_with_specifics(
+                    sysinfo::RefreshKind::nothing()
+                        .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
+                )?;
+                system
+                    .cgroup_limits()
+                    .map_or(system.total_memory(), |limits| limits.total_memory)
+                    / 2
+            }
+        };
+        let cores = std::thread::available_parallelism().map_or(1, |cores| cores.get());
+        let readers = Readers {
+            count: self.readers.unwrap_or_else(|| {
+                ((memory / 2 / self.reader_memory.as_u64()) as usize).clamp(1, 4 * cores)
+            }),
+            chunk_bytes: self.chunk_bytes.as_u64(),
+        };
+        let window = (memory / 4 / write.batch_bytes.saturating_mul(3)).clamp(1, 1024) as usize;
+        Ok((readers, window))
+    }
 }
 
 #[derive(clap::Args, Debug)]
@@ -118,16 +167,14 @@ pub struct WriteArgs {
         short = 'c',
         long,
         value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=1024),
-        default_value = "64",
-        default_value_if("resume", ArgPredicate::IsPresent, None::<&str>),
-        help = "Most upserts in flight across the whole run; the window starts at 1 and adapts up to this"
+        help = "Most upserts in flight across the whole run; the window starts at 1 and adapts up to this. By default what --max-memory allows"
     )]
     pub concurrency: Option<usize>,
     #[arg(
         short = 'b',
         long,
         value_name = "SIZE",
-        default_value = "1MiB",
+        default_value = "8MiB",
         default_value_if("resume", ArgPredicate::IsPresent, None::<&str>),
         value_parser = batch_bytes,
         help = "Target document bytes per partition batch"
@@ -153,8 +200,7 @@ impl WriteArgs {
                 || saved.is_some_and(|saved| saved.continue_on_error),
             concurrency: self
                 .concurrency
-                .or(saved.map(|saved| saved.concurrency))
-                .context("--concurrency is required")?,
+                .or(saved.and_then(|saved| saved.concurrency)),
             batch_bytes: self
                 .batch_bytes
                 .map(|size| size.as_u64())
@@ -215,9 +261,13 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         Some(path) => PathBuf::from(path),
         None => Config::dir()?.join("import"),
     };
+    let window;
     let import = if let Some(id) = args.resume {
         let mut run = Run::load(&directory, id).await?;
-        run.set_write(args.write.options(Some(&run.state().write))?);
+        run.set_options(
+            args.read.options(Some(&run.state().read)),
+            args.write.options(Some(&run.state().write))?,
+        );
         if run.state().done() {
             ui.message(format_args!(
                 "run {}: {} already imported",
@@ -231,7 +281,9 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             return Ok(ExitCode::SUCCESS);
         }
         let uri = run.state().source(args.source.as_ref())?;
-        let source = args.source(uri, &config).await?;
+        let (readers, max) = args.read.budget(&run.state().read, &run.state().write)?;
+        window = max;
+        let source = args.source(uri, &config, readers).await?;
         let client = config.data_client(
             run.state().destination.project_id.clone(),
             &run.state().destination.region,
@@ -248,7 +300,10 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
             }
             _ => None,
         };
-        let source = args.source(uri, &config).await?;
+        let (read, write) = (args.read.options(None), args.write.options(None)?);
+        let (readers, max) = args.read.budget(&read, &write)?;
+        window = max;
+        let source = args.source(uri, &config, readers).await?;
         let mut plan = args.plan.build(&source).await?;
         let scope = match scope {
             Some(scope) => scope,
@@ -286,12 +341,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         }
         let run = Run::start(
             &directory,
-            State::new(
-                source.locator().to_string(),
-                scope,
-                plan,
-                args.write.options(None)?,
-            ),
+            State::new(source.locator().to_string(), scope, plan, read, write),
         )
         .await?;
         Import::start(source, client, run, create).await?
@@ -312,7 +362,6 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
     ui.start(directory.join(format!("{}.rejected.jsonl", import.run().id)))?;
     let mut refresh = tokio::time::interval(Duration::from_millis(250));
     refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let window = import.run().state().write.concurrency;
     let execution = import.execute(Aimd {
         start: args.write.window_start,
         max: window,
@@ -358,7 +407,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
 }
 
 impl ImportArgs {
-    async fn source(&self, uri: Uri, config: &Config) -> anyhow::Result<Source> {
+    async fn source(&self, uri: Uri, config: &Config, readers: Readers) -> anyhow::Result<Source> {
         if let Uri::Topk {
             project,
             collection: name,
@@ -383,10 +432,7 @@ impl ImportArgs {
             ));
         }
         let mut source = uri.connect().await?;
-        source.readers = Readers {
-            count: self.read.readers,
-            chunk_bytes: self.read.chunk_bytes.as_u64(),
-        };
+        source.readers = readers;
         Ok(source)
     }
 }
@@ -426,14 +472,14 @@ mod tests {
     }
 
     #[rstest]
-    #[case::defaults(&["x.parquet", "--to", "c"], None, (false, 64, 1_048_576))]
-    #[case::flags(&["x.parquet", "--to", "c", "-c", "2", "-b", "32"], None, (false, 2, 32))]
-    #[case::resume_keeps_saved(&["--resume", "1234abcd"], Some((true, 2, 32)), (true, 2, 32))]
-    #[case::resume_flag_replaces(&["--resume", "1234abcd", "-c", "4"], Some((true, 2, 32)), (true, 4, 32))]
+    #[case::defaults(&["x.parquet", "--to", "c"], None, (false, None, 8_388_608))]
+    #[case::flags(&["x.parquet", "--to", "c", "-c", "2", "-b", "32"], None, (false, Some(2), 32))]
+    #[case::resume_keeps_saved(&["--resume", "1234abcd"], Some((true, Some(2), 32)), (true, Some(2), 32))]
+    #[case::resume_flag_replaces(&["--resume", "1234abcd", "-c", "4"], Some((true, Some(2), 32)), (true, Some(4), 32))]
     fn write_options(
         #[case] args: &[&str],
-        #[case] saved: Option<(bool, usize, u64)>,
-        #[case] expected: (bool, usize, u64),
+        #[case] saved: Option<(bool, Option<usize>, u64)>,
+        #[case] expected: (bool, Option<usize>, u64),
     ) {
         let saved = saved.map(
             |(continue_on_error, concurrency, batch_bytes)| WriteOptions {
@@ -447,6 +493,42 @@ mod tests {
         assert_eq!(
             (got.continue_on_error, got.concurrency, got.batch_bytes),
             expected
+        );
+    }
+
+    #[rstest]
+    #[case::half_reads_quarter_writes(&["--max-memory", "16GiB"], None, 8, 170)]
+    #[case::one_reader_at_least(&["--max-memory", "1GiB"], None, 1, 10)]
+    #[case::smaller_batches_widen(&["--max-memory", "16GiB", "-b", "1MiB"], None, 8, 1024)]
+    #[case::named_readers(&["--max-memory", "16GiB", "--readers", "3"], None, 3, 170)]
+    #[case::resume_keeps_saved(&[], Some(1 << 30), 1, 10)]
+    #[case::resume_flag_replaces(&["--max-memory", "16GiB"], Some(1 << 30), 8, 170)]
+    fn memory_budget(
+        #[case] args: &[&str],
+        #[case] saved: Option<u64>,
+        #[case] readers: usize,
+        #[case] window: usize,
+    ) {
+        let cli = Cli::try_parse_from(
+            ["topk", "x.parquet", "--to", "c"]
+                .iter()
+                .chain(args)
+                .copied(),
+        )
+        .unwrap();
+        let saved = saved.map(|max_memory| ReadOptions {
+            max_memory: Some(max_memory),
+        });
+        let read = cli.import.read.options(saved.as_ref());
+        let write = cli.import.write.options(None).unwrap();
+        let (got, max) = cli.import.read.budget(&read, &write).unwrap();
+        let readers = match args.contains(&"--readers") {
+            true => readers,
+            false => readers.min(4 * std::thread::available_parallelism().unwrap().get()),
+        };
+        assert_eq!(
+            (got.count, got.chunk_bytes, max),
+            (readers, 32 << 20, window)
         );
     }
 

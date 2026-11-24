@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::import::error::Error;
-use crate::import::execution::WriteOptions;
+use crate::import::execution::{ReadOptions, WriteOptions};
 use crate::import::plan::Plan;
 use crate::import::source::{Resume, Uri};
 use crate::scope::Scope;
@@ -59,6 +59,7 @@ pub struct State {
     /// Passwords are redacted.
     pub source: String,
     pub plan: Plan,
+    pub read: ReadOptions,
     pub write: WriteOptions,
     #[serde(flatten)]
     pub destination: Scope,
@@ -67,10 +68,17 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(source: String, destination: Scope, plan: Plan, write: WriteOptions) -> State {
+    pub fn new(
+        source: String,
+        destination: Scope,
+        plan: Plan,
+        read: ReadOptions,
+        write: WriteOptions,
+    ) -> State {
         State {
             source,
             plan,
+            read,
             write,
             destination,
             progress: None,
@@ -197,7 +205,8 @@ impl Run {
         &self.state
     }
 
-    pub fn set_write(&mut self, write: WriteOptions) {
+    pub fn set_options(&mut self, read: ReadOptions, write: WriteOptions) {
+        self.state.read = read;
         self.state.write = write;
     }
 
