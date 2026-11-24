@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -15,8 +15,7 @@ use tracing::{debug, info, warn};
 use crate::import::ddl;
 use crate::import::error::Error;
 use crate::import::plan::Target;
-use crate::import::source::Checkpoint;
-use crate::import::source::{ReadEvent, ReadStream, Source};
+use crate::import::source::{Cursor, ReadEvent, ReadStream, Resume, Source};
 use crate::import::state::{Progress, Run};
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
@@ -38,9 +37,11 @@ pub enum Event {
         written: usize,
         bytes: u64,
     },
-    /// `row` counts from 1 in source order; a destination rejection has none.
+    /// `row` counts from 1 in the file `part` when the source is several files, and in source
+    /// order otherwise; a destination rejection has none.
     Skipped {
         row: Option<u64>,
+        part: Option<String>,
         error: Error,
     },
     Completed {
@@ -74,6 +75,8 @@ pub struct Import {
     run: Run,
     client: Client,
     scan: ReadStream,
+    /// Chunks mapped to documents at once.
+    mappers: usize,
     create: bool,
 }
 
@@ -98,6 +101,7 @@ impl Import {
             run,
             client,
             scan,
+            mappers: source.readers.count,
             create,
         })
     }
@@ -165,19 +169,19 @@ impl Import {
             info!(run = %self.run.id, collection = %name, consumed, ?options, "import started");
             let mut create = self.create;
             let state = Arc::new(Mutex::new(self.run));
-            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, consumed));
+            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, consumed, self.mappers));
             let started = Instant::now();
             let mut written = 0;
             let mut bytes = 0;
             let mut failed = 0;
             let mut inflight = JoinSet::new();
-            let mut checkpoints = Checkpoints::default();
+            let mut positions = Positions { resumed: consumed, ..Default::default() };
             let mut eof = false;
             let mut pending = None;
             yield Event::Progress { written, bytes };
             loop {
-                if let Some(checkpoint) = checkpoints.ready() {
-                    state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint))?;
+                if let Some(resume) = positions.ready() {
+                    state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(resume))?;
                 }
                 if eof && inflight.is_empty() { break; }
                 let (admits, probe) = {
@@ -201,22 +205,24 @@ impl Import {
                         bytes += outcome.bytes;
                         failed += outcome.skipped.len();
                         for error in outcome.skipped {
-                            yield Event::Skipped { row: None, error };
+                            yield Event::Skipped { row: None, part: None, error };
                         }
                         yield Event::Progress { written, bytes };
                         if let Some(error) = outcome.error { Err(error)?; }
-                        for (id, count) in outcome.chunks { checkpoints.complete(id, count)?; }
+                        for (id, count) in outcome.chunks { positions.complete(id, count)?; }
                     }
                     Next::Feed(message) => match message? {
                         None => eof = true,
-                        Some(Feed::Chunk { rows, checkpoint }) => {
-                            let id = checkpoints.push(rows, checkpoint);
-                            if rows == 0 { checkpoints.complete(id, 0)?; }
+                        Some(Feed::Chunk { rows, cursor, last }) => {
+                            let id = positions.push(rows, cursor, last);
+                            if rows == 0 { positions.complete(id, 0)?; }
                         }
-                        Some(Feed::Skipped { chunk, row, error }) => {
-                            checkpoints.complete(chunk, 1)?;
+                        Some(Feed::Restarted) => positions.restart(),
+                        Some(Feed::Skipped { chunk, row, part, error }) => {
+                            positions.complete(chunk, 1)?;
                             failed += 1;
-                            yield Event::Skipped { row: Some(row), error };
+                            let part = part.filter(|part| *part != target.from.value());
+                            yield Event::Skipped { row: Some(row), part, error };
                         }
                         Some(Feed::Batch { partition, batch }) => {
                             let slot = {
@@ -251,40 +257,73 @@ impl Import {
 
     /// Documents batched per partition. A batch goes when full, once `window` bytes were batched
     /// since its first document, or at the end; this bounds both buffered bytes and checkpoint lag.
+    /// Up to `mappers` chunks become documents at once and are batched as they finish, so one
+    /// mapper keeps source order.
     fn feed(
         mut chunks: ReadStream,
         target: Target,
         options: &WriteOptions,
         mut consumed: u64,
+        mappers: usize,
     ) -> impl Stream<Item = Result<Feed, Error>> {
         let batch_bytes = options.batch_bytes;
         let window = batch_bytes.saturating_mul(options.concurrency as u64);
         let continue_on_error = options.continue_on_error;
         async_stream::try_stream! {
+            let target = Arc::new(target);
             let mut batches = IndexMap::<Option<String>, Batch>::new();
             // Open batches, oldest first; an entry outlives a batch that went when full.
             let mut opened = VecDeque::<(u64, Option<String>)>::new();
             let mut batched = 0;
             let mut chunk = 0;
-            while let Some(event) = chunks.try_next().await? {
-                let read = match event {
-                    ReadEvent::Chunk(read) => read,
-                    ReadEvent::Restarted => {
-                        consumed = 0;
-                        warn!("resume cursor expired, restarting from the beginning");
+            let mut mapping = JoinSet::new();
+            let mut eof = false;
+            while !eof || !mapping.is_empty() {
+                let next = tokio::select! {
+                    biased;
+                    mapped = mapping.join_next(), if !mapping.is_empty() => Fed::Mapped(mapped),
+                    event = chunks.try_next(), if !eof && mapping.len() < mappers => Fed::Read(event),
+                };
+                let mapped: Mapped = match next {
+                    Fed::Mapped(mapped) => mapped
+                        .ok_or_else(|| Error::InvalidArgument("missing mapped chunk".into()))??,
+                    Fed::Read(event) => {
+                        match event? {
+                            None => eof = true,
+                            Some(ReadEvent::Restarted) => {
+                                consumed = 0;
+                                warn!("resume cursor expired, restarting from the beginning");
+                                yield Feed::Restarted;
+                            }
+                            Some(ReadEvent::Chunk(read)) => {
+                                let rows = read.rows.len();
+                                let (part, first) = match &read.cursor {
+                                    Some(Cursor::Offset { part, rows: end }) => (Some(part.clone()), end.saturating_sub(rows as u64)),
+                                    _ => (None, consumed),
+                                };
+                                consumed += rows as u64;
+                                yield Feed::Chunk { rows, cursor: read.cursor, last: read.last };
+                                if rows != 0 {
+                                    let (id, target) = (chunk, Arc::clone(&target));
+                                    mapping.spawn_blocking(move || Mapped {
+                                        chunk: id,
+                                        part,
+                                        first,
+                                        rows: read.rows.into_iter().map(|row| {
+                                            let (partition, doc) = target.document(row?)?;
+                                            Ok((partition, doc.encoded_len() as u64, doc))
+                                        }).collect(),
+                                    });
+                                }
+                                chunk += 1;
+                            }
+                        }
                         continue;
                     }
                 };
-                let first = consumed;
-                consumed += read.rows.len() as u64;
-                yield Feed::Chunk {
-                    rows: read.rows.len(),
-                    checkpoint: read.cursor.map(|cursor| Checkpoint { cursor, consumed }),
-                };
-                for (index, row) in read.rows.into_iter().enumerate() {
-                    match row.and_then(|record| target.document(record)) {
-                        Ok((partition, doc)) => {
-                            let size = doc.encoded_len() as u64;
+                for (index, row) in mapped.rows.into_iter().enumerate() {
+                    match row {
+                        Ok((partition, size, doc)) => {
                             let slot = match batches.get_index_of(&partition) {
                                 Some(slot) => slot,
                                 None => {
@@ -296,8 +335,8 @@ impl Import {
                             batch.bytes += size;
                             batch.docs.push(doc);
                             match batch.chunks.last_mut() {
-                                Some((id, count)) if *id == chunk => *count += 1,
-                                _ => batch.chunks.push((chunk, 1)),
+                                Some((id, count)) if *id == mapped.chunk => *count += 1,
+                                _ => batch.chunks.push((mapped.chunk, 1)),
                             }
                             batched += size;
                             if batch.bytes >= batch_bytes {
@@ -307,7 +346,7 @@ impl Import {
                             }
                         }
                         Err(error) if continue_on_error => {
-                            yield Feed::Skipped { chunk, row: first + index as u64 + 1, error };
+                            yield Feed::Skipped { chunk: mapped.chunk, row: mapped.first + index as u64 + 1, part: mapped.part.clone(), error };
                         }
                         Err(error) => Err(error)?,
                     }
@@ -321,7 +360,6 @@ impl Import {
                         }
                     }
                 }
-                chunk += 1;
             }
             for (partition, batch) in batches {
                 yield Feed::Batch { partition, batch };
@@ -563,17 +601,34 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 enum Feed {
     Chunk {
         rows: usize,
-        checkpoint: Option<Checkpoint>,
+        cursor: Option<Cursor>,
+        last: bool,
     },
+    Restarted,
     Skipped {
         chunk: u64,
         row: u64,
+        part: Option<String>,
         error: Error,
     },
     Batch {
         partition: Option<String>,
         batch: Batch,
     },
+}
+
+enum Fed {
+    Read(Result<Option<ReadEvent>, Error>),
+    Mapped(Option<Result<Mapped, tokio::task::JoinError>>),
+}
+
+/// A chunk's rows as documents with their encoded sizes.
+struct Mapped {
+    chunk: u64,
+    /// The chunk's file and the rows of it before the chunk.
+    part: Option<String>,
+    first: u64,
+    rows: Vec<Result<(Option<String>, u64, Document), Error>>,
 }
 
 enum Next {
@@ -599,6 +654,153 @@ struct Batch {
     chunks: Vec<(u64, usize)>,
 }
 
+/// The resume point of a run: per file, the rows before its first chunk still in flight.
+#[derive(Default)]
+struct Positions {
+    /// Rows done before this invocation.
+    resumed: u64,
+    parts: BTreeMap<String, Part>,
+    done: BTreeSet<String>,
+    /// Rows of the files that left.
+    finished: u64,
+    /// End of the last file that left.
+    tail: Option<Cursor>,
+    chunks: HashMap<u64, (String, u64)>,
+    next: u64,
+}
+
+impl Positions {
+    fn push(&mut self, rows: usize, cursor: Option<Cursor>, last: bool) -> u64 {
+        let name = cursor.as_ref().map_or("", Cursor::part).to_string();
+        let part = self.parts.entry(name.clone()).or_default();
+        if let (
+            None,
+            Some(Cursor::Offset {
+                part: file,
+                rows: end,
+            }),
+        ) = (&part.start, &cursor)
+        {
+            part.start = end.checked_sub(rows as u64).map(|rows| Cursor::Offset {
+                part: file.clone(),
+                rows,
+            });
+        }
+        part.pushed += rows as u64;
+        part.read |= last;
+        let consumed = part.pushed;
+        let chunk = part
+            .checkpoints
+            .push(rows, cursor.map(|cursor| Checkpoint { cursor, consumed }));
+        let id = self.next;
+        self.next += 1;
+        self.chunks.insert(id, (name, chunk));
+        id
+    }
+
+    fn complete(&mut self, id: u64, rows: usize) -> Result<(), Error> {
+        let unknown = || Error::InvalidArgument("unknown source chunk".into());
+        let (name, chunk) = self.chunks.get(&id).cloned().ok_or_else(unknown)?;
+        let part = self.parts.get_mut(&name).ok_or_else(unknown)?;
+        if part.checkpoints.complete(chunk, rows)? {
+            self.chunks.remove(&id);
+        }
+        Ok(())
+    }
+
+    fn restart(&mut self) {
+        self.resumed = 0;
+        self.finished = 0;
+        for part in self.parts.values_mut() {
+            part.pushed = 0;
+        }
+    }
+
+    /// The resume point, once a chunk or a file finished since the last call. A file leaves
+    /// when it is fully read and every chunk of it is done.
+    fn ready(&mut self) -> Option<Resume> {
+        let mut moved = false;
+        for part in self.parts.values_mut() {
+            if let Some(mark) = part.checkpoints.ready() {
+                part.mark = Some(mark);
+                moved = true;
+            }
+        }
+        let left: Vec<String> = self
+            .parts
+            .iter()
+            .filter(|(_, part)| part.read && part.checkpoints.chunks.is_empty())
+            .map(|(name, _)| name.clone())
+            .collect();
+        for name in left {
+            if let Some(part) = self.parts.remove(&name) {
+                self.finished += part.pushed;
+                if self
+                    .tail
+                    .as_ref()
+                    .is_none_or(|tail| tail.part() < name.as_str())
+                {
+                    self.tail = part.mark.map(|mark| mark.cursor);
+                }
+                self.done.insert(name);
+                moved = true;
+            }
+        }
+        if !moved {
+            return None;
+        }
+        match self.parts.keys().next() {
+            Some(first) => self.done.retain(|name| name > first),
+            None => self.done.clear(),
+        }
+        let open: Vec<Cursor> = match self.parts.is_empty() {
+            true => self.tail.iter().cloned().collect(),
+            false => self
+                .parts
+                .values()
+                .filter_map(|part| match &part.mark {
+                    Some(mark) => Some(mark.cursor.clone()),
+                    None => part.start.clone(),
+                })
+                .collect(),
+        };
+        let rows = self.finished
+            + self
+                .parts
+                .values()
+                .filter_map(|part| part.mark.as_ref())
+                .map(|mark| mark.consumed)
+                .sum::<u64>();
+        // An opened file with no row done is not progress.
+        if open.is_empty() || rows == 0 {
+            return None;
+        }
+        Some(Resume {
+            open,
+            done: self.done.iter().cloned().collect(),
+            consumed: self.resumed + rows,
+        })
+    }
+}
+
+#[derive(Default)]
+struct Part {
+    checkpoints: Checkpoints,
+    /// Rows read in this invocation.
+    pushed: u64,
+    /// Where this invocation began reading.
+    start: Option<Cursor>,
+    mark: Option<Checkpoint>,
+    read: bool,
+}
+
+/// A chunk's end and the rows of its file read up to it in this invocation.
+#[derive(Clone)]
+struct Checkpoint {
+    cursor: Cursor,
+    consumed: u64,
+}
+
 #[derive(Default)]
 struct Checkpoints {
     next: u64,
@@ -613,7 +815,8 @@ impl Checkpoints {
         id
     }
 
-    fn complete(&mut self, id: u64, rows: usize) -> Result<(), Error> {
+    /// True once every row of the chunk is done.
+    fn complete(&mut self, id: u64, rows: usize) -> Result<bool, Error> {
         let chunk = self
             .chunks
             .get_mut(&id)
@@ -623,7 +826,7 @@ impl Checkpoints {
             .checked_sub(rows)
             .ok_or_else(|| Error::InvalidArgument("source chunk completed twice".into()))?;
         if chunk.0 != 0 {
-            return Ok(());
+            return Ok(false);
         }
         let mut checkpoint = chunk.1.take();
         self.chunks.remove(&id);
@@ -640,7 +843,7 @@ impl Checkpoints {
             end = next;
         }
         self.chunks.insert(end, (0, checkpoint));
-        Ok(())
+        Ok(true)
     }
 
     fn ready(&mut self) -> Option<Checkpoint> {
@@ -662,7 +865,7 @@ impl Checkpoints {
 mod tests {
     use std::fs::{File, TryLockError};
 
-    use futures::{stream, FutureExt, StreamExt};
+    use futures::{stream, StreamExt};
     use rstest::rstest;
     use topk_rs::proto::v1::control::FieldSpec;
     use topk_rs::ClientConfig;
@@ -822,6 +1025,53 @@ mod tests {
         }
     }
 
+    fn offset(part: &str, rows: u64) -> Option<Cursor> {
+        Some(Cursor::Offset {
+            part: part.into(),
+            rows,
+        })
+    }
+
+    #[test]
+    fn files_resume_independently() {
+        let mut positions = Positions {
+            resumed: 10,
+            ..Default::default()
+        };
+        let a1 = positions.push(2, offset("a", 2), false);
+        let a2 = positions.push(2, offset("a", 4), false);
+        let b1 = positions.push(3, offset("b", 3), false);
+        let b_end = positions.push(0, offset("b", 3), true);
+        positions.complete(b_end, 0).unwrap();
+        assert!(positions.ready().is_none());
+
+        positions.complete(b1, 3).unwrap();
+        let resume = positions.ready().unwrap();
+        assert_eq!(resume.open, [offset("a", 0).unwrap()]);
+        assert_eq!(
+            (resume.done.as_slice(), resume.consumed),
+            (&["b".to_string()][..], 13)
+        );
+
+        positions.complete(a2, 2).unwrap();
+        assert!(positions.ready().is_none());
+        positions.complete(a1, 2).unwrap();
+        let resume = positions.ready().unwrap();
+        assert_eq!(resume.open, [offset("a", 4).unwrap()]);
+        assert_eq!(
+            (resume.done.as_slice(), resume.consumed),
+            (&["b".to_string()][..], 17)
+        );
+
+        let a_end = positions.push(0, offset("a", 4), true);
+        positions.complete(a_end, 0).unwrap();
+        let resume = positions.ready().unwrap();
+        assert_eq!(resume.open, [offset("b", 3).unwrap()]);
+        assert!(resume.done.is_empty());
+        assert_eq!(resume.consumed, 17);
+        assert!(positions.chunks.is_empty());
+    }
+
     #[test]
     fn stalled_chunk_bounds_checkpoints() {
         let mut checkpoints = Checkpoints::default();
@@ -882,6 +1132,7 @@ mod tests {
         let chunks = stream::iter([Ok(ReadEvent::Chunk(crate::import::source::Chunk {
             rows,
             cursor: None,
+            last: false,
         }))])
         .boxed();
         let options = WriteOptions {
@@ -889,7 +1140,7 @@ mod tests {
             concurrency: 1,
             batch_bytes: 1024,
         };
-        let partitions: Vec<_> = Import::feed(chunks, target, &options, 0)
+        let partitions: Vec<_> = Import::feed(chunks, target, &options, 0, 1)
             .try_filter_map(|message| async move {
                 Ok(match message {
                     Feed::Batch { partition, .. } => partition,
@@ -932,12 +1183,14 @@ mod tests {
                 ("title".into(), "book".into()),
             ])],
             cursor: None,
+            last: false,
         }))])
         .boxed();
         let import = Import {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
             scan: chunks,
+            mappers: 1,
             create: false,
         };
         let mut execution = Box::pin(import.execute(AIMD));
@@ -945,7 +1198,11 @@ mod tests {
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
         ));
-        assert!(execution.try_next().now_or_never().is_none());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), execution.try_next())
+                .await
+                .is_err()
+        );
         drop(execution);
         assert!(matches!(lock.try_lock(), Err(TryLockError::WouldBlock)));
         tokio::time::timeout(Duration::from_secs(1), async {
@@ -987,6 +1244,7 @@ mod tests {
             yield ReadEvent::Chunk(crate::import::source::Chunk {
                 rows: vec![Err(Error::CannotCoerce("int"))],
                 cursor: Some(crate::import::source::Cursor::Key("1".into())),
+                last: false,
             });
             if stream_error {
                 Err(Error::InvalidArgument("source stream failed".into()))?;
@@ -997,6 +1255,7 @@ mod tests {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
             scan: chunks,
+            mappers: 1,
             create: false,
         };
         let mut execution = Box::pin(import.execute(AIMD));

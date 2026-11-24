@@ -3,7 +3,7 @@ use prost::Message;
 use serde_json::json;
 use test_macros::rstest_ctx;
 use topk::import::plan::{Plan, Target};
-use topk::import::source::{Checkpoint, Cursor};
+use topk::import::source::{Cursor, Resume};
 use topk::import::state::{Progress, Run};
 use topk::import::{Error, Event, Import, WriteOptions};
 use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType, VectorDistanceMetric};
@@ -97,11 +97,12 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
             batch_bytes: 32,
         },
     );
-    state.progress = Some(Progress::After(Checkpoint {
-        cursor: Cursor::Offset {
+    state.progress = Some(Progress::After(Resume {
+        open: vec![Cursor::Offset {
             part: from,
             rows: 1,
-        },
+        }],
+        done: Vec::new(),
         consumed: 1,
     }));
     let directory = ctx.cli.path("state");

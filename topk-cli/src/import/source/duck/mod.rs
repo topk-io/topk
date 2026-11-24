@@ -15,7 +15,7 @@ use crate::import::error::Error;
 use crate::import::plan::Target;
 
 use super::uri::SourceUrl;
-use super::{ChunkStream, Cursor, Table};
+use super::{ChunkStream, Cursor, Readers, Resume, Table};
 
 use super::{File, Format, SourceLocation};
 pub use creds::aws_process_profile;
@@ -46,10 +46,11 @@ impl Duckdb {
     fn connect(&self) -> Result<Connection, Error> {
         let conn = Connection::open_in_memory()?;
         // One thread, in order: rows arrive as stored, which makes a row offset
-        // a resume point; more threads measured the same.
+        // a resume point; more threads measured the same. A file is read once
+        // per connection, so the remote file cache only keeps a copy of it.
         conn.execute_batch(&format!(
             "SET preserve_insertion_order = true; SET memory_limit = '{}MiB'; \
-             SET threads = 1; SET temp_directory = '{}';",
+             SET threads = 1; SET enable_external_file_cache = false; SET temp_directory = '{}';",
             READER_MEMORY >> 20,
             lit(&std::env::temp_dir()
                 .join("topk-import")
@@ -256,6 +257,7 @@ impl Duckdb {
         target: Target,
         key: String,
         after: Option<Cursor>,
+        readers: Readers,
     ) -> Result<ChunkStream, Error> {
         let after = match after {
             None => None,
@@ -269,7 +271,11 @@ impl Duckdb {
         };
         Ok(self.stream(move |source, tx| {
             let conn = source.connect()?;
-            Plan::table(source, &target, &key, after.as_deref()).read(&conn, tx)
+            Plan::table(source, &target, &key, after.as_deref()).read(
+                &conn,
+                tx,
+                readers.chunk_bytes,
+            )
         }))
     }
 
@@ -277,19 +283,26 @@ impl Duckdb {
         &self,
         file: File,
         target: Target,
-        after: Option<Cursor>,
+        after: Option<Resume>,
+        readers: Readers,
     ) -> Result<ChunkStream, Error> {
-        let resume = match after {
-            None => None,
-            Some(Cursor::Offset { part, rows }) => Some((part, rows)),
-            Some(cursor) => {
-                return Err(Error::InvalidArgument(format!(
-                    "resume cursor {cursor:?} does not fit {}",
-                    target.from
-                )))
-            }
-        };
-        Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, tx)))
+        let resume = after
+            .map(|resume| {
+                let open = resume
+                    .open
+                    .into_iter()
+                    .map(|cursor| match cursor {
+                        Cursor::Offset { part, rows } => Ok((part, rows)),
+                        cursor => Err(Error::InvalidArgument(format!(
+                            "resume cursor {cursor:?} does not fit {}",
+                            target.from
+                        ))),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok::<_, Error>((open, resume.done))
+            })
+            .transpose()?;
+        Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, readers, tx)))
     }
 
     fn stream<T: Send + 'static>(

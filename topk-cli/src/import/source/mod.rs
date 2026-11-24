@@ -87,6 +87,8 @@ pub type Record = Vec<(String, Value)>;
 pub struct Chunk {
     pub rows: Vec<Result<Record, Error>>,
     pub cursor: Option<Cursor>,
+    /// No row of this chunk's file follows it.
+    pub last: bool,
 }
 
 pub enum ReadEvent {
@@ -109,6 +111,14 @@ pub enum Cursor {
 }
 
 impl Cursor {
+    /// The file a row offset counts in; empty for a source read as one stream.
+    pub fn part(&self) -> &str {
+        match self {
+            Cursor::Offset { part, .. } => part,
+            _ => "",
+        }
+    }
+
     fn key(self) -> Result<String, Error> {
         match self {
             Cursor::Key(key) => Ok(key),
@@ -130,18 +140,41 @@ impl fmt::Display for Cursor {
     }
 }
 
+/// Where a stopped run continues.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Checkpoint {
-    #[serde(flatten)]
-    pub cursor: Cursor,
-    #[serde(default)]
+pub struct Resume {
+    /// Cursors of the files being read, in plan order; every file before the first is done.
+    /// A source read as one stream has one.
+    pub open: Vec<Cursor>,
+    /// Files done after the first open one.
+    pub done: Vec<String>,
     pub consumed: u64,
+}
+
+/// How a file or table source is read.
+#[derive(Clone, Copy, Debug)]
+pub struct Readers {
+    /// Files read at once; one keeps source order.
+    pub count: usize,
+    /// Rows travel in chunks of at most this many bytes.
+    pub chunk_bytes: u64,
+}
+
+impl Readers {
+    /// One reader forwarding whole DuckDB batches, the way a preview or a sample reads.
+    pub fn one() -> Self {
+        Readers {
+            count: 1,
+            chunk_bytes: u64::MAX,
+        }
+    }
 }
 
 pub struct Source {
     locator: String,
     backend: Backend,
     table: tokio::sync::OnceCell<Table>,
+    pub readers: Readers,
 }
 
 enum Backend {
@@ -171,6 +204,7 @@ impl Source {
             locator,
             backend: Backend::Topk(Topk::new(client, name, schema)),
             table: tokio::sync::OnceCell::new(),
+            readers: Readers::one(),
         }
     }
 
@@ -190,28 +224,24 @@ impl Source {
 
     /// A source may push `limit` down, but need not honor it: rows past it are
     /// cut here, and the source is not polled again once it is reached.
-    pub async fn scan(
-        &self,
-        target: &Target,
-        after: Option<&Checkpoint>,
-    ) -> Result<ReadStream, Error> {
+    pub async fn scan(&self, target: &Target, after: Option<&Resume>) -> Result<ReadStream, Error> {
         debug!(
             columns = target.fields.len(),
             limit = target.limit,
             resumed = after.is_some(),
             "opening source scan"
         );
-        let consumed = after.map_or(0, |checkpoint| checkpoint.consumed);
+        let consumed = after.map_or(0, |resume| resume.consumed);
         let mut remaining = target.clone();
         remaining.limit = target.limit.map(|limit| limit.saturating_sub(consumed));
         if remaining.limit == Some(0) {
             return Ok(Box::pin(futures::stream::empty()));
         }
         let remaining_limit = remaining.limit;
-        let cursor = after.map(|checkpoint| checkpoint.cursor.clone());
+        let cursor = after.and_then(|resume| resume.open.first().cloned());
         let mut events: ReadStream = match &self.backend {
             Backend::Duck(duck @ Duckdb::Files(file)) => Box::pin(
-                duck.files(file.clone(), remaining, cursor)?
+                duck.files(file.clone(), remaining, after.cloned(), self.readers)?
                     .map_ok(ReadEvent::Chunk),
             ),
             Backend::Duck(duck) => {
@@ -222,7 +252,10 @@ impl Source {
                         target.from
                     ))
                 })?;
-                Box::pin(duck.table(remaining, key, cursor)?.map_ok(ReadEvent::Chunk))
+                Box::pin(
+                    duck.table(remaining, key, cursor, self.readers)?
+                        .map_ok(ReadEvent::Chunk),
+                )
             }
             Backend::Es(es) => es.chunks(target, cursor, consumed)?,
             Backend::Mongo(mongo) => {
@@ -292,7 +325,7 @@ impl Source {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cursor, Duckdb, File, SourceLocation};
+    use super::{Cursor, Duckdb, File, Readers, Resume, SourceLocation};
     use crate::import::plan::Target;
 
     #[test]
@@ -308,7 +341,16 @@ mod tests {
         };
         let file: File = "docs.parquet".parse().unwrap();
         let error = Duckdb::Files(file.clone())
-            .files(file, target.clone(), Some(Cursor::Key("42".into())))
+            .files(
+                file,
+                target.clone(),
+                Some(Resume {
+                    open: vec![Cursor::Key("42".into())],
+                    done: Vec::new(),
+                    consumed: 0,
+                }),
+                Readers::one(),
+            )
             .err()
             .expect("files accepted a key cursor");
         assert!(error.to_string().contains("does not fit"));
@@ -323,6 +365,7 @@ mod tests {
                 part: "docs.parquet".into(),
                 rows: 7,
             }),
+            Readers::one(),
         )
         .err()
         .expect("table accepted an offset cursor");
