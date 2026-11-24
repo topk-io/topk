@@ -1520,6 +1520,8 @@ async fn partition_failure_resumes_saved_prefix(
         "1B",
         "-c",
         "1",
+        "--readers",
+        "1",
         "--yes",
     ]);
     if let Some(limit) = limit {
@@ -1545,6 +1547,8 @@ async fn partition_failure_resumes_saved_prefix(
             "1B",
             "-c",
             "2",
+            "--readers",
+            "1",
             "--continue-on-error",
             "-o",
             "json",

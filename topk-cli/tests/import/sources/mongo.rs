@@ -3,7 +3,7 @@ use mongodb::bson::{doc, Bson, Document};
 use rstest::rstest;
 use serde_json::json;
 use test_macros::rstest_ctx;
-use topk::import::source::{Checkpoint, Cursor, ReadEvent};
+use topk::import::source::{Cursor, ReadEvent, Resume};
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::common::seed::mongo;
@@ -63,11 +63,12 @@ async fn resume_uses_native_id(ctx: &Scratch) {
         ReadEvent::Restarted => panic!("unexpected restart"),
     };
     assert_eq!(first.rows.len(), 1000);
-    let checkpoint = Checkpoint {
-        cursor: first.cursor.unwrap(),
+    let checkpoint = Resume {
+        open: vec![first.cursor.unwrap()],
+        done: Vec::new(),
         consumed: 1000,
     };
-    assert!(matches!(&checkpoint.cursor, Cursor::Mongo(_)));
+    assert!(matches!(&checkpoint.open[0], Cursor::Mongo(_)));
     drop(scan);
     let mut scan = source.scan(&target, Some(&checkpoint)).await.unwrap();
     let last = match scan.try_next().await.unwrap().unwrap() {
@@ -92,8 +93,9 @@ async fn legacy_resume_key(ctx: &Scratch, #[case] id: &str, #[case] accepted: bo
     let name = ctx.name("legacy");
     let source = mongo::source(&name).await.unwrap();
     let target = target(&name, id, [("n", FieldSpec::integer(false))]);
-    let checkpoint = Checkpoint {
-        cursor: Cursor::Key("42".into()),
+    let checkpoint = Resume {
+        open: vec![Cursor::Key("42".into())],
+        done: Vec::new(),
         consumed: 1,
     };
     let result = source.scan(&target, Some(&checkpoint)).await;
@@ -113,8 +115,9 @@ async fn scan_checks_selector_without_sampling(#[case] name: &str, #[case] accep
         .await
         .unwrap();
     let target = target(name, "_id", [("title", FieldSpec::text(false))]);
-    let checkpoint = Checkpoint {
-        cursor: Cursor::Mongo("\"42\"".into()),
+    let checkpoint = Resume {
+        open: vec![Cursor::Mongo("\"42\"".into())],
+        done: Vec::new(),
         consumed: 10,
     };
     let scan = source.scan(&target, Some(&checkpoint)).await;

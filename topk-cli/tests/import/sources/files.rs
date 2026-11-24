@@ -2,7 +2,7 @@ use crate::import::common::seed::{rustfs, Backend::S3};
 use futures::TryStreamExt;
 use serde_json::json;
 use test_macros::rstest_ctx;
-use topk::import::source::{Checkpoint, Cursor, ReadEvent};
+use topk::import::source::{Cursor, ReadEvent, Resume};
 use topk::import::Error;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::{field_type_matrix::MatrixValueType, FieldSpec};
@@ -298,6 +298,97 @@ async fn path_column_clash(
 }
 
 #[rstest_ctx(Scratch)]
+#[case::whole_batch(u64::MAX, false)]
+#[case::cut_by_bytes(64 * 1024, true)]
+async fn batches_travel_in_chunks(ctx: &Scratch, #[case] chunk_bytes: u64, #[case] cut: bool) {
+    let path = ctx.parquet(
+        "wide.parquet",
+        "SELECT range::VARCHAR AS id, repeat('x', 16384) AS text FROM range(64)",
+    );
+    let from = format!("file://{path}");
+    let target = target(&from, "id", [("text", FieldSpec::text(false))]);
+    let mut source = source(&from).await.unwrap();
+    source.readers.chunk_bytes = chunk_bytes;
+    let events: Vec<_> = source
+        .scan(&target, None)
+        .await
+        .unwrap()
+        .try_collect()
+        .await
+        .unwrap();
+    let mut chunks: Vec<_> = events
+        .into_iter()
+        .map(|event| match event {
+            ReadEvent::Chunk(chunk) => (chunk.rows.len() as u64, chunk.cursor, chunk.last),
+            ReadEvent::Restarted => panic!("unexpected restart"),
+        })
+        .collect();
+    let end = |rows| {
+        Some(Cursor::Offset {
+            part: path.clone(),
+            rows,
+        })
+    };
+    assert_eq!(chunks.pop(), Some((0, end(64), true)));
+    assert_eq!(chunks.remove(0), (0, end(0), false));
+    assert_eq!(chunks.len() > 1, cut, "{chunks:?}");
+    let mut read = 0;
+    for (rows, cursor, last) in chunks {
+        read += rows;
+        assert!(rows <= if cut { 8 } else { 64 }, "{rows} rows in one chunk");
+        assert_eq!((cursor, last), (end(read), false));
+    }
+    assert_eq!(read, 64);
+}
+
+#[rstest_ctx(Scratch)]
+#[case::one_reader(1)]
+#[case::three_readers(3)]
+async fn files_read_side_by_side(ctx: &Scratch, #[case] count: usize) {
+    let parts: Vec<String> = (0..3)
+        .map(|n| {
+            ctx.parquet(
+                &format!("many/part-{n}.parquet"),
+                &format!("SELECT ({n} * 100 + range)::VARCHAR AS id, 't' AS text FROM range(100)"),
+            )
+        })
+        .collect();
+    let from = ctx.path("many/*.parquet").to_str().unwrap().to_string();
+    let mut source = source(&from).await.unwrap();
+    source.readers.count = count;
+    let target = Target::new(source.discover().await.unwrap(), Some("id")).unwrap();
+    let events: Vec<_> = source
+        .scan(&target, None)
+        .await
+        .unwrap()
+        .try_collect()
+        .await
+        .unwrap();
+    let mut opened = Vec::new();
+    let mut read = std::collections::HashMap::new();
+    for event in events {
+        let chunk = match event {
+            ReadEvent::Chunk(chunk) => chunk,
+            ReadEvent::Restarted => panic!("unexpected restart"),
+        };
+        let (part, rows) = match chunk.cursor {
+            Some(Cursor::Offset { part, rows }) => (part, rows),
+            cursor => panic!("{cursor:?} is not a file offset"),
+        };
+        let (so_far, last) = read.entry(part.clone()).or_insert_with(|| {
+            opened.push(part.clone());
+            (0, false)
+        });
+        assert!(!*last, "{part} read after its last chunk");
+        *so_far += chunk.rows.len() as u64;
+        assert_eq!(*so_far, rows);
+        *last = chunk.last;
+    }
+    assert_eq!(opened, parts);
+    assert!(read.values().all(|&(rows, last)| rows == 100 && last));
+}
+
+#[rstest_ctx(Scratch)]
 async fn file_scheme_resumes(ctx: &Scratch) {
     let path = ctx.parquet(
         "rows.parquet",
@@ -305,11 +396,12 @@ async fn file_scheme_resumes(ctx: &Scratch) {
     );
     let from = format!("file://{path}");
     let target = target(&from, "id", [("text", FieldSpec::text(false))]);
-    let checkpoint = Checkpoint {
-        cursor: Cursor::Offset {
+    let checkpoint = Resume {
+        open: vec![Cursor::Offset {
             part: path,
             rows: 2,
-        },
+        }],
+        done: Vec::new(),
         consumed: 2,
     };
     let events: Vec<_> = source(&from)
@@ -458,11 +550,12 @@ async fn csv_reader_errors_stop_stream(
     );
     target.limit = limit;
     target.filter = filter.map(str::to_string);
-    let checkpoint = Checkpoint {
-        cursor: Cursor::Offset {
+    let checkpoint = Resume {
+        open: vec![Cursor::Offset {
             part: from,
             rows: offset,
-        },
+        }],
+        done: Vec::new(),
         consumed: offset,
     };
     let mut stream = connected

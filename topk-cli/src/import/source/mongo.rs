@@ -175,13 +175,13 @@ impl Mongo {
                             .collect::<Result<Record, Error>>();
                         rows.push(row);
                         if rows.len() == 1000 {
-                            yield Ok(Chunk { rows: std::mem::take(&mut rows), cursor: mark.take() });
+                            yield Ok(Chunk { rows: std::mem::take(&mut rows), cursor: mark.take(), last: false });
                         }
                     }
                     Ok(None) => break,
                     Err(e) => {
                         if !rows.is_empty() {
-                            yield Ok(Chunk { rows: std::mem::take(&mut rows), cursor: mark.take() });
+                            yield Ok(Chunk { rows: std::mem::take(&mut rows), cursor: mark.take(), last: false });
                         }
                         yield Err(e.into());
                         return;
@@ -189,7 +189,7 @@ impl Mongo {
                 }
             }
             if !rows.is_empty() {
-                yield Ok(Chunk { rows, cursor: mark });
+                yield Ok(Chunk { rows, cursor: mark, last: false });
             }
         };
         Ok(Box::pin(stream))

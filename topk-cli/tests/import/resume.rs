@@ -1,6 +1,6 @@
 use test_macros::rstest_ctx;
 use topk::import::plan::Plan;
-use topk::import::source::{Checkpoint, Cursor};
+use topk::import::source::{Cursor, Resume};
 use topk::import::state::{Progress, Run, State};
 use topk::import::WriteOptions;
 use topk::scope::Scope;
@@ -43,8 +43,9 @@ fn state() -> State {
 fn done_after_last_checkpoint() {
     let mut state = state();
     assert!(!state.done());
-    state.progress = Some(Progress::After(Checkpoint {
-        cursor: Cursor::Key("200".into()),
+    state.progress = Some(Progress::After(Resume {
+        open: vec![Cursor::Key("200".into())],
+        done: Vec::new(),
         consumed: 20,
     }));
     assert!(!state.done());
@@ -65,8 +66,9 @@ fn different_source_rejected() {
 fn checkpoint_past_limit() {
     let mut state = state();
     state.plan.target.limit = Some(5);
-    state.progress = Some(Progress::After(Checkpoint {
-        cursor: Cursor::Key("6".into()),
+    state.progress = Some(Progress::After(Resume {
+        open: vec![Cursor::Key("6".into())],
+        done: Vec::new(),
         consumed: 6,
     }));
     let error = refused(state.validate());
@@ -99,8 +101,9 @@ async fn lock_needs_a_state_file(ctx: &Scratch) {
 async fn saved_plan_round_trips(ctx: &Scratch, #[case] cursor: Cursor) {
     let directory = ctx.path("state");
     let mut saved = state();
-    saved.progress = Some(Progress::After(Checkpoint {
-        cursor: cursor.clone(),
+    saved.progress = Some(Progress::After(Resume {
+        open: vec![cursor.clone()],
+        done: Vec::new(),
         consumed: 42,
     }));
     let run = Run::start(&directory, saved).await.unwrap();
@@ -114,7 +117,7 @@ async fn saved_plan_round_trips(ctx: &Scratch, #[case] cursor: Cursor) {
     assert_eq!(run.state().destination.region, "dev");
     assert!(run.state().plan == state().plan);
     assert!(
-        matches!(&run.state().progress, Some(Progress::After(checkpoint)) if checkpoint.cursor == cursor && checkpoint.consumed == 42)
+        matches!(&run.state().progress, Some(Progress::After(resume)) if resume.open == [cursor.clone()] && resume.consumed == 42)
     );
     run.remove().unwrap();
 }

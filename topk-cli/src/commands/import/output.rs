@@ -54,11 +54,8 @@ impl ImportOutput {
             "# destination: project {}, region {}",
             state.destination.project_id, state.destination.region
         ))?;
-        if let Some(Progress::After(checkpoint)) = &state.progress {
-            self.message(format_args!(
-                "# resuming after {} rows",
-                checkpoint.consumed
-            ))?;
+        if let Some(Progress::After(resume)) = &state.progress {
+            self.message(format_args!("# resuming after {} rows", resume.consumed))?;
         }
         self.message(&state.plan)?;
         crate::prompt::Prompt::confirm(format!("Import into {}?", state.plan.collection), yes)
@@ -122,6 +119,7 @@ impl ImportOutput {
                     let line: serde_json::Value = serde_json::from_str(line)?;
                     let row = line["row"].as_u64();
                     listed.insert((
+                        line["file"].as_str().map(str::to_string),
                         row,
                         line["id"]
                             .as_str()
@@ -157,12 +155,16 @@ impl ImportOutput {
             Event::Progress { written, bytes } => {
                 self.progress.update(written, bytes, Instant::now());
             }
-            Event::Skipped { row, error } => {
+            Event::Skipped { row, part, error } => {
                 self.progress.failed += 1;
                 match self.progress.failed {
                     1..=3 => self.message(format_args!(
                         "skipped {}{error}",
-                        row.map(|row| format!("row {row}: ")).unwrap_or_default()
+                        match (row, &part) {
+                            (Some(row), Some(part)) => format!("{part} row {row}: "),
+                            (Some(row), None) => format!("row {row}: "),
+                            (None, _) => String::new(),
+                        }
                     ))?,
                     4 => {
                         if let Some((path, ..)) = &self.rejected {
@@ -224,13 +226,14 @@ impl ImportOutput {
                         _ => (None, None),
                     };
                     if listed.insert((
+                        part.clone(),
                         row,
                         id.filter(|_| row.is_none()).map(str::to_string),
                         field.map(str::to_string),
                     )) {
                         json_line(
                             file,
-                            &serde_json::json!({"row": row, "id": id, "field": field, "error": error.to_string()}),
+                            &serde_json::json!({"file": part, "row": row, "id": id, "field": field, "error": error.to_string()}),
                         )?;
                     }
                 }
@@ -276,7 +279,7 @@ impl ImportOutput {
     }
 }
 
-type Listed = HashSet<(Option<u64>, Option<String>, Option<String>)>;
+type Listed = HashSet<(Option<String>, Option<u64>, Option<String>, Option<String>)>;
 
 const LINE_EVERY: Duration = Duration::from_secs(10);
 
@@ -458,7 +461,13 @@ mod tests {
         let path = dir.path().join("rejected.jsonl");
         let mut output = ImportOutput::new(Output::Json);
         output.start(path.clone()).unwrap();
-        output.event(Event::Skipped { row: None, error }).unwrap();
+        output
+            .event(Event::Skipped {
+                row: None,
+                part: None,
+                error,
+            })
+            .unwrap();
         let report = std::fs::read_to_string(path).unwrap();
         assert_eq!(report.lines().count(), 1);
         let row: serde_json::Value = serde_json::from_str(&report).unwrap();
@@ -476,6 +485,7 @@ mod tests {
             output
                 .event(Event::Skipped {
                     row: Some(row),
+                    part: None,
                     error,
                 })
                 .unwrap()

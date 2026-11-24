@@ -64,11 +64,12 @@ async fn expired_cursor_resets_limit(ctx: &Scratch) {
     let source = source(&seeded.url).await.unwrap();
     let mut target = target(&seeded.from, "_id", [("title", FieldSpec::text(false))]);
     target.limit = Some(2);
-    let resumed = topk::import::source::Checkpoint {
-        cursor: topk::import::source::Cursor::Page {
+    let resumed = topk::import::source::Resume {
+        open: vec![topk::import::source::Cursor::Page {
             pit: "expired".into(),
             sort: vec![1],
-        },
+        }],
+        done: Vec::new(),
         consumed: 1,
     };
     let mut scan = source.scan(&target, Some(&resumed)).await.unwrap();

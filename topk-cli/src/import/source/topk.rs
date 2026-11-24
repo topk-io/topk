@@ -95,6 +95,7 @@ impl Topk {
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
                     cursor: Some(Checkpoint::Key(cursor.clone())),
+                    last: false,
                 };
                 if !full {
                     break;

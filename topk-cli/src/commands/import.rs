@@ -12,7 +12,7 @@ use tracing::{info, warn};
 use crate::client::ManagementClient;
 use crate::config::Config;
 use crate::import::plan::{collection_name, FieldSelection, Plan, Rename, Target};
-use crate::import::source::{Source, Uri};
+use crate::import::source::{Readers, Source, Uri};
 use crate::import::state::{Run, RunId, State};
 use crate::import::{Aimd, Error, Import, WriteOptions};
 use crate::output::Output;
@@ -97,6 +97,14 @@ impl PlanArgs {
         target.partition = self.partition.clone();
         Ok(Plan { collection, target })
     }
+}
+
+#[derive(clap::Args, Debug)]
+pub struct ReadArgs {
+    #[arg(long, hide = true, default_value = "1", value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=256))]
+    pub readers: usize,
+    #[arg(long, hide = true, value_name = "SIZE", default_value = "32MiB", value_parser = batch_bytes)]
+    pub chunk_bytes: bytesize::ByteSize,
 }
 
 #[derive(clap::Args, Debug)]
@@ -191,6 +199,8 @@ pub struct ImportArgs {
 
     #[command(flatten)]
     pub plan: PlanArgs,
+    #[command(flatten)]
+    pub read: ReadArgs,
     #[command(flatten)]
     pub write: WriteArgs,
 
@@ -372,7 +382,12 @@ impl ImportArgs {
                 collection.schema,
             ));
         }
-        Ok(uri.connect().await?)
+        let mut source = uri.connect().await?;
+        source.readers = Readers {
+            count: self.read.readers,
+            chunk_bytes: self.read.chunk_bytes.as_u64(),
+        };
+        Ok(source)
     }
 }
 
