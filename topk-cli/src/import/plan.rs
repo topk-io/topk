@@ -238,7 +238,7 @@ impl Target {
         exclude: &[String],
         existing: Option<&Schema>,
     ) -> Result<(), Error> {
-        let typed = source.typed();
+        let typed = source.discover().await?.complete;
         if typed {
             let columns: Vec<&str> = source
                 .discover()

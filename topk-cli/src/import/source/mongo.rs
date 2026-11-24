@@ -100,6 +100,7 @@ impl Mongo {
             from: SourceLocation::Object(self.object.clone()),
             columns,
             key: Some(ID.to_string()),
+            complete: false,
             unnamed: Vec::new(),
         })
     }

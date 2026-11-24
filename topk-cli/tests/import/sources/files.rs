@@ -455,7 +455,9 @@ async fn unseen_columns_pass_through(
     let from = ctx.path("mixed/*.parquet").to_str().unwrap().to_string();
     let mut source = source(&from).await.unwrap();
     source.readers.sample_files = sample_files;
-    let target = Target::new(source.discover().await.unwrap(), Some("id")).unwrap();
+    let table = source.discover().await.unwrap();
+    assert_eq!(table.complete, planned);
+    let target = Target::new(table, Some("id")).unwrap();
     assert_eq!(target.fields.contains_key("extra"), planned);
     let documents = json_documents(&source, &target).await.unwrap();
     let extras: Vec<_> = documents
@@ -471,6 +473,57 @@ async fn unseen_columns_pass_through(
         extras,
         [("a", None), ("b", Some(json!(7))), ("c", None)],
         "{documents:?}"
+    );
+}
+
+#[rstest_ctx(Scratch)]
+#[case::explicit_type(&["extra=text"], &[], &[], json!({"_id": "b", "text": "t", "extra": "7"}))]
+#[case::renamed_field(&["more=int"], &["extra=more"], &[], json!({"_id": "b", "text": "t", "more": 7}))]
+#[case::excluded_field(&[], &[], &["extra"], json!({"_id": "b", "text": "t"}))]
+async fn sampled_field_options(
+    ctx: &Scratch,
+    #[case] fields: &[&str],
+    #[case] renames: &[&str],
+    #[case] exclude: &[&str],
+    #[case] expected: serde_json::Value,
+) {
+    for (file, extra) in [("a", ""), ("b", ", 7 AS extra"), ("c", "")] {
+        ctx.parquet(
+            &format!("sampled/{file}.parquet"),
+            &format!("SELECT '{file}' AS id, 't' AS text{extra}"),
+        );
+    }
+    let from = ctx.path("sampled/*.parquet").display().to_string();
+    let mut source = source(&from).await.unwrap();
+    source.readers.sample_files = 2;
+    let mut target = Target::new(source.discover().await.unwrap(), Some("id")).unwrap();
+    target
+        .select(
+            &source,
+            &fields
+                .iter()
+                .map(|field| field.parse().unwrap())
+                .collect::<Vec<_>>(),
+            &renames
+                .iter()
+                .map(|rename| rename.parse().unwrap())
+                .collect::<Vec<_>>(),
+            &exclude
+                .iter()
+                .map(|column| column.to_string())
+                .collect::<Vec<_>>(),
+            None,
+        )
+        .await
+        .unwrap();
+    let documents = json_documents(&source, &target).await.unwrap();
+    assert_eq!(
+        documents
+            .iter()
+            .find(|(_, doc)| doc["_id"] == "b")
+            .unwrap()
+            .1,
+        expected
     );
 }
 
