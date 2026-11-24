@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -219,19 +219,20 @@ impl Import {
                         }
                         yield Event::Progress { written, bytes };
                         if let Some(error) = outcome.error { Err(error)?; }
-                        for (id, count) in outcome.chunks { positions.complete(id, count)?; }
+                        for (id, count) in outcome.chunks { positions.complete(&id, count)?; }
                     }
                     Next::Feed(message) => match message? {
                         None => eof = true,
-                        Some(Feed::Chunk { rows, cursor, last }) => {
-                            let id = positions.push(rows, cursor, last);
-                            if rows == 0 { positions.complete(id, 0)?; }
+                        Some(Feed::Chunk { id, rows, cursor, last }) => {
+                            positions.push(&id, rows, cursor, last);
+                            if rows == 0 { positions.complete(&id, 0)?; }
                         }
                         Some(Feed::Restarted) => positions.restart(),
-                        Some(Feed::Skipped { chunk, row, part, error }) => {
-                            positions.complete(chunk, 1)?;
+                        Some(Feed::Skipped { chunk, row, error }) => {
+                            positions.complete(&chunk, 1)?;
                             failed += 1;
-                            let part = part.filter(|part| *part != target.from.value());
+                            let part = (!chunk.part.is_empty() && chunk.part.as_ref() != target.from.value())
+                                .then(|| chunk.part.to_string());
                             yield Event::Skipped { row: Some(row), part, error };
                         }
                         Some(Feed::Batch { partition, batch }) => {
@@ -308,17 +309,17 @@ impl Import {
                             }
                             Some(ReadEvent::Chunk(read)) => {
                                 let rows = read.rows.len();
-                                let (part, first) = match &read.cursor {
-                                    Some(Cursor::Offset { part, rows: end }) => (Some(part.clone()), end.saturating_sub(rows as u64)),
-                                    _ => (None, consumed),
+                                let first = match &read.cursor {
+                                    Some(Cursor::Offset { rows: end, .. }) => end.saturating_sub(rows as u64),
+                                    _ => consumed,
                                 };
+                                let id = ChunkId { part: read.cursor.as_ref().map_or("", Cursor::part).into(), sequence: chunk };
                                 consumed += rows as u64;
-                                yield Feed::Chunk { rows, cursor: read.cursor, last: read.last };
+                                yield Feed::Chunk { id: id.clone(), rows, cursor: read.cursor, last: read.last };
                                 if rows != 0 {
-                                    let (id, target) = (chunk, Arc::clone(&target));
+                                    let target = Arc::clone(&target);
                                     mapping.spawn_blocking(move || Mapped {
                                         chunk: id,
-                                        part,
                                         first,
                                         rows: read.rows.into_iter().map(|row| {
                                             let (partition, doc) = target.document(row?)?;
@@ -347,7 +348,7 @@ impl Import {
                             batch.docs.push(doc);
                             match batch.chunks.last_mut() {
                                 Some((id, count)) if *id == mapped.chunk => *count += 1,
-                                _ => batch.chunks.push((mapped.chunk, 1)),
+                                _ => batch.chunks.push((mapped.chunk.clone(), 1)),
                             }
                             batched += size;
                             if batch.bytes >= batch_bytes {
@@ -357,7 +358,7 @@ impl Import {
                             }
                         }
                         Err(error) if continue_on_error => {
-                            yield Feed::Skipped { chunk: mapped.chunk, row: mapped.first + index as u64 + 1, part: mapped.part.clone(), error };
+                            yield Feed::Skipped { chunk: mapped.chunk.clone(), row: mapped.first + index as u64 + 1, error };
                         }
                         Err(error) => Err(error)?,
                     }
@@ -609,17 +610,23 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+#[derive(Clone, PartialEq)]
+struct ChunkId {
+    part: Arc<str>,
+    sequence: u64,
+}
+
 enum Feed {
     Chunk {
+        id: ChunkId,
         rows: usize,
         cursor: Option<Cursor>,
         last: bool,
     },
     Restarted,
     Skipped {
-        chunk: u64,
+        chunk: ChunkId,
         row: u64,
-        part: Option<String>,
         error: Error,
     },
     Batch {
@@ -635,9 +642,7 @@ enum Fed {
 
 /// A chunk's rows as documents with their encoded sizes.
 struct Mapped {
-    chunk: u64,
-    /// The chunk's file and the rows of it before the chunk.
-    part: Option<String>,
+    chunk: ChunkId,
     first: u64,
     rows: Vec<Result<(Option<String>, u64, Document), Error>>,
 }
@@ -649,7 +654,7 @@ enum Next {
 
 #[derive(Default)]
 struct BatchOutcome {
-    chunks: Vec<(u64, usize)>,
+    chunks: Vec<(ChunkId, usize)>,
     written: usize,
     bytes: u64,
     skipped: Vec<Error>,
@@ -662,7 +667,7 @@ struct Batch {
     /// Bytes batched before its first document.
     opened: u64,
     docs: Vec<Document>,
-    chunks: Vec<(u64, usize)>,
+    chunks: Vec<(ChunkId, usize)>,
 }
 
 /// The resume point of a run: per file, the rows before its first chunk still in flight.
@@ -676,14 +681,11 @@ struct Positions {
     finished: u64,
     /// End of the last file that left.
     tail: Option<Cursor>,
-    chunks: HashMap<u64, (String, u64)>,
-    next: u64,
 }
 
 impl Positions {
-    fn push(&mut self, rows: usize, cursor: Option<Cursor>, last: bool) -> u64 {
-        let name = cursor.as_ref().map_or("", Cursor::part).to_string();
-        let part = self.parts.entry(name.clone()).or_default();
+    fn push(&mut self, id: &ChunkId, rows: usize, cursor: Option<Cursor>, last: bool) {
+        let part = self.parts.entry(id.part.to_string()).or_default();
         if let (
             None,
             Some(Cursor::Offset {
@@ -700,23 +702,19 @@ impl Positions {
         part.pushed += rows as u64;
         part.read |= last;
         let consumed = part.pushed;
-        let chunk = part
-            .checkpoints
-            .push(rows, cursor.map(|cursor| Checkpoint { cursor, consumed }));
-        let id = self.next;
-        self.next += 1;
-        self.chunks.insert(id, (name, chunk));
-        id
+        part.checkpoints.push(
+            id.sequence,
+            rows,
+            cursor.map(|cursor| Checkpoint { cursor, consumed }),
+        );
     }
 
-    fn complete(&mut self, id: u64, rows: usize) -> Result<(), Error> {
-        let unknown = || Error::InvalidArgument("unknown source chunk".into());
-        let (name, chunk) = self.chunks.get(&id).cloned().ok_or_else(unknown)?;
-        let part = self.parts.get_mut(&name).ok_or_else(unknown)?;
-        if part.checkpoints.complete(chunk, rows)? {
-            self.chunks.remove(&id);
-        }
-        Ok(())
+    fn complete(&mut self, id: &ChunkId, rows: usize) -> Result<(), Error> {
+        self.parts
+            .get_mut(id.part.as_ref())
+            .ok_or_else(|| Error::InvalidArgument("unknown source chunk".into()))?
+            .checkpoints
+            .complete(id.sequence, rows)
     }
 
     fn restart(&mut self) {
@@ -814,20 +812,15 @@ struct Checkpoint {
 
 #[derive(Default)]
 struct Checkpoints {
-    next: u64,
     chunks: BTreeMap<u64, (usize, Option<Checkpoint>)>,
 }
 
 impl Checkpoints {
-    fn push(&mut self, rows: usize, checkpoint: Option<Checkpoint>) -> u64 {
-        let id = self.next;
-        self.next += 1;
+    fn push(&mut self, id: u64, rows: usize, checkpoint: Option<Checkpoint>) {
         self.chunks.insert(id, (rows, checkpoint));
-        id
     }
 
-    /// True once every row of the chunk is done.
-    fn complete(&mut self, id: u64, rows: usize) -> Result<bool, Error> {
+    fn complete(&mut self, id: u64, rows: usize) -> Result<(), Error> {
         let chunk = self
             .chunks
             .get_mut(&id)
@@ -837,7 +830,7 @@ impl Checkpoints {
             .checked_sub(rows)
             .ok_or_else(|| Error::InvalidArgument("source chunk completed twice".into()))?;
         if chunk.0 != 0 {
-            return Ok(false);
+            return Ok(());
         }
         let mut checkpoint = chunk.1.take();
         self.chunks.remove(&id);
@@ -854,7 +847,7 @@ impl Checkpoints {
             end = next;
         }
         self.chunks.insert(end, (0, checkpoint));
-        Ok(true)
+        Ok(())
     }
 
     fn ready(&mut self) -> Option<Checkpoint> {
@@ -1011,26 +1004,28 @@ mod tests {
     #[case::failed_prefix(true)]
     fn unordered_completion_keeps_prefix(#[case] fatal: bool) {
         let mut checkpoints = Checkpoints::default();
-        let first = checkpoints.push(
+        checkpoints.push(
+            0,
             2,
             Some(Checkpoint {
                 cursor: crate::import::source::Cursor::Key("2".into()),
                 consumed: 2,
             }),
         );
-        let second = checkpoints.push(
+        checkpoints.push(
+            1,
             1,
             Some(Checkpoint {
                 cursor: crate::import::source::Cursor::Key("3".into()),
                 consumed: 3,
             }),
         );
-        checkpoints.complete(second, 1).unwrap();
+        checkpoints.complete(1, 1).unwrap();
         assert!(checkpoints.ready().is_none());
-        checkpoints.complete(first, 1).unwrap();
+        checkpoints.complete(0, 1).unwrap();
         assert!(checkpoints.ready().is_none());
         if !fatal {
-            checkpoints.complete(first, 1).unwrap();
+            checkpoints.complete(0, 1).unwrap();
             assert_eq!(checkpoints.ready().unwrap().consumed, 3);
             assert!(checkpoints.chunks.is_empty());
         }
@@ -1049,14 +1044,30 @@ mod tests {
             resumed: 10,
             ..Default::default()
         };
-        let a1 = positions.push(2, offset("a", 2), false);
-        let a2 = positions.push(2, offset("a", 4), false);
-        let b1 = positions.push(3, offset("b", 3), false);
-        let b_end = positions.push(0, offset("b", 3), true);
-        positions.complete(b_end, 0).unwrap();
+        let a1 = ChunkId {
+            part: "a".into(),
+            sequence: 0,
+        };
+        let b1 = ChunkId {
+            part: "b".into(),
+            sequence: 1,
+        };
+        let a2 = ChunkId {
+            sequence: 2,
+            ..a1.clone()
+        };
+        let b_end = ChunkId {
+            sequence: 3,
+            ..b1.clone()
+        };
+        positions.push(&a1, 2, offset("a", 2), false);
+        positions.push(&b1, 3, offset("b", 3), false);
+        positions.push(&a2, 2, offset("a", 4), false);
+        positions.push(&b_end, 0, offset("b", 3), true);
+        positions.complete(&b_end, 0).unwrap();
         assert!(positions.ready().is_none());
 
-        positions.complete(b1, 3).unwrap();
+        positions.complete(&b1, 3).unwrap();
         let resume = positions.ready().unwrap();
         assert_eq!(resume.open, [offset("a", 0).unwrap()]);
         assert_eq!(
@@ -1064,9 +1075,9 @@ mod tests {
             (&["b".to_string()][..], 13)
         );
 
-        positions.complete(a2, 2).unwrap();
+        positions.complete(&a2, 2).unwrap();
         assert!(positions.ready().is_none());
-        positions.complete(a1, 2).unwrap();
+        positions.complete(&a1, 2).unwrap();
         let resume = positions.ready().unwrap();
         assert_eq!(resume.open, [offset("a", 4).unwrap()]);
         assert_eq!(
@@ -1074,51 +1085,54 @@ mod tests {
             (&["b".to_string()][..], 17)
         );
 
-        let a_end = positions.push(0, offset("a", 4), true);
-        positions.complete(a_end, 0).unwrap();
+        let a_end = ChunkId { sequence: 4, ..a1 };
+        positions.push(&a_end, 0, offset("a", 4), true);
+        positions.complete(&a_end, 0).unwrap();
         let resume = positions.ready().unwrap();
         assert_eq!(resume.open, [offset("b", 3).unwrap()]);
         assert!(resume.done.is_empty());
         assert_eq!(resume.consumed, 17);
-        assert!(positions.chunks.is_empty());
+        assert!(positions.parts.is_empty());
     }
 
     #[test]
     fn stalled_chunk_bounds_checkpoints() {
         let mut checkpoints = Checkpoints::default();
-        let first = checkpoints.push(1, None);
+        checkpoints.push(0, 1, None);
         for n in 1..10_000 {
-            let next = checkpoints.push(
+            checkpoints.push(
+                n,
                 1,
                 Some(Checkpoint {
                     cursor: crate::import::source::Cursor::Key(n.to_string()),
                     consumed: n,
                 }),
             );
-            checkpoints.complete(next, 1).unwrap();
+            checkpoints.complete(n, 1).unwrap();
             assert!(checkpoints.ready().is_none());
             assert_eq!(checkpoints.chunks.len(), 2);
         }
-        checkpoints.complete(first, 1).unwrap();
+        checkpoints.complete(0, 1).unwrap();
         assert_eq!(checkpoints.ready().unwrap().consumed, 9999);
     }
 
     #[test]
     fn sparse_chunks_keep_last_cursor() {
         let mut checkpoints = Checkpoints::default();
-        let first = checkpoints.push(1, None);
-        let second = checkpoints.push(
+        checkpoints.push(0, 1, None);
+        checkpoints.push(
+            1,
             1,
             Some(Checkpoint {
                 cursor: crate::import::source::Cursor::Key("2".into()),
                 consumed: 2,
             }),
         );
-        let third = checkpoints.push(1, None);
-        checkpoints.complete(third, 1).unwrap();
-        checkpoints.complete(first, 1).unwrap();
+        checkpoints.push(2, 1, None);
+        checkpoints.complete(2, 1).unwrap();
+        checkpoints.complete(0, 1).unwrap();
         assert!(checkpoints.ready().is_none());
-        checkpoints.complete(second, 1).unwrap();
+        checkpoints.complete(1, 1).unwrap();
         assert_eq!(checkpoints.ready().unwrap().consumed, 2);
     }
 
