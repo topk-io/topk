@@ -1647,6 +1647,71 @@ async fn many_files_import_every_row(ctx: &Ctx, #[case] readers: &str) {
 }
 
 #[rstest_ctx(Ctx)]
+async fn shards_import_every_file_once(ctx: &Ctx) {
+    for file in 0..9 {
+        ctx.cli.parquet(
+            &format!("part-{file}.parquet"),
+            &format!("SELECT ({file} * 1000 + i)::VARCHAR AS id, 't' AS text FROM range(100) t(i)"),
+        );
+    }
+    let from = format!("{}/*.parquet", ctx.cli.scratch().display());
+    let collection = ctx.collection("shards");
+    let mut rows = Vec::new();
+    for shard in ["1/2", "2/2"] {
+        let summary = ctx
+            .cli
+            .command()
+            .args([
+                "import",
+                &from,
+                "--to",
+                &collection,
+                "--shard",
+                shard,
+                "--yes",
+                "-o",
+                "json",
+            ])
+            .success()
+            .summary();
+        assert_eq!(summary.failed, 0);
+        assert_eq!(summary.rows % 100, 0, "a shard reads whole files");
+        rows.push(summary.rows);
+    }
+    assert!(rows.iter().all(|&rows| rows > 0), "{rows:?}");
+    assert_eq!(rows.iter().sum::<usize>(), 900);
+    let strong = Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong);
+    assert_eq!(
+        ctx.client
+            .collection(&collection)
+            .count(None, strong)
+            .await
+            .unwrap(),
+        900
+    );
+}
+
+#[rstest_ctx(Scratch)]
+async fn shard_needs_a_file_source(ctx: &Scratch) {
+    let run = ctx
+        .command()
+        .args([
+            "import",
+            "postgres://u:p@localhost:1/db#t",
+            "--to",
+            "c",
+            "--shard",
+            "1/2",
+            "--yes",
+        ])
+        .failure(1);
+    assert!(
+        run.stderr.contains("--shard splits a glob's files"),
+        "{run:?}"
+    );
+}
+
+#[rstest_ctx(Ctx)]
 async fn stopped_files_resume_every_row(ctx: &Ctx) {
     for file in 0..4 {
         ctx.cli.parquet(

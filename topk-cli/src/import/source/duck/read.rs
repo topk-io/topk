@@ -61,7 +61,10 @@ pub(super) fn files(
     settings: Readers,
     tx: &Sender,
 ) -> Result<(), Error> {
-    let files = source.list(file)?;
+    let mut files = source.list(file)?;
+    if let Some(shard) = settings.shard {
+        files.retain(|file| shard.takes(file));
+    }
     // Globs list in byte order, which is how the cursor compares.
     let mut planned = files.into_iter().filter_map(|file| match &resume {
         None => Some((file, 0)),

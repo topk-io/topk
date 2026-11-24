@@ -31,7 +31,10 @@ fn state() -> State {
             region: "dev".into(),
         },
         plan,
-        ReadOptions { max_memory: None },
+        ReadOptions {
+            max_memory: None,
+            shard: None,
+        },
         WriteOptions {
             continue_on_error: false,
             concurrency: Some(16),

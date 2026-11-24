@@ -249,7 +249,10 @@ impl Ctx {
                 region: self.client.config().region().unwrap().into(),
             },
             plan,
-            ReadOptions { max_memory: None },
+            ReadOptions {
+                max_memory: None,
+                shard: None,
+            },
             write,
         )
     }
