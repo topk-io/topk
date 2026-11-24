@@ -12,7 +12,7 @@ use tracing::{info, warn};
 use crate::client::ManagementClient;
 use crate::config::Config;
 use crate::import::plan::{collection_name, FieldSelection, Plan, Rename, Target};
-use crate::import::source::{Readers, Source, Uri};
+use crate::import::source::{Readers, Shard, Source, Uri};
 use crate::import::state::{Run, RunId, State};
 use crate::import::{Aimd, Error, Import, ReadOptions, WriteOptions};
 use crate::output::Output;
@@ -108,6 +108,12 @@ pub struct ReadArgs {
         help = "Memory for reading files and for upserts in flight; half of this machine's by default. More reads more files at once and sends more upserts at once"
     )]
     pub max_memory: Option<bytesize::ByteSize>,
+    #[arg(
+        long,
+        value_name = "SHARE/SHARES",
+        help = "Read one share of a glob's files, such as 1/3; run one import per share to split the work"
+    )]
+    pub shard: Option<Shard>,
     #[arg(long, hide = true, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=256))]
     pub readers: Option<usize>,
     #[arg(long, hide = true, value_name = "SIZE", default_value = "1GiB", value_parser = batch_bytes)]
@@ -126,6 +132,7 @@ impl ReadArgs {
                 .max_memory
                 .map(|size| size.as_u64())
                 .or(saved.and_then(|saved| saved.max_memory)),
+            shard: self.shard.or(saved.and_then(|saved| saved.shard)),
         }
     }
 
@@ -152,6 +159,7 @@ impl ReadArgs {
                 ((memory / 2 / self.reader_memory.as_u64()) as usize).clamp(1, 4 * cores)
             }),
             sample_files: self.sample_files,
+            shard: read.shard,
             chunk_bytes: self.chunk_bytes.as_u64(),
         };
         let window = (memory / 4 / write.batch_bytes.saturating_mul(3)).clamp(1, 1024) as usize;
@@ -411,6 +419,10 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
 
 impl ImportArgs {
     async fn source(&self, uri: Uri, config: &Config, readers: Readers) -> anyhow::Result<Source> {
+        anyhow::ensure!(
+            readers.shard.is_none() || matches!(uri, Uri::Files(_)),
+            "--shard splits a glob's files; {uri} is not a file source"
+        );
         if let Uri::Topk {
             project,
             collection: name,
@@ -521,6 +533,7 @@ mod tests {
         .unwrap();
         let saved = saved.map(|max_memory| ReadOptions {
             max_memory: Some(max_memory),
+            shard: None,
         });
         let read = cli.import.read.options(saved.as_ref());
         let write = cli.import.write.options(None).unwrap();

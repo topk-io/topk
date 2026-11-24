@@ -15,7 +15,7 @@ use tracing::{debug, info, warn};
 use crate::import::ddl;
 use crate::import::error::Error;
 use crate::import::plan::Target;
-use crate::import::source::{Cursor, ReadEvent, ReadStream, Resume, Source};
+use crate::import::source::{Cursor, ReadEvent, ReadStream, Resume, Shard, Source};
 use crate::import::state::{Progress, Run};
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
@@ -54,6 +54,7 @@ pub enum Event {
 pub struct ReadOptions {
     /// Bytes for open file readers and upserts in flight; half of the machine's when unset.
     pub max_memory: Option<u64>,
+    pub shard: Option<Shard>,
 }
 
 /// Saved with the run, so a resume writes the way the run started.
@@ -1177,7 +1178,10 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
-                ReadOptions { max_memory: None },
+                ReadOptions {
+                    max_memory: None,
+                    shard: None,
+                },
                 WriteOptions {
                     continue_on_error: false,
                     concurrency: Some(1),
@@ -1241,7 +1245,10 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
-                ReadOptions { max_memory: None },
+                ReadOptions {
+                    max_memory: None,
+                    shard: None,
+                },
                 WriteOptions {
                     continue_on_error: true,
                     concurrency: Some(1),
