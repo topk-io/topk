@@ -17,6 +17,7 @@ use crate::import::plan::Target;
 use super::uri::SourceUrl;
 use super::{ChunkStream, Cursor, Readers, Resume, Table};
 
+use super::file::local_path;
 use super::{File, Format, SourceLocation};
 pub use creds::aws_process_profile;
 use creds::secret;
@@ -176,7 +177,29 @@ impl Duckdb {
             .transpose()?)
     }
 
-    pub async fn discover(&self) -> Result<Table, Error> {
+    /// The files a glob matches, in byte order; a plain path is its own list.
+    fn list(&self, file: &File) -> Result<Vec<String>, Error> {
+        let path = file.glob();
+        if local_path(&path).is_some() {
+            return Ok(vec![path]);
+        }
+        let conn = self.connect()?;
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT file FROM glob('{}') ORDER BY 1",
+                lit(&path)
+            ))
+            .map_err(|e| read_error(&SourceLocation::from(file), None, e))?;
+        let files = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<_, _>>()
+            .map_err(|e| read_error(&SourceLocation::from(file), None, e))?;
+        Ok(files)
+    }
+
+    /// A glob over more than `sample` csv, json or parquet files is described by `sample`
+    /// of them, evenly spread from the first to the last.
+    pub async fn discover(&self, sample: usize) -> Result<Table, Error> {
         let source = self.clone();
         spawn_blocking(move || -> Result<Table, Error> {
             let file = match &source {
@@ -188,7 +211,16 @@ impl Duckdb {
             // A glob's schema is the union of its files' schemas, read one file per thread; order does not matter here.
             if file.is_some() { conn.execute_batch("SET threads = 16;")?; }
             let (from, select, key) = match &source {
-                Duckdb::Files(file) => (SourceLocation::from(file), Select::file(file.format, &file.glob()), None),
+                Duckdb::Files(file) => {
+                    let mut files = vec![file.glob()];
+                    if matches!(file.format, Format::Csv | Format::Json | Format::Parquet) {
+                        let (all, sample) = (source.list(file)?, sample.max(2));
+                        if all.len() > sample {
+                            files = (0..sample).map(|i| all[i * (all.len() - 1) / (sample - 1)].clone()).collect();
+                        }
+                    }
+                    (SourceLocation::from(file), Select::file(file.format, &files), None)
+                }
                 Duckdb::Postgres { object, .. } | Duckdb::Mysql { object, .. } | Duckdb::Sqlite { object, .. } => {
                     let hidden = match &source {
                         Duckdb::Postgres { .. } => "'information_schema', 'pg_catalog'",

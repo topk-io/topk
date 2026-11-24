@@ -45,12 +45,11 @@ async fn ragged_csv_keeps_its_header(ctx: &Scratch) {
         "ragged.csv",
         "id,name,price\n1,apple,1.20\n2,banana\n3,cherry,2.40,extra",
     );
-    let docs = json_documents(
-        &source(&from).await.unwrap(),
-        &target(&from, "id", [("name", FieldSpec::text(false))]),
-    )
-    .await
-    .unwrap();
+    let mut target = target(&from, "id", [("name", FieldSpec::text(false))]);
+    target.exclude = vec!["price".into(), "column3".into()];
+    let docs = json_documents(&source(&from).await.unwrap(), &target)
+        .await
+        .unwrap();
     assert_eq!(docs.len(), 3);
     assert_eq!(docs[1].1, json!({"_id": "2", "name": "banana"}));
 }
@@ -63,12 +62,11 @@ async fn multiline_ragged_csv(ctx: &Scratch, #[case] newline: &str) {
         "multiline.csv",
         &format!("name,id,price{newline}\"a{newline}b\",1,1.20{newline}short,2{newline}long,3,2.40,extra{newline}"),
     );
-    let docs = json_documents(
-        &source(&from).await.unwrap(),
-        &target(&from, "id", [("name", FieldSpec::text(false))]),
-    )
-    .await
-    .unwrap();
+    let mut target = target(&from, "id", [("name", FieldSpec::text(false))]);
+    target.exclude = vec!["price".into(), "column3".into()];
+    let docs = json_documents(&source(&from).await.unwrap(), &target)
+        .await
+        .unwrap();
     assert_eq!(
         docs,
         [
@@ -386,6 +384,42 @@ async fn files_read_side_by_side(ctx: &Scratch, #[case] count: usize) {
     }
     assert_eq!(opened, parts);
     assert!(read.values().all(|&(rows, last)| rows == 100 && last));
+}
+
+#[rstest_ctx(Scratch)]
+#[case::every_file(usize::MAX, true)]
+#[case::sampled_ends(2, false)]
+async fn unseen_columns_pass_through(
+    ctx: &Scratch,
+    #[case] sample_files: usize,
+    #[case] planned: bool,
+) {
+    for (file, extra) in [("a", ""), ("b", ", 7 AS extra"), ("c", "")] {
+        ctx.parquet(
+            &format!("mixed/{file}.parquet"),
+            &format!("SELECT '{file}' AS id, 't' AS text{extra}"),
+        );
+    }
+    let from = ctx.path("mixed/*.parquet").to_str().unwrap().to_string();
+    let mut source = source(&from).await.unwrap();
+    source.readers.sample_files = sample_files;
+    let target = Target::new(source.discover().await.unwrap(), Some("id")).unwrap();
+    assert_eq!(target.fields.contains_key("extra"), planned);
+    let documents = json_documents(&source, &target).await.unwrap();
+    let extras: Vec<_> = documents
+        .iter()
+        .map(|(_, document)| {
+            (
+                document["_id"].as_str().unwrap(),
+                document.get("extra").cloned(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        extras,
+        [("a", None), ("b", Some(json!(7))), ("c", None)],
+        "{documents:?}"
+    );
 }
 
 #[rstest_ctx(Scratch)]

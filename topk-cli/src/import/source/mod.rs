@@ -156,6 +156,8 @@ pub struct Resume {
 pub struct Readers {
     /// Files read at once; one keeps source order.
     pub count: usize,
+    /// Files whose schemas describe a glob.
+    pub sample_files: usize,
     /// Rows travel in chunks of at most this many bytes.
     pub chunk_bytes: u64,
 }
@@ -165,6 +167,7 @@ impl Readers {
     pub fn one() -> Self {
         Readers {
             count: 1,
+            sample_files: usize::MAX,
             chunk_bytes: u64::MAX,
         }
     }
@@ -214,7 +217,7 @@ impl Source {
                 info!("discovering source");
                 match &self.backend {
                     Backend::Es(es) => es.discover().await,
-                    Backend::Duck(duck) => duck.discover().await,
+                    Backend::Duck(duck) => duck.discover(self.readers.sample_files).await,
                     Backend::Mongo(mongo) => mongo.discover().await,
                     Backend::Topk(topk) => topk.discover().await,
                 }
@@ -269,6 +272,7 @@ impl Source {
             Backend::Mongo(mongo) => {
                 matches!(&target.from, SourceLocation::Object(name) if name == &mongo.object)
             }
+            Backend::Duck(Duckdb::Files(file)) => SourceLocation::from(file) == target.from,
             _ => self.discover().await?.from == target.from,
         };
         if !matches {

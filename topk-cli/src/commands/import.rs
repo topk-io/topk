@@ -114,6 +114,8 @@ pub struct ReadArgs {
     pub reader_memory: bytesize::ByteSize,
     #[arg(long, hide = true, value_name = "SIZE", default_value = "32MiB", value_parser = batch_bytes)]
     pub chunk_bytes: bytesize::ByteSize,
+    #[arg(long, hide = true, default_value = "100", value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(2..))]
+    pub sample_files: usize,
 }
 
 impl ReadArgs {
@@ -149,6 +151,7 @@ impl ReadArgs {
             count: self.readers.unwrap_or_else(|| {
                 ((memory / 2 / self.reader_memory.as_u64()) as usize).clamp(1, 4 * cores)
             }),
+            sample_files: self.sample_files,
             chunk_bytes: self.chunk_bytes.as_u64(),
         };
         let window = (memory / 4 / write.batch_bytes.saturating_mul(3)).clamp(1, 1024) as usize;
