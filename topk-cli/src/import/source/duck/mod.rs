@@ -210,12 +210,14 @@ impl Duckdb {
             let conn = source.connect()?;
             // A glob's schema is the union of its files' schemas, read one file per thread; order does not matter here.
             if file.is_some() { conn.execute_batch("SET threads = 16;")?; }
+            let mut complete = true;
             let (from, select, key) = match &source {
                 Duckdb::Files(file) => {
                     let mut files = vec![file.glob()];
                     if matches!(file.format, Format::Csv | Format::Json | Format::Parquet) {
                         let (all, sample) = (source.list(file)?, sample.max(2));
                         if all.len() > sample {
+                            complete = false;
                             files = (0..sample).map(|i| all[i * (all.len() - 1) / (sample - 1)].clone()).collect();
                         }
                     }
@@ -280,7 +282,7 @@ impl Duckdb {
                 }
                 columns.push((name.clone(), FieldSpec::text(false)));
             }
-            Ok(Table { from, columns, key, unnamed })
+            Ok(Table { from, columns, key, complete, unnamed })
         }).await?
     }
 
