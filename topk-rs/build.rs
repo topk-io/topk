@@ -111,6 +111,7 @@ fn build_topk_v1_protos() {
     for path in [
         "topk.control.v1.MultiVectorIndex.skip_smve",
         "topk.control.v1.MultiVectorIndex.encoding_version",
+        "topk.control.v1.MultiVectorIndex.prequantized",
     ] {
         builder = builder.field_attribute(path, "#[serde(default)]");
     }

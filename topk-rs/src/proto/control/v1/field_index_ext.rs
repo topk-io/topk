@@ -45,6 +45,7 @@ impl FieldIndex {
                 top_k,
                 skip_smve: false,
                 encoding_version: 0,
+                prequantized: false,
             })),
         }
     }
@@ -64,6 +65,14 @@ impl FieldIndex {
     pub fn skip_smve(mut self) -> Self {
         if let Some(field_index::Index::MultiVectorIndex(mvi)) = self.index.as_mut() {
             mvi.skip_smve = true;
+        }
+        self
+    }
+
+    /// Specify whether stored values are already quantized for this index.
+    pub fn prequantized(mut self, prequantized: bool) -> Self {
+        if let Some(field_index::Index::MultiVectorIndex(mvi)) = self.index.as_mut() {
+            mvi.prequantized = prequantized;
         }
         self
     }
