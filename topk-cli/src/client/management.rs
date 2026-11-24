@@ -5,7 +5,7 @@ use tonic::Status;
 
 use crate::auth::Auth;
 use crate::client::transport::Transport;
-use crate::client::AccessToken;
+use crate::client::{AccessToken, Error};
 use crate::config::Config;
 use crate::management::proto::collection_service_client::CollectionServiceClient;
 use crate::management::proto::data_plane_service_client::DataPlaneServiceClient;
@@ -63,12 +63,12 @@ impl ManagementClient {
 pub struct ProjectsClient(ProjectServiceClient<Transport>);
 
 impl ProjectsClient {
-    pub async fn list(&self) -> Result<Vec<Project>, Status> {
+    pub async fn list(&self) -> Result<Vec<Project>, Error> {
         let response = self.0.clone().list_projects(ListProjectsRequest {}).await?;
         Ok(response.into_inner().projects)
     }
 
-    pub async fn get(&self, project_id: &ProjectId) -> Result<Project, Status> {
+    pub async fn get(&self, project_id: &ProjectId) -> Result<Project, Error> {
         self.0
             .clone()
             .get_project(GetProjectRequest {
@@ -77,10 +77,10 @@ impl ProjectsClient {
             .await?
             .into_inner()
             .project
-            .ok_or_else(|| Status::internal("invalid proto"))
+            .ok_or_else(|| Error::Status(Status::internal("invalid proto")))
     }
 
-    pub async fn create(&self, name: &str) -> Result<Project, Status> {
+    pub async fn create(&self, name: &str) -> Result<Project, Error> {
         self.0
             .clone()
             .create_project(CreateProjectRequest {
@@ -89,10 +89,10 @@ impl ProjectsClient {
             .await?
             .into_inner()
             .project
-            .ok_or_else(|| Status::internal("invalid proto"))
+            .ok_or_else(|| Error::Status(Status::internal("invalid proto")))
     }
 
-    pub async fn delete(&self, project_id: &ProjectId) -> Result<(), Status> {
+    pub async fn delete(&self, project_id: &ProjectId) -> Result<(), Error> {
         self.0
             .clone()
             .delete_project(DeleteProjectRequest {
@@ -106,7 +106,7 @@ impl ProjectsClient {
 pub struct CollectionsClient(CollectionServiceClient<Transport>);
 
 impl CollectionsClient {
-    pub async fn get(&self, project_id: &ProjectId, name: &str) -> Result<Collection, Status> {
+    pub async fn get(&self, project_id: &ProjectId, name: &str) -> Result<Collection, Error> {
         self.0
             .clone()
             .get_collection(GetCollectionRequest {
@@ -116,14 +116,14 @@ impl CollectionsClient {
             .await?
             .into_inner()
             .collection
-            .ok_or_else(|| Status::internal("invalid proto"))
+            .ok_or_else(|| Error::Status(Status::internal("invalid proto")))
     }
 }
 
 pub struct RegionsClient(RegionServiceClient<Transport>);
 
 impl RegionsClient {
-    pub async fn list(&self) -> Result<Vec<String>, Status> {
+    pub async fn list(&self) -> Result<Vec<String>, Error> {
         let response = self.0.clone().list_regions(ListRegionsRequest {}).await?;
         Ok(response.into_inner().regions)
     }
@@ -132,7 +132,7 @@ impl RegionsClient {
 pub struct TokensClient(DataPlaneServiceClient<Transport>);
 
 impl TokensClient {
-    pub async fn mint(&self, project_id: &ProjectId) -> Result<AccessToken, Status> {
+    pub async fn mint(&self, project_id: &ProjectId) -> Result<AccessToken, Error> {
         let response = self
             .0
             .clone()
@@ -146,7 +146,7 @@ impl TokensClient {
             expires_at: response
                 .expires_at
                 .try_into()
-                .map_err(|_| Status::internal("invalid proto"))?,
+                .map_err(|_| Error::Status(Status::internal("invalid proto")))?,
         })
     }
 }
@@ -160,7 +160,7 @@ impl UsageClient {
         end_time: DateTime<Utc>,
         project_id: Option<&ProjectId>,
         collection: Option<String>,
-    ) -> Result<Vec<UsageMetric>, Status> {
+    ) -> Result<Vec<UsageMetric>, Error> {
         let response = self
             .0
             .clone()

@@ -10,6 +10,7 @@ use tonic::transport::Channel;
 use tower::{BoxError, Service, ServiceExt};
 
 use crate::auth::Auth;
+use crate::client::Error;
 
 // Authenticated transport
 #[derive(Clone)]
@@ -41,7 +42,10 @@ impl Service<Request<Body>> for Transport {
         let auth = self.auth.clone();
         let channel = self.channel.clone();
         Box::pin(async move {
-            let token = auth.access_token().await?;
+            let token = auth
+                .access_token()
+                .await
+                .map_err(|e| Error::AccessToken(Arc::new(e)))?;
             let mut header = HeaderValue::from_str(&format!("Bearer {token}"))?;
             header.set_sensitive(true);
             request.headers_mut().insert(AUTHORIZATION, header);

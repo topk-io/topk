@@ -9,7 +9,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::{Endpoint, Server};
 use tonic::{Code, Request, Response, Status};
 
-use topk::client::ManagementClient;
+use topk::client::{Error, ManagementClient};
 use topk::management::proto::collection_service_server::{
     CollectionService, CollectionServiceServer,
 };
@@ -224,8 +224,8 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .create("new-project")
         .await
         .unwrap_err();
-    assert_eq!(error.code(), Code::Unavailable);
-    assert_eq!(error.message(), "try later");
+    assert!(matches!(&error, Error::Status(status) if status.code() == Code::Unavailable));
+    assert_eq!(error.to_string(), "try later");
     ctx.request("create", ACCESS_TOKEN).await;
     assert!(ctx.requests.try_recv().is_err());
     assert!(ctx.oauth.requests.try_recv().is_err());
@@ -252,8 +252,8 @@ async fn existing_service_client_refreshes_and_observes_logout() {
     ctx.request("regions", "renewed").await;
     ctx.oauth.auth(ctx.dir.path()).logout().await.unwrap();
     let error = regions.list().await.unwrap_err();
-    assert_eq!(error.code(), Code::Unknown);
-    assert!(error.message().contains("topk login"));
+    assert!(matches!(error, Error::AccessToken(_)));
+    assert!(error.to_string().contains("topk login"));
     assert!(ctx.requests.try_recv().is_err());
     assert!(ctx.oauth.requests.try_recv().is_err());
 }
@@ -282,28 +282,25 @@ async fn concurrent_service_calls_refresh_once() {
 async fn authentication_failures_never_reach_management_server() {
     let mut ctx = Fixture::new().await;
     let error = ctx.client.projects().list().await.unwrap_err();
-    assert_eq!(error.code(), Code::Unknown);
-    assert!(error.message().contains("not logged in"));
-    assert!(std::error::Error::source(&error).is_some());
+    assert!(matches!(error, Error::AccessToken(_)));
+    assert_eq!(error.to_string(), "not logged in. Run `topk login`.");
     ctx.login(0).await;
     ctx.oauth.reply(503, json!({"error": "server_error"})).await;
     let error = ctx.client.projects().list().await.unwrap_err();
-    assert_eq!(error.code(), Code::Unknown);
-    assert!(error.message().contains("refreshing the access token"));
-    assert!(anyhow::Error::new(error)
-        .chain()
-        .any(|cause| cause.to_string().contains("server_error")));
+    assert!(matches!(error, Error::AccessToken(_)));
+    let message = error.to_string();
+    assert!(message.contains("refreshing the access token"), "{message}");
+    assert!(message.contains("server_error"), "{message}");
     ctx.oauth.request().await;
     assert!(ctx.requests.try_recv().is_err());
     ctx.oauth
         .reply(400, json!({"error": "invalid_grant"}))
         .await;
     let error = ctx.client.projects().list().await.unwrap_err();
-    assert_eq!(error.code(), Code::Unknown);
+    assert!(matches!(error, Error::AccessToken(_)));
     assert!(error
-        .message()
+        .to_string()
         .contains("session expired. Run `topk login`."));
-    assert!(std::error::Error::source(&error).is_some());
     ctx.oauth.request().await;
     assert!(ctx.requests.try_recv().is_err());
 }

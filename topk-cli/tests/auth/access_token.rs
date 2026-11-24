@@ -14,7 +14,7 @@ use tonic::transport::{Endpoint, Server};
 use tonic::{Request, Response, Status};
 
 use topk::auth::{Auth, OAuthConfig};
-use topk::client::{AccessTokenProvider, ManagementClient};
+use topk::client::{AccessTokenProvider, Error as ClientError, ManagementClient};
 use topk::config::Config;
 use topk::management::proto::data_plane_service_server::{
     DataPlaneService, DataPlaneServiceServer,
@@ -444,10 +444,10 @@ async fn rejected_account_session_suggests_login() {
         .unwrap();
     let error = ctx.provider("p1").token().await.err().unwrap();
     assert!(error.to_string().contains("Run `topk login`"));
-    assert_eq!(
-        error.downcast_ref::<Status>().unwrap().code(),
-        tonic::Code::Unauthenticated
-    );
+    assert!(matches!(
+        error.downcast_ref::<ClientError>(),
+        Some(ClientError::Status(status)) if status.code() == tonic::Code::Unauthenticated
+    ));
     ctx.request("p1").await;
 }
 
@@ -512,10 +512,10 @@ async fn failed_mint_stops_upsert_without_retrying() {
     let Error::Interceptor(source) = error else {
         panic!("expected interceptor error, got {error:?}");
     };
-    assert_eq!(
-        source.downcast_ref::<Status>().unwrap().code(),
-        tonic::Code::Unavailable
-    );
+    assert!(matches!(
+        source.downcast_ref::<ClientError>(),
+        Some(ClientError::Status(status)) if status.code() == tonic::Code::Unavailable
+    ));
     ctx.request("p1").await;
     assert!(ctx.requests.try_recv().is_err());
 }
