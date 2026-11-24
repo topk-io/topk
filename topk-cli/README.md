@@ -291,7 +291,7 @@ topk import --to <COLLECTION> <SOURCE> [OPTIONS]
 | `--limit <LIMIT>` | Read at most this many rows |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
 | `--continue-on-error` | Skip rows that fail instead of stopping, listing each in a report file |
-| `-c`, `--concurrency <N>` | Concurrent upserts in flight, budgeted across the whole run (default `16`) |
+| `-c`, `--concurrency <N>` | Maximum concurrent upserts (default `64`). The window starts at 1. With another batch waiting, it tests a larger window and keeps it when acknowledged bytes/s increase proportionally more than batch p99 latency. Throttling reduces the window. |
 | `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 

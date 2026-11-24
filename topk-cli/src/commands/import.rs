@@ -14,7 +14,7 @@ use crate::config::Config;
 use crate::import::plan::{collection_name, FieldSelection, Plan, Rename, Target};
 use crate::import::source::{Source, Uri};
 use crate::import::state::{Run, RunId, State};
-use crate::import::{Error, Import, WriteOptions};
+use crate::import::{Aimd, Error, Import, WriteOptions};
 use crate::output::Output;
 use crate::scope::ScopeArgs;
 use crate::util::Interrupted;
@@ -110,9 +110,9 @@ pub struct WriteArgs {
         short = 'c',
         long,
         value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=1024),
-        default_value = "16",
+        default_value = "64",
         default_value_if("resume", ArgPredicate::IsPresent, None::<&str>),
-        help = "Concurrent upserts in flight, budgeted across the whole run"
+        help = "Most upserts in flight across the whole run; the window starts at 1 and adapts up to this"
     )]
     pub concurrency: Option<usize>,
     #[arg(
@@ -125,6 +125,16 @@ pub struct WriteArgs {
         help = "Target document bytes per partition batch"
     )]
     pub batch_bytes: Option<bytesize::ByteSize>,
+    #[arg(long, hide = true, default_value = "8", value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=1024))]
+    pub window_start: usize,
+    #[arg(long, hide = true, default_value = "0.9", value_parser = window_cut)]
+    pub window_cut: f64,
+    #[arg(long, hide = true, default_value = "0.1", value_parser = window_grow)]
+    pub window_grow: f64,
+    #[arg(long, hide = true, default_value = "0.05", value_parser = window_grow)]
+    pub window_gain: f64,
+    #[arg(long, hide = true, default_value = "3", value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=64))]
+    pub window_rounds: usize,
 }
 
 impl WriteArgs {
@@ -292,7 +302,15 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
     ui.start(directory.join(format!("{}.rejected.jsonl", import.run().id)))?;
     let mut refresh = tokio::time::interval(Duration::from_millis(250));
     refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let execution = import.execute();
+    let window = import.run().state().write.concurrency;
+    let execution = import.execute(Aimd {
+        start: args.write.window_start,
+        max: window,
+        cut: args.write.window_cut,
+        grow: args.write.window_grow,
+        gain: args.write.window_gain,
+        rounds: args.write.window_rounds,
+    });
     let interrupt = tokio::signal::ctrl_c();
     futures::pin_mut!(execution, interrupt);
     loop {
@@ -365,6 +383,20 @@ fn batch_bytes(raw: &str) -> Result<bytesize::ByteSize, String> {
     }
 }
 
+fn window_cut(raw: &str) -> Result<f64, String> {
+    match raw.parse::<f64>().map_err(|e| e.to_string())? {
+        cut if cut > 0.0 && cut < 1.0 => Ok(cut),
+        _ => Err("must be between 0 and 1, exclusive".into()),
+    }
+}
+
+fn window_grow(raw: &str) -> Result<f64, String> {
+    match raw.parse::<f64>().map_err(|e| e.to_string())? {
+        grow if grow.is_finite() && grow > 0.0 => Ok(grow),
+        _ => Err("must be positive".into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use clap::Parser;
@@ -379,7 +411,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::defaults(&["x.parquet", "--to", "c"], None, (false, 16, 1_048_576))]
+    #[case::defaults(&["x.parquet", "--to", "c"], None, (false, 64, 1_048_576))]
     #[case::flags(&["x.parquet", "--to", "c", "-c", "2", "-b", "32"], None, (false, 2, 32))]
     #[case::resume_keeps_saved(&["--resume", "1234abcd"], Some((true, 2, 32)), (true, 2, 32))]
     #[case::resume_flag_replaces(&["--resume", "1234abcd", "-c", "4"], Some((true, 2, 32)), (true, 4, 32))]
@@ -401,5 +433,18 @@ mod tests {
             (got.continue_on_error, got.concurrency, got.batch_bytes),
             expected
         );
+    }
+
+    #[rstest]
+    #[case::cut_one(&["--window-cut", "1"])]
+    #[case::cut_nan(&["--window-cut", "NaN"])]
+    #[case::grow_zero(&["--window-grow", "0"])]
+    #[case::grow_infinite(&["--window-grow", "inf"])]
+    fn window_flags_rejected(#[case] flags: &[&str]) {
+        let args = ["topk", "x.parquet", "--to", "c"]
+            .iter()
+            .chain(flags)
+            .copied();
+        assert!(Cli::try_parse_from(args).is_err());
     }
 }

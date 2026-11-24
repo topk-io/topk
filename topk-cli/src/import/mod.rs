@@ -12,4 +12,4 @@ pub const SEMANTIC_TEXT_LIMIT: usize = 32768;
 
 pub use coerce::floats;
 pub use error::Error;
-pub use execution::{Event, Import, Outcome, WriteOptions};
+pub use execution::{Aimd, Event, Import, Outcome, WriteOptions};

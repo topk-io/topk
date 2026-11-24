@@ -20,12 +20,21 @@ use topk::host::Host;
 use topk::import::plan::{Field, Plan, Target};
 use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
-use topk::import::{Error, WriteOptions};
+use topk::import::{Aimd, Error, WriteOptions};
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document};
 use topk_rs::Client;
+
+pub const AIMD: Aimd = Aimd {
+    start: 1,
+    max: 64,
+    cut: 0.9,
+    grow: 0.1,
+    gain: 0.05,
+    rounds: 3,
+};
 
 /// A flag group as the CLI reads it from the environment.
 pub fn from_env<T: Args + FromArgMatches>() -> T {
