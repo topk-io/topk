@@ -7,12 +7,11 @@ use tokio::sync::mpsc;
 use crate::import::document::id_string;
 use crate::import::error::Error;
 use crate::import::plan::Target;
-use crate::import::source::file::local_path;
 use crate::import::source::{Chunk, Cursor, File, Readers, Record, SourceLocation};
 
 use super::arrow;
 use super::select::Select;
-use super::{lit, read_error, Duckdb};
+use super::{read_error, Duckdb};
 
 pub(super) type Sender = mpsc::Sender<Chunk>;
 
@@ -62,22 +61,7 @@ pub(super) fn files(
     settings: Readers,
     tx: &Sender,
 ) -> Result<(), Error> {
-    let path = &file.glob();
-    let files: Vec<String> = match local_path(path).is_some() {
-        true => vec![path.clone()],
-        false => {
-            let conn = source.connect()?;
-            let mut stmt = conn
-                .prepare(&format!(
-                    "SELECT file FROM glob('{}') ORDER BY 1",
-                    lit(path)
-                ))
-                .map_err(|e| read_error(&SourceLocation::from(file), None, e))?;
-            stmt.query_map([], |row| row.get(0))?
-                .collect::<Result<_, _>>()
-                .map_err(|e| read_error(&SourceLocation::from(file), None, e))?
-        }
-    };
+    let files = source.list(file)?;
     // Globs list in byte order, which is how the cursor compares.
     let mut planned = files.into_iter().filter_map(|file| match &resume {
         None => Some((file, 0)),
@@ -199,9 +183,9 @@ impl Plan {
         limit: Option<u64>,
     ) -> Result<Plan, Error> {
         Ok(Plan {
-            sql: Select::file(file.format, &path)
+            sql: Select::file(file.format, std::slice::from_ref(&path))
                 .constants(file.path_values(&path)?)
-                .existing_columns(target.source_columns())
+                .except(target.exclude.iter().map(String::as_str))
                 .filter(target.filter.as_deref())
                 .limit(limit)
                 .offset(offset)
