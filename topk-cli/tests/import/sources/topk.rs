@@ -1,4 +1,4 @@
-use crate::import::common::{refused, Ctx};
+use crate::import::common::{refused, Ctx, AIMD};
 use futures::TryStreamExt;
 use std::collections::HashMap;
 use test_macros::rstest_ctx;
@@ -156,7 +156,7 @@ async fn copies_native_values(ctx: &Ctx) {
     let import = Import::start(source, ctx.client.clone(), run, create)
         .await
         .unwrap();
-    import.execute().try_collect::<Vec<_>>().await.unwrap();
+    import.execute(AIMD).try_collect::<Vec<_>>().await.unwrap();
     let copied = ctx
         .client
         .collection(&dest)

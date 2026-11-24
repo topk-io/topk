@@ -5,7 +5,9 @@ use std::time::{Duration, Instant};
 use futures::{Stream, TryStreamExt};
 use indexmap::IndexMap;
 use prost::Message;
+use rand::Rng;
 use tokio::task::JoinSet;
+use topk_rs::client::retry::RetryConfig;
 use topk_rs::proto::v1::data::Document;
 use topk_rs::{Client, CollectionClient};
 use tracing::{debug, info, warn};
@@ -52,6 +54,20 @@ pub struct WriteOptions {
     pub continue_on_error: bool,
     pub concurrency: usize,
     pub batch_bytes: u64,
+}
+
+/// The window opens at `start` and grows up to `max` unless the run names a concurrency.
+/// Until the first throttle it doubles after each window of responses. After it, a probe
+/// adds a fraction `grow`, is judged over `rounds` windows and stays when throughput rose by
+/// the fraction `gain`. A throttle retains `cut` of the window.
+#[derive(Clone, Copy, Debug)]
+pub struct Aimd {
+    pub start: usize,
+    pub max: usize,
+    pub cut: f64,
+    pub grow: f64,
+    pub gain: f64,
+    pub rounds: usize,
 }
 
 pub struct Import {
@@ -133,12 +149,15 @@ impl Import {
         }
     }
 
-    pub fn execute(self) -> impl Stream<Item = Result<Event, Error>> {
+    pub fn execute(self, aimd: Aimd) -> impl Stream<Item = Result<Event, Error>> {
         async_stream::try_stream! {
             let options = self.run.state().write.clone();
             let name = self.run.state().plan.collection.clone();
             let target = self.run.state().plan.target.clone();
             let client = &self.client;
+            let retry = client.config().retry_config().clone();
+            let upserts = Client::new(client.config().clone().with_retry_config(RetryConfig { max_retries: 0, ..retry.clone() }));
+            let window = Arc::new(Mutex::new(Window::new(options.concurrency, aimd)));
             let consumed = match &self.run.state().progress {
                 Some(Progress::After(checkpoint)) => checkpoint.consumed,
                 _ => 0,
@@ -154,16 +173,25 @@ impl Import {
             let mut inflight = JoinSet::new();
             let mut checkpoints = Checkpoints::default();
             let mut eof = false;
+            let mut pending = None;
             yield Event::Progress { written, bytes };
             loop {
                 if let Some(checkpoint) = checkpoints.ready() {
                     state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint))?;
                 }
                 if eof && inflight.is_empty() { break; }
-                let next = tokio::select! {
-                    biased;
-                    completed = inflight.join_next(), if !inflight.is_empty() => Next::Written(completed),
-                    next = feed.try_next(), if !eof && inflight.len() < options.concurrency => Next::Feed(next),
+                let (admits, probe) = {
+                    let window = lock(&window);
+                    (window.admits(inflight.len()), window.limit < window.max || window.previous.is_some())
+                };
+                let next = if admits && pending.is_some() {
+                    Next::Feed(Ok(pending.take()))
+                } else {
+                    tokio::select! {
+                        biased;
+                        completed = inflight.join_next(), if !inflight.is_empty() => Next::Written(completed),
+                        next = feed.try_next(), if !eof && pending.is_none() && (admits || probe) => Next::Feed(next),
+                    }
                 };
                 match next {
                     Next::Written(completed) => {
@@ -191,13 +219,22 @@ impl Import {
                             yield Event::Skipped { row: Some(row), error };
                         }
                         Some(Feed::Batch { partition, batch }) => {
+                            let slot = {
+                                let mut window = lock(&window);
+                                if !window.admits(inflight.len()) {
+                                    window.backlogged();
+                                    pending = Some(Feed::Batch { partition, batch });
+                                    continue;
+                                }
+                                window.slot()
+                            };
                             if create {
                                 Self::create(client, &name, &target).await?;
                                 create = false;
                             }
-                            let mut collection = client.collection(&name);
+                            let mut collection = upserts.collection(&name);
                             if let Some(partition) = partition { collection = collection.partition(partition); }
-                            inflight.spawn(Self::write(collection, batch, options.continue_on_error, Arc::clone(&state)));
+                            inflight.spawn(Self::write(collection, batch, options.continue_on_error, retry.clone(), Arc::clone(&window), slot, Arc::clone(&state)));
                         }
                     },
                 }
@@ -297,6 +334,9 @@ impl Import {
         collection: CollectionClient,
         batch: Batch,
         continue_on_error: bool,
+        retry: RetryConfig,
+        window: Arc<Mutex<Window>>,
+        mut slot: Slot,
         _run: Arc<Mutex<Run>>,
     ) -> BatchOutcome {
         let mut outcome = BatchOutcome {
@@ -304,21 +344,33 @@ impl Import {
             ..Default::default()
         };
         let count = batch.docs.len();
-        let retry = continue_on_error.then(|| batch.docs.clone());
-        match (collection.upsert(batch.docs).await, retry) {
-            (Ok(_), _) => {
+        match Self::upsert(
+            &collection,
+            &batch.docs,
+            &retry,
+            &window,
+            &mut slot,
+            Some(batch.bytes),
+        )
+        .await
+        {
+            Ok(()) => {
                 outcome.written = count;
                 outcome.bytes = batch.bytes;
             }
-            (Err(error @ topk_rs::Error::DocumentValidationError(_)), Some(_)) if count == 1 => {
+            Err(error @ topk_rs::Error::DocumentValidationError(_))
+                if continue_on_error && count == 1 =>
+            {
                 outcome.skipped.push(error.into())
             }
-            (Err(topk_rs::Error::DocumentValidationError(_)), Some(docs)) => {
+            Err(topk_rs::Error::DocumentValidationError(_)) if continue_on_error => {
                 debug!(count, "retrying rejected batch individually");
-                for doc in docs {
+                // One batch must not grow the window once per document.
+                for doc in batch.docs {
                     let bytes = doc.encoded_len() as u64;
-                    match collection.upsert(vec![doc]).await {
-                        Ok(_) => {
+                    match Self::upsert(&collection, &[doc], &retry, &window, &mut slot, None).await
+                    {
+                        Ok(()) => {
                             outcome.written += 1;
                             outcome.bytes += bytes;
                         }
@@ -332,10 +384,180 @@ impl Import {
                     }
                 }
             }
-            (Err(error), _) => outcome.error = Some(error.into()),
+            Err(error) => outcome.error = Some(error.into()),
         }
         outcome
     }
+
+    /// Retries a throttled or transient failure until the retry timeout; a throttle also cuts the
+    /// window. The slot stays taken while it waits.
+    async fn upsert(
+        collection: &CollectionClient,
+        docs: &[Document],
+        retry: &RetryConfig,
+        window: &Mutex<Window>,
+        slot: &mut Slot,
+        bytes: Option<u64>,
+    ) -> Result<(), topk_rs::Error> {
+        let started = Instant::now();
+        let mut delay = Duration::ZERO;
+        loop {
+            let error = match collection.upsert(docs.to_vec()).await {
+                Ok(_) => {
+                    if let Some(bytes) = bytes {
+                        lock(window).success(*slot, bytes, Instant::now());
+                    }
+                    return Ok(());
+                }
+                Err(error @ (topk_rs::Error::SlowDown(_) | topk_rs::Error::QuotaExceeded(_))) => {
+                    lock(window).throttled(slot);
+                    error
+                }
+                Err(error) if error.is_retryable() => error,
+                Err(error) => return Err(error),
+            };
+            if started.elapsed() >= retry.timeout {
+                return Err(error);
+            }
+            let base = retry.backoff.init_backoff;
+            delay = rand::thread_rng()
+                .gen_range(base..=3 * delay.max(base))
+                .min(retry.backoff.max_backoff);
+            debug!(%error, ?delay, "retrying upsert");
+            tokio::time::sleep(delay).await;
+        }
+    }
+}
+
+struct Window {
+    limit: usize,
+    max: usize,
+    aimd: Aimd,
+    cuts: u64,
+    settle: usize,
+    waiting: bool,
+    generation: u64,
+    first_ack: Option<Instant>,
+    bytes: u64,
+    acks: usize,
+    previous: Option<(usize, f64)>,
+}
+
+impl Window {
+    fn new(max: usize, aimd: Aimd) -> Self {
+        Self {
+            limit: aimd.start.min(max),
+            max,
+            aimd,
+            cuts: 0,
+            settle: 0,
+            waiting: false,
+            generation: 0,
+            first_ack: None,
+            bytes: 0,
+            acks: 0,
+            previous: None,
+        }
+    }
+
+    fn admits(&self, inflight: usize) -> bool {
+        inflight < self.limit
+    }
+
+    fn backlogged(&mut self) {
+        self.waiting = true;
+    }
+
+    fn slot(&self) -> Slot {
+        Slot {
+            generation: self.generation,
+            cut: self.cuts,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.generation += 1;
+        self.first_ack = None;
+        self.bytes = 0;
+        self.acks = 0;
+        self.waiting = false;
+    }
+
+    fn success(&mut self, slot: Slot, bytes: u64, now: Instant) {
+        if slot.cut == self.cuts {
+            self.settle = self.settle.saturating_sub(1);
+        }
+        if slot.generation != self.generation || (self.limit == self.max && self.previous.is_none())
+        {
+            return;
+        }
+        let start = match self.first_ack {
+            Some(start) => start,
+            None => {
+                self.first_ack = Some(now);
+                return;
+            }
+        };
+        self.bytes += bytes;
+        self.acks += 1;
+        let startup = self.cuts == 0;
+        let rounds = match startup {
+            true => 1,
+            false => self.aimd.rounds,
+        };
+        if self.acks < self.limit.saturating_mul(rounds) || now == start {
+            return;
+        }
+        let rate = self.bytes as f64 / now.duration_since(start).as_secs_f64();
+        let measured = self.limit;
+        if let Some((limit, baseline)) = self.previous.take() {
+            if !self.waiting || rate < baseline * (1.0 + self.aimd.gain) {
+                self.limit = limit;
+            }
+        }
+        if self.limit == measured && self.waiting && self.limit < self.max {
+            self.previous = (!startup).then_some((self.limit, rate));
+            let step = match startup {
+                true => self.limit.max(self.max.isqrt().saturating_sub(1)),
+                false => (self.limit as f64 * self.aimd.grow).ceil() as usize,
+            };
+            self.limit = self.limit.saturating_add(step).min(self.max);
+        }
+        debug!(
+            measured,
+            bytes_per_sec = rate,
+            limit = self.limit,
+            "upsert window probe"
+        );
+        self.reset();
+    }
+
+    /// The slot's retry counts toward the window after this response.
+    fn throttled(&mut self, slot: &mut Slot) {
+        if slot.cut == self.cuts {
+            self.settle = self.settle.saturating_sub(1);
+            if self.settle == 0 {
+                self.limit = ((self.limit as f64 * self.aimd.cut) as usize).max(1);
+                self.previous = None;
+                self.reset();
+                self.cuts += 1;
+                self.settle = self.limit;
+                debug!(limit = self.limit, cuts = self.cuts, "upsert window cut");
+            }
+        }
+        slot.cut = self.cuts;
+    }
+}
+
+/// A batch's place in the window, taken when it is sent.
+#[derive(Clone, Copy)]
+struct Slot {
+    generation: u64,
+    cut: u64,
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 enum Feed {
@@ -446,6 +668,110 @@ mod tests {
     use topk_rs::ClientConfig;
 
     use super::*;
+
+    const AIMD: Aimd = Aimd {
+        start: 1,
+        max: 64,
+        cut: 0.9,
+        grow: 0.1,
+        gain: 0.05,
+        rounds: 3,
+    };
+
+    /// Responses of `bytes` each, 100 ms apart, until the window is judged.
+    fn judged(window: &mut Window, now: &mut Instant, bytes: u64) {
+        window.backlogged();
+        let generation = window.generation;
+        while window.generation == generation {
+            *now += Duration::from_millis(100);
+            window.success(window.slot(), bytes, *now);
+        }
+    }
+
+    #[rstest]
+    #[case::one_window_in_startup(0, 5)]
+    #[case::rounds_after_a_cut(1, 13)]
+    fn responses_before_a_judgement(#[case] cuts: u64, #[case] responses: usize) {
+        let mut window = Window::new(64, AIMD);
+        (window.limit, window.cuts) = (4, cuts);
+        window.backlogged();
+        let mut now = Instant::now();
+        for _ in 1..responses {
+            now += Duration::from_millis(100);
+            window.success(window.slot(), 100, now);
+            assert_eq!(window.generation, 0);
+        }
+        now += Duration::from_millis(100);
+        window.success(window.slot(), 100, now);
+        assert_eq!(window.generation, 1);
+    }
+
+    #[test]
+    fn opens_at_start_within_max() {
+        let start = |start, max| Window::new(max, Aimd { start, ..AIMD }).limit;
+        assert_eq!((start(8, 64), start(8, 2)), (8, 2));
+    }
+
+    #[rstest]
+    #[case::flat_rate(100, 2)]
+    #[case::below_gain(103, 2)]
+    #[case::throughput_grew(130, 4)]
+    #[case::throughput_fell(90, 2)]
+    fn throughput_probe(#[case] bytes: u64, #[case] expected: usize) {
+        let mut window = Window::new(8, AIMD);
+        (window.limit, window.cuts) = (2, 1);
+        let mut now = Instant::now();
+        for size in [100, bytes] {
+            judged(&mut window, &mut now, size);
+        }
+        assert_eq!(window.limit, expected);
+    }
+
+    #[test]
+    fn startup_doubles_until_throttled() {
+        let mut window = Window::new(128, AIMD);
+        let mut now = Instant::now();
+        for (expected, bytes) in [(11, 100), (22, 90), (44, 90)] {
+            judged(&mut window, &mut now, bytes);
+            assert_eq!(window.limit, expected);
+        }
+        window.throttled(&mut window.slot());
+        assert_eq!(window.limit, 39);
+        for (expected, bytes) in [(43, 100), (39, 103)] {
+            judged(&mut window, &mut now, bytes);
+            assert_eq!(window.limit, expected);
+        }
+    }
+
+    #[test]
+    fn throttle_invalidates_probe() {
+        let mut window = Window::new(64, AIMD);
+        window.limit = 20;
+        let mut first = window.slot();
+        let mut stale = first;
+        window.previous = Some((10, 1.0));
+        window.throttled(&mut first);
+        window.throttled(&mut stale);
+        assert_eq!(window.limit, 18);
+        assert!(window.previous.is_none());
+        for _ in 0..18 {
+            window.success(window.slot(), 100, Instant::now());
+        }
+        window.throttled(&mut first);
+        assert_eq!(window.limit, 16);
+        assert_eq!(window.acks, 0);
+    }
+
+    #[test]
+    fn source_limited_window_stays_put() {
+        let mut window = Window::new(8, AIMD);
+        for _ in 0..10 {
+            window.success(window.slot(), 100, Instant::now());
+        }
+        assert_eq!(window.limit, 1);
+        window.throttled(&mut window.slot());
+        assert!(window.admits(0));
+    }
 
     fn test_plan() -> crate::import::plan::Plan {
         crate::import::plan::Plan {
@@ -614,7 +940,7 @@ mod tests {
             scan: chunks,
             create: false,
         };
-        let mut execution = Box::pin(import.execute());
+        let mut execution = Box::pin(import.execute(AIMD));
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
@@ -673,7 +999,7 @@ mod tests {
             scan: chunks,
             create: false,
         };
-        let mut execution = Box::pin(import.execute());
+        let mut execution = Box::pin(import.execute(AIMD));
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })

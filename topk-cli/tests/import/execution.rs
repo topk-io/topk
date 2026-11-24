@@ -12,7 +12,7 @@ use topk_rs::Error as SdkError;
 use topk_rs::proto::v1::data::{stage::sort_stage::SortOrder, ConsistencyLevel};
 use topk_rs::query::{field, fns, select};
 
-use crate::import::common::{source, target, Ctx};
+use crate::import::common::{source, target, Ctx, AIMD};
 
 #[rstest_ctx(Ctx)]
 async fn prepares_then_executes(ctx: &Ctx) {
@@ -48,7 +48,7 @@ async fn prepares_then_executes(ctx: &Ctx) {
         .await
         .unwrap();
     assert!(!ctx.exists(&collection).await);
-    let events: Vec<_> = import.execute().try_collect().await.unwrap();
+    let events: Vec<_> = import.execute(AIMD).try_collect().await.unwrap();
     assert_eq!(
         events
             .iter()
@@ -113,7 +113,7 @@ async fn resumes_saved_prefix(ctx: &Ctx) {
     let import = Import::resume(source, ctx.client.clone(), run)
         .await
         .unwrap();
-    let events: Vec<_> = import.execute().try_collect().await.unwrap();
+    let events: Vec<_> = import.execute(AIMD).try_collect().await.unwrap();
     assert_eq!(
         events
             .iter()
@@ -197,7 +197,7 @@ async fn backend_rejections(
         .await
         .unwrap();
     import.run().save().unwrap();
-    let result: Result<Vec<_>, _> = import.execute().try_collect().await;
+    let result: Result<Vec<_>, _> = import.execute(AIMD).try_collect().await;
     assert_eq!(result.is_ok(), continue_on_error);
     match result {
         Ok(events) => {
@@ -299,7 +299,7 @@ async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
         )
         .await
         .unwrap();
-    let result: Result<Vec<_>, _> = import.execute().try_collect().await;
+    let result: Result<Vec<_>, _> = import.execute(AIMD).try_collect().await;
     if conflict {
         assert!(matches!(result, Err(Error::SchemaMismatch(_))));
         assert!(ctx.docs(&collection, ["1"]).await.is_empty());
@@ -373,7 +373,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
     );
     import.run().save().unwrap();
     if resume {
-        let failed = import.execute().try_collect::<Vec<_>>().await;
+        let failed = import.execute(AIMD).try_collect::<Vec<_>>().await;
         assert!(failed.err().unwrap().to_string().contains("embedding"));
         ctx.cli.parquet(
             "vectors.parquet",
@@ -388,7 +388,7 @@ async fn inferred_vector_uses_destination(ctx: &Ctx, #[case] resume: bool) {
             .await
             .unwrap();
     }
-    import.execute().try_collect::<Vec<_>>().await.unwrap();
+    import.execute(AIMD).try_collect::<Vec<_>>().await.unwrap();
     assert_eq!(
         ctx.docs(&collection, ["one"]).await,
         [json!({"_id":"one","embedding":[1.0,0.0,0.0]})]
