@@ -73,8 +73,8 @@ FROM articles
 ORDER BY boost(sem, match_any(title, 'ranking'), 1.5) DESC LIMIT 10;
 
 -- Your own vectors (DESC for cosine/dot_product, ASC for euclidean)
-SELECT _id, vector_distance(embedding, '[0.1, 0.2, 0.3]'::f32_vector) AS dist
-FROM articles ORDER BY dist DESC LIMIT 10;
+SELECT _id, vector_distance(embedding, '[0.1, 0.2, 0.3]'::f32_vector) AS score
+FROM articles ORDER BY score DESC LIMIT 10;
 
 -- Count, and counts per group
 SELECT COUNT(*) FROM articles WHERE year >= 2020;
@@ -108,7 +108,7 @@ In the shell, quote the statement with single quotes, or escape the `$` (`suppor
 SHOW TABLES;
 SHOW TABLES STARTS WITH 'arti' LIMIT 10;
 SHOW PARTITIONS FROM TABLE support STARTS WITH 'acme';
-SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'articles';
+DESCRIBE articles;
 ```
 
-`topk sql '\d articles'` shows the same, plus the indexes.
+`DESCRIBE` lists each field with its type, nullability and index, written as in `CREATE TABLE`.

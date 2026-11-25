@@ -27,7 +27,7 @@ What an agent needs to run the `topk` CLI without surprises. For every flag, sou
 ## Inspect and run SQL
 
 ```bash
-topk sql '\dt books*'          # collections matching a pattern
+topk sql "SHOW TABLES STARTS WITH 'books'"
 topk sql -o json "SELECT _id, title FROM books LIMIT 5"
 topk sql -f - <<'SQL'
 CREATE TABLE IF NOT EXISTS books (title TEXT NOT NULL INDEX keyword_index());
@@ -100,9 +100,9 @@ CLI and import errors. SQL errors are covered by the rules in SKILL.md, quota er
 | Error or symptom | Fix |
 |---|---|
 | `not logged in` or `session expired` | Run `topk login` again |
-| `--region is required` | `topk region select <REGION>`, or pass `--region` |
-| `required arguments were not provided: --project-id` | `topk project select <PROJECT_ID>`, or pass `--project-id` |
-| `Table does not exist` | Check the name with `topk sql '\dt'`, and the project and region |
+| `--project-id (or TOPK_PROJECT_ID environment variable) is required` | `topk project select <PROJECT_ID>`, or pass `--project-id`. Also printed before a first login: check `topk project list` |
+| `--region (or TOPK_REGION environment variable) is required`, or `no region selected` | `topk region select <REGION>`, or pass `--region` |
+| `Table does not exist` | Check the name with `topk sql "SHOW TABLES"`, and the project and region |
 | `couldn't detect an id column` | Pass `--id <column>` |
 | Import finished but search returns nothing | No field had an index: it ran without `-f`. Copy into a new name with `-f <field>=semantic,…` |
 | `the collection's schema is set when it is created and cannot change` | The lines after it name each field. Drop that `-f` choice, or import into a new collection name |
@@ -110,5 +110,5 @@ CLI and import errors. SQL errors are covered by the rules in SKILL.md, quota er
 | `required arguments were not provided: --to <COLLECTION>` | Name the target collection with `--to` |
 | `source requires #<table>` | Add the table or collection to the URI: `sqlite:./app.db#orders` |
 | `field "x" was not found` | Check the source's field names in the `--dry-run` preview without `-f`; rename with `--rename` |
-| `brew: command not found` | Tell the user the TopK CLI installs with Homebrew |
+| `brew: command not found` | Tell the user the TopK CLI installs with Homebrew. With `TOPK_API_KEY` set, the SDK can load and query instead (SKILL.md, Setup) |
 | Homebrew says the formula or tap isn't trusted | Install by its full name, `brew install topk-io/topk/topk`, which trusts it; or `brew trust --formula topk-io/topk/topk` |

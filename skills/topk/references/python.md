@@ -77,6 +77,8 @@ def chunk(text: str, size: int = 3000, overlap: int = 200) -> list[str]:
     """Split on paragraph boundaries into chunks of at most `size` characters."""
     paras, chunks, cur = text.split("\n\n"), [], ""
     for p in paras:
+        if len(p) > size and cur:
+            chunks.append(cur); cur = ""  # flush first, so chunks stay in document order
         while len(p) > size:  # a single huge paragraph
             chunks.append(p[:size]); p = p[size - overlap:]
         if len(cur) + len(p) + 2 > size and cur:

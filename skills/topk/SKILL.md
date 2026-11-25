@@ -11,7 +11,7 @@ metadata:
 
 TopK stores documents in **collections** (SQL tables) and searches them with SQL: score in `SELECT`, filter in `WHERE`, rank with `ORDER BY … LIMIT`. Text fields with a `semantic_index()` are embedded and reranked on the server, so no embedding provider is needed.
 
-Use the `topk` CLI for everything except application code: `topk sql` creates collections, writes, and searches; `topk import` loads existing data. Don't write a loader or a one-off script for TopK. Use the SDKs only in the user's application, for example a search endpoint or an agent's retrieval tool.
+Use the `topk` CLI for everything except application code: `topk sql` creates collections, writes, and searches; `topk import` loads existing data. Don't write a loader or a one-off script for TopK. Use the SDKs only in the user's application, for example a search endpoint or an agent's retrieval tool, or when the CLI can't be used (see Setup).
 
 ## Start from a proven pattern
 
@@ -43,6 +43,7 @@ topk project list -o json     # "not logged in": run `topk login` first (see bel
 
 - **Log in once with `topk login`.** It opens a browser and waits up to 5 minutes, so tell the user first and run it in the background or with a longer timeout ([cli.md](references/cli.md#log-in-and-select-a-project) covers machines without a browser).
 - **Keep the selected project and region.** If none is selected, select one as in [cli.md](references/cli.md#log-in-and-select-a-project), always passing the value: without one, `topk project select` and `topk region select` open an interactive picker.
+- **If the CLI can't be used** (no Homebrew, or nobody can log in in a browser, as in CI or a sandbox) and `TOPK_API_KEY` is set, load and query with the SDK instead ([python.md](references/python.md), [typescript.md](references/typescript.md)). Otherwise tell the user what's missing.
 - **Never run a command that waits for input.** Pass `--yes` to `topk import` and `topk project delete`.
 - **`-o json` prints one JSON object per line** (NDJSON), not an array.
 - `TOPK_PROJECT_ID` and `TOPK_REGION` in the environment override the selected project and region. If they point somewhere unexpected, run `env -u TOPK_PROJECT_ID -u TOPK_REGION topk …`, or pass `--project-id` and `--region`.
@@ -50,8 +51,8 @@ topk project list -o json     # "not logged in": run `topk login` first (see bel
 Look at what's there before designing anything:
 
 ```bash
-topk sql '\dt'                 # collections
-topk sql '\d <collection>'     # fields and indexes
+topk sql "SHOW TABLES"
+topk sql "DESCRIBE <collection>"     # fields, types and indexes
 topk sql "SHOW PARTITIONS FROM TABLE <collection>"
 ```
 
@@ -61,7 +62,7 @@ Before choosing a schema, see what the data is:
 
 ```bash
 topk import ./articles.jsonl --to articles --dry-run      # field names, discovered types, sample rows
-jq '.body | length' articles.jsonl | sort -n | tail -1    # longest text (SQL: SELECT max(length(body)) …)
+jq '.body | length' articles.jsonl | sort -n | tail -1    # longest text; for a database source, SELECT max(length(body)) in that database
 ```
 
 From that, decide which fields to search (semantic or keyword), which to filter on, which to keep only for display, and whether long text needs chunking. Ask the user only what the data can't tell you, such as which fields people will search or how one tenant is identified. If nobody can answer (a CI job, a batch run), choose, and say what you chose and why in your summary.
@@ -93,7 +94,7 @@ The schema is fixed once the collection exists; there's no `CREATE INDEX` or `AL
 
 1. **Chunk long text.** A value in a `semantic_index()` field can be at most 32,768 characters. `INSERT` fails with `TextTooLong { … max_length: 32768 … }`, but **`topk import` silently cuts the value off at 32,768 characters**, so the rest of the document is never found. Its preview prints `warning: <field> over 32768 characters will be shortened` for every semantic text field, whether or not any value is that long, so check the longest value yourself (see "Look at the data first"). One embedding of a whole long document also matches questions about any one part of it poorly. Split long documents into passages of about 2,000–3,500 characters, one document per chunk, and import the chunks; don't truncate to fit. [Pattern 1](references/patterns.md#1-search-long-documents) shows chunking and re-indexing changed files.
 2. **Give every searched field an index with `-f`.** `topk import` stores every field, but indexes only those named with `-f`; without it, nothing is searchable. `-f source=keyword,text=semantic` sets the indexes, and `--exclude raw_html` leaves a field out. Always run the same command with `--dry-run` first, and read the plan and its warnings.
-3. **Every search ends with `ORDER BY <score> … LIMIT k`.** `ORDER BY` without `LIMIT` is rejected. Give scoring functions an alias and sort by it: `semantic_similarity(text, 'q') AS score … ORDER BY score DESC`. `SELECT *` isn't supported; list the fields. Neither are `SELECT DISTINCT` (use `GROUP BY` with an aggregate) or string functions such as `SUBSTR` and `lower`: select the whole field and shorten it with `-o json | jq '.text |= .[0:200]'`.
+3. **Every search ends with `ORDER BY <score> … LIMIT k`.** `ORDER BY` without `LIMIT` is rejected. Give scoring functions an alias and sort by it: `semantic_similarity(text, 'q') AS score … ORDER BY score DESC`. List the fields you need rather than `SELECT *`, to keep output small. `SELECT DISTINCT` isn't supported (use `GROUP BY` with an aggregate), and neither are string functions such as `SUBSTR`, `length` and `lower`: select the whole field and shorten it with `-o json | jq '.text |= .[0:200]'`.
 4. **`bm25_score()` requires `match(…)` or `should(…)` in `WHERE`,** on a field with a keyword or semantic index. `match(q, field)` keeps only documents that contain a query term. When keyword terms should *boost* without excluding documents, use `should(q, field)`.
 5. **Scores aren't normalized.** `semantic_similarity` and `bm25_score` have different, data-dependent ranges. Before choosing hybrid weights (`ORDER BY sem + kw * 0.2 DESC`), look at real scores with `-o json`. Semantic search always returns its nearest neighbours, even when nothing is relevant; if "no results" is the right answer for an off-topic query, calibrate a minimum score from real queries.
 6. **Sort direction depends on the score.** Semantic similarity, BM25, and cosine or dot-product vector scores are higher-is-better: `DESC`. Euclidean distance is lower-is-better: `ASC`.
@@ -111,6 +112,7 @@ Partitions are fully isolated sub-collections inside one collection: same schema
 - Address a partition as `docs$acme` (or `docs PARTITION acme`) in `SELECT`, `INSERT`, `UPDATE` and `DELETE`. Partitions are created on first write; with `topk import`, `--partition <column>` writes each row to the partition named by that column.
 - A query against one partition never returns another partition's documents.
 - Reading a partition that has never been written fails with `Partition does not exist`. Treat it as "no results" for that tenant.
+- Count each partition (`SELECT COUNT(*) FROM docs$acme`). The bare collection name holds only documents written without a partition, so after an import with `--partition` it counts 0.
 - `DELETE FROM docs$acme` (no `WHERE`) drops the whole partition. **It takes about a minute to apply,** and the data stays readable meanwhile, so check until it's gone before telling the user ([pattern 2](references/patterns.md#2-keep-each-customers-data-separate)). Don't reuse a deleted tenant's partition name right away.
 - `SHOW PARTITIONS FROM TABLE docs` lists partitions.
 
@@ -134,11 +136,11 @@ Copy this checklist and track progress:
 
 ```
 - [ ] 0. If a pattern above matches the task, start from it; otherwise continue
-- [ ] 1. `topk project list -o json` and `topk sql '\dt'` to confirm login, project and region
+- [ ] 1. `topk project list -o json` and `topk sql "SHOW TABLES"` to confirm login, project and region
 - [ ] 2. Look at the data (`--dry-run` without `-f`, longest text), then design the schema (one index per field; chunk long text)
 - [ ] 3. Load existing data with `topk import <source> --to <collection> -f <field>=<index>,… --dry-run`, check the plan, then rerun it with `--yes` instead of `--dry-run`;
          or a few documents with `CREATE TABLE IF NOT EXISTS` + `INSERT … RETURNING _lsn`
-- [ ] 4. Confirm `SELECT COUNT(*)` matches what you loaded
+- [ ] 4. Confirm `SELECT COUNT(*)` matches what you loaded (with partitions, the sum of each partition's count)
 - [ ] 5. Search with `topk sql -o json`; print real scores before choosing hybrid weights
 ```
 

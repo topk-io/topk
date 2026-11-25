@@ -9,7 +9,9 @@ Each line is {"_id", "source", "chunk_index", "location", "text"}, plus "tenant"
 --partition-from-dir. `source` is the path relative to --root (default: the directory given,
 or the current directory), so it is unique per file and stable across runs.
 
-Text files (.md, .mdx, .txt, .rst, .html, ...) need nothing else. PDF and Word files need
+In a directory, only text files (.md, .mdx, .markdown, .txt, .rst, .adoc, .html, .htm), PDF and Word
+files are read; others are listed on stderr, and dot-folders such as .git are skipped. Text files need
+nothing else. PDF and Word files need
 `pip install "pypdf>=5" "python-docx>=1.1"`. Pages or sections with no text (for example
 scanned PDF pages) are listed on stderr: run OCR on them (e.g. `ocrmypdf`) and chunk again.
 """
@@ -23,6 +25,7 @@ from pathlib import Path
 
 CHUNK_CHARS = 3000  # well under the 32,768-character semantic_index() limit; one topic per chunk
 OVERLAP_CHARS = 200
+SUFFIXES = {".md", ".mdx", ".markdown", ".txt", ".rst", ".adoc", ".html", ".htm", ".pdf", ".docx"}
 EDGE_LINES = 2  # PDF headers and footers sit in the first and last lines of a page
 
 
@@ -30,6 +33,9 @@ def chunk(body: str) -> list[str]:
     """Split on paragraph boundaries into chunks of at most CHUNK_CHARS."""
     chunks, current = [], ""
     for para in body.split("\n\n"):
+        if len(para) > CHUNK_CHARS and current.strip():
+            chunks.append(current)  # flush first, so chunks stay in document order
+            current = ""
         while len(para) > CHUNK_CHARS:
             chunks.append(para[:CHUNK_CHARS])
             para = para[CHUNK_CHARS - OVERLAP_CHARS :]
@@ -114,12 +120,17 @@ def main() -> None:
     args = parser.parse_args()
     root = args.root or (args.paths[0] if len(args.paths) == 1 and args.paths[0].is_dir() else Path("."))
 
-    files = sorted(
-        f
-        for p in args.paths
-        for f in ([p] if p.is_file() else p.rglob("*"))
-        if f.is_file() and not f.name.startswith(".")
-    )
+    def walk(directory: Path):
+        for f in directory.rglob("*"):
+            if not f.is_file() or any(part.startswith(".") for part in f.relative_to(directory).parts):
+                continue
+            if f.suffix.lower() in SUFFIXES:
+                yield f
+            else:
+                print(f"{f}: skipped (not a text, PDF or Word file)", file=sys.stderr)
+
+    # A file named on the command line is read as given.
+    files = sorted(f for p in args.paths for f in ([p] if p.is_file() else walk(p)))
     out = sys.stdout
     for path in files:
         source = path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix()

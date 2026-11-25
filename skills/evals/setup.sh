@@ -33,4 +33,18 @@ PY
     ;;
   *) echo "unknown eval id: $id" >&2; exit 1 ;;
 esac
+# These evals test that text over 32,768 characters isn't cut off, so one fixture must be that long.
+case "$id" in
+  docs-hybrid-search|cli-import-search)
+    python3 - "$dir" <<'PY'
+import json, pathlib, sys
+d = pathlib.Path(sys.argv[1])
+texts = [p.read_text() for p in d.rglob("*.md")]
+if (d / "articles.jsonl").exists():
+    texts += [json.loads(line)["body"] for line in open(d / "articles.jsonl")]
+longest = max(map(len, texts))
+sys.exit(0 if longest > 32768 else f"no fixture text over 32,768 characters (longest: {longest})")
+PY
+    ;;
+esac
 echo "ready: $dir"

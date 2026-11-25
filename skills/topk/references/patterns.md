@@ -53,6 +53,8 @@ topk sql "DELETE FROM docs WHERE source IN ($SOURCES)"
 topk import ./chunks.jsonl --to docs -f $F --yes
 ```
 
+When `chunks.jsonl` covers the whole corpus, also delete the chunks of files that were removed from disk: `topk sql "DELETE FROM docs WHERE source NOT IN ($SOURCES)"` (ask first, as above). Otherwise delete a removed file's chunks by its `source`.
+
 For hundreds of files, delete in batches of a few hundred sources. To rebuild everything with a different schema, import into a new name (`docs_v2`) instead.
 
 **Why:** chunking keeps every part of a long file searchable; truncating to fit doesn't. One `semantic_index()` field serves both semantic and BM25 scoring. Escape `'` as `''` in queries you build from user text.
@@ -69,6 +71,8 @@ F=source=keyword,text=semantic
 topk import ./chunks.jsonl --to support --partition tenant -f $F --dry-run
 topk import ./chunks.jsonl --to support --partition tenant -f $F --yes
 topk sql "SHOW PARTITIONS FROM TABLE support"
+jq -r '.tenant' chunks.jsonl | sort | uniq -c                         # rows per customer
+topk sql 'SELECT COUNT(*) FROM support$acme'                           # one count per partition; `support` alone counts 0
 ```
 
 Files that need no chunking can be imported straight from the folders: `topk import 'tenants/{tenant}/*.jsonl' --to support --partition tenant -f $F --yes`.
@@ -84,12 +88,13 @@ SQL
 
 A partition that was never written, or was deleted, fails with `Partition does not exist`: that customer has no results, not an error to fix.
 
-Delete a customer only after the user confirms which one, then wait until the data is really gone (it stays readable for about a minute):
+Delete a customer only after the user confirms which one, then wait until the data is really gone (it stays readable for about a minute). Check with a search, not only a count: a count can fail with `Partition does not exist` while searches still return the data.
 
 ```bash
 topk sql 'DELETE FROM support$globex'
 for i in $(seq 36); do
-  topk sql 'SELECT COUNT(*) FROM support$globex' 2>&1 | grep -q 'Partition does not exist' && { echo deleted; break; }
+  topk sql "SELECT _id, semantic_similarity(text, 'x') AS score FROM support\$globex ORDER BY score DESC LIMIT 1" 2>&1 \
+    | grep -q 'Partition does not exist' && { echo deleted; break; }
   sleep 5
 done
 ```

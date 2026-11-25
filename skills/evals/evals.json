@@ -36,7 +36,7 @@
       "Uses one partition per customer (`--partition`, `collection$customer` or `collection PARTITION customer`), not a tenant filter",
       "Chunks long files so all text is indexed (no truncation)",
       "Never returns globex content for acme searches",
-      "Deletes globex with `DELETE FROM <collection>$globex` and re-checks reads until they fail with `Partition does not exist` before reporting success, rather than assuming a fixed wait was enough",
+      "Deletes globex with `DELETE FROM <collection>$globex` and re-checks a search on the partition until it fails with `Partition does not exist` before reporting success, rather than assuming a fixed wait was enough",
       "Treats `Partition does not exist` as no results"
     ]
   },
