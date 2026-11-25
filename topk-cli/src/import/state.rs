@@ -205,9 +205,15 @@ impl Run {
         &self.state
     }
 
-    pub fn set_options(&mut self, read: ReadOptions, write: WriteOptions) {
+    pub fn set_options(&mut self, read: ReadOptions, write: WriteOptions) -> Result<(), Error> {
+        if read.shard != self.state.read.shard {
+            return Err(Error::InvalidArgument(
+                "--shard cannot change when resuming; start a new import".into(),
+            ));
+        }
         self.state.read = read;
         self.state.write = write;
+        Ok(())
     }
 
     pub fn save(&self) -> Result<(), Error> {

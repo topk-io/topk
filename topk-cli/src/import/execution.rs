@@ -172,9 +172,19 @@ impl Import {
             let upserts = Client::new(client.config().clone().with_retry_config(RetryConfig { max_retries: 0, ..retry.clone() }));
             let concurrency = options.concurrency.unwrap_or(aimd.max);
             let window = Arc::new(Mutex::new(Window::new(concurrency, aimd)));
-            let consumed = match &self.run.state().progress {
-                Some(Progress::After(checkpoint)) => checkpoint.consumed,
-                _ => 0,
+            let resumed = match &self.run.state().progress {
+                Some(Progress::After(resume)) => Some(resume),
+                _ => None,
+            };
+            let consumed = resumed.map_or(0, |resume| resume.consumed);
+            let mut positions = Positions {
+                resumed: consumed,
+                parts: resumed.into_iter().flat_map(|resume| &resume.open).map(|cursor| (
+                    cursor.part().to_string(),
+                    Part { start: Some(cursor.clone()), ..Default::default() },
+                )).collect(),
+                done: resumed.into_iter().flat_map(|resume| resume.done.iter().cloned()).collect(),
+                ..Default::default()
             };
             info!(run = %self.run.id, collection = %name, consumed, ?options, concurrency, mappers = self.mappers, "import started");
             let mut create = self.create;
@@ -185,7 +195,6 @@ impl Import {
             let mut bytes = 0;
             let mut failed = 0;
             let mut inflight = JoinSet::new();
-            let mut positions = Positions { resumed: consumed, ..Default::default() };
             let mut eof = false;
             let mut pending = None;
             yield Event::Progress { written, bytes };
@@ -449,32 +458,43 @@ impl Import {
         slot: &mut Slot,
         bytes: Option<u64>,
     ) -> Result<(), topk_rs::Error> {
-        let started = Instant::now();
+        let deadline = tokio::time::Instant::now() + retry.timeout;
         let mut delay = Duration::ZERO;
-        loop {
-            let error = match collection.upsert(docs.to_vec()).await {
-                Ok(_) => {
-                    if let Some(bytes) = bytes {
-                        lock(window).success(*slot, bytes, Instant::now());
+        let mut last_error = None;
+        let result = tokio::time::timeout_at(deadline, async {
+            loop {
+                if tokio::time::Instant::now() >= deadline {
+                    return Err(last_error.take().unwrap_or(topk_rs::Error::RetryTimeout));
+                }
+                let error = match collection.upsert(docs.to_vec()).await {
+                    Ok(_) => {
+                        if let Some(bytes) = bytes {
+                            lock(window).success(*slot, bytes, Instant::now());
+                        }
+                        return Ok(());
                     }
-                    return Ok(());
-                }
-                Err(error @ (topk_rs::Error::SlowDown(_) | topk_rs::Error::QuotaExceeded(_))) => {
-                    lock(window).throttled(slot);
-                    error
-                }
-                Err(error) if error.is_retryable() => error,
-                Err(error) => return Err(error),
-            };
-            if started.elapsed() >= retry.timeout {
-                return Err(error);
+                    Err(
+                        error @ (topk_rs::Error::SlowDown(_) | topk_rs::Error::QuotaExceeded(_)),
+                    ) => {
+                        lock(window).throttled(slot);
+                        error
+                    }
+                    Err(error) if error.is_retryable() => error,
+                    Err(error) => return Err(error),
+                };
+                let base = retry.backoff.init_backoff;
+                delay = rand::thread_rng()
+                    .gen_range(base..=3 * delay.max(base))
+                    .min(retry.backoff.max_backoff);
+                debug!(%error, ?delay, "retrying upsert");
+                last_error = Some(error);
+                tokio::time::sleep(delay).await;
             }
-            let base = retry.backoff.init_backoff;
-            delay = rand::thread_rng()
-                .gen_range(base..=3 * delay.max(base))
-                .min(retry.backoff.max_backoff);
-            debug!(%error, ?delay, "retrying upsert");
-            tokio::time::sleep(delay).await;
+        })
+        .await;
+        match result {
+            Ok(result) => result,
+            Err(_) => Err(last_error.unwrap_or(topk_rs::Error::RetryTimeout)),
         }
     }
 }
@@ -758,10 +778,6 @@ impl Positions {
         if !moved {
             return None;
         }
-        match self.parts.keys().next() {
-            Some(first) => self.done.retain(|name| name > first),
-            None => self.done.clear(),
-        }
         let open: Vec<Cursor> = match self.parts.is_empty() {
             true => self.tail.iter().cloned().collect(),
             false => self
@@ -773,6 +789,10 @@ impl Positions {
                 })
                 .collect(),
         };
+        match open.first() {
+            Some(first) => self.done.retain(|name| name.as_str() > first.part()),
+            None => self.done.clear(),
+        }
         let rows = self.finished
             + self
                 .parts
@@ -868,13 +888,166 @@ impl Checkpoints {
 #[cfg(test)]
 mod tests {
     use std::fs::{File, TryLockError};
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use futures::{stream, StreamExt};
     use rstest::rstest;
+    use tokio::net::TcpListener;
+    use tokio_stream::wrappers::TcpListenerStream;
+    use tonic::transport::{Endpoint, Server};
+    use tonic::{Request, Response, Status};
+    use topk_rs::client::retry::BackoffConfig;
     use topk_rs::proto::v1::control::FieldSpec;
+    use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
+    use topk_rs::proto::v1::data::{
+        DeleteDocumentsRequest, DeleteDocumentsResponse, UpdateDocumentsRequest,
+        UpdateDocumentsResponse, UpsertDocumentsRequest, UpsertDocumentsResponse,
+    };
     use topk_rs::ClientConfig;
 
     use super::*;
+
+    struct RetryService(AtomicUsize);
+
+    #[tonic::async_trait]
+    impl WriteService for RetryService {
+        async fn upsert_documents(
+            &self,
+            _: Request<UpsertDocumentsRequest>,
+        ) -> Result<Response<UpsertDocumentsResponse>, Status> {
+            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Err(Status::unavailable("first attempt failed"));
+            }
+            std::future::pending().await
+        }
+
+        async fn update_documents(
+            &self,
+            _: Request<UpdateDocumentsRequest>,
+        ) -> Result<Response<UpdateDocumentsResponse>, Status> {
+            Err(Status::unimplemented("unused"))
+        }
+
+        async fn delete_documents(
+            &self,
+            _: Request<DeleteDocumentsRequest>,
+        ) -> Result<Response<DeleteDocumentsResponse>, Status> {
+            Err(Status::unimplemented("unused"))
+        }
+    }
+
+    #[rstest]
+    #[case::during_backoff(Duration::from_secs(1), 1)]
+    #[case::during_request(Duration::from_millis(1), 2)]
+    #[tokio::test]
+    async fn retry_deadline_preserves_error(#[case] backoff: Duration, #[case] attempts: usize) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint =
+            Endpoint::from_shared(format!("http://{}", listener.local_addr().unwrap())).unwrap();
+        let service = Arc::new(RetryService(AtomicUsize::new(0)));
+        let server =
+            Server::builder().add_service(WriteServiceServer::from_arc(Arc::clone(&service)));
+        let server = tokio::spawn(server.serve_with_incoming(TcpListenerStream::new(listener)));
+        let retry = RetryConfig {
+            max_retries: 0,
+            timeout: Duration::from_millis(100),
+            backoff: BackoffConfig {
+                init_backoff: backoff,
+                max_backoff: backoff,
+                ..BackoffConfig::default()
+            },
+        };
+        let client = Client::from_channel(
+            ClientConfig::default().with_retry_config(retry.clone()),
+            endpoint.connect_lazy(),
+        );
+        let window = Mutex::new(Window::new(1, AIMD));
+        let mut slot = lock(&window).slot();
+        let result = tokio::time::timeout(
+            Duration::from_millis(500),
+            Import::upsert(
+                &client.collection("c"),
+                &[],
+                &retry,
+                &window,
+                &mut slot,
+                None,
+            ),
+        )
+        .await;
+        server.abort();
+        let _ = server.await;
+        assert!(
+            matches!(result, Ok(Err(topk_rs::Error::Unavailable(status))) if status.message() == "first attempt failed")
+        );
+        assert_eq!(service.0.load(Ordering::SeqCst), attempts);
+    }
+
+    #[rstest]
+    #[case::completed_file(false, false)]
+    #[case::unopened_offset(true, false)]
+    #[case::completed_suffix(false, true)]
+    #[tokio::test]
+    async fn repeated_resume_keeps_files(#[case] unopened: bool, #[case] ended: bool) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut saved = crate::import::state::State::new(
+            String::new(),
+            crate::scope::Scope {
+                project_id: "p1".parse().unwrap(),
+                region: "unused".into(),
+            },
+            test_plan(),
+            ReadOptions {
+                max_memory: None,
+                shard: None,
+            },
+            WriteOptions {
+                continue_on_error: true,
+                concurrency: Some(1),
+                batch_bytes: 1,
+            },
+        );
+        let mut open = vec![offset("a", 0).unwrap()];
+        if unopened {
+            open.push(offset("c", 5).unwrap());
+        }
+        saved.progress = Some(Progress::After(Resume {
+            open,
+            done: vec!["b".into()],
+            consumed: 8,
+        }));
+        let mut run = Run::start(dir.path(), saved).await.unwrap();
+        let id = run.id;
+        for end in 1..=if ended { 1 } else { 2 } {
+            let chunks = async_stream::try_stream! {
+                yield ReadEvent::Chunk(crate::import::source::Chunk { rows: Vec::new(), cursor: offset("a", end - 1), last: false });
+                yield ReadEvent::Chunk(crate::import::source::Chunk { rows: vec![Err(Error::CannotCoerce("int"))], cursor: offset("a", end), last: false });
+                if ended { yield ReadEvent::Chunk(crate::import::source::Chunk { rows: Vec::new(), cursor: offset("a", end), last: true }); }
+                Err(Error::InvalidArgument("interrupted source".into()))?;
+            }.boxed();
+            let import = Import {
+                run,
+                client: Client::new(ClientConfig::new("unused", "unused")),
+                scan: chunks,
+                mappers: 1,
+                create: false,
+            };
+            let result: Result<Vec<_>, _> = import.execute(AIMD).try_collect().await;
+            assert!(
+                matches!(result, Err(Error::InvalidArgument(message)) if message == "interrupted source")
+            );
+            run = Run::load(dir.path(), id).await.unwrap();
+            let mut expected = vec![offset("a", end).unwrap()];
+            if unopened {
+                expected.push(offset("c", 5).unwrap());
+            }
+            assert!(
+                matches!(&run.state().progress, Some(Progress::After(resume)) if resume.open == expected && resume.done == ["b"] && resume.consumed == 8 + end),
+                "{}",
+                toml::to_string(run.state()).unwrap()
+            );
+        }
+    }
 
     const AIMD: Aimd = Aimd {
         start: 1,

@@ -3,6 +3,7 @@ mod creds;
 mod read;
 mod select;
 
+use std::ops::ControlFlow;
 use std::path::Path;
 
 use duckdb::Connection;
@@ -347,11 +348,26 @@ impl Duckdb {
         // One message per arrow batch; per-row sends make the channel the bottleneck.
         let (tx, mut rx) = mpsc::channel(2);
         Box::pin(async_stream::try_stream! {
-            let reader = spawn_blocking(move || produce(&source, &tx));
-            while let Some(chunk) = rx.recv().await {
-                yield chunk;
+            let mut reader = spawn_blocking(move || produce(&source, &tx));
+            loop {
+                let next = tokio::select! {
+                    biased;
+                    result = &mut reader => ControlFlow::Break(result),
+                    chunk = rx.recv() => ControlFlow::Continue(chunk),
+                };
+                match next {
+                    ControlFlow::Break(result) => {
+                        result??;
+                        while let Some(chunk) = rx.recv().await { yield chunk; }
+                        break;
+                    }
+                    ControlFlow::Continue(Some(chunk)) => yield chunk,
+                    ControlFlow::Continue(None) => {
+                        reader.await??;
+                        break;
+                    }
+                }
             }
-            reader.await??;
         })
     }
 }
@@ -380,4 +396,78 @@ pub(super) fn read_error(from: &SourceLocation, filter: Option<&str>, e: duckdb:
         message.push_str("; a private or gated dataset needs HF_TOKEN or `hf auth login`");
     }
     Error::InvalidArgument(message)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use futures::TryStreamExt;
+    use rstest::rstest;
+    use tokio::sync::oneshot;
+
+    use super::*;
+
+    #[rstest]
+    #[case::source_error(false)]
+    #[case::reader_panic(true)]
+    #[tokio::test]
+    async fn reader_failure_releases_stream(#[case] panic: bool) {
+        let (release, blocked) = oneshot::channel::<()>();
+        let (ready, started) = std::sync::mpsc::channel();
+        let source = Duckdb::Sqlite {
+            path: String::new(),
+            object: String::new(),
+        };
+        let mut stream = source.stream(move |_, tx| {
+            let tx = tx.clone();
+            let mut readers = tokio::task::JoinSet::new();
+            readers.spawn_blocking(move || {
+                ready.send(()).unwrap();
+                let _ = blocked.blocking_recv();
+                drop(tx);
+            });
+            started.recv().unwrap();
+            if panic {
+                panic!("reader panicked");
+            }
+            Err::<(), _>(Error::InvalidArgument("reader failed".into()))
+        });
+        let result = tokio::time::timeout(Duration::from_secs(1), stream.try_next()).await;
+        drop(release);
+        drop(stream);
+        match result.unwrap() {
+            Err(Error::Join(error)) if panic => assert!(error.is_panic()),
+            Err(Error::InvalidArgument(message)) if !panic => assert_eq!(message, "reader failed"),
+            _ => panic!("reader failure was not propagated"),
+        }
+    }
+
+    #[tokio::test]
+    async fn successful_reader_drains_chunks() {
+        let source = Duckdb::Sqlite {
+            path: String::new(),
+            object: String::new(),
+        };
+        let chunks: Vec<_> = source
+            .stream(|_, tx| {
+                for rows in 0..10 {
+                    tx.blocking_send(super::super::Chunk {
+                        rows: Vec::new(),
+                        cursor: Some(Cursor::Offset {
+                            part: "a".into(),
+                            rows,
+                        }),
+                        last: rows == 9,
+                    })
+                    .unwrap();
+                }
+                Ok(())
+            })
+            .try_collect()
+            .await
+            .unwrap();
+        assert_eq!(chunks.len(), 10);
+        assert!(chunks.last().unwrap().last);
+    }
 }

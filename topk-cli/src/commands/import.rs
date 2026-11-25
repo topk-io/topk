@@ -278,7 +278,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
         run.set_options(
             args.read.options(Some(&run.state().read)),
             args.write.options(Some(&run.state().write))?,
-        );
+        )?;
         if run.state().done() {
             ui.message(format_args!(
                 "run {}: {} already imported",

@@ -170,3 +170,38 @@ fn credentials_preserve_selector() {
     state.source = "postgres://u:***@host/db".into();
     assert!(refused(state.source(None)).contains("old saved runs need a new import"));
 }
+
+#[rstest_ctx(Scratch)]
+#[case::changed_share(Some("1/2"), "2/2")]
+#[case::changed_count(Some("1/2"), "1/3")]
+#[case::added_shard(None, "1/2")]
+async fn resume_rejects_changed_shard(
+    ctx: &Scratch,
+    #[case] saved: Option<&str>,
+    #[case] shard: &str,
+) {
+    let mut saved_state = state();
+    saved_state.read.shard = saved.map(|shard| shard.parse().unwrap());
+    saved_state.progress = Some(Progress::After(Resume {
+        open: vec![Cursor::Offset {
+            part: "part.parquet".into(),
+            rows: 1,
+        }],
+        done: Vec::new(),
+        consumed: 1,
+    }));
+    let run = Run::start(&ctx.path("state"), saved_state).await.unwrap();
+    run.save().unwrap();
+    let id = run.id.to_string();
+    drop(run);
+    let output = ctx
+        .command()
+        .args(["import", "--resume", &id, "--shard", shard])
+        .failure(1);
+    assert!(
+        output
+            .stderr
+            .contains("--shard cannot change when resuming; start a new import"),
+        "{output:?}"
+    );
+}
