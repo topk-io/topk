@@ -68,14 +68,6 @@ impl FieldIndex {
         }
         self
     }
-
-    /// Specify whether stored values are already quantized for this index.
-    pub fn prequantized(mut self, prequantized: bool) -> Self {
-        if let Some(field_index::Index::MultiVectorIndex(mvi)) = self.index.as_mut() {
-            mvi.prequantized = prequantized;
-        }
-        self
-    }
 }
 
 impl FromStr for KeywordIndexType {

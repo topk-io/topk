@@ -150,7 +150,7 @@ message MultiVectorIndex {
   bool skip_smve = 6;
   /// Encoding version
   uint32 encoding_version = 7;
-  // The server sets this when stored values use the index's quantization.
+  /// Whether stored vectors are already quantized.
   bool prequantized = 8;
 }
 
