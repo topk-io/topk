@@ -1,0 +1,43 @@
+---
+title: "Audit log"
+description: "Events recorded when resources or access change in your organization."
+icon: "scroll"
+---
+
+TopK records an audit event whenever a resource in your organization is created or deleted, or when access to it changes.
+
+## Events
+
+| Event | Recorded when | Details |
+| --- | --- | --- |
+| `project-created` | A project is created. | Project ID |
+| `project-deleted` | A project is deleted. | Project ID |
+| `api-key-created` | An API key is created. | Project ID, API key ID |
+| `api-key-deleted` | An API key is deleted. | Project ID, API key ID |
+| `collection-created` | A collection is created. | Project ID, collection name |
+| `collection-deleted` | A collection is deleted. | Project ID, collection name |
+| `member-added` | A member joins the organization. | User ID |
+| `member-removed` | A member is removed from the organization. | User ID |
+| `member-role-changed` | A member's role is changed. | User ID, new role |
+| `invitation-created` | A member is invited to the organization. | Invitation ID, invitee email, role |
+| `invitation-deleted` | An invitation is revoked. | Invitation ID |
+| `session-created` | A user signs in to the console. | Session ID |
+| `session-deleted` | A user signs out of the console or their session is revoked. | Session ID |
+
+## Fields
+
+Every event contains the following fields:
+
+| Field | Description |
+| --- | --- |
+| `event_id` | Unique ID of the event. |
+| `org_id` | Organization the event belongs to. |
+| `timestamp` | When the action happened, in UTC with millisecond precision. |
+| `actor` | Who performed the action: a `user` (`user_id`), an `api_key` (`id`, `project_id`) or `system` for actions performed by TopK. |
+| `action` | Name of the event, as listed above. |
+| `resource` | The affected resource: its type and the details listed for the event. |
+| `metadata` | Additional details for some events, such as the new role for `member-role-changed`. |
+
+<Note>
+  Audit logs are available on request. [Contact us](https://topk.io/contact) to get access to the audit log for your organization.
+</Note>

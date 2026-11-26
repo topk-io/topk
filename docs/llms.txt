@@ -28,6 +28,7 @@ Coding agents (Claude Code, Cursor, Codex, and others): install the TopK skill f
 ## Management API
 
 - [Collections](https://docs.topk.io/collections/manage): Create, list, get, and delete collections.
+- [Audit log](https://docs.topk.io/audit-log): Events recorded when resources or access change in your organization.
 
 ## Guides
 

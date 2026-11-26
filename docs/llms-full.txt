@@ -47,7 +47,7 @@ TopK is **SOC 2 Type II** certified and **HIPAA** compliant. Visit the [trust ce
     All data is encrypted in transit and at rest.
   </Card>
   <Card title="Access control" icon="shield-check" horizontal>
-    Role-based access control with full auditability.
+    Role-based access control with full [auditability](/audit-log).
   </Card>
   <Card title="Private Deployment" icon="server" horizontal>
     Deploy inside your own VPC for complete isolation and data residency. [Contact us](https://topk.io/contact) for more details.
@@ -3818,6 +3818,48 @@ If your collection is too large it can take a moment to delete it. You can check
 <Warning>
   **Re-creating a collection with the same name:** for about 60 seconds after a delete, writes to a new collection with the same name can be lost (a `count()` may show the old documents, then drop to 0). To avoid this, wait 60 seconds before re-creating, use a new name such as `my-collection-v2`, or keep the collection and [delete its documents with a filter](/collections/write#delete-documents-by-filter-expression).
 </Warning>
+
+### Audit log
+
+URL: https://docs.topk.io/audit-log
+
+TopK records an audit event whenever a resource in your organization is created or deleted, or when access to it changes.
+
+#### Events
+
+| Event | Recorded when | Details |
+| --- | --- | --- |
+| `project-created` | A project is created. | Project ID |
+| `project-deleted` | A project is deleted. | Project ID |
+| `api-key-created` | An API key is created. | Project ID, API key ID |
+| `api-key-deleted` | An API key is deleted. | Project ID, API key ID |
+| `collection-created` | A collection is created. | Project ID, collection name |
+| `collection-deleted` | A collection is deleted. | Project ID, collection name |
+| `member-added` | A member joins the organization. | User ID |
+| `member-removed` | A member is removed from the organization. | User ID |
+| `member-role-changed` | A member's role is changed. | User ID, new role |
+| `invitation-created` | A member is invited to the organization. | Invitation ID, invitee email, role |
+| `invitation-deleted` | An invitation is revoked. | Invitation ID |
+| `session-created` | A user signs in to the console. | Session ID |
+| `session-deleted` | A user signs out of the console or their session is revoked. | Session ID |
+
+#### Fields
+
+Every event contains the following fields:
+
+| Field | Description |
+| --- | --- |
+| `event_id` | Unique ID of the event. |
+| `org_id` | Organization the event belongs to. |
+| `timestamp` | When the action happened, in UTC with millisecond precision. |
+| `actor` | Who performed the action: a `user` (`user_id`), an `api_key` (`id`, `project_id`) or `system` for actions performed by TopK. |
+| `action` | Name of the event, as listed above. |
+| `resource` | The affected resource: its type and the details listed for the event. |
+| `metadata` | Additional details for some events, such as the new role for `member-role-changed`. |
+
+<Note>
+  Audit logs are available on request. [Contact us](https://topk.io/contact) to get access to the audit log for your organization.
+</Note>
 
 ## Guides
 
