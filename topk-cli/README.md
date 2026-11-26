@@ -290,8 +290,10 @@ topk import --to <COLLECTION> <SOURCE> [OPTIONS]
 | `--limit <LIMIT>` | Read at most this many rows |
 | `--partition <COLUMN>` | Column whose value names each row's partition; see [Split rows across partitions](#split-rows-across-partitions) |
 | `--continue-on-error` | Skip rows that fail instead of stopping, listing each in a report file |
-| `-c`, `--concurrency <N>` | Maximum concurrent upserts (default `64`). The window starts at 1. With another batch waiting, it tests a larger window and keeps it when acknowledged bytes/s increase proportionally more than batch p99 latency. Throttling reduces the window. |
-| `-b`, `--batch-bytes <SIZE>` | Bytes of documents per upsert (default `1MiB`) |
+| `--max-memory <SIZE>` | Memory budget for file readers and upserts in flight. Defaults to half the available machine or container memory. |
+| `--shard <SHARE/SHARES>` | Read one share of the files matched by a glob, such as `1/3`. The file path determines its share. |
+| `-c`, `--concurrency <N>` | Cap on concurrent upserts. The default cap comes from the memory budget. The window starts at 8 or at the cap if it is lower. Throttling reduces the window. |
+| `-b`, `--batch-bytes <SIZE>` | Target document bytes per partition batch (default `8MiB`) |
 | `--project-id <PROJECT_ID>` | Project to import into with your login (env `TOPK_PROJECT_ID`); defaults to the project selected with `topk project select` |
 
 #### Authenticate

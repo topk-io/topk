@@ -473,9 +473,7 @@ impl Import {
                         }
                         return Ok(());
                     }
-                    Err(
-                        error @ (topk_rs::Error::SlowDown(_) | topk_rs::Error::QuotaExceeded(_)),
-                    ) => {
+                    Err(error @ topk_rs::Error::SlowDown(_)) => {
                         lock(window).throttled(slot);
                         error
                     }
@@ -897,6 +895,7 @@ mod tests {
     use tonic::transport::{Endpoint, Server};
     use tonic::{Request, Response, Status};
     use topk_rs::client::retry::BackoffConfig;
+    use topk_rs::error::{CustomError, CustomErrorCode};
     use topk_rs::proto::v1::control::FieldSpec;
     use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
     use topk_rs::proto::v1::data::{
@@ -907,7 +906,10 @@ mod tests {
 
     use super::*;
 
-    struct RetryService(AtomicUsize);
+    struct RetryService {
+        attempts: AtomicUsize,
+        first_error: Status,
+    }
 
     #[tonic::async_trait]
     impl WriteService for RetryService {
@@ -915,8 +917,8 @@ mod tests {
             &self,
             _: Request<UpsertDocumentsRequest>,
         ) -> Result<Response<UpsertDocumentsResponse>, Status> {
-            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
-                return Err(Status::unavailable("first attempt failed"));
+            if self.attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Err(self.first_error.clone());
             }
             std::future::pending().await
         }
@@ -937,14 +939,31 @@ mod tests {
     }
 
     #[rstest]
-    #[case::during_backoff(Duration::from_secs(1), 1)]
-    #[case::during_request(Duration::from_millis(1), 2)]
+    #[case::during_backoff(Status::unavailable("first attempt failed"), Duration::from_secs(1), 1)]
+    #[case::during_request(
+        Status::unavailable("first attempt failed"),
+        Duration::from_millis(1),
+        2
+    )]
+    #[case::quota_stops_import(
+        Status::resource_exhausted("collection size limit"),
+        Duration::from_millis(1),
+        1
+    )]
+    #[case::throttle_retries(CustomError::new("write rate limit".into(), CustomErrorCode::SlowDown).into(), Duration::from_millis(1), 2)]
     #[tokio::test]
-    async fn retry_deadline_preserves_error(#[case] backoff: Duration, #[case] attempts: usize) {
+    async fn upsert_preserves_error(
+        #[case] first_error: Status,
+        #[case] backoff: Duration,
+        #[case] attempts: usize,
+    ) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint =
             Endpoint::from_shared(format!("http://{}", listener.local_addr().unwrap())).unwrap();
-        let service = Arc::new(RetryService(AtomicUsize::new(0)));
+        let service = Arc::new(RetryService {
+            attempts: AtomicUsize::new(0),
+            first_error,
+        });
         let server =
             Server::builder().add_service(WriteServiceServer::from_arc(Arc::clone(&service)));
         let server = tokio::spawn(server.serve_with_incoming(TcpListenerStream::new(listener)));
@@ -977,10 +996,14 @@ mod tests {
         .await;
         server.abort();
         let _ = server.await;
-        assert!(
-            matches!(result, Ok(Err(topk_rs::Error::Unavailable(status))) if status.message() == "first attempt failed")
+        let error = result.unwrap().unwrap_err();
+        let expected = topk_rs::Error::from(service.first_error.clone());
+        assert_eq!(
+            std::mem::discriminant(&error),
+            std::mem::discriminant(&expected)
         );
-        assert_eq!(service.0.load(Ordering::SeqCst), attempts);
+        assert_eq!(error.to_string(), expected.to_string());
+        assert_eq!(service.attempts.load(Ordering::SeqCst), attempts);
     }
 
     #[rstest]
