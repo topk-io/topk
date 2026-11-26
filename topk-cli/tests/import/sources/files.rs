@@ -593,9 +593,10 @@ async fn anonymous_http_reads(ctx: &Scratch) {
     let target = target(&from, "_id", [("title", FieldSpec::text(false))]);
     let docs = json_documents(&source, &target).await.unwrap();
     assert_eq!(docs.len(), 3);
-    assert!(docs
-        .iter()
-        .any(|(_, doc)| doc == &json!({"_id": "mockingbird", "title": "To Kill a Mockingbird"})));
+    for book in books() {
+        let expected = serde_json::Value::Object(json(&book));
+        assert!(docs.contains(&(None, expected)));
+    }
 }
 
 #[rstest_ctx(Scratch)]
