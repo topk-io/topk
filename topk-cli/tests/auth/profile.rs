@@ -26,12 +26,14 @@ fn profiles(dir: &TempDir, names: &[&str]) -> Profiles {
 /// The config of a profile logged in to `host`.
 async fn config(dir: &TempDir, profile: &str, host: &str, https: bool) -> Config {
     Config::load(
-        Host {
-            host: host.into(),
-            https,
-        },
-        args(&[
+        &args(&[
             "test",
+            "--profile",
+            profile,
+            "--host",
+            host,
+            "--https",
+            &https.to_string(),
             "--auth-issuer",
             AUTH_ISSUER,
             "--auth-client-id",
@@ -39,9 +41,10 @@ async fn config(dir: &TempDir, profile: &str, host: &str, https: bool) -> Config
             "--auth-audience",
             "https://api.example.test",
         ]),
-        Profile::new(dir.path().to_owned(), profile.parse().unwrap()),
+        &Profiles::new(dir.path().to_owned()),
     )
     .await
+    .unwrap()
 }
 
 fn topk(dir: &TempDir) -> TestCommand {

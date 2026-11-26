@@ -42,6 +42,7 @@ impl LoginArgs {
 
 pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
     info!(?args, "login");
+    let profile = config.profile().name().label();
     let auth = Auth::new(config)?;
     let claims = if !args.browser() {
         prompt_code_login(&auth).await?
@@ -62,7 +63,7 @@ pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
             }
         }
     };
-    eprintln!("{} Logged in as {}", "✓".green(), claims.account());
+    eprintln!("{} Logged in as {}{profile}", "✓".green(), claims.account());
     Ok(ExitCode::SUCCESS)
 }
 

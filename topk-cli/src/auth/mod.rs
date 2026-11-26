@@ -51,10 +51,7 @@ impl Auth {
     }
 
     pub async fn logout(&self) -> Result<()> {
-        self.config.session().await?.delete()?;
-        self.config.access_tokens().clear()?;
-        self.config.clear_oauth()?;
-        self.config.profile().forget()
+        self.config.logout().await
     }
 
     pub async fn access_token(&self) -> Result<String> {

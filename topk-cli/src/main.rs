@@ -9,11 +9,9 @@ use tracing_indicatif::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
-use topk::auth::OAuthArgs;
-use topk::config::Config;
-use topk::host::{Host, HostArgs};
+use topk::config::{Args as ConfigArgs, Config};
 use topk::output::Output;
-use topk::profile::{ProfileName, Profiles};
+use topk::profile::Profiles;
 use topk::util::Interrupted;
 use tracing::info;
 
@@ -42,35 +40,8 @@ struct Cli {
     )]
     output: Output,
 
-    /// Use a named profile
-    #[arg(long, env = "TOPK_PROFILE", global = true, hide = true)]
-    profile: Option<ProfileName>,
-
     #[command(flatten)]
-    host: HostArgs,
-
-    #[command(flatten)]
-    oauth: OAuthArgs,
-}
-
-impl Cli {
-    /// The config of the profile in use.
-    async fn config(&self) -> anyhow::Result<Config> {
-        let profiles = Profiles::load()?;
-        let profile = profiles.get(match &self.profile {
-            Some(name) => name.clone(),
-            None => profiles.selected()?,
-        });
-        // The host a profile is logged in to applies when none is given.
-        let host = match (&self.host.host, profile.host()?) {
-            (None, Some(saved)) => Host {
-                https: self.host.https.unwrap_or(saved.https),
-                ..saved
-            },
-            _ => self.host.clone().into(),
-        };
-        Ok(Config::load(host, self.oauth.clone(), profile).await)
-    }
+    config: ConfigArgs,
 }
 
 #[derive(Subcommand)]
@@ -149,68 +120,35 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
+    let profiles = Profiles::load()?;
+    let config = Config::load(&cli.config, &profiles).await?;
     match &cli.command {
         Some(Commands::Project(args)) => {
-            topk::commands::project::run(
-                cli.config().await?,
-                args,
-                cli.output,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
         }
         Some(Commands::Region(args)) => {
-            topk::commands::region::run(
-                cli.config().await?,
-                args,
-                cli.output,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::region::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
         Some(Commands::Sql(args)) => {
-            topk::commands::sql::run(
-                cli.config().await?,
-                args,
-                cli.output,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::sql::run(config, args, cli.output, &mut std::io::stdout()).await
         }
         Some(Commands::Usage(args)) => {
-            topk::commands::usage::run(
-                cli.config().await?,
-                args,
-                cli.output,
-                &mut std::io::stdout(),
-            )
-            .await
+            topk::commands::usage::run(config, args, cli.output, &mut std::io::stdout()).await
         }
 
-        Some(Commands::Login(args)) => topk::commands::login::run(cli.config().await?, args).await,
-        Some(Commands::Logout(args)) => {
-            topk::commands::logout::run(cli.config().await?, args).await
-        }
-        Some(Commands::Profile(args)) => {
-            let profiles = Profiles::load()?;
-            let active = match &cli.profile {
-                Some(name) => name.clone(),
-                None => profiles.selected()?,
-            };
-            topk::commands::profile::run(
-                &profiles,
-                &active,
-                args,
-                cli.output,
-                &mut std::io::stdout(),
-            )
-        }
+        Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
+        Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,
+        Some(Commands::Profile(args)) => topk::commands::profile::run(
+            &profiles,
+            config.profile().name(),
+            args,
+            cli.output,
+            &mut std::io::stdout(),
+        ),
 
         #[cfg(feature = "import")]
-        Some(Commands::Import(args)) => {
-            topk::commands::import::run(cli.config().await?, args, cli.output).await
-        }
+        Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,
 
         Some(Commands::Completions { shell }) => {
             let mut script = Vec::new();

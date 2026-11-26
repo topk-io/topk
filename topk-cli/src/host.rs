@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_HOST: &str = "topk.io";
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone)]
 pub struct HostArgs {
     /// API domain
     #[arg(

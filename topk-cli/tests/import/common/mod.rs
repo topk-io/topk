@@ -14,14 +14,12 @@ use test_context::AsyncTestContext;
 
 pub use crate::common::command::TestCommand;
 use crate::common::session::CliTestContext;
-use topk::auth::OAuthArgs;
-use topk::config::{config_dir, Config};
-use topk::host::HostArgs;
+use topk::config::{config_dir, Args as ConfigArgs, Config};
 use topk::import::plan::{Field, Plan, Target};
 use topk::import::source::{File, Source, SourceLocation, Uri};
 use topk::import::state::State;
 use topk::import::{Aimd, Error, ReadOptions, WriteOptions};
-use topk::profile::{Profile, ProfileName};
+use topk::profile::Profiles;
 use topk::scope::Scope;
 use topk_rs::doc;
 use topk_rs::proto::v1::control::FieldSpec;
@@ -309,14 +307,11 @@ impl AsyncTestContext for Ctx {
         let project_id = session.select_e2e_project();
         std::env::set_var("TOPK_PROJECT_ID", project_id.as_str());
         let config = Config::load(
-            from_env::<HostArgs>().into(),
-            from_env::<OAuthArgs>(),
-            Profile::new(
-                config_dir().expect("config directory"),
-                ProfileName::default(),
-            ),
+            &from_env::<ConfigArgs>(),
+            &Profiles::new(config_dir().expect("config directory")),
         )
-        .await;
+        .await
+        .expect("config");
         let mut cli = Scratch::default();
         cli.config_dir = config_dir().expect("session config directory");
         Ctx {

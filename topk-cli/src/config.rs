@@ -11,11 +11,24 @@ use tracing::warn;
 
 use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
-use crate::host::{Host, DEFAULT_HOST};
-use crate::profile::{Profile, ProfileName};
+use crate::host::{Host, HostArgs, DEFAULT_HOST};
+use crate::profile::{Profile, ProfileName, Profiles};
 use crate::ProjectId;
 
 pub use crate::storage::{config_dir, lock, read, read_toml, write_secret_file, write_toml};
+
+#[derive(clap::Args)]
+pub struct Args {
+    /// Use a named profile
+    #[arg(long, env = "TOPK_PROFILE", global = true, hide = true)]
+    pub profile: Option<ProfileName>,
+
+    #[command(flatten)]
+    pub host: HostArgs,
+
+    #[command(flatten)]
+    pub oauth: OAuthArgs,
+}
 
 #[derive(Clone)]
 pub struct Config {
@@ -39,8 +52,20 @@ impl Config {
         }
     }
 
-    pub async fn load(host: Host, oauth: OAuthArgs, profile: Profile) -> Self {
-        let oauth = match oauth.config() {
+    pub async fn load(args: &Args, profiles: &Profiles) -> Result<Self> {
+        let profile = profiles.get(match &args.profile {
+            Some(name) => name.clone(),
+            None => profiles.selected()?,
+        });
+        // The host a profile is logged in to applies when none is given.
+        let host = match (&args.host.host, profile.host()?) {
+            (None, Some(saved)) => Host {
+                https: args.host.https.unwrap_or(saved.https),
+                ..saved
+            },
+            _ => args.host.clone().into(),
+        };
+        let oauth = match args.oauth.clone().config() {
             Some(oauth) => oauth,
             None => match Self::resolve_oauth(&host, &profile.dir()).await {
                 Ok(oauth) => oauth,
@@ -50,11 +75,11 @@ impl Config {
                 }
             },
         };
-        Self {
+        Ok(Self {
             host,
             oauth,
             profile,
-        }
+        })
     }
 
     pub fn save_profile(&self) -> Result<()> {
@@ -77,8 +102,11 @@ impl Config {
         }
     }
 
-    pub fn clear_oauth(&self) -> Result<()> {
-        remove(&oauth_file(&self.profile.dir(), &self.host))
+    pub async fn logout(&self) -> Result<()> {
+        self.session().await?.delete()?;
+        self.access_tokens().clear()?;
+        remove(&oauth_file(&self.profile.dir(), &self.host))?;
+        self.profile.forget()
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {

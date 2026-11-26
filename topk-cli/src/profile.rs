@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{ensure, Context, Error, Result};
+use colored::Colorize;
 use serde::Serialize;
 
 use crate::host::Host;
@@ -17,6 +18,16 @@ pub struct ProfileName(String);
 impl Default for ProfileName {
     fn default() -> Self {
         Self(DEFAULT.to_owned())
+    }
+}
+
+impl ProfileName {
+    /// Names the profile in a message, unless it is the default one.
+    pub fn label(&self) -> String {
+        match *self == Self::default() {
+            true => String::new(),
+            false => format!(" ({} profile)", self.0.cyan().bold()),
+        }
     }
 }
 
