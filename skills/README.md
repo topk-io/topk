@@ -4,7 +4,7 @@
 
 | Skill | What it covers |
 |---|---|
-| [`topk`](topk/SKILL.md) | Schema design, indexing, chunking, semantic/keyword/hybrid/vector queries, multi-tenant partitions, and errors for the Python SDK, the TypeScript SDK, and SQL |
+| [`topk`](topk/SKILL.md) | Schema design, loading data, chunking, semantic/keyword/hybrid/vector search, multi-tenant partitions, and errors, with the `topk` CLI (`topk sql`, `topk import`), plus application code with the Python and TypeScript SDKs |
 
 ## Install
 
@@ -26,7 +26,7 @@ Or copy the folder manually:
 git clone --depth 1 https://github.com/topk-io/topk /tmp/topk && cp -r /tmp/topk/skills/topk .claude/skills/
 ```
 
-Then set `TOPK_API_KEY` and `TOPK_REGION` in the agent's environment. Create an API key in the [console](https://console.topk.io/api-key), and pick a region from the [regions list](https://docs.topk.io/regions). The agent loads the skill on its own whenever a task involves TopK.
+The skill uses the [`topk` CLI](https://docs.topk.io/cli) (`brew install topk-io/topk/topk`). The agent runs `topk login` when needed, which opens a browser for the user to log in. The agent loads the skill on its own whenever a task involves TopK.
 
 ## Layout
 
@@ -34,13 +34,15 @@ Then set `TOPK_API_KEY` and `TOPK_REGION` in the agent's environment. Create an 
 topk/
 ├── SKILL.md              # core rules and workflow (loaded when the skill triggers)
 ├── references/
-│   ├── patterns.md       # proven designs: long docs, per-customer data, agent tool, catalog search, PDF/Word
-│   ├── why-topk.md       # how TopK differs from a typical vector database (for "why TopK?" questions)
-│   ├── python.md         # topk-sdk patterns (loaded on demand)
-│   ├── typescript.md     # topk-js patterns
-│   └── sql.md            # Postgres-wire SQL
+│   ├── patterns.md       # proven designs: long docs, per-customer data, catalog search, PDF/Word
+│   ├── cli.md            # topk CLI: log in, inspect, run SQL, import and copy data, troubleshooting
+│   ├── sql.md            # TopK SQL: tables, writes, search functions, partitions, read-your-writes
+│   ├── python.md         # topk-sdk for application code, including an agent retrieval tool
+│   ├── typescript.md     # topk-js for application code
+│   └── why-topk.md       # how TopK differs from a typical vector database (for "why TopK?" questions)
 └── scripts/
-    └── topk_inspect.py   # check credentials, describe a collection (JSON output)
+    ├── chunk.py          # split text, Markdown, PDF and Word files into chunk JSONL for `topk import`
+    └── pdf_pages.py      # render PDF pages to JPEG JSONL for an image semantic index
 ```
 
 ## Development
@@ -52,4 +54,4 @@ pip install skills-ref
 agentskills validate skills/topk
 ```
 
-Every code pattern in `references/` was executed against the live API with `topk-sdk` 0.15.0 and `topk-js` 0.15.0. The evaluations and their results are in [`evals/`](evals/). When the SDK changes, rerun them and update the skill. Bump `metadata.version` in `SKILL.md` on every change.
+Every command in `references/` was executed with the `topk` CLI, and the SDK references were checked against the current `topk-sdk` and `topk-js` APIs. The evaluations and their results are in [`evals/`](evals/). When the CLI, TopK SQL or an SDK changes, rerun them and update the skill. Bump `metadata.version` in `SKILL.md` on every change.

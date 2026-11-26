@@ -5,8 +5,7 @@ Command-line interface for [TopK](https://topk.io).
 ## Installation
 
 ```bash
-brew tap topk-io/topk
-brew install topk
+brew install topk-io/topk/topk
 ```
 
 ## Quick start
@@ -331,7 +330,7 @@ topk import 'data/{lang}/*.parquet' --to docs --partition lang   # data/sw/a.par
 topk import 'data/*/*.parquet' --to docs --partition lang        # data/lang=sw/a.parquet → lang "sw"
 ```
 
-A `{name}` folder in a glob matches like `*` and gives each row a text column `name` holding that folder's name; `key=value` folders add a `key` column the same way. Path columns work for local paths and buckets, not `http(s)://`, and can be used in `--partition`, `--id`, `-f` and `--filter`. A name the files already use as a column is refused. To match a folder literally named `{name}`, write `[{]name}`.
+A `{name}` folder in a glob matches like `*` and gives each row a text column `name` holding that folder's name; `key=value` folders add a `key` column the same way. Path columns work for data files (csv, tsv, json, jsonl, parquet, arrow, avro) in local paths and buckets, not `http(s)://`, and can be used in `--partition`, `--id`, `-f` and `--filter`. A name the files already use as a column is refused. To match a folder literally named `{name}`, write `[{]name}`.
 
 #### Copy a TopK collection
 
@@ -428,10 +427,9 @@ Summaries count acknowledged writes and skipped rows for the current invocation.
 
 | code | meaning |
 | --- | --- |
-| `0` | success |
+| `0` | success, including a `topk import` that skipped rows with `--continue-on-error` |
 | `1` | error |
 | `2` | invalid arguments |
-| `3` | `topk import` completed and skipped rows; see [Failures and limits](#failures-and-limits) |
 | `130` | interrupted with `^C` |
 | `141` | stdout closed, for example by `\| head` |
 

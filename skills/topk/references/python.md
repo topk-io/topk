@@ -1,5 +1,7 @@
 # TopK Python reference (`topk-sdk`)
 
+For application code that reads and writes TopK. To load existing data, inspect collections or run one-off queries, use the CLI instead ([cli.md](cli.md)). The rules in SKILL.md apply here too. Applications authenticate with an API key from the [console](https://console.topk.io/api-key); `topk login` only logs in the CLI.
+
 ## Contents
 - Install and client
 - Create a collection
@@ -8,6 +10,7 @@
 - Partitions (multi-tenancy)
 - Read your own writes
 - Async client
+- Agent retrieval tool
 - Errors
 
 ## Install and client
@@ -34,7 +37,7 @@ try:
         "articles",
         schema={
             "title": text().required().index(keyword_index()),
-            "body": text().index(semantic_index()),  # semantic + BM25, max 4,096 chars per value
+            "body": text().index(semantic_index()),  # semantic + BM25, max 32,768 chars per value
             "source": text().required(),
             "year": int(),
         },
@@ -61,17 +64,21 @@ lsn = client.collection("articles").upsert([
 ])
 ```
 
-- Upsert replaces whole documents. To merge fields into existing documents, use `update(docs, fail_on_missing=False)`. In `topk-sdk` 0.15 the `fail_on_missing` argument is required at runtime, even though the type stub marks it optional. Set it to `True` to raise `DocumentValidationError` (`DocumentNotFound`) for unknown ids.
+- Upsert replaces whole documents. To merge fields into existing documents, use `update(docs)`. Pass `fail_on_missing=True` to raise `DocumentValidationError` (`DocumentNotFound`) for unknown ids.
 - To delete by id: `delete(["a1", "a2"])`. To delete by filter: `delete(field("year") < 2020)`.
 - Each call returns an LSN string. Keep the last one if you need to read your writes (see below).
 
 ### Chunk long text for `semantic_index()` fields
+
+For files on disk (text, Markdown, PDF, Word), [`scripts/chunk.py`](../scripts/chunk.py) writes chunk JSONL that `topk import` loads. In application code, split the text yourself:
 
 ```python
 def chunk(text: str, size: int = 3000, overlap: int = 200) -> list[str]:
     """Split on paragraph boundaries into chunks of at most `size` characters."""
     paras, chunks, cur = text.split("\n\n"), [], ""
     for p in paras:
+        if len(p) > size and cur:
+            chunks.append(cur); cur = ""  # flush first, so chunks stay in document order
         while len(p) > size:  # a single huge paragraph
             chunks.append(p[:size]); p = p[size - overlap:]
         if len(cur) + len(p) + 2 > size and cur:
@@ -240,6 +247,63 @@ client.collection("articles").query(q, lsn=lsn)
 
 `from topk_sdk import AsyncClient` has the same API. Every call is awaitable, and `list_partitions()` is an async iterator.
 
+## Agent retrieval tool
+
+When an agent must answer from your data with sources, give it a tool that returns passages with their source, and check that every cited source was actually retrieved. The shape works with any agent framework. Example with Claude, using the Anthropic SDK's tool runner (`pip install anthropic`) and a chunked `docs` collection:
+
+```python
+import json
+import re
+
+import anthropic
+from anthropic import beta_tool
+from topk_sdk.query import select, field, fn, should
+
+SYSTEM_PROMPT = (
+    "Answer using the search_docs tool. Search again with different wording if the first "
+    "results don't answer the question. Use only passages the tool returned, cite each "
+    "claim's source in square brackets like [limits.md], and say so if the answer isn't there."
+)
+
+
+def search(q: str, k: int = 5) -> list[dict]:
+    return client.collection("docs").query(
+        select("source", "text", sem=fn.semantic_similarity("text", q), kw=fn.bm25_score())
+        .filter(should(q, field="text"))
+        .sort(field("sem") + field("kw") * 0.2, asc=False)
+        .limit(k)
+    )
+
+
+def ask(question: str) -> dict:
+    retrieved: set[str] = set()
+
+    @beta_tool
+    def search_docs(query: str) -> str:
+        """Search the documentation and return the most relevant passages with their source.
+
+        Args:
+            query: What to look for, e.g. "maximum document size".
+        """
+        results = [{"source": r["source"], "passage": r["text"]} for r in search(query)]
+        retrieved.update(r["source"] for r in results)
+        return json.dumps(results)
+
+    runner = anthropic.Anthropic().beta.messages.tool_runner(
+        model="claude-opus-5-5",
+        max_tokens=16000,
+        system=SYSTEM_PROMPT,
+        tools=[search_docs],
+        messages=[{"role": "user", "content": question}],
+    )
+    final = runner.until_done()
+    answer = "".join(b.text for b in final.content if b.type == "text")
+    cited = set(re.findall(r"\[([^\]]+\.md)\]", answer))
+    return {"answer": answer, "cited": sorted(cited), "unsupported": sorted(cited - retrieved)}
+```
+
+The model can only answer from text it sees, so return passages, not ids. A model can cite a source it never retrieved, so treat a non-empty `unsupported` list as a failed answer. Keep each tool result small: five 3,000-character passages are about 4k tokens per search.
+
 ## Errors
 
 ```python
@@ -250,4 +314,4 @@ from topk_sdk.error import (
 )
 ```
 
-A `DocumentValidationError` message lists every bad document, for example `TextTooLong { doc_id: "a", field: "body", max_length: 4096, got_length: 6545 }`.
+A `DocumentValidationError` message lists every bad document, for example `TextTooLong { doc_id: "a", field: "body", max_length: 32768, got_length: 48162 }`.
