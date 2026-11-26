@@ -1,11 +1,13 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::{Stream, TryStreamExt};
 use indexmap::IndexMap;
 use prost::Message;
+use rand::Rng;
 use tokio::task::JoinSet;
+use topk_rs::client::retry::RetryConfig;
 use topk_rs::proto::v1::data::Document;
 use topk_rs::{Client, CollectionClient};
 use tracing::{debug, info, warn};
@@ -13,8 +15,7 @@ use tracing::{debug, info, warn};
 use crate::import::ddl;
 use crate::import::error::Error;
 use crate::import::plan::Target;
-use crate::import::source::Checkpoint;
-use crate::import::source::{ReadEvent, ReadStream, Source};
+use crate::import::source::{Cursor, ReadEvent, ReadStream, Resume, Shard, Source};
 use crate::import::state::{Progress, Run};
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
@@ -36,9 +37,11 @@ pub enum Event {
         written: usize,
         bytes: u64,
     },
-    /// `row` counts from 1 in source order; a destination rejection has none.
+    /// `row` counts from 1 in the file `part` when the source is several files, and in source
+    /// order otherwise; a destination rejection has none.
     Skipped {
         row: Option<u64>,
+        part: Option<String>,
         error: Error,
     },
     Completed {
@@ -46,18 +49,43 @@ pub enum Event {
     },
 }
 
+/// Saved with the run, so a resume reads the way the run started.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct ReadOptions {
+    /// Bytes for open file readers and upserts in flight; half of the machine's when unset.
+    pub max_memory: Option<u64>,
+    pub shard: Option<Shard>,
+}
+
 /// Saved with the run, so a resume writes the way the run started.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct WriteOptions {
     pub continue_on_error: bool,
-    pub concurrency: usize,
+    /// Most upserts in flight; unset takes what the memory budget allows.
+    pub concurrency: Option<usize>,
     pub batch_bytes: u64,
+}
+
+/// The window opens at `start` and grows up to `max` unless the run names a concurrency.
+/// Until the first throttle it doubles after each window of responses. After it, a probe
+/// adds a fraction `grow`, is judged over `rounds` windows and stays when throughput rose by
+/// the fraction `gain`. A throttle retains `cut` of the window.
+#[derive(Clone, Copy, Debug)]
+pub struct Aimd {
+    pub start: usize,
+    pub max: usize,
+    pub cut: f64,
+    pub grow: f64,
+    pub gain: f64,
+    pub rounds: usize,
 }
 
 pub struct Import {
     run: Run,
     client: Client,
     scan: ReadStream,
+    /// Chunks mapped to documents at once.
+    mappers: usize,
     create: bool,
 }
 
@@ -82,6 +110,7 @@ impl Import {
             run,
             client,
             scan,
+            mappers: source.readers.count,
             create,
         })
     }
@@ -133,37 +162,59 @@ impl Import {
         }
     }
 
-    pub fn execute(self) -> impl Stream<Item = Result<Event, Error>> {
+    pub fn execute(self, aimd: Aimd) -> impl Stream<Item = Result<Event, Error>> {
         async_stream::try_stream! {
             let options = self.run.state().write.clone();
             let name = self.run.state().plan.collection.clone();
             let target = self.run.state().plan.target.clone();
             let client = &self.client;
-            let consumed = match &self.run.state().progress {
-                Some(Progress::After(checkpoint)) => checkpoint.consumed,
-                _ => 0,
+            let retry = client.config().retry_config().clone();
+            let upserts = Client::new(client.config().clone().with_retry_config(RetryConfig { max_retries: 0, ..retry.clone() }));
+            let concurrency = options.concurrency.unwrap_or(aimd.max);
+            let window = Arc::new(Mutex::new(Window::new(concurrency, aimd)));
+            let resumed = match &self.run.state().progress {
+                Some(Progress::After(resume)) => Some(resume),
+                _ => None,
             };
-            info!(run = %self.run.id, collection = %name, consumed, ?options, "import started");
+            let consumed = resumed.map_or(0, |resume| resume.consumed);
+            let mut positions = Positions {
+                resumed: consumed,
+                parts: resumed.into_iter().flat_map(|resume| &resume.open).map(|cursor| (
+                    cursor.part().to_string(),
+                    Part { start: Some(cursor.clone()), ..Default::default() },
+                )).collect(),
+                done: resumed.into_iter().flat_map(|resume| resume.done.iter().cloned()).collect(),
+                ..Default::default()
+            };
+            info!(run = %self.run.id, collection = %name, consumed, ?options, concurrency, mappers = self.mappers, "import started");
             let mut create = self.create;
             let state = Arc::new(Mutex::new(self.run));
-            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, consumed));
+            let mut feed = Box::pin(Self::feed(self.scan, target.clone(), &options, concurrency, consumed, self.mappers));
             let started = Instant::now();
             let mut written = 0;
             let mut bytes = 0;
             let mut failed = 0;
             let mut inflight = JoinSet::new();
-            let mut checkpoints = Checkpoints::default();
             let mut eof = false;
+            let mut pending = None;
             yield Event::Progress { written, bytes };
             loop {
-                if let Some(checkpoint) = checkpoints.ready() {
-                    state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(checkpoint))?;
+                if let Some(resume) = positions.ready() {
+                    state.lock().unwrap_or_else(|e| e.into_inner()).mark(Progress::After(resume))?;
                 }
                 if eof && inflight.is_empty() { break; }
-                let next = tokio::select! {
-                    biased;
-                    completed = inflight.join_next(), if !inflight.is_empty() => Next::Written(completed),
-                    next = feed.try_next(), if !eof && inflight.len() < options.concurrency => Next::Feed(next),
+                let (admits, probe) = {
+                    let window = lock(&window);
+                    (window.admits(inflight.len()), window.limit < window.max || window.previous.is_some())
+                };
+                let next = if admits && pending.is_some() {
+                    Next::Feed(Ok(pending.take()))
+                } else {
+                    tokio::select! {
+                        biased;
+                        completed = inflight.join_next(), if !inflight.is_empty() => Next::Written(completed),
+                        next = feed.try_next(), if !eof && pending.is_none() && (admits || probe) => Next::Feed(next),
+                    }
                 };
                 match next {
                     Next::Written(completed) => {
@@ -173,31 +224,43 @@ impl Import {
                         bytes += outcome.bytes;
                         failed += outcome.skipped.len();
                         for error in outcome.skipped {
-                            yield Event::Skipped { row: None, error };
+                            yield Event::Skipped { row: None, part: None, error };
                         }
                         yield Event::Progress { written, bytes };
                         if let Some(error) = outcome.error { Err(error)?; }
-                        for (id, count) in outcome.chunks { checkpoints.complete(id, count)?; }
+                        for (id, count) in outcome.chunks { positions.complete(&id, count)?; }
                     }
                     Next::Feed(message) => match message? {
                         None => eof = true,
-                        Some(Feed::Chunk { rows, checkpoint }) => {
-                            let id = checkpoints.push(rows, checkpoint);
-                            if rows == 0 { checkpoints.complete(id, 0)?; }
+                        Some(Feed::Chunk { id, rows, cursor, last }) => {
+                            positions.push(&id, rows, cursor, last);
+                            if rows == 0 { positions.complete(&id, 0)?; }
                         }
+                        Some(Feed::Restarted) => positions.restart(),
                         Some(Feed::Skipped { chunk, row, error }) => {
-                            checkpoints.complete(chunk, 1)?;
+                            positions.complete(&chunk, 1)?;
                             failed += 1;
-                            yield Event::Skipped { row: Some(row), error };
+                            let part = (!chunk.part.is_empty() && chunk.part.as_ref() != target.from.value())
+                                .then(|| chunk.part.to_string());
+                            yield Event::Skipped { row: Some(row), part, error };
                         }
                         Some(Feed::Batch { partition, batch }) => {
+                            let slot = {
+                                let mut window = lock(&window);
+                                if !window.admits(inflight.len()) {
+                                    window.backlogged();
+                                    pending = Some(Feed::Batch { partition, batch });
+                                    continue;
+                                }
+                                window.slot()
+                            };
                             if create {
                                 Self::create(client, &name, &target).await?;
                                 create = false;
                             }
-                            let mut collection = client.collection(&name);
+                            let mut collection = upserts.collection(&name);
                             if let Some(partition) = partition { collection = collection.partition(partition); }
-                            inflight.spawn(Self::write(collection, batch, options.continue_on_error, Arc::clone(&state)));
+                            inflight.spawn(Self::write(collection, batch, options.continue_on_error, retry.clone(), Arc::clone(&window), slot, Arc::clone(&state)));
                         }
                     },
                 }
@@ -214,40 +277,74 @@ impl Import {
 
     /// Documents batched per partition. A batch goes when full, once `window` bytes were batched
     /// since its first document, or at the end; this bounds both buffered bytes and checkpoint lag.
+    /// Up to `mappers` chunks become documents at once and are batched as they finish, so one
+    /// mapper keeps source order.
     fn feed(
         mut chunks: ReadStream,
         target: Target,
         options: &WriteOptions,
+        concurrency: usize,
         mut consumed: u64,
+        mappers: usize,
     ) -> impl Stream<Item = Result<Feed, Error>> {
         let batch_bytes = options.batch_bytes;
-        let window = batch_bytes.saturating_mul(options.concurrency as u64);
+        let window = batch_bytes.saturating_mul(concurrency as u64);
         let continue_on_error = options.continue_on_error;
         async_stream::try_stream! {
+            let target = Arc::new(target);
             let mut batches = IndexMap::<Option<String>, Batch>::new();
             // Open batches, oldest first; an entry outlives a batch that went when full.
             let mut opened = VecDeque::<(u64, Option<String>)>::new();
             let mut batched = 0;
             let mut chunk = 0;
-            while let Some(event) = chunks.try_next().await? {
-                let read = match event {
-                    ReadEvent::Chunk(read) => read,
-                    ReadEvent::Restarted => {
-                        consumed = 0;
-                        warn!("resume cursor expired, restarting from the beginning");
+            let mut mapping = JoinSet::new();
+            let mut eof = false;
+            while !eof || !mapping.is_empty() {
+                let next = tokio::select! {
+                    biased;
+                    mapped = mapping.join_next(), if !mapping.is_empty() => Fed::Mapped(mapped),
+                    event = chunks.try_next(), if !eof && mapping.len() < mappers => Fed::Read(event),
+                };
+                let mapped: Mapped = match next {
+                    Fed::Mapped(mapped) => mapped
+                        .ok_or_else(|| Error::InvalidArgument("missing mapped chunk".into()))??,
+                    Fed::Read(event) => {
+                        match event? {
+                            None => eof = true,
+                            Some(ReadEvent::Restarted) => {
+                                consumed = 0;
+                                warn!("resume cursor expired, restarting from the beginning");
+                                yield Feed::Restarted;
+                            }
+                            Some(ReadEvent::Chunk(read)) => {
+                                let rows = read.rows.len();
+                                let first = match &read.cursor {
+                                    Some(Cursor::Offset { rows: end, .. }) => end.saturating_sub(rows as u64),
+                                    _ => consumed,
+                                };
+                                let id = ChunkId { part: read.cursor.as_ref().map_or("", Cursor::part).into(), sequence: chunk };
+                                consumed += rows as u64;
+                                yield Feed::Chunk { id: id.clone(), rows, cursor: read.cursor, last: read.last };
+                                if rows != 0 {
+                                    let target = Arc::clone(&target);
+                                    mapping.spawn_blocking(move || Mapped {
+                                        chunk: id,
+                                        first,
+                                        rows: read.rows.into_iter().map(|row| {
+                                            let (partition, doc) = target.document(row?)?;
+                                            Ok((partition, doc.encoded_len() as u64, doc))
+                                        }).collect(),
+                                    });
+                                }
+                                chunk += 1;
+                            }
+                        }
                         continue;
                     }
                 };
-                let first = consumed;
-                consumed += read.rows.len() as u64;
-                yield Feed::Chunk {
-                    rows: read.rows.len(),
-                    checkpoint: read.cursor.map(|cursor| Checkpoint { cursor, consumed }),
-                };
-                for (index, row) in read.rows.into_iter().enumerate() {
-                    match row.and_then(|record| target.document(record)) {
-                        Ok((partition, doc)) => {
-                            let size = doc.encoded_len() as u64;
+                for (index, row) in mapped.rows.into_iter().enumerate() {
+                    match row {
+                        Ok((partition, size, doc)) => {
                             let slot = match batches.get_index_of(&partition) {
                                 Some(slot) => slot,
                                 None => {
@@ -259,8 +356,8 @@ impl Import {
                             batch.bytes += size;
                             batch.docs.push(doc);
                             match batch.chunks.last_mut() {
-                                Some((id, count)) if *id == chunk => *count += 1,
-                                _ => batch.chunks.push((chunk, 1)),
+                                Some((id, count)) if *id == mapped.chunk => *count += 1,
+                                _ => batch.chunks.push((mapped.chunk.clone(), 1)),
                             }
                             batched += size;
                             if batch.bytes >= batch_bytes {
@@ -270,7 +367,7 @@ impl Import {
                             }
                         }
                         Err(error) if continue_on_error => {
-                            yield Feed::Skipped { chunk, row: first + index as u64 + 1, error };
+                            yield Feed::Skipped { chunk: mapped.chunk.clone(), row: mapped.first + index as u64 + 1, error };
                         }
                         Err(error) => Err(error)?,
                     }
@@ -284,7 +381,6 @@ impl Import {
                         }
                     }
                 }
-                chunk += 1;
             }
             for (partition, batch) in batches {
                 yield Feed::Batch { partition, batch };
@@ -297,6 +393,9 @@ impl Import {
         collection: CollectionClient,
         batch: Batch,
         continue_on_error: bool,
+        retry: RetryConfig,
+        window: Arc<Mutex<Window>>,
+        mut slot: Slot,
         _run: Arc<Mutex<Run>>,
     ) -> BatchOutcome {
         let mut outcome = BatchOutcome {
@@ -304,21 +403,33 @@ impl Import {
             ..Default::default()
         };
         let count = batch.docs.len();
-        let retry = continue_on_error.then(|| batch.docs.clone());
-        match (collection.upsert(batch.docs).await, retry) {
-            (Ok(_), _) => {
+        match Self::upsert(
+            &collection,
+            &batch.docs,
+            &retry,
+            &window,
+            &mut slot,
+            Some(batch.bytes),
+        )
+        .await
+        {
+            Ok(()) => {
                 outcome.written = count;
                 outcome.bytes = batch.bytes;
             }
-            (Err(error @ topk_rs::Error::DocumentValidationError(_)), Some(_)) if count == 1 => {
+            Err(error @ topk_rs::Error::DocumentValidationError(_))
+                if continue_on_error && count == 1 =>
+            {
                 outcome.skipped.push(error.into())
             }
-            (Err(topk_rs::Error::DocumentValidationError(_)), Some(docs)) => {
+            Err(topk_rs::Error::DocumentValidationError(_)) if continue_on_error => {
                 debug!(count, "retrying rejected batch individually");
-                for doc in docs {
+                // One batch must not grow the window once per document.
+                for doc in batch.docs {
                     let bytes = doc.encoded_len() as u64;
-                    match collection.upsert(vec![doc]).await {
-                        Ok(_) => {
+                    match Self::upsert(&collection, &[doc], &retry, &window, &mut slot, None).await
+                    {
+                        Ok(()) => {
                             outcome.written += 1;
                             outcome.bytes += bytes;
                         }
@@ -332,19 +443,207 @@ impl Import {
                     }
                 }
             }
-            (Err(error), _) => outcome.error = Some(error.into()),
+            Err(error) => outcome.error = Some(error.into()),
         }
         outcome
     }
+
+    /// Retries a throttled or transient failure until the retry timeout; a throttle also cuts the
+    /// window. The slot stays taken while it waits.
+    async fn upsert(
+        collection: &CollectionClient,
+        docs: &[Document],
+        retry: &RetryConfig,
+        window: &Mutex<Window>,
+        slot: &mut Slot,
+        bytes: Option<u64>,
+    ) -> Result<(), topk_rs::Error> {
+        let deadline = tokio::time::Instant::now() + retry.timeout;
+        let mut delay = Duration::ZERO;
+        let mut last_error = None;
+        let result = tokio::time::timeout_at(deadline, async {
+            loop {
+                if tokio::time::Instant::now() >= deadline {
+                    return Err(last_error.take().unwrap_or(topk_rs::Error::RetryTimeout));
+                }
+                let error = match collection.upsert(docs.to_vec()).await {
+                    Ok(_) => {
+                        if let Some(bytes) = bytes {
+                            lock(window).success(*slot, bytes, Instant::now());
+                        }
+                        return Ok(());
+                    }
+                    Err(error @ topk_rs::Error::SlowDown(_)) => {
+                        lock(window).throttled(slot);
+                        error
+                    }
+                    Err(error) if error.is_retryable() => error,
+                    Err(error) => return Err(error),
+                };
+                let base = retry.backoff.init_backoff;
+                delay = rand::thread_rng()
+                    .gen_range(base..=3 * delay.max(base))
+                    .min(retry.backoff.max_backoff);
+                debug!(%error, ?delay, "retrying upsert");
+                last_error = Some(error);
+                tokio::time::sleep(delay).await;
+            }
+        })
+        .await;
+        match result {
+            Ok(result) => result,
+            Err(_) => Err(last_error.unwrap_or(topk_rs::Error::RetryTimeout)),
+        }
+    }
+}
+
+struct Window {
+    limit: usize,
+    max: usize,
+    aimd: Aimd,
+    cuts: u64,
+    settle: usize,
+    waiting: bool,
+    generation: u64,
+    first_ack: Option<Instant>,
+    bytes: u64,
+    acks: usize,
+    previous: Option<(usize, f64)>,
+}
+
+impl Window {
+    fn new(max: usize, aimd: Aimd) -> Self {
+        Self {
+            limit: aimd.start.min(max),
+            max,
+            aimd,
+            cuts: 0,
+            settle: 0,
+            waiting: false,
+            generation: 0,
+            first_ack: None,
+            bytes: 0,
+            acks: 0,
+            previous: None,
+        }
+    }
+
+    fn admits(&self, inflight: usize) -> bool {
+        inflight < self.limit
+    }
+
+    fn backlogged(&mut self) {
+        self.waiting = true;
+    }
+
+    fn slot(&self) -> Slot {
+        Slot {
+            generation: self.generation,
+            cut: self.cuts,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.generation += 1;
+        self.first_ack = None;
+        self.bytes = 0;
+        self.acks = 0;
+        self.waiting = false;
+    }
+
+    fn success(&mut self, slot: Slot, bytes: u64, now: Instant) {
+        if slot.cut == self.cuts {
+            self.settle = self.settle.saturating_sub(1);
+        }
+        if slot.generation != self.generation || (self.limit == self.max && self.previous.is_none())
+        {
+            return;
+        }
+        let start = match self.first_ack {
+            Some(start) => start,
+            None => {
+                self.first_ack = Some(now);
+                return;
+            }
+        };
+        self.bytes += bytes;
+        self.acks += 1;
+        let startup = self.cuts == 0;
+        let rounds = match startup {
+            true => 1,
+            false => self.aimd.rounds,
+        };
+        if self.acks < self.limit.saturating_mul(rounds) || now == start {
+            return;
+        }
+        let rate = self.bytes as f64 / now.duration_since(start).as_secs_f64();
+        let measured = self.limit;
+        if let Some((limit, baseline)) = self.previous.take() {
+            if !self.waiting || rate < baseline * (1.0 + self.aimd.gain) {
+                self.limit = limit;
+            }
+        }
+        if self.limit == measured && self.waiting && self.limit < self.max {
+            self.previous = (!startup).then_some((self.limit, rate));
+            let step = match startup {
+                true => self.limit.max(self.max.isqrt().saturating_sub(1)),
+                false => (self.limit as f64 * self.aimd.grow).ceil() as usize,
+            };
+            self.limit = self.limit.saturating_add(step).min(self.max);
+        }
+        debug!(
+            measured,
+            bytes_per_sec = rate,
+            limit = self.limit,
+            "upsert window probe"
+        );
+        self.reset();
+    }
+
+    /// The slot's retry counts toward the window after this response.
+    fn throttled(&mut self, slot: &mut Slot) {
+        if slot.cut == self.cuts {
+            self.settle = self.settle.saturating_sub(1);
+            if self.settle == 0 {
+                self.limit = ((self.limit as f64 * self.aimd.cut) as usize).max(1);
+                self.previous = None;
+                self.reset();
+                self.cuts += 1;
+                self.settle = self.limit;
+                debug!(limit = self.limit, cuts = self.cuts, "upsert window cut");
+            }
+        }
+        slot.cut = self.cuts;
+    }
+}
+
+/// A batch's place in the window, taken when it is sent.
+#[derive(Clone, Copy)]
+struct Slot {
+    generation: u64,
+    cut: u64,
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+#[derive(Clone, PartialEq)]
+struct ChunkId {
+    part: Arc<str>,
+    sequence: u64,
 }
 
 enum Feed {
     Chunk {
+        id: ChunkId,
         rows: usize,
-        checkpoint: Option<Checkpoint>,
+        cursor: Option<Cursor>,
+        last: bool,
     },
+    Restarted,
     Skipped {
-        chunk: u64,
+        chunk: ChunkId,
         row: u64,
         error: Error,
     },
@@ -354,6 +653,18 @@ enum Feed {
     },
 }
 
+enum Fed {
+    Read(Result<Option<ReadEvent>, Error>),
+    Mapped(Option<Result<Mapped, tokio::task::JoinError>>),
+}
+
+/// A chunk's rows as documents with their encoded sizes.
+struct Mapped {
+    chunk: ChunkId,
+    first: u64,
+    rows: Vec<Result<(Option<String>, u64, Document), Error>>,
+}
+
 enum Next {
     Written(Option<Result<BatchOutcome, tokio::task::JoinError>>),
     Feed(Result<Option<Feed>, Error>),
@@ -361,7 +672,7 @@ enum Next {
 
 #[derive(Default)]
 struct BatchOutcome {
-    chunks: Vec<(u64, usize)>,
+    chunks: Vec<(ChunkId, usize)>,
     written: usize,
     bytes: u64,
     skipped: Vec<Error>,
@@ -374,21 +685,157 @@ struct Batch {
     /// Bytes batched before its first document.
     opened: u64,
     docs: Vec<Document>,
-    chunks: Vec<(u64, usize)>,
+    chunks: Vec<(ChunkId, usize)>,
+}
+
+/// The resume point of a run: per file, the rows before its first chunk still in flight.
+#[derive(Default)]
+struct Positions {
+    /// Rows done before this invocation.
+    resumed: u64,
+    parts: BTreeMap<String, Part>,
+    done: BTreeSet<String>,
+    /// Rows of the files that left.
+    finished: u64,
+    /// End of the last file that left.
+    tail: Option<Cursor>,
+}
+
+impl Positions {
+    fn push(&mut self, id: &ChunkId, rows: usize, cursor: Option<Cursor>, last: bool) {
+        let part = self.parts.entry(id.part.to_string()).or_default();
+        if let (
+            None,
+            Some(Cursor::Offset {
+                part: file,
+                rows: end,
+            }),
+        ) = (&part.start, &cursor)
+        {
+            part.start = end.checked_sub(rows as u64).map(|rows| Cursor::Offset {
+                part: file.clone(),
+                rows,
+            });
+        }
+        part.pushed += rows as u64;
+        part.read |= last;
+        let consumed = part.pushed;
+        part.checkpoints.push(
+            id.sequence,
+            rows,
+            cursor.map(|cursor| Checkpoint { cursor, consumed }),
+        );
+    }
+
+    fn complete(&mut self, id: &ChunkId, rows: usize) -> Result<(), Error> {
+        self.parts
+            .get_mut(id.part.as_ref())
+            .ok_or_else(|| Error::InvalidArgument("unknown source chunk".into()))?
+            .checkpoints
+            .complete(id.sequence, rows)
+    }
+
+    fn restart(&mut self) {
+        self.resumed = 0;
+        self.finished = 0;
+        for part in self.parts.values_mut() {
+            part.pushed = 0;
+        }
+    }
+
+    /// The resume point, once a chunk or a file finished since the last call. A file leaves
+    /// when it is fully read and every chunk of it is done.
+    fn ready(&mut self) -> Option<Resume> {
+        let mut moved = false;
+        for part in self.parts.values_mut() {
+            if let Some(mark) = part.checkpoints.ready() {
+                part.mark = Some(mark);
+                moved = true;
+            }
+        }
+        let left: Vec<String> = self
+            .parts
+            .iter()
+            .filter(|(_, part)| part.read && part.checkpoints.chunks.is_empty())
+            .map(|(name, _)| name.clone())
+            .collect();
+        for name in left {
+            if let Some(part) = self.parts.remove(&name) {
+                self.finished += part.pushed;
+                if self
+                    .tail
+                    .as_ref()
+                    .is_none_or(|tail| tail.part() < name.as_str())
+                {
+                    self.tail = part.mark.map(|mark| mark.cursor);
+                }
+                self.done.insert(name);
+                moved = true;
+            }
+        }
+        if !moved {
+            return None;
+        }
+        let open: Vec<Cursor> = match self.parts.is_empty() {
+            true => self.tail.iter().cloned().collect(),
+            false => self
+                .parts
+                .values()
+                .filter_map(|part| match &part.mark {
+                    Some(mark) => Some(mark.cursor.clone()),
+                    None => part.start.clone(),
+                })
+                .collect(),
+        };
+        match open.first() {
+            Some(first) => self.done.retain(|name| name.as_str() > first.part()),
+            None => self.done.clear(),
+        }
+        let rows = self.finished
+            + self
+                .parts
+                .values()
+                .filter_map(|part| part.mark.as_ref())
+                .map(|mark| mark.consumed)
+                .sum::<u64>();
+        // An opened file with no row done is not progress.
+        if open.is_empty() || rows == 0 {
+            return None;
+        }
+        Some(Resume {
+            open,
+            done: self.done.iter().cloned().collect(),
+            consumed: self.resumed + rows,
+        })
+    }
+}
+
+#[derive(Default)]
+struct Part {
+    checkpoints: Checkpoints,
+    /// Rows read in this invocation.
+    pushed: u64,
+    /// Where this invocation began reading.
+    start: Option<Cursor>,
+    mark: Option<Checkpoint>,
+    read: bool,
+}
+
+/// A chunk's end and the rows of its file read up to it in this invocation.
+#[derive(Clone)]
+struct Checkpoint {
+    cursor: Cursor,
+    consumed: u64,
 }
 
 #[derive(Default)]
 struct Checkpoints {
-    next: u64,
     chunks: BTreeMap<u64, (usize, Option<Checkpoint>)>,
 }
 
 impl Checkpoints {
-    fn push(&mut self, rows: usize, checkpoint: Option<Checkpoint>) -> u64 {
-        let id = self.next;
-        self.next += 1;
+    fn push(&mut self, id: u64, rows: usize, checkpoint: Option<Checkpoint>) {
         self.chunks.insert(id, (rows, checkpoint));
-        id
     }
 
     fn complete(&mut self, id: u64, rows: usize) -> Result<(), Error> {
@@ -439,13 +886,295 @@ impl Checkpoints {
 #[cfg(test)]
 mod tests {
     use std::fs::{File, TryLockError};
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use futures::{stream, FutureExt, StreamExt};
+    use futures::{stream, StreamExt};
     use rstest::rstest;
+    use tokio::net::TcpListener;
+    use tokio_stream::wrappers::TcpListenerStream;
+    use tonic::transport::{Endpoint, Server};
+    use tonic::{Request, Response, Status};
+    use topk_rs::client::retry::BackoffConfig;
+    use topk_rs::error::{CustomError, CustomErrorCode};
     use topk_rs::proto::v1::control::FieldSpec;
+    use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
+    use topk_rs::proto::v1::data::{
+        DeleteDocumentsRequest, DeleteDocumentsResponse, UpdateDocumentsRequest,
+        UpdateDocumentsResponse, UpsertDocumentsRequest, UpsertDocumentsResponse,
+    };
     use topk_rs::ClientConfig;
 
     use super::*;
+
+    struct RetryService {
+        attempts: AtomicUsize,
+        first_error: Status,
+    }
+
+    #[tonic::async_trait]
+    impl WriteService for RetryService {
+        async fn upsert_documents(
+            &self,
+            _: Request<UpsertDocumentsRequest>,
+        ) -> Result<Response<UpsertDocumentsResponse>, Status> {
+            if self.attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Err(self.first_error.clone());
+            }
+            std::future::pending().await
+        }
+
+        async fn update_documents(
+            &self,
+            _: Request<UpdateDocumentsRequest>,
+        ) -> Result<Response<UpdateDocumentsResponse>, Status> {
+            Err(Status::unimplemented("unused"))
+        }
+
+        async fn delete_documents(
+            &self,
+            _: Request<DeleteDocumentsRequest>,
+        ) -> Result<Response<DeleteDocumentsResponse>, Status> {
+            Err(Status::unimplemented("unused"))
+        }
+    }
+
+    #[rstest]
+    #[case::during_backoff(Status::unavailable("first attempt failed"), Duration::from_secs(1), 1)]
+    #[case::during_request(
+        Status::unavailable("first attempt failed"),
+        Duration::from_millis(1),
+        2
+    )]
+    #[case::quota_stops_import(
+        Status::resource_exhausted("collection size limit"),
+        Duration::from_millis(1),
+        1
+    )]
+    #[case::throttle_retries(CustomError::new("write rate limit".into(), CustomErrorCode::SlowDown).into(), Duration::from_millis(1), 2)]
+    #[tokio::test]
+    async fn upsert_preserves_error(
+        #[case] first_error: Status,
+        #[case] backoff: Duration,
+        #[case] attempts: usize,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint =
+            Endpoint::from_shared(format!("http://{}", listener.local_addr().unwrap())).unwrap();
+        let service = Arc::new(RetryService {
+            attempts: AtomicUsize::new(0),
+            first_error,
+        });
+        let server =
+            Server::builder().add_service(WriteServiceServer::from_arc(Arc::clone(&service)));
+        let server = tokio::spawn(server.serve_with_incoming(TcpListenerStream::new(listener)));
+        let retry = RetryConfig {
+            max_retries: 0,
+            timeout: Duration::from_millis(100),
+            backoff: BackoffConfig {
+                init_backoff: backoff,
+                max_backoff: backoff,
+                ..BackoffConfig::default()
+            },
+        };
+        let client = Client::from_channel(
+            ClientConfig::default().with_retry_config(retry.clone()),
+            endpoint.connect_lazy(),
+        );
+        let window = Mutex::new(Window::new(1, AIMD));
+        let mut slot = lock(&window).slot();
+        let result = tokio::time::timeout(
+            Duration::from_millis(500),
+            Import::upsert(
+                &client.collection("c"),
+                &[],
+                &retry,
+                &window,
+                &mut slot,
+                None,
+            ),
+        )
+        .await;
+        server.abort();
+        let _ = server.await;
+        let error = result.unwrap().unwrap_err();
+        let expected = topk_rs::Error::from(service.first_error.clone());
+        assert_eq!(
+            std::mem::discriminant(&error),
+            std::mem::discriminant(&expected)
+        );
+        assert_eq!(error.to_string(), expected.to_string());
+        assert_eq!(service.attempts.load(Ordering::SeqCst), attempts);
+    }
+
+    #[rstest]
+    #[case::completed_file(false, false)]
+    #[case::unopened_offset(true, false)]
+    #[case::completed_suffix(false, true)]
+    #[tokio::test]
+    async fn repeated_resume_keeps_files(#[case] unopened: bool, #[case] ended: bool) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut saved = crate::import::state::State::new(
+            String::new(),
+            crate::scope::Scope {
+                project_id: "p1".parse().unwrap(),
+                region: "unused".into(),
+            },
+            test_plan(),
+            ReadOptions {
+                max_memory: None,
+                shard: None,
+            },
+            WriteOptions {
+                continue_on_error: true,
+                concurrency: Some(1),
+                batch_bytes: 1,
+            },
+        );
+        let mut open = vec![offset("a", 0).unwrap()];
+        if unopened {
+            open.push(offset("c", 5).unwrap());
+        }
+        saved.progress = Some(Progress::After(Resume {
+            open,
+            done: vec!["b".into()],
+            consumed: 8,
+        }));
+        let mut run = Run::start(dir.path(), saved).await.unwrap();
+        let id = run.id;
+        for end in 1..=if ended { 1 } else { 2 } {
+            let chunks = async_stream::try_stream! {
+                yield ReadEvent::Chunk(crate::import::source::Chunk { rows: Vec::new(), cursor: offset("a", end - 1), last: false });
+                yield ReadEvent::Chunk(crate::import::source::Chunk { rows: vec![Err(Error::CannotCoerce("int"))], cursor: offset("a", end), last: false });
+                if ended { yield ReadEvent::Chunk(crate::import::source::Chunk { rows: Vec::new(), cursor: offset("a", end), last: true }); }
+                Err(Error::InvalidArgument("interrupted source".into()))?;
+            }.boxed();
+            let import = Import {
+                run,
+                client: Client::new(ClientConfig::new("unused", "unused")),
+                scan: chunks,
+                mappers: 1,
+                create: false,
+            };
+            let result: Result<Vec<_>, _> = import.execute(AIMD).try_collect().await;
+            assert!(
+                matches!(result, Err(Error::InvalidArgument(message)) if message == "interrupted source")
+            );
+            run = Run::load(dir.path(), id).await.unwrap();
+            let mut expected = vec![offset("a", end).unwrap()];
+            if unopened {
+                expected.push(offset("c", 5).unwrap());
+            }
+            assert!(
+                matches!(&run.state().progress, Some(Progress::After(resume)) if resume.open == expected && resume.done == ["b"] && resume.consumed == 8 + end),
+                "{}",
+                toml::to_string(run.state()).unwrap()
+            );
+        }
+    }
+
+    const AIMD: Aimd = Aimd {
+        start: 1,
+        max: 64,
+        cut: 0.9,
+        grow: 0.1,
+        gain: 0.05,
+        rounds: 3,
+    };
+
+    /// Responses of `bytes` each, 100 ms apart, until the window is judged.
+    fn judged(window: &mut Window, now: &mut Instant, bytes: u64) {
+        window.backlogged();
+        let generation = window.generation;
+        while window.generation == generation {
+            *now += Duration::from_millis(100);
+            window.success(window.slot(), bytes, *now);
+        }
+    }
+
+    #[rstest]
+    #[case::one_window_in_startup(0, 5)]
+    #[case::rounds_after_a_cut(1, 13)]
+    fn responses_before_a_judgement(#[case] cuts: u64, #[case] responses: usize) {
+        let mut window = Window::new(64, AIMD);
+        (window.limit, window.cuts) = (4, cuts);
+        window.backlogged();
+        let mut now = Instant::now();
+        for _ in 1..responses {
+            now += Duration::from_millis(100);
+            window.success(window.slot(), 100, now);
+            assert_eq!(window.generation, 0);
+        }
+        now += Duration::from_millis(100);
+        window.success(window.slot(), 100, now);
+        assert_eq!(window.generation, 1);
+    }
+
+    #[test]
+    fn opens_at_start_within_max() {
+        let start = |start, max| Window::new(max, Aimd { start, ..AIMD }).limit;
+        assert_eq!((start(8, 64), start(8, 2)), (8, 2));
+    }
+
+    #[rstest]
+    #[case::flat_rate(100, 2)]
+    #[case::below_gain(103, 2)]
+    #[case::throughput_grew(130, 4)]
+    #[case::throughput_fell(90, 2)]
+    fn throughput_probe(#[case] bytes: u64, #[case] expected: usize) {
+        let mut window = Window::new(8, AIMD);
+        (window.limit, window.cuts) = (2, 1);
+        let mut now = Instant::now();
+        for size in [100, bytes] {
+            judged(&mut window, &mut now, size);
+        }
+        assert_eq!(window.limit, expected);
+    }
+
+    #[test]
+    fn startup_doubles_until_throttled() {
+        let mut window = Window::new(128, AIMD);
+        let mut now = Instant::now();
+        for (expected, bytes) in [(11, 100), (22, 90), (44, 90)] {
+            judged(&mut window, &mut now, bytes);
+            assert_eq!(window.limit, expected);
+        }
+        window.throttled(&mut window.slot());
+        assert_eq!(window.limit, 39);
+        for (expected, bytes) in [(43, 100), (39, 103)] {
+            judged(&mut window, &mut now, bytes);
+            assert_eq!(window.limit, expected);
+        }
+    }
+
+    #[test]
+    fn throttle_invalidates_probe() {
+        let mut window = Window::new(64, AIMD);
+        window.limit = 20;
+        let mut first = window.slot();
+        let mut stale = first;
+        window.previous = Some((10, 1.0));
+        window.throttled(&mut first);
+        window.throttled(&mut stale);
+        assert_eq!(window.limit, 18);
+        assert!(window.previous.is_none());
+        for _ in 0..18 {
+            window.success(window.slot(), 100, Instant::now());
+        }
+        window.throttled(&mut first);
+        assert_eq!(window.limit, 16);
+        assert_eq!(window.acks, 0);
+    }
+
+    #[test]
+    fn source_limited_window_stays_put() {
+        let mut window = Window::new(8, AIMD);
+        for _ in 0..10 {
+            window.success(window.slot(), 100, Instant::now());
+        }
+        assert_eq!(window.limit, 1);
+        window.throttled(&mut window.slot());
+        assert!(window.admits(0));
+    }
 
     fn test_plan() -> crate::import::plan::Plan {
         crate::import::plan::Plan {
@@ -471,67 +1200,135 @@ mod tests {
     #[case::failed_prefix(true)]
     fn unordered_completion_keeps_prefix(#[case] fatal: bool) {
         let mut checkpoints = Checkpoints::default();
-        let first = checkpoints.push(
+        checkpoints.push(
+            0,
             2,
             Some(Checkpoint {
                 cursor: crate::import::source::Cursor::Key("2".into()),
                 consumed: 2,
             }),
         );
-        let second = checkpoints.push(
+        checkpoints.push(
+            1,
             1,
             Some(Checkpoint {
                 cursor: crate::import::source::Cursor::Key("3".into()),
                 consumed: 3,
             }),
         );
-        checkpoints.complete(second, 1).unwrap();
+        checkpoints.complete(1, 1).unwrap();
         assert!(checkpoints.ready().is_none());
-        checkpoints.complete(first, 1).unwrap();
+        checkpoints.complete(0, 1).unwrap();
         assert!(checkpoints.ready().is_none());
         if !fatal {
-            checkpoints.complete(first, 1).unwrap();
+            checkpoints.complete(0, 1).unwrap();
             assert_eq!(checkpoints.ready().unwrap().consumed, 3);
             assert!(checkpoints.chunks.is_empty());
         }
     }
 
+    fn offset(part: &str, rows: u64) -> Option<Cursor> {
+        Some(Cursor::Offset {
+            part: part.into(),
+            rows,
+        })
+    }
+
+    #[test]
+    fn files_resume_independently() {
+        let mut positions = Positions {
+            resumed: 10,
+            ..Default::default()
+        };
+        let a1 = ChunkId {
+            part: "a".into(),
+            sequence: 0,
+        };
+        let b1 = ChunkId {
+            part: "b".into(),
+            sequence: 1,
+        };
+        let a2 = ChunkId {
+            sequence: 2,
+            ..a1.clone()
+        };
+        let b_end = ChunkId {
+            sequence: 3,
+            ..b1.clone()
+        };
+        positions.push(&a1, 2, offset("a", 2), false);
+        positions.push(&b1, 3, offset("b", 3), false);
+        positions.push(&a2, 2, offset("a", 4), false);
+        positions.push(&b_end, 0, offset("b", 3), true);
+        positions.complete(&b_end, 0).unwrap();
+        assert!(positions.ready().is_none());
+
+        positions.complete(&b1, 3).unwrap();
+        let resume = positions.ready().unwrap();
+        assert_eq!(resume.open, [offset("a", 0).unwrap()]);
+        assert_eq!(
+            (resume.done.as_slice(), resume.consumed),
+            (&["b".to_string()][..], 13)
+        );
+
+        positions.complete(&a2, 2).unwrap();
+        assert!(positions.ready().is_none());
+        positions.complete(&a1, 2).unwrap();
+        let resume = positions.ready().unwrap();
+        assert_eq!(resume.open, [offset("a", 4).unwrap()]);
+        assert_eq!(
+            (resume.done.as_slice(), resume.consumed),
+            (&["b".to_string()][..], 17)
+        );
+
+        let a_end = ChunkId { sequence: 4, ..a1 };
+        positions.push(&a_end, 0, offset("a", 4), true);
+        positions.complete(&a_end, 0).unwrap();
+        let resume = positions.ready().unwrap();
+        assert_eq!(resume.open, [offset("b", 3).unwrap()]);
+        assert!(resume.done.is_empty());
+        assert_eq!(resume.consumed, 17);
+        assert!(positions.parts.is_empty());
+    }
+
     #[test]
     fn stalled_chunk_bounds_checkpoints() {
         let mut checkpoints = Checkpoints::default();
-        let first = checkpoints.push(1, None);
+        checkpoints.push(0, 1, None);
         for n in 1..10_000 {
-            let next = checkpoints.push(
+            checkpoints.push(
+                n,
                 1,
                 Some(Checkpoint {
                     cursor: crate::import::source::Cursor::Key(n.to_string()),
                     consumed: n,
                 }),
             );
-            checkpoints.complete(next, 1).unwrap();
+            checkpoints.complete(n, 1).unwrap();
             assert!(checkpoints.ready().is_none());
             assert_eq!(checkpoints.chunks.len(), 2);
         }
-        checkpoints.complete(first, 1).unwrap();
+        checkpoints.complete(0, 1).unwrap();
         assert_eq!(checkpoints.ready().unwrap().consumed, 9999);
     }
 
     #[test]
     fn sparse_chunks_keep_last_cursor() {
         let mut checkpoints = Checkpoints::default();
-        let first = checkpoints.push(1, None);
-        let second = checkpoints.push(
+        checkpoints.push(0, 1, None);
+        checkpoints.push(
+            1,
             1,
             Some(Checkpoint {
                 cursor: crate::import::source::Cursor::Key("2".into()),
                 consumed: 2,
             }),
         );
-        let third = checkpoints.push(1, None);
-        checkpoints.complete(third, 1).unwrap();
-        checkpoints.complete(first, 1).unwrap();
+        checkpoints.push(2, 1, None);
+        checkpoints.complete(2, 1).unwrap();
+        checkpoints.complete(0, 1).unwrap();
         assert!(checkpoints.ready().is_none());
-        checkpoints.complete(second, 1).unwrap();
+        checkpoints.complete(1, 1).unwrap();
         assert_eq!(checkpoints.ready().unwrap().consumed, 2);
     }
 
@@ -556,14 +1353,15 @@ mod tests {
         let chunks = stream::iter([Ok(ReadEvent::Chunk(crate::import::source::Chunk {
             rows,
             cursor: None,
+            last: false,
         }))])
         .boxed();
         let options = WriteOptions {
             continue_on_error: false,
-            concurrency: 1,
+            concurrency: Some(1),
             batch_bytes: 1024,
         };
-        let partitions: Vec<_> = Import::feed(chunks, target, &options, 0)
+        let partitions: Vec<_> = Import::feed(chunks, target, &options, 1, 0, 1)
             .try_filter_map(|message| async move {
                 Ok(match message {
                     Feed::Batch { partition, .. } => partition,
@@ -590,9 +1388,13 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                ReadOptions {
+                    max_memory: None,
+                    shard: None,
+                },
                 WriteOptions {
                     continue_on_error: false,
-                    concurrency: 1,
+                    concurrency: Some(1),
                     batch_bytes: 1,
                 },
             ),
@@ -606,20 +1408,26 @@ mod tests {
                 ("title".into(), "book".into()),
             ])],
             cursor: None,
+            last: false,
         }))])
         .boxed();
         let import = Import {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
             scan: chunks,
+            mappers: 1,
             create: false,
         };
-        let mut execution = Box::pin(import.execute());
+        let mut execution = Box::pin(import.execute(AIMD));
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })
         ));
-        assert!(execution.try_next().now_or_never().is_none());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), execution.try_next())
+                .await
+                .is_err()
+        );
         drop(execution);
         assert!(matches!(lock.try_lock(), Err(TryLockError::WouldBlock)));
         tokio::time::timeout(Duration::from_secs(1), async {
@@ -647,9 +1455,13 @@ mod tests {
                     region: "unused".into(),
                 },
                 plan,
+                ReadOptions {
+                    max_memory: None,
+                    shard: None,
+                },
                 WriteOptions {
                     continue_on_error: true,
-                    concurrency: 1,
+                    concurrency: Some(1),
                     batch_bytes: 1024,
                 },
             ),
@@ -661,6 +1473,7 @@ mod tests {
             yield ReadEvent::Chunk(crate::import::source::Chunk {
                 rows: vec![Err(Error::CannotCoerce("int"))],
                 cursor: Some(crate::import::source::Cursor::Key("1".into())),
+                last: false,
             });
             if stream_error {
                 Err(Error::InvalidArgument("source stream failed".into()))?;
@@ -671,9 +1484,10 @@ mod tests {
             run,
             client: Client::new(ClientConfig::new("unused", "unused")),
             scan: chunks,
+            mappers: 1,
             create: false,
         };
-        let mut execution = Box::pin(import.execute());
+        let mut execution = Box::pin(import.execute(AIMD));
         assert!(matches!(
             execution.try_next().await.unwrap(),
             Some(Event::Progress { written: 0, .. })

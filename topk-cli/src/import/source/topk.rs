@@ -30,6 +30,7 @@ impl Topk {
                 .collect(),
             from: SourceLocation::Object(name),
             key: Some(ID.to_string()),
+            complete: false,
             unnamed: Vec::new(),
         };
         Topk { client, table }
@@ -95,6 +96,7 @@ impl Topk {
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
                     cursor: Some(Checkpoint::Key(cursor.clone())),
+                    last: false,
                 };
                 if !full {
                     break;

@@ -32,9 +32,10 @@ impl Select {
         Select::new(name.split('.').map(quoted).collect::<Vec<_>>().join("."))
     }
 
-    pub(super) fn file(format: Format, path: &str) -> Self {
-        // Take the union of every file a glob matches, so a column present in only
-        // some files is kept, not dropped to the first file's schema.
+    /// One path or glob, or a list of files.
+    pub(super) fn file(format: Format, paths: &[String]) -> Self {
+        // Take the union of every file read, so a column present in only some of
+        // them is kept, not dropped to the first file's schema.
         let opts = match format {
             Format::Csv => ", union_by_name=true, null_padding=true, parallel=false",
             Format::Json | Format::Parquet => ", union_by_name=true",
@@ -47,7 +48,15 @@ impl Select {
             Format::Arrow => "read_arrow",
             Format::Avro => "read_avro",
         };
-        Self::new(format!("{reader}('{}'{opts})", lit(path)))
+        let quoted: Vec<_> = paths
+            .iter()
+            .map(|path| format!("'{}'", lit(path)))
+            .collect();
+        let files = match quoted.as_slice() {
+            [one] => one.clone(),
+            _ => format!("[{}]", quoted.join(", ")),
+        };
+        Self::new(format!("{reader}({files}{opts})"))
     }
 
     /// Text columns with one value for every row.
@@ -78,17 +87,15 @@ impl Select {
         self
     }
 
-    /// Selects only requested columns present in the relation.
-    pub(super) fn existing_columns<'a>(
-        mut self,
-        columns: impl IntoIterator<Item = &'a str>,
-    ) -> Self {
+    /// Selects every column of the relation but these.
+    pub(super) fn except<'a>(mut self, columns: impl IntoIterator<Item = &'a str>) -> Self {
         let names = columns
             .into_iter()
             .map(|column| format!("'{}'", lit(column)))
-            .collect::<Vec<_>>()
-            .join(", ");
-        self.projection = format!("COLUMNS(lambda c: c IN [{names}])");
+            .collect::<Vec<_>>();
+        if !names.is_empty() {
+            self.projection = format!("COLUMNS(lambda c: c NOT IN [{}])", names.join(", "));
+        }
         self
     }
 
@@ -150,7 +157,7 @@ pub(super) fn quoted(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::Select;
+    use super::{Format, Select};
 
     #[test]
     fn clauses_compose() {
@@ -170,16 +177,22 @@ mod tests {
     }
 
     #[test]
-    fn existing_columns_are_quoted_as_names() {
+    fn excepted_columns_are_quoted_as_names() {
         let sql = Select::new("read_parquet('docs.parquet')")
-            .existing_columns(["id", "author's note"])
+            .except(["raw", "author's note"])
             .offset(4)
             .into_sql();
 
         assert_eq!(
             sql,
-            "SELECT COLUMNS(lambda c: c IN ['id', 'author''s note']) \
+            "SELECT COLUMNS(lambda c: c NOT IN ['raw', 'author''s note']) \
              FROM read_parquet('docs.parquet') OFFSET 4"
+        );
+        assert_eq!(
+            Select::file(Format::Parquet, &["a.parquet".into(), "b.parquet".into()])
+                .except([])
+                .into_sql(),
+            "SELECT * FROM read_parquet(['a.parquet', 'b.parquet'], union_by_name=true)"
         );
     }
 }

@@ -8,10 +8,12 @@ mod uri;
 use std::borrow::Cow;
 use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use futures::stream::BoxStream;
 use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::Value;
 use tracing::{debug, info};
@@ -32,6 +34,7 @@ pub struct Table {
     pub from: SourceLocation,
     pub columns: Vec<(String, FieldSpec)>,
     pub key: Option<String>,
+    pub complete: bool,
     /// Columns the reader had to name: a CSV column with no header cell.
     pub unnamed: Vec<String>,
 }
@@ -87,6 +90,8 @@ pub type Record = Vec<(String, Value)>;
 pub struct Chunk {
     pub rows: Vec<Result<Record, Error>>,
     pub cursor: Option<Cursor>,
+    /// No row of this chunk's file follows it.
+    pub last: bool,
 }
 
 pub enum ReadEvent {
@@ -109,6 +114,14 @@ pub enum Cursor {
 }
 
 impl Cursor {
+    /// The file a row offset counts in; empty for a source read as one stream.
+    pub fn part(&self) -> &str {
+        match self {
+            Cursor::Offset { part, .. } => part,
+            _ => "",
+        }
+    }
+
     fn key(self) -> Result<String, Error> {
         match self {
             Cursor::Key(key) => Ok(key),
@@ -130,18 +143,100 @@ impl fmt::Display for Cursor {
     }
 }
 
+/// Where a stopped run continues.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Checkpoint {
-    #[serde(flatten)]
-    pub cursor: Cursor,
-    #[serde(default)]
+pub struct Resume {
+    /// Cursors of the files being read, in plan order; every file before the first is done.
+    /// A source read as one stream has one.
+    pub open: Vec<Cursor>,
+    /// Files done after the first open one.
+    pub done: Vec<String>,
     pub consumed: u64,
+}
+
+/// How a file or table source is read.
+#[derive(Clone, Copy, Debug)]
+pub struct Readers {
+    /// Files read at once; one keeps source order.
+    pub count: usize,
+    /// Files whose schemas describe a glob.
+    pub sample_files: usize,
+    /// The share of a glob's files this import reads.
+    pub shard: Option<Shard>,
+    /// Rows travel in chunks of at most this many bytes.
+    pub chunk_bytes: u64,
+}
+
+impl Readers {
+    /// One reader forwarding whole DuckDB batches, the way a preview or a sample reads.
+    pub fn one() -> Self {
+        Readers {
+            count: 1,
+            sample_files: usize::MAX,
+            shard: None,
+            chunk_bytes: u64::MAX,
+        }
+    }
+}
+
+/// One share of a source's files: `1/3` is the first of three.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct Shard {
+    index: u64,
+    count: u64,
+}
+
+impl Shard {
+    /// A file is in the share its path hashes to, whatever else the glob matches.
+    pub fn takes(&self, file: &str) -> bool {
+        let digest = Sha256::digest(file.as_bytes());
+        let head: [u8; 8] = std::array::from_fn(|i| digest[i]);
+        u64::from_be_bytes(head) % self.count + 1 == self.index
+    }
+}
+
+impl FromStr for Shard {
+    type Err = Error;
+
+    fn from_str(shard: &str) -> Result<Self, Error> {
+        let parsed = shard
+            .split_once('/')
+            .and_then(|(index, count)| Some((index.parse().ok()?, count.parse().ok()?)));
+        match parsed {
+            Some((index, count)) if index >= 1 && index <= count => Ok(Shard { index, count }),
+            _ => Err(Error::InvalidArgument(format!(
+                "shard {shard:?} is not <share>/<shares>, such as 1/3"
+            ))),
+        }
+    }
+}
+
+impl TryFrom<String> for Shard {
+    type Error = Error;
+
+    fn try_from(shard: String) -> Result<Self, Error> {
+        shard.parse()
+    }
+}
+
+impl From<Shard> for String {
+    fn from(shard: Shard) -> String {
+        shard.to_string()
+    }
+}
+
+impl fmt::Display for Shard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.index, self.count)
+    }
 }
 
 pub struct Source {
     locator: String,
     backend: Backend,
     table: tokio::sync::OnceCell<Table>,
+    pub readers: Readers,
 }
 
 enum Backend {
@@ -156,11 +251,6 @@ impl Source {
         &self.locator
     }
 
-    /// Discovery lists every column the reader returns.
-    pub fn typed(&self) -> bool {
-        matches!(self.backend, Backend::Duck(_))
-    }
-
     pub fn topk(
         client: topk_rs::Client,
         locator: String,
@@ -171,6 +261,7 @@ impl Source {
             locator,
             backend: Backend::Topk(Topk::new(client, name, schema)),
             table: tokio::sync::OnceCell::new(),
+            readers: Readers::one(),
         }
     }
 
@@ -180,7 +271,7 @@ impl Source {
                 info!("discovering source");
                 match &self.backend {
                     Backend::Es(es) => es.discover().await,
-                    Backend::Duck(duck) => duck.discover().await,
+                    Backend::Duck(duck) => duck.discover(self.readers.sample_files).await,
                     Backend::Mongo(mongo) => mongo.discover().await,
                     Backend::Topk(topk) => topk.discover().await,
                 }
@@ -190,28 +281,24 @@ impl Source {
 
     /// A source may push `limit` down, but need not honor it: rows past it are
     /// cut here, and the source is not polled again once it is reached.
-    pub async fn scan(
-        &self,
-        target: &Target,
-        after: Option<&Checkpoint>,
-    ) -> Result<ReadStream, Error> {
+    pub async fn scan(&self, target: &Target, after: Option<&Resume>) -> Result<ReadStream, Error> {
         debug!(
             columns = target.fields.len(),
             limit = target.limit,
             resumed = after.is_some(),
             "opening source scan"
         );
-        let consumed = after.map_or(0, |checkpoint| checkpoint.consumed);
+        let consumed = after.map_or(0, |resume| resume.consumed);
         let mut remaining = target.clone();
         remaining.limit = target.limit.map(|limit| limit.saturating_sub(consumed));
         if remaining.limit == Some(0) {
             return Ok(Box::pin(futures::stream::empty()));
         }
         let remaining_limit = remaining.limit;
-        let cursor = after.map(|checkpoint| checkpoint.cursor.clone());
+        let cursor = after.and_then(|resume| resume.open.first().cloned());
         let mut events: ReadStream = match &self.backend {
             Backend::Duck(duck @ Duckdb::Files(file)) => Box::pin(
-                duck.files(file.clone(), remaining, cursor)?
+                duck.files(file.clone(), remaining, after.cloned(), self.readers)?
                     .map_ok(ReadEvent::Chunk),
             ),
             Backend::Duck(duck) => {
@@ -222,7 +309,10 @@ impl Source {
                         target.from
                     ))
                 })?;
-                Box::pin(duck.table(remaining, key, cursor)?.map_ok(ReadEvent::Chunk))
+                Box::pin(
+                    duck.table(remaining, key, cursor, self.readers)?
+                        .map_ok(ReadEvent::Chunk),
+                )
             }
             Backend::Es(es) => es.chunks(target, cursor, consumed)?,
             Backend::Mongo(mongo) => {
@@ -236,6 +326,7 @@ impl Source {
             Backend::Mongo(mongo) => {
                 matches!(&target.from, SourceLocation::Object(name) if name == &mongo.object)
             }
+            Backend::Duck(Duckdb::Files(file)) => SourceLocation::from(file) == target.from,
             _ => self.discover().await?.from == target.from,
         };
         if !matches {
@@ -292,8 +383,41 @@ impl Source {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cursor, Duckdb, File, SourceLocation};
+    use rstest::rstest;
+
+    use super::{Cursor, Duckdb, File, Readers, Resume, Shard, SourceLocation};
     use crate::import::plan::Target;
+
+    #[rstest]
+    #[case::first_of_three("1/3", true)]
+    #[case::last_of_three("3/3", true)]
+    #[case::share_zero("0/3", false)]
+    #[case::past_the_last("4/3", false)]
+    #[case::no_shares("1/0", false)]
+    #[case::not_a_fraction("2", false)]
+    fn shard_is_a_share_of_shares(#[case] shard: &str, #[case] valid: bool) {
+        let parsed = shard.parse::<Shard>();
+        assert_eq!(parsed.is_ok(), valid, "{shard}");
+        if let Ok(parsed) = parsed {
+            assert_eq!(parsed.to_string(), shard);
+        }
+    }
+
+    #[test]
+    fn shards_split_every_file_once() {
+        let shards: Vec<Shard> = ["1/3", "2/3", "3/3"]
+            .iter()
+            .map(|shard| shard.parse().unwrap())
+            .collect();
+        let mut taken = [0; 3];
+        for n in 0..300 {
+            let file = format!("s3://bucket/part-{n}.parquet");
+            let owners: Vec<_> = (0..3).filter(|&i| shards[i].takes(&file)).collect();
+            assert_eq!(owners.len(), 1, "{file}");
+            taken[owners[0]] += 1;
+        }
+        assert!(taken.iter().all(|&files| files > 60), "{taken:?}");
+    }
 
     #[test]
     fn cursor_shape_matches_the_source() {
@@ -308,7 +432,16 @@ mod tests {
         };
         let file: File = "docs.parquet".parse().unwrap();
         let error = Duckdb::Files(file.clone())
-            .files(file, target.clone(), Some(Cursor::Key("42".into())))
+            .files(
+                file,
+                target.clone(),
+                Some(Resume {
+                    open: vec![Cursor::Key("42".into())],
+                    done: Vec::new(),
+                    consumed: 0,
+                }),
+                Readers::one(),
+            )
             .err()
             .expect("files accepted a key cursor");
         assert!(error.to_string().contains("does not fit"));
@@ -323,6 +456,7 @@ mod tests {
                 part: "docs.parquet".into(),
                 rows: 7,
             }),
+            Readers::one(),
         )
         .err()
         .expect("table accepted an offset cursor");

@@ -3,6 +3,7 @@ mod creds;
 mod read;
 mod select;
 
+use std::ops::ControlFlow;
 use std::path::Path;
 
 use duckdb::Connection;
@@ -15,8 +16,9 @@ use crate::import::error::Error;
 use crate::import::plan::Target;
 
 use super::uri::SourceUrl;
-use super::{ChunkStream, Cursor, Table};
+use super::{ChunkStream, Cursor, Readers, Resume, Table};
 
+use super::file::local_path;
 use super::{File, Format, SourceLocation};
 pub use creds::aws_process_profile;
 use creds::secret;
@@ -46,10 +48,11 @@ impl Duckdb {
     fn connect(&self) -> Result<Connection, Error> {
         let conn = Connection::open_in_memory()?;
         // One thread, in order: rows arrive as stored, which makes a row offset
-        // a resume point; more threads measured the same.
+        // a resume point; more threads measured the same. A file is read once
+        // per connection, so the remote file cache only keeps a copy of it.
         conn.execute_batch(&format!(
             "SET preserve_insertion_order = true; SET memory_limit = '{}MiB'; \
-             SET threads = 1; SET temp_directory = '{}';",
+             SET threads = 1; SET enable_external_file_cache = false; SET temp_directory = '{}';",
             READER_MEMORY >> 20,
             lit(&std::env::temp_dir()
                 .join("topk-import")
@@ -175,7 +178,29 @@ impl Duckdb {
             .transpose()?)
     }
 
-    pub async fn discover(&self) -> Result<Table, Error> {
+    /// The files a glob matches, in byte order; a plain path is its own list.
+    fn list(&self, file: &File) -> Result<Vec<String>, Error> {
+        let path = file.glob();
+        if local_path(&path).is_some() {
+            return Ok(vec![path]);
+        }
+        let conn = self.connect()?;
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT file FROM glob('{}') ORDER BY 1",
+                lit(&path)
+            ))
+            .map_err(|e| read_error(&SourceLocation::from(file), None, e))?;
+        let files = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<_, _>>()
+            .map_err(|e| read_error(&SourceLocation::from(file), None, e))?;
+        Ok(files)
+    }
+
+    /// A glob over more than `sample` csv, json or parquet files is described by `sample`
+    /// of them, evenly spread from the first to the last.
+    pub async fn discover(&self, sample: usize) -> Result<Table, Error> {
         let source = self.clone();
         spawn_blocking(move || -> Result<Table, Error> {
             let file = match &source {
@@ -186,8 +211,19 @@ impl Duckdb {
             let conn = source.connect()?;
             // A glob's schema is the union of its files' schemas, read one file per thread; order does not matter here.
             if file.is_some() { conn.execute_batch("SET threads = 16;")?; }
+            let mut complete = true;
             let (from, select, key) = match &source {
-                Duckdb::Files(file) => (SourceLocation::from(file), Select::file(file.format, &file.glob()), None),
+                Duckdb::Files(file) => {
+                    let mut files = vec![file.glob()];
+                    if matches!(file.format, Format::Csv | Format::Json | Format::Parquet) {
+                        let (all, sample) = (source.list(file)?, sample.max(2));
+                        if all.len() > sample {
+                            complete = false;
+                            files = (0..sample).map(|i| all[i * (all.len() - 1) / (sample - 1)].clone()).collect();
+                        }
+                    }
+                    (SourceLocation::from(file), Select::file(file.format, &files), None)
+                }
                 Duckdb::Postgres { object, .. } | Duckdb::Mysql { object, .. } | Duckdb::Sqlite { object, .. } => {
                     let hidden = match &source {
                         Duckdb::Postgres { .. } => "'information_schema', 'pg_catalog'",
@@ -247,7 +283,7 @@ impl Duckdb {
                 }
                 columns.push((name.clone(), FieldSpec::text(false)));
             }
-            Ok(Table { from, columns, key, unnamed })
+            Ok(Table { from, columns, key, complete, unnamed })
         }).await?
     }
 
@@ -256,6 +292,7 @@ impl Duckdb {
         target: Target,
         key: String,
         after: Option<Cursor>,
+        readers: Readers,
     ) -> Result<ChunkStream, Error> {
         let after = match after {
             None => None,
@@ -269,7 +306,11 @@ impl Duckdb {
         };
         Ok(self.stream(move |source, tx| {
             let conn = source.connect()?;
-            Plan::table(source, &target, &key, after.as_deref()).read(&conn, tx)
+            Plan::table(source, &target, &key, after.as_deref()).read(
+                &conn,
+                tx,
+                readers.chunk_bytes,
+            )
         }))
     }
 
@@ -277,19 +318,26 @@ impl Duckdb {
         &self,
         file: File,
         target: Target,
-        after: Option<Cursor>,
+        after: Option<Resume>,
+        readers: Readers,
     ) -> Result<ChunkStream, Error> {
-        let resume = match after {
-            None => None,
-            Some(Cursor::Offset { part, rows }) => Some((part, rows)),
-            Some(cursor) => {
-                return Err(Error::InvalidArgument(format!(
-                    "resume cursor {cursor:?} does not fit {}",
-                    target.from
-                )))
-            }
-        };
-        Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, tx)))
+        let resume = after
+            .map(|resume| {
+                let open = resume
+                    .open
+                    .into_iter()
+                    .map(|cursor| match cursor {
+                        Cursor::Offset { part, rows } => Ok((part, rows)),
+                        cursor => Err(Error::InvalidArgument(format!(
+                            "resume cursor {cursor:?} does not fit {}",
+                            target.from
+                        ))),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok::<_, Error>((open, resume.done))
+            })
+            .transpose()?;
+        Ok(self.stream(move |source, tx| read::files(source, &file, &target, resume, readers, tx)))
     }
 
     fn stream<T: Send + 'static>(
@@ -300,11 +348,26 @@ impl Duckdb {
         // One message per arrow batch; per-row sends make the channel the bottleneck.
         let (tx, mut rx) = mpsc::channel(2);
         Box::pin(async_stream::try_stream! {
-            let reader = spawn_blocking(move || produce(&source, &tx));
-            while let Some(chunk) = rx.recv().await {
-                yield chunk;
+            let mut reader = spawn_blocking(move || produce(&source, &tx));
+            loop {
+                let next = tokio::select! {
+                    biased;
+                    result = &mut reader => ControlFlow::Break(result),
+                    chunk = rx.recv() => ControlFlow::Continue(chunk),
+                };
+                match next {
+                    ControlFlow::Break(result) => {
+                        result??;
+                        while let Some(chunk) = rx.recv().await { yield chunk; }
+                        break;
+                    }
+                    ControlFlow::Continue(Some(chunk)) => yield chunk,
+                    ControlFlow::Continue(None) => {
+                        reader.await??;
+                        break;
+                    }
+                }
             }
-            reader.await??;
         })
     }
 }
@@ -333,4 +396,78 @@ pub(super) fn read_error(from: &SourceLocation, filter: Option<&str>, e: duckdb:
         message.push_str("; a private or gated dataset needs HF_TOKEN or `hf auth login`");
     }
     Error::InvalidArgument(message)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use futures::TryStreamExt;
+    use rstest::rstest;
+    use tokio::sync::oneshot;
+
+    use super::*;
+
+    #[rstest]
+    #[case::source_error(false)]
+    #[case::reader_panic(true)]
+    #[tokio::test]
+    async fn reader_failure_releases_stream(#[case] panic: bool) {
+        let (release, blocked) = oneshot::channel::<()>();
+        let (ready, started) = std::sync::mpsc::channel();
+        let source = Duckdb::Sqlite {
+            path: String::new(),
+            object: String::new(),
+        };
+        let mut stream = source.stream(move |_, tx| {
+            let tx = tx.clone();
+            let mut readers = tokio::task::JoinSet::new();
+            readers.spawn_blocking(move || {
+                ready.send(()).unwrap();
+                let _ = blocked.blocking_recv();
+                drop(tx);
+            });
+            started.recv().unwrap();
+            if panic {
+                panic!("reader panicked");
+            }
+            Err::<(), _>(Error::InvalidArgument("reader failed".into()))
+        });
+        let result = tokio::time::timeout(Duration::from_secs(1), stream.try_next()).await;
+        drop(release);
+        drop(stream);
+        match result.unwrap() {
+            Err(Error::Join(error)) if panic => assert!(error.is_panic()),
+            Err(Error::InvalidArgument(message)) if !panic => assert_eq!(message, "reader failed"),
+            _ => panic!("reader failure was not propagated"),
+        }
+    }
+
+    #[tokio::test]
+    async fn successful_reader_drains_chunks() {
+        let source = Duckdb::Sqlite {
+            path: String::new(),
+            object: String::new(),
+        };
+        let chunks: Vec<_> = source
+            .stream(|_, tx| {
+                for rows in 0..10 {
+                    tx.blocking_send(super::super::Chunk {
+                        rows: Vec::new(),
+                        cursor: Some(Cursor::Offset {
+                            part: "a".into(),
+                            rows,
+                        }),
+                        last: rows == 9,
+                    })
+                    .unwrap();
+                }
+                Ok(())
+            })
+            .try_collect()
+            .await
+            .unwrap();
+        assert_eq!(chunks.len(), 10);
+        assert!(chunks.last().unwrap().last);
+    }
 }

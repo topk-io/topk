@@ -131,6 +131,7 @@ impl Es {
                 .chain(fields)
                 .collect(),
             key: Some(ID.to_string()),
+            complete: false,
             unnamed: Vec::new(),
         })
     }
@@ -237,7 +238,7 @@ impl Es {
                 if done {
                     close_pit(&client, &pit).await;
                 }
-                yield Ok(ReadEvent::Chunk(Chunk { rows, cursor: mark }));
+                yield Ok(ReadEvent::Chunk(Chunk { rows, cursor: mark, last: false }));
                 if done {
                     break;
                 }

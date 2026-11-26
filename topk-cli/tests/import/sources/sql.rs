@@ -6,7 +6,7 @@ use serde_json::json;
 use sqlx::{Executor, SqlitePool};
 use test_macros::rstest_ctx;
 use topk::import::plan::Target;
-use topk::import::source::{Checkpoint, Cursor, ReadEvent};
+use topk::import::source::{Cursor, ReadEvent, Resume};
 use topk_rs::proto::v1::control::FieldSpec;
 
 #[rstest_ctx(Scratch)]
@@ -95,11 +95,12 @@ async fn resume_uses_source_key(ctx: &Scratch) {
         "external_id",
         [("title", FieldSpec::text(false))],
     );
-    let checkpoint = Checkpoint {
-        cursor: Cursor::Sql {
+    let checkpoint = Resume {
+        open: vec![Cursor::Sql {
             column: "seq".into(),
             value: "1".into(),
-        },
+        }],
+        done: Vec::new(),
         consumed: 1,
     };
     let mut scan = source.scan(&target, Some(&checkpoint)).await.unwrap();
@@ -133,8 +134,9 @@ async fn resume_uses_source_key(ctx: &Scratch) {
             value: "3".into()
         })
     );
-    let legacy = Checkpoint {
-        cursor: Cursor::Key("same".into()),
+    let legacy = Resume {
+        open: vec![Cursor::Key("same".into())],
+        done: Vec::new(),
         consumed: 1,
     };
     assert!(

@@ -594,7 +594,7 @@ fn rejected_arguments(
 async fn resume_rejects_state_without_project(ctx: &Scratch) {
     ctx.file(
         "state/1234abcd.toml",
-        "source = \"\"\nregion = \"dev\"\n[plan]\ncollection = \"c\"\n[plan.target]\nfrom = { local = \"a.parquet\" }\nid = \"_id\"\nexclude = []\n[plan.target.fields]\n[write]\ncontinue_on_error = false\nconcurrency = 16\nbatch_bytes = 1048576\n",
+        "source = \"\"\nregion = \"dev\"\n[plan]\ncollection = \"c\"\n[plan.target]\nfrom = { local = \"a.parquet\" }\nid = \"_id\"\nexclude = []\n[plan.target.fields]\n[read]\n[write]\ncontinue_on_error = false\nconcurrency = 16\nbatch_bytes = 1048576\n",
     );
     let run = ctx
         .command()
@@ -1520,6 +1520,8 @@ async fn partition_failure_resumes_saved_prefix(
         "1B",
         "-c",
         "1",
+        "--readers",
+        "1",
         "--yes",
     ]);
     if let Some(limit) = limit {
@@ -1545,6 +1547,8 @@ async fn partition_failure_resumes_saved_prefix(
             "1B",
             "-c",
             "2",
+            "--readers",
+            "1",
             "--continue-on-error",
             "-o",
             "json",
@@ -1592,6 +1596,185 @@ async fn partition_failure_resumes_saved_prefix(
             documents.len() as u64
         );
     }
+    assert!(!ctx.cli.state_path(stopped.id()).exists());
+}
+
+#[rstest_ctx(Ctx)]
+#[case::one_reader("1")]
+#[case::three_readers("3")]
+async fn many_files_import_every_row(ctx: &Ctx, #[case] readers: &str) {
+    for file in 0..6 {
+        ctx.cli.parquet(
+            &format!("part-{file}.parquet"),
+            &format!("SELECT ({file} * 1000 + i)::VARCHAR AS id, repeat('x', 400) AS pad FROM range(300) t(i)"),
+        );
+    }
+    let from = format!("{}/*.parquet", ctx.cli.scratch().display());
+    let collection = ctx.collection("many-files");
+    let summary = ctx
+        .cli
+        .command()
+        .args([
+            "import",
+            &from,
+            "--to",
+            &collection,
+            "--readers",
+            readers,
+            "--chunk-bytes",
+            "8KiB",
+            "--batch-bytes",
+            "16KiB",
+            "--yes",
+            "-o",
+            "json",
+        ])
+        .success()
+        .summary();
+    assert_eq!((summary.rows, summary.failed), (1800, 0));
+    let strong = Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong);
+    let collection = ctx.client.collection(&collection);
+    assert_eq!(collection.count(None, strong).await.unwrap(), 1800);
+    let ids: Vec<String> = (0..6)
+        .flat_map(|file| [file * 1000, file * 1000 + 299])
+        .map(|id| id.to_string())
+        .collect();
+    let documents = collection
+        .get(ids.clone(), None, None, strong)
+        .await
+        .unwrap();
+    assert_eq!(documents.len(), ids.len());
+}
+
+#[rstest_ctx(Ctx)]
+async fn shards_import_every_file_once(ctx: &Ctx) {
+    for file in 0..9 {
+        ctx.cli.parquet(
+            &format!("part-{file}.parquet"),
+            &format!("SELECT ({file} * 1000 + i)::VARCHAR AS id, 't' AS text FROM range(100) t(i)"),
+        );
+    }
+    let from = format!("{}/*.parquet", ctx.cli.scratch().display());
+    let collection = ctx.collection("shards");
+    let mut rows = Vec::new();
+    for shard in ["1/2", "2/2"] {
+        let summary = ctx
+            .cli
+            .command()
+            .args([
+                "import",
+                &from,
+                "--to",
+                &collection,
+                "--shard",
+                shard,
+                "--yes",
+                "-o",
+                "json",
+            ])
+            .success()
+            .summary();
+        assert_eq!(summary.failed, 0);
+        assert_eq!(summary.rows % 100, 0, "a shard reads whole files");
+        rows.push(summary.rows);
+    }
+    assert!(rows.iter().all(|&rows| rows > 0), "{rows:?}");
+    assert_eq!(rows.iter().sum::<usize>(), 900);
+    let strong = Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong);
+    assert_eq!(
+        ctx.client
+            .collection(&collection)
+            .count(None, strong)
+            .await
+            .unwrap(),
+        900
+    );
+}
+
+#[rstest_ctx(Scratch)]
+async fn shard_needs_a_file_source(ctx: &Scratch) {
+    let run = ctx
+        .command()
+        .args([
+            "import",
+            "postgres://u:p@localhost:1/db#t",
+            "--to",
+            "c",
+            "--shard",
+            "1/2",
+            "--yes",
+        ])
+        .failure(1);
+    assert!(
+        run.stderr.contains("--shard splits a glob's files"),
+        "{run:?}"
+    );
+}
+
+#[rstest_ctx(Ctx)]
+async fn stopped_files_resume_every_row(ctx: &Ctx) {
+    for file in 0..4 {
+        ctx.cli.parquet(
+            &format!("part-{file}.parquet"),
+            &format!("SELECT CASE WHEN {file} = 3 AND i = 180 THEN NULL ELSE ({file} * 1000 + i)::VARCHAR END AS id, repeat('x', 400) AS pad FROM range(200) t(i)"),
+        );
+    }
+    let from = format!("{}/*.parquet", ctx.cli.scratch().display());
+    let collection = ctx.collection("files-resume");
+    let sizes = [
+        "--readers",
+        "3",
+        "--chunk-bytes",
+        "8KiB",
+        "--batch-bytes",
+        "16KiB",
+        "-c",
+        "1",
+    ];
+    let stopped = ctx
+        .cli
+        .command()
+        .args(["import", &from, "--to", &collection, "--yes"])
+        .args(sizes)
+        .failure(1);
+    assert!(stopped.stderr.contains("id is null"), "{stopped:?}");
+    let summary = ctx
+        .cli
+        .command()
+        .args([
+            "import",
+            "--resume",
+            stopped.id(),
+            "--continue-on-error",
+            "-o",
+            "json",
+        ])
+        .args(sizes)
+        .success()
+        .summary();
+    assert!(
+        summary.resumed_after > 0,
+        "nothing was saved before the stop"
+    );
+    assert_eq!(
+        (
+            summary.failed,
+            summary.resumed_after + summary.rows as u64 + 1
+        ),
+        (1, 800)
+    );
+    let strong = Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong);
+    let collection = ctx.client.collection(&collection);
+    assert_eq!(collection.count(None, strong).await.unwrap(), 799);
+    let ids: Vec<String> = (0..4)
+        .flat_map(|file| [file * 1000, file * 1000 + 179, file * 1000 + 199])
+        .map(|id| id.to_string())
+        .collect();
+    let documents = collection
+        .get(ids.clone(), None, None, strong)
+        .await
+        .unwrap();
+    assert_eq!(documents.len(), ids.len());
     assert!(!ctx.cli.state_path(stopped.id()).exists());
 }
 

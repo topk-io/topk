@@ -112,7 +112,10 @@ async fn limits_documents(ctx: &Scratch, #[case] backend: Backend) {
         json!({"_id": "nineteen_eighty_four", "title": "1984"}),
         json!({"_id": "pride", "title": "Pride and Prejudice"}),
     ];
-    let expected = if matches!(backend, Backend::Mongo | Backend::Elasticsearch) {
+    let expected = if matches!(
+        backend,
+        Backend::Mongo | Backend::Elasticsearch | Backend::Parquet | Backend::S3
+    ) {
         books()
             .iter()
             .map(|doc| serde_json::Value::Object(crate::import::common::json(doc)))

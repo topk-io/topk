@@ -10,6 +10,7 @@ fn table(columns: &[&str]) -> Table {
     Table {
         from: SourceLocation::Object("books".into()),
         key: None,
+        complete: true,
         columns: columns
             .iter()
             .map(|name| ((*name).into(), FieldSpec::text(false)))

@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::import::error::Error;
-use crate::import::execution::WriteOptions;
+use crate::import::execution::{ReadOptions, WriteOptions};
 use crate::import::plan::Plan;
-use crate::import::source::{Checkpoint, Uri};
+use crate::import::source::{Resume, Uri};
 use crate::scope::Scope;
 use crate::storage;
 
@@ -49,7 +49,7 @@ impl fmt::Display for RunId {
 #[serde(rename_all = "lowercase")]
 pub enum Progress {
     Done,
-    After(Checkpoint),
+    After(Resume),
 }
 
 /// Created at confirmation, rewritten at every checkpoint, deleted on success:
@@ -59,6 +59,7 @@ pub struct State {
     /// Passwords are redacted.
     pub source: String,
     pub plan: Plan,
+    pub read: ReadOptions,
     pub write: WriteOptions,
     #[serde(flatten)]
     pub destination: Scope,
@@ -67,10 +68,17 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(source: String, destination: Scope, plan: Plan, write: WriteOptions) -> State {
+    pub fn new(
+        source: String,
+        destination: Scope,
+        plan: Plan,
+        read: ReadOptions,
+        write: WriteOptions,
+    ) -> State {
         State {
             source,
             plan,
+            read,
             write,
             destination,
             progress: None,
@@ -80,9 +88,7 @@ impl State {
     pub fn done(&self) -> bool {
         match &self.progress {
             Some(Progress::Done) => true,
-            Some(Progress::After(checkpoint)) => {
-                self.plan.target.limit == Some(checkpoint.consumed)
-            }
+            Some(Progress::After(resume)) => self.plan.target.limit == Some(resume.consumed),
             None => false,
         }
     }
@@ -135,13 +141,13 @@ impl State {
 
     pub fn validate(&self) -> Result<(), Error> {
         self.plan.validate()?;
-        if let (Some(Progress::After(checkpoint)), Some(limit)) =
+        if let (Some(Progress::After(resume)), Some(limit)) =
             (&self.progress, self.plan.target.limit)
         {
-            if checkpoint.consumed > limit {
+            if resume.consumed > limit {
                 return Err(Error::InvalidArgument(format!(
                     "checkpoint consumed {} rows, exceeding limit {limit}",
-                    checkpoint.consumed
+                    resume.consumed
                 )));
             }
         }
@@ -199,8 +205,15 @@ impl Run {
         &self.state
     }
 
-    pub fn set_write(&mut self, write: WriteOptions) {
+    pub fn set_options(&mut self, read: ReadOptions, write: WriteOptions) -> Result<(), Error> {
+        if read.shard != self.state.read.shard {
+            return Err(Error::InvalidArgument(
+                "--shard cannot change when resuming; start a new import".into(),
+            ));
+        }
+        self.state.read = read;
         self.state.write = write;
+        Ok(())
     }
 
     pub fn save(&self) -> Result<(), Error> {

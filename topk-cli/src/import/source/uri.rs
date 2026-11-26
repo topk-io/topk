@@ -14,8 +14,8 @@ use crate::ProjectId;
 use super::duck::Duckdb;
 use super::es::Es;
 use super::mongo::Mongo;
-use super::File;
 use super::{Backend, Source};
+use super::{File, Readers};
 
 /// A source as named on the command line, parsed but not connected.
 #[derive(Clone, Debug)]
@@ -80,6 +80,7 @@ impl Uri {
             locator,
             backend,
             table: tokio::sync::OnceCell::new(),
+            readers: Readers::one(),
         })
     }
 
