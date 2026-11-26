@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::Result;
 use chrono::Utc;
 use http::header::{HeaderValue, AUTHORIZATION};
 use http::Request;
@@ -9,7 +9,7 @@ use tracing::debug;
 
 use topk_rs::client::AsyncInterceptor;
 
-use crate::client::ManagementClient;
+use crate::client::{Error, ManagementClient};
 use crate::config::Config;
 use crate::ProjectId;
 
@@ -55,12 +55,14 @@ impl AccessTokenProvider {
             .tokens()
             .mint(&self.project_id)
             .await
-            .map_err(|status| {
-                let context = match status.code() {
-                    Code::Unauthenticated => "session rejected. Run `topk login`.",
+            .map_err(|error| {
+                let context = match &error {
+                    Error::Status(status) if status.code() == Code::Unauthenticated => {
+                        "session rejected. Run `topk login`."
+                    }
                     _ => "minting data access token",
                 };
-                Error::new(status).context(context)
+                anyhow::Error::new(error).context(context)
             })
     }
 }
