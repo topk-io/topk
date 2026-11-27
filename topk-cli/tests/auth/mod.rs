@@ -5,4 +5,5 @@ mod config;
 mod defaults;
 mod login;
 mod management;
+mod profile;
 mod session;

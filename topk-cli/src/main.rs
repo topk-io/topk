@@ -9,9 +9,7 @@ use tracing_indicatif::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
-use topk::auth::OAuthArgs;
-use topk::config::Config;
-use topk::host::Host;
+use topk::config::{Args as ConfigArgs, Config};
 use topk::output::Output;
 use topk::util::Interrupted;
 use tracing::info;
@@ -42,10 +40,7 @@ struct Cli {
     output: Output,
 
     #[command(flatten)]
-    host: Host,
-
-    #[command(flatten)]
-    oauth: OAuthArgs,
+    config: ConfigArgs,
 }
 
 #[derive(Subcommand)]
@@ -58,6 +53,9 @@ enum Commands {
     Login(topk::commands::login::LoginArgs),
     /// Remove saved credentials
     Logout(topk::commands::logout::LogoutArgs),
+
+    /// Switch between named profiles
+    Profile(topk::commands::profile::Args),
 
     /// Run SQL against your collections
     Sql(topk::commands::sql::SqlArgs),
@@ -120,7 +118,7 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let config = Config::load(cli.host.clone(), cli.oauth.clone(), Config::dir()?).await;
+    let config = Config::load(&cli.config, Config::dir()?).await?;
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
@@ -138,6 +136,9 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
 
         Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
         Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,
+        Some(Commands::Profile(args)) => {
+            topk::commands::profile::run(config, args, cli.output, &mut std::io::stdout())
+        }
 
         #[cfg(feature = "import")]
         Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,

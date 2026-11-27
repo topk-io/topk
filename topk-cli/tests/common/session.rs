@@ -13,9 +13,8 @@ use tempfile::TempDir;
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
-use topk::auth::{OAuthArgs, OAuthConfig, Session};
-use topk::config::Config;
-use topk::host::Host;
+use topk::auth::{OAuthConfig, Session};
+use topk::config::{Args as ConfigArgs, Config};
 use topk::ProjectId;
 
 /// Credentials of the e2e user for real tenants; unset means the emulator issuer.
@@ -292,14 +291,13 @@ struct Token {
 
 /// The configuration the spawned CLI reads from this environment, over `dir`.
 async fn config(dir: PathBuf) -> Config {
-    let matches = OAuthArgs::augment_args(Host::augment_args(clap::Command::new("topk")))
-        .get_matches_from(["topk"]);
+    let matches = ConfigArgs::augment_args(clap::Command::new("topk")).get_matches_from(["topk"]);
     Config::load(
-        Host::from_arg_matches(&matches).expect("host from the environment"),
-        OAuthArgs::from_arg_matches(&matches).expect("auth from the environment"),
+        &ConfigArgs::from_arg_matches(&matches).expect("config from the environment"),
         dir,
     )
     .await
+    .expect("config")
 }
 
 /// A directory shared by every test process on this machine for `key`.

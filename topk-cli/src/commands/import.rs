@@ -270,7 +270,7 @@ pub async fn run(config: Config, args: &ImportArgs, output: Output) -> anyhow::R
     let mut ui = ImportOutput::new(output);
     let directory = match std::env::var_os("TOPK_IMPORT_STATE_DIR") {
         Some(path) => PathBuf::from(path),
-        None => Config::dir()?.join("import"),
+        None => config.import_dir(),
     };
     let window;
     let import = if let Some(id) = args.resume {

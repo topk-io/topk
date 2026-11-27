@@ -230,7 +230,9 @@ async fn login_replaces_the_session_for_the_same_issuer(ctx: &mut AuthTestContex
     );
     assert_eq!(record["audience"].as_str(), Some(config.audience.as_str()));
     assert!(!record.contains_key("store_key"));
-    assert!(!ctx.dir.path().join("config.toml").exists());
+    assert!(!read_to_string(ctx.dir.path().join("config.toml"))
+        .unwrap()
+        .contains("token"));
 
     let mut files: Vec<_> = read_dir(tenant_dir(ctx.dir.path(), &ctx.server.url))
         .unwrap()
@@ -251,54 +253,6 @@ async fn login_replaces_the_session_for_the_same_issuer(ctx: &mut AuthTestContex
         .unwrap_err()
         .to_string()
         .contains("not logged in"));
-}
-
-#[test_context(AuthTestContext)]
-#[tokio::test]
-async fn login_preserves_preferences_and_logout_removes_both_files(ctx: &mut AuthTestContext) {
-    let path = ctx.dir.path().join("config.toml");
-    write(
-        &path,
-        "api_key = 'legacy-secret'\n[preferences]\ncolor = false\n",
-    )
-    .unwrap();
-    let auth = ctx.server.auth(ctx.dir.path());
-    ctx.server.reply(200, response(3600, Some("refresh"))).await;
-    seed(&auth).await;
-    let config: toml::Table = toml::from_str(&read_to_string(&path).unwrap()).unwrap();
-    assert!(!config.contains_key("api_key"));
-    assert_eq!(config["preferences"]["color"].as_bool(), Some(false));
-    auth.logout().await.unwrap();
-    assert!(!path.exists());
-    assert!(tenant_dir(ctx.dir.path(), &ctx.server.url)
-        .join("session.lock")
-        .exists());
-    assert!(!tenant_dir(ctx.dir.path(), &ctx.server.url)
-        .join("credentials.toml")
-        .exists());
-}
-
-#[test_context(AuthTestContext)]
-#[tokio::test]
-async fn logout_without_a_session_removes_legacy_api_key_and_is_idempotent(
-    ctx: &mut AuthTestContext,
-) {
-    let path = ctx.dir.path().join("config.toml");
-    write(
-        &path,
-        "api_key = 'legacy-secret'\n[preferences]\ncolor = false\n",
-    )
-    .unwrap();
-    let auth = ctx.server.auth(ctx.dir.path());
-    auth.logout().await.unwrap();
-    auth.logout().await.unwrap();
-    assert!(!path.exists());
-    assert!(tenant_dir(ctx.dir.path(), &ctx.server.url)
-        .join("session.lock")
-        .exists());
-    assert!(!tenant_dir(ctx.dir.path(), &ctx.server.url)
-        .join("credentials.toml")
-        .exists());
 }
 
 #[test_context(AuthTestContext)]
@@ -339,22 +293,17 @@ async fn file_storage_handles_large_sessions(ctx: &mut AuthTestContext) {
 
 #[test_context(AuthTestContext)]
 #[tokio::test]
-async fn logout_removes_malformed_config_and_credentials(ctx: &mut AuthTestContext) {
+async fn logout_removes_malformed_credentials(ctx: &mut AuthTestContext) {
     let auth = ctx.server.auth(ctx.dir.path());
-    let config_path = ctx.dir.path().join("config.toml");
     let credentials_path = tenant_dir(ctx.dir.path(), &ctx.server.url).join("credentials.toml");
     std::fs::create_dir_all(credentials_path.parent().unwrap()).unwrap();
-    for config in [b"invalid [".as_slice(), b"= true", b"[unclosed", b"\xff"] {
-        write(&config_path, config).unwrap();
-        write(&credentials_path, "existing credentials").unwrap();
-        auth.logout().await.unwrap();
-        auth.logout().await.unwrap();
-        assert!(!config_path.exists());
-        assert!(!credentials_path.exists());
-        assert!(tenant_dir(ctx.dir.path(), &ctx.server.url)
-            .join("session.lock")
-            .exists());
-    }
+    write(&credentials_path, "existing credentials").unwrap();
+    auth.logout().await.unwrap();
+    auth.logout().await.unwrap();
+    assert!(!credentials_path.exists());
+    assert!(tenant_dir(ctx.dir.path(), &ctx.server.url)
+        .join("session.lock")
+        .exists());
 }
 
 #[test_context(AuthTestContext)]
@@ -380,7 +329,9 @@ async fn file_storage_supports_login_refresh_and_logout(ctx: &mut AuthTestContex
         .request()
         .await
         .contains("grant_type=authorization_code"));
-    assert!(!ctx.dir.path().join("config.toml").exists());
+    assert!(!read_to_string(ctx.dir.path().join("config.toml"))
+        .unwrap()
+        .contains("token"));
     assert!(tenant_dir(ctx.dir.path(), &ctx.server.url)
         .join("credentials.toml")
         .exists());

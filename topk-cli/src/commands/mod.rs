@@ -2,6 +2,7 @@
 pub mod import;
 pub mod login;
 pub mod logout;
+pub mod profile;
 pub mod project;
 pub mod region;
 pub mod sql;

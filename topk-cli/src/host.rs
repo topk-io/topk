@@ -1,31 +1,46 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use serde::{Deserialize, Serialize};
+
 pub const DEFAULT_HOST: &str = "topk.io";
 
-#[derive(clap::Args, Clone, Debug, Hash)]
-pub struct Host {
+#[derive(clap::Args, Clone)]
+pub struct HostArgs {
     /// API domain
     #[arg(
         long,
         env = "TOPK_HOST",
-        default_value = DEFAULT_HOST,
         value_parser = parse_host,
         global = true,
         hide = true
     )]
-    pub host: String,
+    pub host: Option<String>,
 
     /// Connect over HTTPS (default: true; --https false for a plaintext endpoint)
     #[arg(
         long,
         env = "TOPK_HTTPS",
-        default_value = "true",
         num_args = 0..=1,
         default_missing_value = "true",
         global = true,
         hide = true
     )]
+    pub https: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Host {
+    pub host: String,
     pub https: bool,
+}
+
+impl From<HostArgs> for Host {
+    fn from(args: HostArgs) -> Self {
+        Self {
+            host: args.host.unwrap_or_else(|| DEFAULT_HOST.to_owned()),
+            https: args.https.unwrap_or(true),
+        }
+    }
 }
 
 impl Host {

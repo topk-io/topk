@@ -7,13 +7,14 @@ use std::sync::Arc;
 
 use axum::routing::get;
 use axum::Router;
-use clap::{Args, Command, FromArgMatches};
 use tempfile::TempDir;
 use tokio::net::TcpListener;
 
-use topk::auth::{Auth, OAuthArgs};
+use topk::auth::Auth;
 use topk::config::{lock, read, write_secret_file, Config};
-use topk::host::{Host, DEFAULT_HOST};
+use topk::host::DEFAULT_HOST;
+
+use super::common::args;
 
 #[test]
 fn replacement_preserves_open_readers() {
@@ -130,34 +131,25 @@ fn write_secret_file_uses_restrictive_permissions() {
     assert_eq!(mode, 0o600);
 }
 
-fn args(args: &[&str]) -> OAuthArgs {
-    let matches = OAuthArgs::augment_args(Command::new("test"))
-        .mut_args(|arg| arg.env(None::<&str>))
-        .get_matches_from(args);
-    OAuthArgs::from_arg_matches(&matches).unwrap()
-}
-
 #[tokio::test]
 async fn given_settings_are_used_without_asking_the_host() {
-    let given = [
-        "test",
-        "--auth-issuer",
-        "https://tenant.test/",
-        "--auth-client-id",
-        "cli",
-        "--auth-audience",
-        "https://api.test",
-    ];
     let dir = TempDir::new().unwrap();
     let config = Config::load(
-        Host {
-            host: "unreachable.invalid".into(),
-            https: true,
-        },
-        args(&given),
+        &args(&[
+            "test",
+            "--host",
+            "unreachable.invalid",
+            "--auth-issuer",
+            "https://tenant.test/",
+            "--auth-client-id",
+            "cli",
+            "--auth-audience",
+            "https://api.test",
+        ]),
         dir.path().to_owned(),
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(config.oauth().client_id, "cli");
     assert!(dir.path().read_dir().unwrap().next().is_none());
 }
@@ -166,11 +158,12 @@ async fn given_settings_are_used_without_asking_the_host() {
 async fn default_host_uses_the_built_in_settings() {
     // The default host is not asked and nothing is saved.
     let dir = TempDir::new().unwrap();
-    let host = Host {
-        host: DEFAULT_HOST.into(),
-        https: true,
-    };
-    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    let config = Config::load(
+        &args(&["test", "--host", DEFAULT_HOST]),
+        dir.path().to_owned(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         config.oauth().issuer.as_str(),
         "https://topk-prod.us.auth0.com/"
@@ -181,11 +174,12 @@ async fn default_host_uses_the_built_in_settings() {
 #[tokio::test]
 async fn unreachable_host_falls_back_to_the_built_in_settings() {
     let dir = TempDir::new().unwrap();
-    let host = Host {
-        host: "unreachable.invalid".into(),
-        https: true,
-    };
-    let config = Config::load(host, args(&["test"]), dir.path().to_owned()).await;
+    let config = Config::load(
+        &args(&["test", "--host", "unreachable.invalid"]),
+        dir.path().to_owned(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         config.oauth().issuer.as_str(),
         "https://topk-prod.us.auth0.com/"
@@ -194,12 +188,9 @@ async fn unreachable_host_falls_back_to_the_built_in_settings() {
 }
 
 #[tokio::test]
-async fn host_is_asked_once_and_its_answer_reused_until_logout() {
+async fn host_is_asked_until_login_saves_its_answer() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let host = Host {
-        host: format!("localhost:{}", listener.local_addr().unwrap().port()),
-        https: false,
-    };
+    let host = format!("localhost:{}", listener.local_addr().unwrap().port());
     let asked = Arc::new(AtomicUsize::new(0));
     let app = Router::new().route(
         "/auth/config.json",
@@ -213,14 +204,19 @@ async fn host_is_asked_once_and_its_answer_reused_until_logout() {
     );
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let dir = TempDir::new().unwrap();
-    let load = || Config::load(host.clone(), args(&["test"]), dir.path().to_owned());
+    let args = args(&["test", "--host", &host, "--https", "false"]);
+    let load = || Config::load(&args, dir.path().to_owned());
 
-    let config = load().await;
+    let config = load().await.unwrap();
     assert_eq!(config.oauth().client_id, "cli");
-    load().await;
+    assert_eq!(asked.load(Ordering::SeqCst), 1);
+
+    // A login saves the settings with the profile.
+    config.save_profile().unwrap();
+    assert_eq!(load().await.unwrap().oauth().client_id, "cli");
     assert_eq!(asked.load(Ordering::SeqCst), 1);
 
     Auth::new(config).unwrap().logout().await.unwrap();
-    load().await;
+    load().await.unwrap();
     assert_eq!(asked.load(Ordering::SeqCst), 2);
 }

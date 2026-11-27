@@ -161,6 +161,63 @@ Show the currently selected region.
 topk region current
 ```
 
+### profile
+
+Use profiles to switch between accounts or organizations without logging out.
+
+A profile is a separate login with its own session and defaults.
+
+Create a profile by logging in to it:
+
+```bash
+topk login --profile <PROFILE>
+```
+
+Logging out of a profile removes it:
+
+```bash
+topk logout --profile <PROFILE>
+```
+
+> [!NOTE]
+> Commands use the `default` profile unless another one is selected or given with `--profile`. Profile names use lowercase letters, digits, `-` and `_`.
+
+#### list
+
+List profiles.
+
+```bash
+topk profile list
+```
+
+> [!NOTE]
+> `topk profile list` marks the profile in use with `*`.
+
+#### select
+
+Select the profile to use.
+
+```bash
+topk profile select  # interactive picker
+topk profile select <PROFILE>
+```
+
+#### clear
+
+Go back to the default profile:
+
+```bash
+topk profile clear
+```
+
+#### current
+
+Show the profile in use.
+
+```bash
+topk profile current
+```
+
 ### sql
 
 Create and manage collections, read and write documents, and run keyword, vector, and semantic searches with [TopK SQL](https://docs.topk.io/sdk/topk-sql/overview).
@@ -445,6 +502,17 @@ Options:
 
 * `text` (default)
 * `json`
+
+### `--profile`
+
+Use a [profile](#profile) for one command:
+
+```bash
+topk --profile <PROFILE> project list
+```
+
+> [!IMPORTANT]
+> `--profile` overrides `TOPK_PROFILE`, which overrides `topk profile select`.
 
 
 ## Updating the CLI

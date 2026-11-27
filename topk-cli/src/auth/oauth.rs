@@ -71,7 +71,7 @@ impl OAuthArgs {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OAuthConfig {
     pub issuer: Url,
     #[serde(rename = "cli_client_id")]
