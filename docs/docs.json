@@ -115,7 +115,8 @@
             "group": "Management API",
             "pages": [
               "collections/manage",
-              "usage"
+              "usage",
+              "audit-log"
             ]
           }
         ]
