@@ -4782,6 +4782,7 @@ dependencies = [
  "http",
  "humantime",
  "indexmap 2.13.1",
+ "libc",
  "mongodb",
  "oauth2",
  "open",

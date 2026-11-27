@@ -86,6 +86,9 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [build-dependencies]
 tonic-prost-build = "0.14.2"
 
