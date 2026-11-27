@@ -11,7 +11,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 use topk::config::{Args as ConfigArgs, Config};
 use topk::output::Output;
-use topk::profile::Profiles;
+use topk::profile::SavedProfiles;
 use topk::util::Interrupted;
 use tracing::info;
 
@@ -56,7 +56,6 @@ enum Commands {
     Logout(topk::commands::logout::LogoutArgs),
 
     /// Switch between named profiles
-    #[command(hide = true)]
     Profile(topk::commands::profile::Args),
 
     /// Run SQL against your collections
@@ -120,8 +119,7 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let profiles = Profiles::load()?;
-    let config = Config::load(&cli.config, &profiles).await?;
+    let config = Config::load(&cli.config, SavedProfiles::new(Config::dir()?)).await?;
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await
@@ -139,13 +137,9 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
 
         Some(Commands::Login(args)) => topk::commands::login::run(config, args).await,
         Some(Commands::Logout(args)) => topk::commands::logout::run(config, args).await,
-        Some(Commands::Profile(args)) => topk::commands::profile::run(
-            &profiles,
-            config.profile().name(),
-            args,
-            cli.output,
-            &mut std::io::stdout(),
-        ),
+        Some(Commands::Profile(args)) => {
+            topk::commands::profile::run(config, args, cli.output, &mut std::io::stdout())
+        }
 
         #[cfg(feature = "import")]
         Some(Commands::Import(args)) => topk::commands::import::run(config, args, cli.output).await,

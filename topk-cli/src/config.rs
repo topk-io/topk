@@ -12,15 +12,20 @@ use tracing::warn;
 use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
 use crate::host::{Host, HostArgs, DEFAULT_HOST};
-use crate::profile::{Profile, ProfileName, Profiles};
+use crate::profile::{ProfileName, SavedProfiles};
 use crate::ProjectId;
 
-pub use crate::storage::{config_dir, lock, read, read_toml, write_secret_file, write_toml};
+pub use crate::storage::{lock, read, read_toml, write_secret_file, write_toml};
 
 #[derive(clap::Args)]
 pub struct Args {
     /// Use a named profile
-    #[arg(long, env = "TOPK_PROFILE", global = true, hide = true)]
+    #[arg(
+        long,
+        env = "TOPK_PROFILE",
+        global = true,
+        help_heading = "Global options"
+    )]
     pub profile: Option<ProfileName>,
 
     #[command(flatten)]
@@ -34,7 +39,8 @@ pub struct Args {
 pub struct Config {
     host: Host,
     oauth: OAuthConfig,
-    profile: Profile,
+    saved_profiles: SavedProfiles,
+    active_profile: ProfileName,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -44,46 +50,52 @@ pub struct Defaults {
 }
 
 impl Config {
-    pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
+    pub fn new(host: Host, oauth: OAuthConfig, saved_profiles: SavedProfiles) -> Self {
         Self {
             host,
             oauth,
-            profile: Profile::new(dir, ProfileName::default()),
+            saved_profiles,
+            active_profile: ProfileName::default(),
         }
     }
 
-    pub async fn load(args: &Args, profiles: &Profiles) -> Result<Self> {
-        let profile = profiles.get(match &args.profile {
+    pub async fn load(args: &Args, saved_profiles: SavedProfiles) -> Result<Self> {
+        remove(&saved_profiles.root().join("config.toml"))?;
+        let profiles = saved_profiles.load()?;
+        let active_profile = match &args.profile {
             Some(name) => name.clone(),
-            None => profiles.selected()?,
-        });
+            None => profiles.selected(),
+        };
         // The host a profile is logged in to applies when none is given.
-        let host = match (&args.host.host, profile.host()?) {
+        let host = match (&args.host.host, profiles.host(&active_profile)) {
             (None, Some(saved)) => Host {
+                host: saved.host.clone(),
                 https: args.host.https.unwrap_or(saved.https),
-                ..saved
             },
             _ => args.host.clone().into(),
         };
         let oauth = match args.oauth.clone().config() {
             Some(oauth) => oauth,
-            None => match Self::resolve_oauth(&host, &profile.dir()).await {
-                Ok(oauth) => oauth,
-                Err(e) => {
-                    warn!("cannot load login settings for {}: {e:#}", host.host);
-                    OAuthConfig::default()
+            None => {
+                match Self::resolve_oauth(&host, &active_profile.dir(saved_profiles.root())).await {
+                    Ok(oauth) => oauth,
+                    Err(e) => {
+                        warn!("cannot load login settings for {}: {e:#}", host.host);
+                        OAuthConfig::default()
+                    }
                 }
-            },
+            }
         };
         Ok(Self {
             host,
             oauth,
-            profile,
+            saved_profiles,
+            active_profile,
         })
     }
 
     pub fn save_profile(&self) -> Result<()> {
-        self.profile.save(&self.host)
+        self.saved_profiles.save(&self.active_profile, &self.host)
     }
 
     async fn resolve_oauth(host: &Host, dir: &Path) -> Result<OAuthConfig> {
@@ -105,8 +117,8 @@ impl Config {
     pub async fn logout(&self) -> Result<()> {
         self.session().await?.delete()?;
         self.access_tokens().clear()?;
-        remove(&oauth_file(&self.profile.dir(), &self.host))?;
-        self.profile.forget()
+        remove(&oauth_file(&self.profile_dir(), &self.host))?;
+        self.saved_profiles.remove(&self.active_profile)
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -122,8 +134,15 @@ impl Config {
         }
     }
 
+    pub fn dir() -> Result<PathBuf> {
+        std::env::var_os("TOPK_CONFIG_DIR")
+            .map(PathBuf::from)
+            .or_else(|| dirs::config_dir().map(|d| d.join("topk")))
+            .context("no config directory")
+    }
+
     pub fn import_dir(&self) -> PathBuf {
-        self.profile.dir().join("import")
+        self.profile_dir().join("import")
     }
 
     pub fn host(&self) -> &str {
@@ -156,8 +175,16 @@ impl Config {
         &self.oauth
     }
 
-    pub fn profile(&self) -> &Profile {
-        &self.profile
+    pub fn active_profile(&self) -> &ProfileName {
+        &self.active_profile
+    }
+
+    pub fn saved_profiles(&self) -> &SavedProfiles {
+        &self.saved_profiles
+    }
+
+    fn profile_dir(&self) -> PathBuf {
+        self.active_profile.dir(self.saved_profiles.root())
     }
 
     pub fn defaults(&self) -> Result<Defaults> {
@@ -194,8 +221,7 @@ impl Config {
 
     /// Everything scoped to this issuer's session lives here.
     fn tenant_dir(&self) -> PathBuf {
-        self.profile
-            .dir()
+        self.profile_dir()
             .join("tenants")
             .join(self.oauth.issuer_key())
     }

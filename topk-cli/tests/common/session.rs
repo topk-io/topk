@@ -14,8 +14,8 @@ use test_context::AsyncTestContext;
 use uuid::Uuid;
 
 use topk::auth::{OAuthConfig, Session};
-use topk::config::{config_dir, Args as ConfigArgs, Config};
-use topk::profile::Profiles;
+use topk::config::{Args as ConfigArgs, Config};
+use topk::profile::SavedProfiles;
 use topk::ProjectId;
 
 /// Credentials of the e2e user for real tenants; unset means the emulator issuer.
@@ -46,7 +46,7 @@ impl CliTestContext {
             "TOPK_AUTH_ISSUER not set: management tests need an issuer to log in to"
         );
         let home = tempfile::tempdir().unwrap();
-        // Point this process at the temporary home too, so `topk::config::config_dir()`
+        // Point this process at the temporary home too, so `topk::config::Config::dir()`
         // resolves the same directory the spawned CLI will use. Sound under
         // nextest, which runs every test in a process of its own.
         env::set_var("HOME", home.path());
@@ -108,7 +108,7 @@ impl CliTestContext {
     /// nextest runs each test in its own process, and the tenant counts every
     /// rejected grant as a failed login, which can block the e2e user.
     async fn login_with_password(&self, user: &str, password: &str) {
-        let home = config(config_dir().expect("config directory")).await;
+        let home = config(Config::dir().expect("config directory")).await;
         let oauth = home.oauth();
         let cache = config(machine_dir(&format!(
             "session{}{}{user}",
@@ -295,7 +295,7 @@ async fn config(dir: PathBuf) -> Config {
     let matches = ConfigArgs::augment_args(clap::Command::new("topk")).get_matches_from(["topk"]);
     Config::load(
         &ConfigArgs::from_arg_matches(&matches).expect("config from the environment"),
-        &Profiles::new(dir),
+        SavedProfiles::new(dir),
     )
     .await
     .expect("config")

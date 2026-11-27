@@ -13,7 +13,7 @@ pub struct LogoutArgs {}
 
 pub async fn run(config: Config, args: &LogoutArgs) -> Result<ExitCode> {
     info!(?args, "logout");
-    let profile = config.profile().name().label();
+    let profile = config.active_profile().label();
     Auth::new(config)?.logout().await?;
     eprintln!("{} Logged out{profile}.", "✓".green());
     Ok(ExitCode::SUCCESS)

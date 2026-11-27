@@ -21,6 +21,7 @@ use url::Url;
 use topk::auth::{Auth, OAuthConfig};
 use topk::config::{Args as ConfigArgs, Config};
 use topk::host::Host;
+use topk::profile::SavedProfiles;
 
 /// An unsigned JWT with the claims `{"sub":"user","exp":4102444800}`.
 pub const ACCESS_TOKEN: &str = "e30.eyJzdWIiOiJ1c2VyIiwiZXhwIjo0MTAyNDQ0ODAwfQ.e30";
@@ -104,7 +105,12 @@ impl Server {
     }
 
     pub fn auth(&self, config_dir: &Path) -> Auth {
-        Auth::new(Config::new(host(), self.config(), config_dir.to_owned())).unwrap()
+        Auth::new(Config::new(
+            host(),
+            self.config(),
+            SavedProfiles::new(config_dir.to_owned()),
+        ))
+        .unwrap()
     }
 
     pub async fn reply(&self, status: u16, body: Value) {

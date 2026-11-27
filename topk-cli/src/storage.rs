@@ -38,13 +38,6 @@ pub async fn lock(path: PathBuf) -> Result<File> {
     .context("timed out waiting for the lock")?
 }
 
-pub fn config_dir() -> Result<PathBuf> {
-    std::env::var_os("TOPK_CONFIG_DIR")
-        .map(PathBuf::from)
-        .or_else(|| dirs::config_dir().map(|d| d.join("topk")))
-        .context("no config directory")
-}
-
 pub fn read(path: &Path) -> Result<Option<String>> {
     match std::fs::read_to_string(path) {
         Ok(raw) => Ok(Some(raw)),

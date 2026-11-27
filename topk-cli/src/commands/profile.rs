@@ -8,6 +8,7 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::info;
 
+use crate::config::Config;
 use crate::host::Host;
 use crate::output::{json_line, print_list, Output, Tabular};
 use crate::profile::{ProfileName, Profiles};
@@ -49,33 +50,27 @@ impl Tabular for Row {
     }
 }
 
-fn rows(profiles: &Profiles, active: &ProfileName) -> Result<Vec<Row>> {
-    Ok(profiles
-        .list()?
-        .into_iter()
+fn rows(profiles: &Profiles, active: &ProfileName) -> Vec<Row> {
+    profiles
+        .list()
         .map(|(name, host)| Row {
-            selected: name == *active,
-            name,
-            host,
+            selected: name == active,
+            name: name.clone(),
+            host: host.clone(),
         })
-        .collect())
+        .collect()
 }
 
-pub fn run(
-    profiles: &Profiles,
-    active: &ProfileName,
-    args: &Args,
-    output: Output,
-    out: &mut impl Write,
-) -> Result<ExitCode> {
+pub fn run(config: Config, args: &Args, output: Output, out: &mut impl Write) -> Result<ExitCode> {
     info!(?args, "profile");
+    let (saved_profiles, active) = (config.saved_profiles(), config.active_profile());
     match &args.command {
         Command::Current => match output {
             Output::Json => json_line(out, &json!({"profile": active}))?,
             Output::Text => writeln!(out, "Profile: {active}")?,
         },
         Command::Clear => {
-            profiles.select(&ProfileName::default())?;
+            saved_profiles.select(&ProfileName::default())?;
             match output {
                 Output::Json => json_line(out, &json!({"profile": ProfileName::default()}))?,
                 Output::Text => writeln!(out, "Profile selection cleared")?,
@@ -89,7 +84,7 @@ pub fn run(
                         stdin().is_terminal(),
                         "no profile given; run `topk profile select <PROFILE>`"
                     );
-                    let rows = rows(profiles, active)?;
+                    let rows = rows(&saved_profiles.load()?, active);
                     let names = rows.iter().map(|row| &row.name).collect::<Vec<_>>();
                     let selected = Prompt::select(
                         "Select profile",
@@ -99,13 +94,13 @@ pub fn run(
                     names[selected].clone()
                 }
             };
-            profiles.select(&profile)?;
+            saved_profiles.select(&profile)?;
             match output {
                 Output::Json => json_line(out, &json!({"profile": profile}))?,
                 Output::Text => writeln!(out, "{} Switched to profile {profile}.", "✓".green())?,
             }
         }
-        Command::List => print_list(out, output, rows(profiles, active)?)?,
+        Command::List => print_list(out, output, rows(&saved_profiles.load()?, active))?,
     }
     Ok(ExitCode::SUCCESS)
 }

@@ -13,7 +13,7 @@ use tokio::net::TcpListener;
 use topk::auth::Auth;
 use topk::config::{lock, read, write_secret_file, Config};
 use topk::host::DEFAULT_HOST;
-use topk::profile::Profiles;
+use topk::profile::SavedProfiles;
 
 use super::common::args;
 
@@ -147,7 +147,7 @@ async fn given_settings_are_used_without_asking_the_host() {
             "--auth-audience",
             "https://api.test",
         ]),
-        &Profiles::new(dir.path().to_owned()),
+        SavedProfiles::new(dir.path().to_owned()),
     )
     .await
     .unwrap();
@@ -161,7 +161,7 @@ async fn default_host_uses_the_built_in_settings() {
     let dir = TempDir::new().unwrap();
     let config = Config::load(
         &args(&["test", "--host", DEFAULT_HOST]),
-        &Profiles::new(dir.path().to_owned()),
+        SavedProfiles::new(dir.path().to_owned()),
     )
     .await
     .unwrap();
@@ -177,7 +177,7 @@ async fn unreachable_host_falls_back_to_the_built_in_settings() {
     let dir = TempDir::new().unwrap();
     let config = Config::load(
         &args(&["test", "--host", "unreachable.invalid"]),
-        &Profiles::new(dir.path().to_owned()),
+        SavedProfiles::new(dir.path().to_owned()),
     )
     .await
     .unwrap();
@@ -206,8 +206,7 @@ async fn host_is_asked_once_and_its_answer_reused_until_logout() {
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let dir = TempDir::new().unwrap();
     let args = args(&["test", "--host", &host, "--https", "false"]);
-    let profiles = Profiles::new(dir.path().to_owned());
-    let load = || Config::load(&args, &profiles);
+    let load = || Config::load(&args, SavedProfiles::new(dir.path().to_owned()));
 
     let config = load().await.unwrap();
     assert_eq!(config.oauth().client_id, "cli");

@@ -8,6 +8,7 @@ use tokio::time::timeout;
 
 use topk::auth::{Auth, OAuthConfig};
 use topk::config::Config;
+use topk::profile::SavedProfiles;
 
 use super::common::{host, jwt, response, seed, tenant_dir, AuthTestContext, Server, ACCESS_TOKEN};
 
@@ -158,7 +159,12 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
             "client" => config.client_id = "other-client".into(),
             _ => config.audience = "https://other-api.test".into(),
         }
-        let other = Auth::new(Config::new(host(), config, ctx.dir.path().to_owned())).unwrap();
+        let other = Auth::new(Config::new(
+            host(),
+            config,
+            SavedProfiles::new(ctx.dir.path().to_owned()),
+        ))
+        .unwrap();
         assert!(other
             .access_token()
             .await
@@ -198,7 +204,7 @@ async fn login_replaces_the_session_for_the_same_issuer(ctx: &mut AuthTestContex
     let other = Auth::new(Config::new(
         host(),
         config.clone(),
-        ctx.dir.path().to_owned(),
+        SavedProfiles::new(ctx.dir.path().to_owned()),
     ))
     .unwrap();
     ctx.server

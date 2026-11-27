@@ -42,7 +42,7 @@ impl LoginArgs {
 
 pub async fn run(config: Config, args: &LoginArgs) -> Result<ExitCode> {
     info!(?args, "login");
-    let profile = config.profile().name().label();
+    let profile = config.active_profile().label();
     let auth = Auth::new(config)?;
     let claims = if !args.browser() {
         prompt_code_login(&auth).await?

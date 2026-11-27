@@ -7,6 +7,7 @@ use topk::commands::{project, region};
 use topk::config::Config;
 use topk::host::Host;
 use topk::output::Output;
+use topk::profile::SavedProfiles;
 use topk::scope::ScopeArgs;
 
 use super::common::host;
@@ -17,7 +18,7 @@ fn config(dir: &TempDir) -> Config {
         client_id: "cli".into(),
         audience: "https://api.test".into(),
     };
-    Config::new(host(), oauth, dir.path().to_owned())
+    Config::new(host(), oauth, SavedProfiles::new(dir.path().to_owned()))
 }
 
 #[tokio::test]
@@ -27,7 +28,11 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
     assert!(config.defaults().unwrap().project_id.is_none());
     config.set_project_id(Some("p1".parse().unwrap())).unwrap();
     config.set_region(Some("r1".into())).unwrap();
-    let loaded = Config::new(host(), config.oauth().clone(), dir.path().to_owned());
+    let loaded = Config::new(
+        host(),
+        config.oauth().clone(),
+        SavedProfiles::new(dir.path().to_owned()),
+    );
     assert_eq!(
         loaded.defaults().unwrap().project_id.unwrap().as_str(),
         "p1"
@@ -38,20 +43,24 @@ async fn defaults_persist_and_are_scoped_to_host_and_issuer() {
         host: "other.test".into(),
         https: true,
     };
+    assert!(Config::new(
+        other,
+        config.oauth().clone(),
+        SavedProfiles::new(dir.path().to_owned())
+    )
+    .defaults()
+    .unwrap()
+    .project_id
+    .is_none());
+    let mut oauth = config.oauth().clone();
+    oauth.issuer = "https://other.test/".parse().unwrap();
     assert!(
-        Config::new(other, config.oauth().clone(), dir.path().to_owned())
+        Config::new(host(), oauth, SavedProfiles::new(dir.path().to_owned()))
             .defaults()
             .unwrap()
             .project_id
             .is_none()
     );
-    let mut oauth = config.oauth().clone();
-    oauth.issuer = "https://other.test/".parse().unwrap();
-    assert!(Config::new(host(), oauth, dir.path().to_owned())
-        .defaults()
-        .unwrap()
-        .project_id
-        .is_none());
 
     config.session().await.unwrap().delete().unwrap();
     assert_eq!(

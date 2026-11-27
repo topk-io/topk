@@ -4,23 +4,23 @@ use tempfile::TempDir;
 
 use topk::config::Config;
 use topk::host::Host;
-use topk::profile::{Profile, Profiles};
+use topk::profile::SavedProfiles;
 
 use super::common::args;
 use crate::common::command::TestCommand;
 
 const AUTH_ISSUER: &str = "https://auth.example.test/";
 
-fn profiles(dir: &TempDir, names: &[&str]) -> Profiles {
+fn profiles(dir: &TempDir, names: &[&str]) -> SavedProfiles {
+    let profiles = SavedProfiles::new(dir.path().to_owned());
     for profile in names {
-        Profile::new(dir.path().to_owned(), profile.parse().unwrap())
-            .save(&Host {
-                host: "stage.test".into(),
-                https: true,
-            })
-            .unwrap();
+        let host = Host {
+            host: "stage.test".into(),
+            https: true,
+        };
+        profiles.save(&profile.parse().unwrap(), &host).unwrap();
     }
-    Profiles::new(dir.path().to_owned())
+    profiles
 }
 
 /// The config of a profile logged in to `host`.
@@ -41,7 +41,7 @@ async fn config(dir: &TempDir, profile: &str, host: &str, https: bool) -> Config
             "--auth-audience",
             "https://api.example.test",
         ]),
-        &Profiles::new(dir.path().to_owned()),
+        SavedProfiles::new(dir.path().to_owned()),
     )
     .await
     .unwrap()
@@ -153,7 +153,7 @@ fn logout_removes_the_profile() {
 
     topk(&dir).args(["logout"]).ok();
 
-    assert!(profiles.list().unwrap().is_empty());
+    assert!(profiles.load().unwrap().list().next().is_none());
     assert_eq!(current(topk(&dir)), "default");
     assert!(topk(&dir)
         .args(["profile", "select", "stage"])
@@ -164,11 +164,12 @@ fn logout_removes_the_profile() {
 #[tokio::test]
 async fn host_given_does_not_inherit_the_profile_scheme() {
     let dir = TempDir::new().unwrap();
-    Profile::new(dir.path().to_owned(), "plain".parse().unwrap())
-        .save(&Host {
-            host: "plain.test".into(),
-            https: false,
-        })
+    let plain = Host {
+        host: "plain.test".into(),
+        https: false,
+    };
+    SavedProfiles::new(dir.path().to_owned())
+        .save(&"plain".parse().unwrap(), &plain)
         .unwrap();
     config(&dir, "plain", "other.test", true)
         .await
@@ -202,25 +203,27 @@ async fn https_given_applies_to_the_profile_host() {
 }
 
 #[test]
-fn list_skips_directories_that_are_not_profiles() {
+fn logging_in_again_does_not_restore_an_old_selection() {
     let dir = TempDir::new().unwrap();
     let profiles = profiles(&dir, &["stage"]);
-    let stray = dir.path().join("profiles");
-    // Never logged in to, and not a valid name.
-    std::fs::create_dir_all(stray.join("aborted")).unwrap();
-    std::fs::create_dir_all(stray.join("Not Valid")).unwrap();
-    std::fs::copy(
-        stray.join("stage/profile.toml"),
-        stray.join("Not Valid/profile.toml"),
+    profiles.select(&"stage".parse().unwrap()).unwrap();
+    topk(&dir).args(["logout"]).ok();
+
+    self::profiles(&dir, &["stage"]);
+
+    assert_eq!(current(topk(&dir)), "default");
+}
+
+#[test]
+fn invalid_saved_profile_name_is_rejected() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("profiles.toml"),
+        "[profiles.\"No/pe\"]\nhost = \"stage.test\"\nhttps = true\n",
     )
     .unwrap();
-    let names = profiles
-        .list()
-        .unwrap()
-        .iter()
-        .map(|(name, _)| name.to_string())
-        .collect::<Vec<_>>();
-    assert_eq!(names, ["stage"]);
+    let stderr = topk(&dir).args(["profile", "list"]).fails();
+    assert!(stderr.contains("invalid profile name"), "{stderr}");
 }
 
 #[test]
