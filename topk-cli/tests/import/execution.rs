@@ -6,6 +6,7 @@ use topk::import::plan::{Plan, Target};
 use topk::import::source::{Cursor, Resume};
 use topk::import::state::{Progress, Run};
 use topk::import::{Error, Event, Import, WriteOptions};
+use topk_rs::doc;
 use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType, VectorDistanceMetric};
 use topk_rs::Error as SdkError;
 
@@ -17,7 +18,14 @@ use crate::import::common::{source, target, Ctx, AIMD};
 #[rstest_ctx(Ctx)]
 async fn prepares_then_executes(ctx: &Ctx) {
     let collection = ctx.collection("execution");
-    let from = ctx.cli.file("rows.csv", "id,title\n1,one\n2,two\n3,three");
+    let from = ctx.cli.seed_parquet(
+        "rows",
+        vec![
+            doc!("id" => 1, "title" => "one"),
+            doc!("id" => 2, "title" => "two"),
+            doc!("id" => 3, "title" => "three"),
+        ],
+    );
     let source = source(&from).await.unwrap();
     let target = target(&from, "id", [("title", FieldSpec::text(false))]).capped(3);
     let mut plan = Plan {
@@ -79,9 +87,15 @@ async fn prepares_then_executes(ctx: &Ctx) {
 #[rstest_ctx(Ctx)]
 async fn resumes_saved_prefix(ctx: &Ctx) {
     let collection = ctx.collection("resume");
-    let from = ctx
-        .cli
-        .file("rows.csv", "id,title\n1,one\n2,two\n3,three\n4,four");
+    let from = ctx.cli.seed_parquet(
+        "rows",
+        vec![
+            doc!("id" => 1, "title" => "one"),
+            doc!("id" => 2, "title" => "two"),
+            doc!("id" => 3, "title" => "three"),
+            doc!("id" => 4, "title" => "four"),
+        ],
+    );
     let source = source(&from).await.unwrap();
     let target = target(&from, "id", [("title", FieldSpec::text(false))]).capped(3);
     let plan = Plan {
@@ -257,7 +271,9 @@ async fn backend_rejections(
 #[case::conflicting_schema(true)]
 async fn collection_created_after_plan(ctx: &Ctx, #[case] conflict: bool) {
     let collection = ctx.collection("create-race");
-    let from = ctx.cli.file("rows.csv", "id,title\n1,one");
+    let from = ctx
+        .cli
+        .seed_parquet("rows", vec![doc!("id" => 1, "title" => "one")]);
     let source = source(&from).await.unwrap();
     let mut plan = Plan {
         collection: collection.clone(),

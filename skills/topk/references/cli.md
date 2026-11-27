@@ -63,7 +63,7 @@ Always pass `--yes` to a real import: without a terminal, the confirmation promp
 
 | Source | Example |
 |---|---|
-| Files | `topk import ./books.parquet --to books` (`.csv`, `.tsv`, `.json`, `.jsonl`, `.arrow`, `.avro`) |
+| Files | `topk import ./books.parquet --to books` (`.json`, `.jsonl`, `.arrow`, `.avro`) |
 | Globs and buckets | `topk import 's3://bucket/books/**/*.parquet' --to books` (`gs://`, `az://`, `r2://`, `hf://`, `http(s)://`) |
 | Postgres | `topk import postgres://user@host/db#public.orders --to orders` (password in the URL or `PGPASSWORD`) |
 | MySQL | `topk import mysql://root@host/shop#orders --to orders` (`MYSQL_PWD`) |

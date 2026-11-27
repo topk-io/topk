@@ -79,7 +79,7 @@ impl Duckdb {
                 match file.format {
                     Format::Avro => install("avro")?,
                     Format::Arrow => install_community("arrow")?,
-                    Format::Csv | Format::Json | Format::Parquet => {}
+                    Format::Json | Format::Parquet => {}
                 }
                 if let Some(store) = &file.store {
                     // Without an endpoint, duckdb resolves r2:// against
@@ -198,7 +198,7 @@ impl Duckdb {
         Ok(files)
     }
 
-    /// A glob over more than `sample` csv, json or parquet files is described by `sample`
+    /// A glob over more than `sample` json or parquet files is described by `sample`
     /// of them, evenly spread from the first to the last.
     pub async fn discover(&self, sample: usize) -> Result<Table, Error> {
         let source = self.clone();
@@ -215,7 +215,7 @@ impl Duckdb {
             let (from, select, key) = match &source {
                 Duckdb::Files(file) => {
                     let mut files = vec![file.glob()];
-                    if matches!(file.format, Format::Csv | Format::Json | Format::Parquet) {
+                    if matches!(file.format, Format::Json | Format::Parquet) {
                         let (all, sample) = (source.list(file)?, sample.max(2));
                         if all.len() > sample {
                             complete = false;
@@ -269,12 +269,6 @@ impl Duckdb {
             if columns.is_empty() {
                 return Err(Error::InvalidArgument(format!("no columns discovered for {from}")));
             }
-            // CONVENTION: duckdb names a CSV column with no header cell `column<digits>`; in a headerless file every column is one
-            let mut unnamed: Vec<String> = columns.iter().map(|(name, _)| name)
-                .filter(|name| matches!(file, Some(File { format: Format::Csv, .. }))
-                    && name.strip_prefix("column").is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())))
-                .cloned().collect();
-            if unnamed.len() == columns.len() { unnamed.clear(); }
             for (name, _) in file.into_iter().flat_map(|file| &file.path_columns) {
                 if let Some((taken, _)) = columns.iter().find(|(column, _)| column.eq_ignore_ascii_case(name)) {
                     return Err(Error::InvalidArgument(format!(
@@ -283,7 +277,7 @@ impl Duckdb {
                 }
                 columns.push((name.clone(), FieldSpec::text(false)));
             }
-            Ok(Table { from, columns, key, complete, unnamed })
+            Ok(Table { from, columns, key, complete })
         }).await?
     }
 

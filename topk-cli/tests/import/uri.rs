@@ -144,9 +144,9 @@ fn topk_targets(#[case] input: &str, #[case] project: Option<&str>) {
     Format::Parquet
 )]
 #[case::https_presigned(
-    "https://example.com/books.csv?X-Amz-Signature=abc",
+    "https://example.com/books.jsonl?X-Amz-Signature=abc",
     Some(ObjectStore::Http),
-    Format::Csv
+    Format::Json
 )]
 #[case::s3("s3://bucket/books.parquet", Some(ObjectStore::S3), Format::Parquet)]
 #[case::r2("r2://bucket/books.parquet", Some(ObjectStore::S3), Format::Parquet)]
@@ -173,13 +173,13 @@ fn topk_targets(#[case] input: &str, #[case] project: Option<&str>) {
     Format::Parquet
 )]
 #[case::relative_file("./books.parquet", None, Format::Parquet)]
-#[case::absolute_glob("/data/part_*.csv", None, Format::Csv)]
+#[case::absolute_glob("/data/part_*.jsonl", None, Format::Json)]
 #[case::avro_file("books.avro", None, Format::Avro)]
 #[case::bucket_tilde("s3://bucket/~/books.parquet", Some(ObjectStore::S3), Format::Parquet)]
 #[case::http_tilde(
-    "https://example.com/~books/data.csv",
+    "https://example.com/~books/data.jsonl",
     Some(ObjectStore::Http),
-    Format::Csv
+    Format::Json
 )]
 fn files(#[case] input: &str, #[case] store: Option<ObjectStore>, #[case] format: Format) {
     assert_eq!(
@@ -266,6 +266,7 @@ fn malformed_uri_redacts_password() {
 
 #[rstest]
 #[case::unknown_file_type("data.txt", "cannot tell the file type")]
+#[case::csv_file("data.csv.gz", "import does not read csv files")]
 #[case::no_extension("data/books", "cannot tell the file type")]
 #[case::huggingface_dataset("hf://datasets/org/name", "@~parquet")]
 #[case::elasticsearch_index("http://localhost:19200/articles", "use es://localhost:19200/articles")]
@@ -278,12 +279,12 @@ fn bad_files(#[case] input: &str, #[case] fragment: &str) {
 
 #[test]
 fn location_display_preserves_identity() {
-    let path = std::env::current_dir().unwrap().join("books.csv");
+    let path = std::env::current_dir().unwrap().join("books.jsonl");
     let path = path.to_str().unwrap();
     for (location, display) in [
         (
             SourceLocation::from(&path.parse::<File>().unwrap()),
-            "books.csv",
+            "books.jsonl",
         ),
         (SourceLocation::Object(path.into()), path),
     ] {

@@ -40,83 +40,6 @@ async fn decodes(
 }
 
 #[rstest_ctx(Scratch)]
-async fn ragged_csv_keeps_its_header(ctx: &Scratch) {
-    let from = ctx.file(
-        "ragged.csv",
-        "id,name,price\n1,apple,1.20\n2,banana\n3,cherry,2.40,extra",
-    );
-    let mut target = target(&from, "id", [("name", FieldSpec::text(false))]);
-    target.exclude = vec!["price".into(), "column3".into()];
-    let docs = json_documents(&source(&from).await.unwrap(), &target)
-        .await
-        .unwrap();
-    assert_eq!(docs.len(), 3);
-    assert_eq!(docs[1].1, json!({"_id": "2", "name": "banana"}));
-}
-
-#[rstest_ctx(Scratch)]
-#[case::unix_lines("\n")]
-#[case::windows_lines("\r\n")]
-async fn multiline_ragged_csv(ctx: &Scratch, #[case] newline: &str) {
-    let from = ctx.file(
-        "multiline.csv",
-        &format!("name,id,price{newline}\"a{newline}b\",1,1.20{newline}short,2{newline}long,3,2.40,extra{newline}"),
-    );
-    let mut target = target(&from, "id", [("name", FieldSpec::text(false))]);
-    target.exclude = vec!["price".into(), "column3".into()];
-    let docs = json_documents(&source(&from).await.unwrap(), &target)
-        .await
-        .unwrap();
-    assert_eq!(
-        docs,
-        [
-            (None, json!({"_id": "1", "name": format!("a{newline}b")})),
-            (None, json!({"_id": "2", "name": "short"})),
-            (None, json!({"_id": "3", "name": "long"})),
-        ]
-    );
-}
-
-#[rstest_ctx(Scratch)]
-#[case::extra_field(&["id,name\n1,a\n2,b,x\n"], "id", &[], &[], Some("column2 has no name"))]
-#[case::trailing_comma(&["id,name,\n1,a,\n2,b,\n"], "id", &[], &[], Some("column2 has no name"))]
-#[case::padded_names(&["a,b\n1,2,3,4,5,6,7,8,9,10,11,12\n"], "a", &[], &[], Some("column02, column03"))]
-#[case::glob_union(&["id,a,b\n1,2,3\n", "id,,c\n4,5,6\n"], "id", &[], &[], Some("column1 has no name"))]
-#[case::excluded(&["id,name\n1,a\n2,b,x\n"], "id", &[], &["column2"], None)]
-#[case::renamed(&["id,name\n1,a\n2,b,x\n"], "id", &["column2=extra"], &[], None)]
-#[case::headerless(&["1,a,1\n2,b,2\n"], "column0", &[], &[], None)]
-async fn unnamed_csv_columns(
-    ctx: &Scratch,
-    #[case] files: &[&str],
-    #[case] id: &str,
-    #[case] renames: &[&str],
-    #[case] exclude: &[&str],
-    #[case] error: Option<&str>,
-) {
-    let paths: Vec<_> = files
-        .iter()
-        .enumerate()
-        .map(|(n, csv)| ctx.file(&format!("csv/{n}.csv"), csv))
-        .collect();
-    let from = match paths.as_slice() {
-        [one] => one.clone(),
-        _ => ctx.path("csv/*.csv").to_str().unwrap().to_string(),
-    };
-    let source = source(&from).await.unwrap();
-    let mut target = Target::new(source.discover().await.unwrap(), Some(id)).unwrap();
-    let renames: Vec<_> = renames
-        .iter()
-        .map(|rename| rename.parse().unwrap())
-        .collect();
-    let exclude: Vec<_> = exclude.iter().map(|name| name.to_string()).collect();
-    let result = target.select(&source, &[], &renames, &exclude, None).await;
-    match error {
-        Some(error) => assert!(refused(result).contains(error)),
-        None => result.unwrap(),
-    }
-}
-
-#[rstest_ctx(Scratch)]
 async fn empty_unsupported_list_is_rejected(ctx: &Scratch) {
     let from = ctx.parquet("data.parquet", "SELECT 1 AS id, []::BOOLEAN[] AS flags");
     let error = json_documents(
@@ -633,14 +556,6 @@ async fn nested_list_decoding(ctx: &Scratch) {
 }
 
 #[rstest_ctx(Scratch)]
-async fn blank_csv_id(ctx: &Scratch) {
-    let from = ctx.file("blank-id.csv", "id,name\n1,ok\n,blank-id");
-    let source = source(&from).await.unwrap();
-    let target = target(&from, "id", [("name", FieldSpec::text(false))]);
-    assert!(refused(json_documents(&source, &target).await).contains(r#"field "id""#));
-}
-
-#[rstest_ctx(Scratch)]
 async fn huggingface_image_column(ctx: &Scratch) {
     let from = ctx.parquet(
         "images.parquet",
@@ -663,33 +578,18 @@ async fn huggingface_image_column(ctx: &Scratch) {
 }
 
 #[rstest_ctx(Scratch)]
-#[case::whole_file(None, None, 0)]
-#[case::limited_rows(Some(25_001), None, 0)]
-#[case::filtered_rows(None, Some("a > 25000"), 0)]
-#[case::resumed_rows(None, None, 25_000)]
-async fn csv_reader_errors_stop_stream(
-    ctx: &Scratch,
-    #[case] limit: Option<u64>,
-    #[case] filter: Option<&str>,
-    #[case] offset: u64,
-) {
-    let mut csv = String::from("id,a,b\n");
-    for i in 0..25_000 {
-        csv.push_str(&format!("{i},{i},{i}\n"));
-    }
-    csv.push_str("25000,bad,bad\n25001,25001,25001\n");
-    let from = ctx.file("late.csv", &csv);
-    let connected = source(&from).await.unwrap();
-    let mut target = target(
-        &from,
-        "id",
-        [
-            ("a", FieldSpec::integer(false)),
-            ("b", FieldSpec::integer(false)),
-        ],
+#[case::whole_file(None, 0)]
+#[case::limited_rows(Some(25_001), 0)]
+#[case::resumed_rows(None, 25_000)]
+async fn reader_errors_stop_stream(ctx: &Scratch, #[case] limit: Option<u64>, #[case] offset: u64) {
+    let from = ctx.parquet(
+        "late.parquet",
+        "SELECT i AS id, CASE WHEN i = 25000 THEN 'bad' ELSE i::VARCHAR END AS a FROM range(25002) t(i)",
     );
+    let connected = source(&from).await.unwrap();
+    let mut target = target(&from, "id", [("a", FieldSpec::integer(false))]);
     target.limit = limit;
-    target.filter = filter.map(str::to_string);
+    target.filter = Some("a::BIGINT >= 0".into());
     let checkpoint = Resume {
         open: vec![Cursor::Offset {
             part: from,
@@ -705,7 +605,7 @@ async fn csv_reader_errors_stop_stream(
     loop {
         match stream.try_next().await {
             Err(Error::InvalidArgument(message)) => {
-                assert!(message.contains("late.csv"), "{message}");
+                assert!(message.contains("late.parquet"), "{message}");
                 break;
             }
             Err(error) => panic!("unexpected error: {error}"),
@@ -713,50 +613,4 @@ async fn csv_reader_errors_stop_stream(
             Ok(None) => panic!("reader error was swallowed"),
         }
     }
-}
-
-#[rstest_ctx(Scratch)]
-async fn csv_sniffed_timestamp_filter(ctx: &Scratch) {
-    let from = ctx.file(
-        "dates.csv",
-        "id,date,value\n1,01/02/2024 10:00:00,5\n2,02/02/2024 10:00:00,6\n",
-    );
-    let connected = source(&from).await.unwrap();
-    let mut target = target(
-        &from,
-        "id",
-        [
-            ("date", FieldSpec::timestamp(false)),
-            ("value", FieldSpec::integer(false)),
-        ],
-    );
-    target.filter = Some("value > 5 AND date > TIMESTAMP '2024-02-01'".into());
-    let docs = json_documents(&connected, &target).await.unwrap();
-    assert_eq!(docs.len(), 1);
-    assert_eq!(docs[0].1["_id"], "2");
-    assert!(docs[0].1["date"].as_i64().is_some());
-}
-
-#[rstest_ctx(Scratch)]
-#[case::exact_name("__topk_error")]
-#[case::uppercase_name("__TOPK_ERROR")]
-async fn csv_excludes_unread_columns(ctx: &Scratch, #[case] name: &str) {
-    let mut csv = format!("id,{name},n\n");
-    for i in 0..25_000 {
-        csv.push_str(&format!("{i},kept,{i}\n"));
-    }
-    csv.push_str("25000,kept,bad\n");
-    let from = ctx.file("excluded.csv", &csv);
-    let connected = source(&from).await.unwrap();
-    let mut target = Target::new(connected.discover().await.unwrap(), Some("id")).unwrap();
-    target
-        .select(&connected, &[], &[], &["n".into()], None)
-        .await
-        .unwrap();
-    let docs = json_documents(&connected, &target).await.unwrap();
-    assert_eq!(docs.len(), 25_001);
-    assert_eq!(
-        docs.last().unwrap().1,
-        json!({"_id": "25000", (name.trim_start_matches('_')): "kept"})
-    );
 }
