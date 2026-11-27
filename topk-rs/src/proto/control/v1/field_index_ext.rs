@@ -45,6 +45,7 @@ impl FieldIndex {
                 top_k,
                 skip_smve: false,
                 encoding_version: 0,
+                prequantized: false,
             })),
         }
     }
