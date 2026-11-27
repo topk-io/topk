@@ -736,7 +736,7 @@ If a search returns no rows right after the insert, wait a few seconds and run i
 Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
 - Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes a few minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
-- Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
+- Search their own data: `topk import` loads files (JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
 
@@ -6243,9 +6243,9 @@ One import reads one table, collection or index into one collection. PostgreSQL,
 ###### Import files
 
 ```bash
-topk import ./books.parquet --to books                        # .csv .tsv .json(l) .arrow .avro
+topk import ./books.parquet --to books                        # .json(l) .arrow .avro
 topk import 's3://bucket/books/*.parquet' --to books          # every parquet file under a prefix
-topk import gs://bucket/books.csv --to books                  # az:// hf:// http(s):// too
+topk import gs://bucket/books.parquet --to books              # az:// hf:// http(s):// too
 ```
 
 A source is one file or one glob. For a folder or a bucket prefix, use a glob such as `'s3://bucket/books/*.parquet'`. `*` matches files in one folder; `**` also matches subfolders (`'s3://bucket/books/**/*.parquet'`).
@@ -6255,7 +6255,7 @@ topk import 'data/{lang}/*.parquet' --to docs --partition lang   # data/sw/a.par
 topk import 'data/*/*.parquet' --to docs --partition lang        # data/lang=sw/a.parquet → lang "sw"
 ```
 
-A `{name}` folder in a glob matches like `*` and gives each row a text column `name` holding that folder's name; `key=value` folders add a `key` column the same way. Path columns work for data files (csv, tsv, json, jsonl, parquet, arrow, avro) in local paths and buckets, not `http(s)://`, and can be used in `--partition`, `--id`, `-f` and `--filter`. A name the files already use as a column is refused. To match a folder literally named `{name}`, write `[{]name}`.
+A `{name}` folder in a glob matches like `*` and gives each row a text column `name` holding that folder's name; `key=value` folders add a `key` column the same way. Path columns work for data files (json, jsonl, parquet, arrow, avro) in local paths and buckets, not `http(s)://`, and can be used in `--partition`, `--id`, `-f` and `--filter`. A name the files already use as a column is refused. To match a folder literally named `{name}`, write `[{]name}`.
 
 ###### Copy a TopK collection
 
@@ -6344,7 +6344,7 @@ Pending document buffers are bounded by `--batch-bytes × --concurrency`, indepe
 
 Progress counts acknowledged writes. After 10 seconds without progress, the CLI prints a waiting notice.
 
-By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. CSV uses DuckDB’s inferred types and date formats; reader parsing and type-conversion errors stop the import even with `--continue-on-error`. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
+By default, a row decoding, conversion, or document-validation failure stops the import. `--continue-on-error` skips these rows. Reader parsing and type-conversion errors stop the import even with `--continue-on-error`. If the destination rejects a batch for document validation, the importer retries its documents individually and skips only those rejected. Connection, authentication, query, and stream failures still stop the import after normal retries.
 
 Summaries count acknowledged writes and skipped rows for the current invocation. Every skipped row is listed once in `<run>.rejected.jsonl` next to the run state, with its row number in source order, document ID, field and error; the terminal shows the first three, and the count and path of the file for the whole run. A run that completes exits `0`, with or without skipped rows; a fatal error exits `1`. If the run state cannot be saved, the import stops. Progress counts acknowledged writes for this invocation. Checkpoints advance only after preceding rows are written or skipped. Skips are final for that run: `--resume` does not revisit checkpointed skips. Resuming an interrupted import can replay writes after its last saved checkpoint; upserts replace documents with the same ID. Use a new import to retry corrected rows.
 

@@ -17,7 +17,6 @@ pub enum ObjectStore {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
-    Csv,
     Json,
     Parquet,
     Arrow,
@@ -76,7 +75,7 @@ impl File {
             )),
             _ => error.into(),
         })?;
-        // An empty file reads as a synthetic `column0`.
+        // An empty json file reads as a synthetic `json` column.
         if meta.len() == 0 {
             return Err(Error::InvalidArgument(format!(
                 "{} is empty — nothing to import",
@@ -113,11 +112,15 @@ impl FromStr for File {
         };
 
         let format = match extension(Path::new(logical(s))).as_deref() {
-            Some("csv" | "tsv") => Format::Csv,
             Some("json" | "jsonl" | "ndjson") => Format::Json,
             Some("parquet") => Format::Parquet,
             Some("arrow") => Format::Arrow,
             Some("avro") => Format::Avro,
+            Some(ext @ ("csv" | "tsv")) => {
+                return Err(Error::InvalidArgument(format!(
+                    "{s:?}: import does not read {ext} files"
+                )))
+            }
             other => {
                 let dir = s.trim_end_matches('/');
                 let hint = match store {
@@ -152,14 +155,7 @@ impl FromStr for File {
                             if let Some(ext) = extension(&entry?.path()) {
                                 if matches!(
                                     ext.as_str(),
-                                    "csv"
-                                        | "tsv"
-                                        | "json"
-                                        | "jsonl"
-                                        | "ndjson"
-                                        | "parquet"
-                                        | "arrow"
-                                        | "avro"
+                                    "json" | "jsonl" | "ndjson" | "parquet" | "arrow" | "avro"
                                 ) {
                                     found.push(ext);
                                 }
@@ -184,8 +180,8 @@ impl FromStr for File {
                     _ => String::new(),
                 };
                 return Err(Error::InvalidArgument(format!(
-                    "cannot tell the file type of {s:?}: expected a csv, tsv, json, jsonl, \
-                     ndjson, parquet, arrow or avro extension{hint}"
+                    "cannot tell the file type of {s:?}: expected a json, jsonl, ndjson, \
+                     parquet, arrow or avro extension{hint}"
                 )));
             }
         };
@@ -292,7 +288,7 @@ fn extension(path: &Path) -> Option<String> {
 
 /// The part of a path that names the file: without an http query string (only
 /// http, since `?` is a glob character elsewhere), and without a compression
-/// suffix duckdb decodes transparently — data.csv.gz is a csv named data.
+/// suffix duckdb decodes transparently — data.jsonl.gz is a jsonl named data.
 fn logical(path: &str) -> &str {
     let path = match path.starts_with("http://") || path.starts_with("https://") {
         true => path.split(['?', '#']).next().unwrap_or(path),
@@ -319,25 +315,25 @@ mod tests {
     use super::File;
 
     #[rstest]
-    #[case::plain("/d/a.csv", "/d/a.csv", &[])]
-    #[case::from_the_end("/d/{lang}/*.csv", "/d/sw/a.csv", &[("lang", "sw")])]
-    #[case::bucket("s3://b/**/{lang}/x.csv", "s3://b/p/q/sw/x.csv", &[("lang", "sw")])]
-    #[case::double_star_after("/{year}/**/x.csv", "/2024/a/b/x.csv", &[("year", "2024")])]
-    #[case::double_star_empty("/{year}/**/x.csv", "/2024/x.csv", &[("year", "2024")])]
-    #[case::file_scheme("file:///d/{year}/**/x.csv", "/d/2024/a/x.csv", &[("year", "2024")])]
-    #[case::two_columns("/{year}/{lang}/x.csv", "/2024/sw/x.csv", &[("year", "2024"), ("lang", "sw")])]
-    #[case::not_an_identifier("/d/{1lang}/x.csv", "/d/{1lang}/x.csv", &[])]
-    #[case::part_of_a_segment("/d/lang={lang}/x.csv", "/d/lang={lang}/x.csv", &[])]
-    #[case::braced_file_name("/d/{lang}.csv", "/d/{lang}.csv", &[])]
+    #[case::plain("/d/a.parquet", "/d/a.parquet", &[])]
+    #[case::from_the_end("/d/{lang}/*.parquet", "/d/sw/a.parquet", &[("lang", "sw")])]
+    #[case::bucket("s3://b/**/{lang}/x.parquet", "s3://b/p/q/sw/x.parquet", &[("lang", "sw")])]
+    #[case::double_star_after("/{year}/**/x.parquet", "/2024/a/b/x.parquet", &[("year", "2024")])]
+    #[case::double_star_empty("/{year}/**/x.parquet", "/2024/x.parquet", &[("year", "2024")])]
+    #[case::file_scheme("file:///d/{year}/**/x.parquet", "/d/2024/a/x.parquet", &[("year", "2024")])]
+    #[case::two_columns("/{year}/{lang}/x.parquet", "/2024/sw/x.parquet", &[("year", "2024"), ("lang", "sw")])]
+    #[case::not_an_identifier("/d/{1lang}/x.parquet", "/d/{1lang}/x.parquet", &[])]
+    #[case::part_of_a_segment("/d/lang={lang}/x.parquet", "/d/lang={lang}/x.parquet", &[])]
+    #[case::braced_file_name("/d/{lang}.parquet", "/d/{lang}.parquet", &[])]
     fn values(#[case] pattern: &str, #[case] matched: &str, #[case] expected: &[(&str, &str)]) {
         let file: File = pattern.parse().unwrap();
         assert_eq!(file.path_values(matched).unwrap(), expected);
     }
 
     #[rstest]
-    #[case::twice("{lang}/{lang}/x.csv", "appears twice")]
-    #[case::double_star_both_sides("**/{lang}/**/x.csv", "`**` on both sides")]
-    #[case::http("https://h/{lang}/x.csv", "http(s) cannot list folders")]
+    #[case::twice("{lang}/{lang}/x.parquet", "appears twice")]
+    #[case::double_star_both_sides("**/{lang}/**/x.parquet", "`**` on both sides")]
+    #[case::http("https://h/{lang}/x.parquet", "http(s) cannot list folders")]
     fn refuses(#[case] path: &str, #[case] error: &str) {
         let err = path.parse::<File>().unwrap_err().to_string();
         assert!(err.contains(error), "{err}");

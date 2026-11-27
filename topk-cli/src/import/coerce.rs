@@ -21,7 +21,7 @@ impl Field {
         if value.as_null().is_some() {
             return Ok(value);
         }
-        // Container types accept JSON in a string cell (CSV, TEXT columns).
+        // Container types accept JSON in a string cell (TEXT columns).
         let value = match value.as_string().filter(|_| {
             !matches!(
                 ty,
@@ -68,7 +68,7 @@ impl Field {
                 .ok_or(Error::CannotCoerce("bool"))?,
             ),
             // Declared in the schema, carried as an epoch integer. Sources that
-            // render a date as text (elasticsearch `_source`, a csv column) parse
+            // render a date as text (elasticsearch `_source`) parse
             // to the same instant; anything else is a `text` field, not a timestamp.
             DataType::Timestamp(_) => Value::i64(
                 value

@@ -177,8 +177,7 @@ fn le_f64(ns: &[f64]) -> Value {
     Value::bytes(ns.iter().flat_map(|n| n.to_le_bytes()).collect::<Vec<u8>>())
 }
 
-/// A double beyond 2^53 has already dropped digits, so it cannot be an id —
-/// a csv column mixing huge ids with decimals sniffs as double.
+/// A double beyond 2^53 has already dropped digits, so it cannot be an id.
 #[test]
 fn imprecise_double_id_is_refused() {
     let target = row([("v", Field::new(FieldSpec::integer(false)))]);
