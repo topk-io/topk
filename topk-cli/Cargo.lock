@@ -4758,7 +4758,7 @@ dependencies = [
 
 [[package]]
 name = "topk-cli"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -4838,7 +4838,7 @@ dependencies = [
 
 [[package]]
 name = "topk-rs"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "async-trait",
