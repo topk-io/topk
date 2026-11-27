@@ -23,7 +23,6 @@ use topk::management::proto::region_service_server::{RegionService, RegionServic
 use topk::management::proto::{
     ListRegionsRequest, ListRegionsResponse, MintAccessTokenRequest, MintAccessTokenResponse,
 };
-use topk::profile::SavedProfiles;
 use topk::ProjectId;
 use topk_rs::proto::v1::data::write_service_server::{WriteService, WriteServiceServer};
 use topk_rs::proto::v1::data::{
@@ -42,11 +41,7 @@ fn access_token(
     config_dir: &Path,
     project: &str,
 ) -> AccessTokenProvider {
-    let config = Config::new(
-        host(),
-        config.clone(),
-        SavedProfiles::new(config_dir.to_owned()),
-    );
+    let config = Config::new(host(), config.clone(), config_dir.to_owned());
     AccessTokenProvider::new(
         ManagementClient::connect(endpoint, Auth::new(config.clone()).unwrap()),
         config,
@@ -537,11 +532,7 @@ async fn clear_removes_access_tokens_and_preserves_lock_files() {
     let lock_path = ctx.lock_path("p1");
     let lock = std::fs::File::open(&lock_path).unwrap();
     lock.lock().unwrap();
-    let config = Config::new(
-        host(),
-        ctx.oauth.config(),
-        SavedProfiles::new(ctx.dir.path().to_owned()),
-    );
+    let config = Config::new(host(), ctx.oauth.config(), ctx.dir.path().to_owned());
     for _ in 0..2 {
         config.access_tokens().clear().unwrap();
     }

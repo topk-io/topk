@@ -1,21 +1,27 @@
 //! The CLI's configuration: which API to talk to, the login session, and the
 //! access tokens minted with it.
 
+use std::collections::BTreeMap;
+use std::fmt;
 use std::fs::File;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{ensure, Context, Error, Result};
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
 use crate::host::{Host, HostArgs, DEFAULT_HOST};
-use crate::profile::{ProfileName, SavedProfiles};
 use crate::ProjectId;
 
 pub use crate::storage::{lock, read, read_toml, write_secret_file, write_toml};
+
+const CONFIG_FILE: &str = "config.toml";
+const DEFAULT_PROFILE: &str = "default";
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -35,11 +41,89 @@ pub struct Args {
     pub oauth: OAuthArgs,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(try_from = "String")]
+pub struct ProfileName(String);
+
+impl Default for ProfileName {
+    fn default() -> Self {
+        Self(DEFAULT_PROFILE.to_owned())
+    }
+}
+
+impl ProfileName {
+    pub fn dir(&self, root: &Path) -> PathBuf {
+        root.join("profiles").join(&self.0)
+    }
+
+    pub fn label(&self) -> String {
+        match *self == Self::default() {
+            true => String::new(),
+            false => format!(" ({} profile)", self.0.cyan().bold()),
+        }
+    }
+}
+
+impl FromStr for ProfileName {
+    type Err = Error;
+
+    fn from_str(name: &str) -> Result<Self> {
+        ensure!(
+            name.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
+                && name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_'),
+            "invalid profile name {name:?}: use lowercase letters, digits, `-` and `_`"
+        );
+        Ok(Self(name.to_owned()))
+    }
+}
+
+impl TryFrom<String> for ProfileName {
+    type Error = Error;
+
+    fn try_from(name: String) -> Result<Self> {
+        name.parse()
+    }
+}
+
+impl fmt::Display for ProfileName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct Profiles {
+    selected: Option<ProfileName>,
+    #[serde(default)]
+    profiles: BTreeMap<ProfileName, Host>,
+}
+
+impl Profiles {
+    fn load(dir: &Path) -> Result<Self> {
+        Ok(read_toml(&dir.join(CONFIG_FILE))?.unwrap_or_default())
+    }
+
+    /// The selected profile, or the default one when none is selected.
+    pub fn selected(&self) -> ProfileName {
+        self.selected.clone().unwrap_or_default()
+    }
+
+    pub fn host(&self, name: &ProfileName) -> Option<&Host> {
+        self.profiles.get(name)
+    }
+
+    pub fn list(&self) -> impl Iterator<Item = (&ProfileName, &Host)> {
+        self.profiles.iter()
+    }
+}
+
 #[derive(Clone)]
 pub struct Config {
     host: Host,
     oauth: OAuthConfig,
-    saved_profiles: SavedProfiles,
+    dir: PathBuf,
     active_profile: ProfileName,
 }
 
@@ -50,18 +134,17 @@ pub struct Defaults {
 }
 
 impl Config {
-    pub fn new(host: Host, oauth: OAuthConfig, saved_profiles: SavedProfiles) -> Self {
+    pub fn new(host: Host, oauth: OAuthConfig, dir: PathBuf) -> Self {
         Self {
             host,
             oauth,
-            saved_profiles,
+            dir,
             active_profile: ProfileName::default(),
         }
     }
 
-    pub async fn load(args: &Args, saved_profiles: SavedProfiles) -> Result<Self> {
-        remove(&saved_profiles.root().join("config.toml"))?;
-        let profiles = saved_profiles.load()?;
+    pub async fn load(args: &Args, dir: PathBuf) -> Result<Self> {
+        let profiles = Profiles::load(&dir)?;
         let active_profile = match &args.profile {
             Some(name) => name.clone(),
             None => profiles.selected(),
@@ -76,26 +159,47 @@ impl Config {
         };
         let oauth = match args.oauth.clone().config() {
             Some(oauth) => oauth,
-            None => {
-                match Self::resolve_oauth(&host, &active_profile.dir(saved_profiles.root())).await {
-                    Ok(oauth) => oauth,
-                    Err(e) => {
-                        warn!("cannot load login settings for {}: {e:#}", host.host);
-                        OAuthConfig::default()
-                    }
+            None => match Self::resolve_oauth(&host, &active_profile.dir(&dir)).await {
+                Ok(oauth) => oauth,
+                Err(e) => {
+                    warn!("cannot load login settings for {}: {e:#}", host.host);
+                    OAuthConfig::default()
                 }
-            }
+            },
         };
         Ok(Self {
             host,
             oauth,
-            saved_profiles,
+            dir,
             active_profile,
         })
     }
 
     pub fn save_profile(&self) -> Result<()> {
-        self.saved_profiles.save(&self.active_profile, &self.host)
+        let mut profiles = self.profiles()?;
+        profiles
+            .profiles
+            .insert(self.active_profile.clone(), self.host.clone());
+        write_toml(&self.dir.join(CONFIG_FILE), &profiles)
+    }
+
+    pub fn select_profile(&self, name: &ProfileName) -> Result<()> {
+        let mut profiles = self.profiles()?;
+        ensure!(
+            *name == ProfileName::default() || profiles.profiles.contains_key(name),
+            "profile `{name}` not found; create it with `topk login --profile {name}`"
+        );
+        profiles.selected = (*name != ProfileName::default()).then(|| name.clone());
+        write_toml(&self.dir.join(CONFIG_FILE), &profiles)
+    }
+
+    pub fn remove_profile(&self) -> Result<()> {
+        let mut profiles = self.profiles()?;
+        profiles.profiles.remove(&self.active_profile);
+        if profiles.selected.as_ref() == Some(&self.active_profile) {
+            profiles.selected = None;
+        }
+        write_toml(&self.dir.join(CONFIG_FILE), &profiles)
     }
 
     async fn resolve_oauth(host: &Host, dir: &Path) -> Result<OAuthConfig> {
@@ -118,7 +222,12 @@ impl Config {
         self.session().await?.delete()?;
         self.access_tokens().clear()?;
         remove(&oauth_file(&self.profile_dir(), &self.host))?;
-        self.saved_profiles.remove(&self.active_profile)
+        self.remove_profile()?;
+        let profiles = self.profiles()?;
+        if profiles.selected.is_none() && profiles.profiles.is_empty() {
+            remove(&self.dir.join(CONFIG_FILE))?;
+        }
+        Ok(())
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -179,12 +288,12 @@ impl Config {
         &self.active_profile
     }
 
-    pub fn saved_profiles(&self) -> &SavedProfiles {
-        &self.saved_profiles
+    pub fn profiles(&self) -> Result<Profiles> {
+        Profiles::load(&self.dir)
     }
 
     fn profile_dir(&self) -> PathBuf {
-        self.active_profile.dir(self.saved_profiles.root())
+        self.active_profile.dir(&self.dir)
     }
 
     pub fn defaults(&self) -> Result<Defaults> {

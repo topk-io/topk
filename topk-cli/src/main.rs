@@ -11,7 +11,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 use topk::config::{Args as ConfigArgs, Config};
 use topk::output::Output;
-use topk::profile::SavedProfiles;
 use topk::util::Interrupted;
 use tracing::info;
 
@@ -119,7 +118,7 @@ async fn async_main() -> ExitCode {
 }
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let config = Config::load(&cli.config, SavedProfiles::new(Config::dir()?)).await?;
+    let config = Config::load(&cli.config, Config::dir()?).await?;
     match &cli.command {
         Some(Commands::Project(args)) => {
             topk::commands::project::run(config, args, cli.output, &mut std::io::stdout()).await

@@ -15,7 +15,6 @@ use uuid::Uuid;
 
 use topk::auth::{OAuthConfig, Session};
 use topk::config::{Args as ConfigArgs, Config};
-use topk::profile::SavedProfiles;
 use topk::ProjectId;
 
 /// Credentials of the e2e user for real tenants; unset means the emulator issuer.
@@ -295,7 +294,7 @@ async fn config(dir: PathBuf) -> Config {
     let matches = ConfigArgs::augment_args(clap::Command::new("topk")).get_matches_from(["topk"]);
     Config::load(
         &ConfigArgs::from_arg_matches(&matches).expect("config from the environment"),
-        SavedProfiles::new(dir),
+        dir,
     )
     .await
     .expect("config")

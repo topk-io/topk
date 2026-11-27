@@ -8,10 +8,9 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::info;
 
-use crate::config::Config;
+use crate::config::{Config, ProfileName, Profiles};
 use crate::host::Host;
 use crate::output::{json_line, print_list, Output, Tabular};
-use crate::profile::{ProfileName, Profiles};
 use crate::prompt::Prompt;
 
 #[derive(clap::Args, Debug)]
@@ -63,14 +62,14 @@ fn rows(profiles: &Profiles, active: &ProfileName) -> Vec<Row> {
 
 pub fn run(config: Config, args: &Args, output: Output, out: &mut impl Write) -> Result<ExitCode> {
     info!(?args, "profile");
-    let (saved_profiles, active) = (config.saved_profiles(), config.active_profile());
+    let active = config.active_profile();
     match &args.command {
         Command::Current => match output {
             Output::Json => json_line(out, &json!({"profile": active}))?,
             Output::Text => writeln!(out, "Profile: {active}")?,
         },
         Command::Clear => {
-            saved_profiles.select(&ProfileName::default())?;
+            config.select_profile(&ProfileName::default())?;
             match output {
                 Output::Json => json_line(out, &json!({"profile": ProfileName::default()}))?,
                 Output::Text => writeln!(out, "Profile selection cleared")?,
@@ -84,7 +83,7 @@ pub fn run(config: Config, args: &Args, output: Output, out: &mut impl Write) ->
                         stdin().is_terminal(),
                         "no profile given; run `topk profile select <PROFILE>`"
                     );
-                    let rows = rows(&saved_profiles.load()?, active);
+                    let rows = rows(&config.profiles()?, active);
                     let names = rows.iter().map(|row| &row.name).collect::<Vec<_>>();
                     let selected = Prompt::select(
                         "Select profile",
@@ -94,13 +93,13 @@ pub fn run(config: Config, args: &Args, output: Output, out: &mut impl Write) ->
                     names[selected].clone()
                 }
             };
-            saved_profiles.select(&profile)?;
+            config.select_profile(&profile)?;
             match output {
                 Output::Json => json_line(out, &json!({"profile": profile}))?,
                 Output::Text => writeln!(out, "{} Switched to profile {profile}.", "✓".green())?,
             }
         }
-        Command::List => print_list(out, output, rows(&saved_profiles.load()?, active))?,
+        Command::List => print_list(out, output, rows(&config.profiles()?, active))?,
     }
     Ok(ExitCode::SUCCESS)
 }

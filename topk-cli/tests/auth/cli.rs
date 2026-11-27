@@ -10,7 +10,6 @@ use url::Url;
 
 use topk::auth::OAuthConfig;
 use topk::config::Config;
-use topk::profile::SavedProfiles;
 use topk::scope::ScopeArgs;
 
 use super::common::{host, tenant_dir};
@@ -258,7 +257,7 @@ async fn endpoint_authenticates_with_the_project() {
             client_id: "test-client".into(),
             audience: "https://api.test".into(),
         },
-        SavedProfiles::new(dir.path().to_owned()),
+        dir.path().to_owned(),
     );
     assert!(try_parse(&["test", "--region", "test", "--api-key", "key"])
         .err()

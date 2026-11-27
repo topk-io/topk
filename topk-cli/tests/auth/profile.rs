@@ -3,24 +3,31 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 
 use topk::config::Config;
-use topk::host::Host;
-use topk::profile::SavedProfiles;
 
 use super::common::args;
 use crate::common::command::TestCommand;
 
 const AUTH_ISSUER: &str = "https://auth.example.test/";
 
-fn profiles(dir: &TempDir, names: &[&str]) -> SavedProfiles {
-    let profiles = SavedProfiles::new(dir.path().to_owned());
+/// Saves a profile as a login to `host` would.
+fn save(dir: &TempDir, profile: &str, host: &str, https: bool) {
+    let path = dir.path().join("config.toml");
+    let saved = std::fs::read_to_string(&path).unwrap_or_default();
+    std::fs::write(
+        path,
+        format!("{saved}\n[profiles.{profile}]\nhost = \"{host}\"\nhttps = {https}\n"),
+    )
+    .unwrap();
+}
+
+fn profiles(dir: &TempDir, names: &[&str]) {
     for profile in names {
-        let host = Host {
-            host: "stage.test".into(),
-            https: true,
-        };
-        profiles.save(&profile.parse().unwrap(), &host).unwrap();
+        save(dir, profile, "stage.test", true);
     }
-    profiles
+}
+
+fn select(dir: &TempDir, profile: &str) {
+    topk(dir).args(["profile", "select", profile]).ok();
 }
 
 /// The config of a profile logged in to `host`.
@@ -41,7 +48,7 @@ async fn config(dir: &TempDir, profile: &str, host: &str, https: bool) -> Config
             "--auth-audience",
             "https://api.example.test",
         ]),
-        SavedProfiles::new(dir.path().to_owned()),
+        dir.path().to_owned(),
     )
     .await
     .unwrap()
@@ -78,9 +85,9 @@ fn profile_precedence(
     #[case] expected: &str,
 ) {
     let dir = TempDir::new().unwrap();
-    let profiles = profiles(&dir, &["one", "two"]);
+    profiles(&dir, &["one", "two"]);
     if let Some(selected) = selected {
-        profiles.select(&selected.parse().unwrap()).unwrap();
+        select(&dir, selected);
     }
     let mut command = topk(&dir);
     if let Some(env) = env {
@@ -148,12 +155,12 @@ async fn profile_keeps_its_own_defaults_and_host() {
 #[test]
 fn logout_removes_the_profile() {
     let dir = TempDir::new().unwrap();
-    let profiles = profiles(&dir, &["stage"]);
-    profiles.select(&"stage".parse().unwrap()).unwrap();
+    profiles(&dir, &["stage"]);
+    select(&dir, "stage");
 
     topk(&dir).args(["logout"]).ok();
 
-    assert!(profiles.load().unwrap().list().next().is_none());
+    assert!(topk(&dir).args(["profile", "list"]).ok().is_empty());
     assert_eq!(current(topk(&dir)), "default");
     assert!(topk(&dir)
         .args(["profile", "select", "stage"])
@@ -164,13 +171,7 @@ fn logout_removes_the_profile() {
 #[tokio::test]
 async fn host_given_does_not_inherit_the_profile_scheme() {
     let dir = TempDir::new().unwrap();
-    let plain = Host {
-        host: "plain.test".into(),
-        https: false,
-    };
-    SavedProfiles::new(dir.path().to_owned())
-        .save(&"plain".parse().unwrap(), &plain)
-        .unwrap();
+    save(&dir, "plain", "plain.test", false);
     config(&dir, "plain", "other.test", true)
         .await
         .set_region(Some("r1".into()))
@@ -205,11 +206,11 @@ async fn https_given_applies_to_the_profile_host() {
 #[test]
 fn logging_in_again_does_not_restore_an_old_selection() {
     let dir = TempDir::new().unwrap();
-    let profiles = profiles(&dir, &["stage"]);
-    profiles.select(&"stage".parse().unwrap()).unwrap();
+    profiles(&dir, &["stage"]);
+    select(&dir, "stage");
     topk(&dir).args(["logout"]).ok();
 
-    self::profiles(&dir, &["stage"]);
+    profiles(&dir, &["stage"]);
 
     assert_eq!(current(topk(&dir)), "default");
 }
@@ -218,19 +219,10 @@ fn logging_in_again_does_not_restore_an_old_selection() {
 fn invalid_saved_profile_name_is_rejected() {
     let dir = TempDir::new().unwrap();
     std::fs::write(
-        dir.path().join("profiles.toml"),
+        dir.path().join("config.toml"),
         "[profiles.\"No/pe\"]\nhost = \"stage.test\"\nhttps = true\n",
     )
     .unwrap();
     let stderr = topk(&dir).args(["profile", "list"]).fails();
     assert!(stderr.contains("invalid profile name"), "{stderr}");
-}
-
-#[test]
-fn legacy_config_is_removed() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("config.toml");
-    std::fs::write(&path, "api_key = 'legacy-secret'\n").unwrap();
-    topk(&dir).args(["profile", "current"]).ok();
-    assert!(!path.exists());
 }
