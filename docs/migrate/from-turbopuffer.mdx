@@ -1,0 +1,366 @@
+---
+title: "Migrate from turbopuffer"
+description: "Move every turbopuffer namespace to TopK with its ids, vectors, attributes and distance metric, then check that results match before you cut over."
+---
+
+<div className="agent-prompt">
+<Card title="Migrate with a coding agent" icon="sparkles">
+  Paste this into Claude Code, Cursor, Codex, or any agent with terminal access. It inventories your turbopuffer namespaces, shows you a plan, then exports, imports and verifies each one.
+
+  ```text
+  Migrate my turbopuffer namespaces to TopK: docs.topk.io/migrate-turbopuffer
+  ```
+</Card>
+</div>
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login)) and the [TopK CLI](/cli)
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key)), for the verification step
+  - Python 3.11+ with `turbopuffer` and `topk-sdk` installed
+  - A turbopuffer API key that can list namespaces, and the region your namespaces are in
+</Info>
+
+Here is how the migration works:
+
+1. A script exports every namespace to JSONL and writes a TopK import spec for it, with the vector dimension, the distance metric and a typed field for each attribute.
+2. [`topk import`](/cli#import) loads each spec into a new collection.
+3. You switch your queries to the TopK SDK. A hybrid `multi_query` becomes a single query.
+4. A second script compares document counts and sample query results between turbopuffer and TopK.
+
+Your vectors are copied as they are. Nothing is re-embedded.
+
+## How turbopuffer concepts map to TopK
+
+| turbopuffer | TopK |
+| - | - |
+| Namespace | Collection |
+| Document `id` | `_id` (as a string) |
+| `vector` attribute (`[N]f32`, `[N]f16`) | [`f32_vector()`](/sdk/topk-py/schema#f32_vector) field with a [`vector_index()`](/sdk/topk-py/schema#vector_index) |
+| `[N]i8` vector | [`i8_vector()`](/sdk/topk-py/schema#i8_vector) field |
+| Attribute with `full_text_search` | Text field with a [keyword index](/guides/keyword-search) |
+| Other attributes | Typed fields, usable in filters |
+| `distance_metric`: `cosine_distance` / `euclidean_squared` | `metric`: `cosine` / `euclidean` |
+| `rank_by=("vector", "ANN", q)` | [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance), sorted |
+| `rank_by=("text", "BM25", q)` | [`fn.bm25_score()`](/sdk/topk-py/query#bm25_score) with a [`match()`](/collections/query#keyword-search) filter |
+| `multi_query` + `rerank_by=("RRF",)` | One query sorted by a [weighted sum of scores](/guides/true-hybrid-search) |
+| `filters` | [`.filter()`](/collections/query#filtering) |
+| `limit` | [`.limit()`](/sdk/topk-py/query#limit) |
+| One namespace per tenant | [Partitions](/concepts#multi-tenancy) in one collection |
+
+## Step 1: Export every namespace
+
+Save this as `tpuf_to_topk.py` in a new, empty directory, and run it there with your turbopuffer credentials in the environment. It walks every namespace and writes `<namespace>.jsonl` and `<namespace>.toml` next to it.
+
+```python tpuf_to_topk.py
+import json
+import re
+
+import turbopuffer
+
+# turbopuffer distance_metric -> TopK vector metric
+METRICS = {"cosine_distance": "cosine", "euclidean_squared": "euclidean"}
+TYPES = {
+    "string": "text", "uuid": "text", "int": "int", "uint": "int",
+    "float": "float", "bool": "bool", "datetime": "timestamp",
+    "[]string": "text_list", "[]uuid": "text_list",
+    "[]int": "int_list", "[]uint": "int_list", "[]float": "float_list",
+}
+VECTOR = re.compile(r"^\[(\d+)\](f32|f16|i8)$")
+PAGE = 1000  # turbopuffer returns at most 10,000 rows per query
+
+tpuf = turbopuffer.Turbopuffer()  # reads TURBOPUFFER_API_KEY and TURBOPUFFER_REGION
+
+
+def field_name(key):
+    # TopK field names can't start with "_", and the script uses id itself.
+    if key.startswith("_") or key == "id":
+        return "meta_" + key.lstrip("_")
+    return key
+
+
+def option(config, name):
+    # Schema options are either a bool or an object with settings.
+    value = getattr(config, name, None)
+    return value if value not in (None, False) else None
+
+
+for entry in tpuf.namespaces():
+    name = entry.id
+    ns = tpuf.namespace(name)
+    meta = ns.metadata()
+    fields, skipped = {}, []
+
+    for attr, config in meta.schema_.items():
+        if attr == "id":
+            continue
+        kind = config.type
+        vector = VECTOR.match(kind)
+        if vector:
+            dim, element = vector.groups()
+            ann = option(config, "ann")
+            metric = getattr(ann, "distance_metric", None) or "cosine_distance"
+            fields[field_name(attr)] = {
+                "type": "i8_vector" if element == "i8" else "f32_vector",
+                "dim": int(dim),
+                "metric": METRICS[metric],
+                "from": attr,
+            }
+        elif kind in TYPES:
+            index = "keyword" if option(config, "full_text_search") else None
+            fields[field_name(attr)] = {"type": TYPES[kind], "index": index, "from": attr}
+        else:  # late-interaction, sparse, bytes and []bool attributes
+            skipped.append(f"{attr} ({kind})")
+
+    count, last_id = 0, None
+    with open(f"{name}.jsonl", "w") as out:
+        while True:
+            result = ns.query(
+                rank_by=("id", "asc"),
+                limit=PAGE,
+                include_attributes=True,
+                filters=("id", "Gt", last_id) if last_id is not None else turbopuffer.omit,
+            )
+            rows = result.rows or []
+            for row in rows:
+                values = {"vector": row.vector, **(row.model_extra or {})}
+                record = {
+                    key: values[spec["from"]]
+                    for key, spec in fields.items()
+                    if values.get(spec["from"]) is not None
+                }
+                out.write(json.dumps({**record, "id": str(row.id)}) + "\n")
+            count += len(rows)
+            if len(rows) < PAGE:
+                break
+            last_id = rows[-1].id
+
+    with open(f"{name}.toml", "w") as spec:
+        spec.write(f'["{name}"]\nfrom = "{name}.jsonl"\nid = "id"\n\n["{name}".fields]\n')
+        for key, f in fields.items():
+            if "dim" not in f:
+                index = f', index = "{f["index"]}"' if f["index"] else ""
+                spec.write(f'{json.dumps(key)} = {{ type = "{f["type"]}"{index} }}\n')
+        for key, f in fields.items():
+            if "dim" in f:
+                spec.write(
+                    f'\n["{name}".fields.{json.dumps(key)}]\n'
+                    f'type = "{f["type"]}"\ndim = {f["dim"]}\n'
+                    f'index = {{ vector = {{ metric = "{f["metric"]}" }} }}\n'
+                )
+
+    print(f"{name}: {count} documents" + (f", skipped {', '.join(skipped)}" if skipped else ""))
+```
+
+```bash
+mkdir tpuf-export && cd tpuf-export
+# save tpuf_to_topk.py here
+export TURBOPUFFER_API_KEY=... TURBOPUFFER_REGION=aws-us-east-1
+python tpuf_to_topk.py
+```
+
+```text Output
+docs: 120000 documents
+tickets: 48210 documents, skipped sparse ({}f16)
+```
+
+<Warning>
+  The export pages through each namespace by id, so documents your application writes or deletes while it runs may or may not be included. Pause writes to turbopuffer during the export, or run the export and import again just before you switch writes to TopK.
+</Warning>
+
+<Note>
+  The script reads each namespace's distance metric from its schema, so a namespace created with `euclidean_squared` uses `euclidean` in TopK. turbopuffer applies one metric to every vector attribute in a namespace, and so does the generated spec.
+</Note>
+
+## Step 2: Review the import spec
+
+Each generated spec is a plain [import spec](/cli#spec). For a namespace called `docs`, it looks like this:
+
+```toml docs.toml
+["docs"]
+from = "docs.jsonl"
+id = "id"
+
+["docs".fields]
+"text" = { type = "text", index = "keyword" }
+"source" = { type = "text" }
+"year" = { type = "int" }
+
+["docs".fields."vector"]
+type = "f32_vector"
+dim = 1536
+index = { vector = { metric = "cosine" } }
+```
+
+Two edits are worth considering before you import:
+
+- **Let TopK embed the text too.** Change a text field's index from `"keyword"` to `"semantic"` and TopK generates [multi-vector embeddings](/guides/semantic-search) for it, alongside your existing vectors. You can then query with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) and skip the query embedding call. A semantic index covers keyword matching too.
+- **Drop fields you don't query.** The spec is a whitelist: only the fields it declares are imported.
+
+## Step 3: Import into TopK
+
+From the export directory, log in, select the project to import into, then import every spec:
+
+```bash
+topk login
+topk project list
+topk project select <PROJECT_ID>
+for spec in *.toml; do
+  topk import -f "$spec" --region aws-us-east-1-elastica --yes
+done
+```
+
+Pick the region closest to your application from [Regions](/regions). Each spec creates its collection and loads it; documents are searchable as soon as they are written.
+
+<Tip>
+  - Add `--dry-run` to print the plan and a sample of documents without writing anything.
+  - If a run stops, re-run it with `--resume <run-id>`, using the run id printed when it started. Upserts are idempotent, so re-running from scratch is safe too.
+  - To merge per-tenant namespaces into one collection with a [partition](/concepts#multi-tenancy) per tenant: in the export, add `"tenant": name` to each record. In every spec, use the same collection name in the table headers and add `partition = "tenant"` under the first header. Every spec must declare the same fields, because an import into an existing collection with a different schema is rejected.
+</Tip>
+
+## Step 4: Update your queries
+
+### Vector search
+
+turbopuffer's ANN query becomes a TopK query that selects a score, sorts by it and limits the results:
+
+<CodeGroup>
+
+```python turbopuffer
+result = ns.query(
+    rank_by=("vector", "ANN", query_vector),
+    filters=("source", "Eq", "handbook"),
+    limit=10,
+    include_attributes=["text"],
+)
+```
+
+```python TopK
+from topk_sdk import Client
+from topk_sdk.query import select, field, fn
+
+client = Client(api_key=TOPK_API_KEY, region="aws-us-east-1-elastica")
+
+results = client.collection("docs").query(
+    select(
+        "text",
+        score=fn.vector_distance("vector", query_vector),
+    )
+    .filter(field("source") == "handbook")
+    .sort(field("score"), asc=False)
+    .limit(10)
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  Sort direction depends on the metric, and it is not the same as turbopuffer's `$dist`. For `cosine`, TopK returns a similarity where higher is closer, so sort with `asc=False`. For `euclidean`, a lower score is closer, so sort with `asc=True`.
+</Warning>
+
+### Hybrid search
+
+A `multi_query` runs separate vector and BM25 subqueries and fuses their lists with RRF, so a document that misses both cut-offs never reaches the fusion. In TopK it is one query: both scores are computed together and the results are sorted by their weighted sum.
+
+<CodeGroup>
+
+```python turbopuffer
+response = ns.multi_query(
+    queries=[
+        {"rank_by": ("vector", "ANN", query_vector), "limit": 10},
+        {"rank_by": ("text", "BM25", query), "limit": 10},
+    ],
+    rerank_by=("RRF",),
+)
+rows = response.results[0].rows
+```
+
+```python TopK
+from topk_sdk.query import select, field, fn, match
+
+results = client.collection("docs").query(
+    select(
+        "text",
+        vector_score=fn.vector_distance("vector", query_vector),
+        text_score=fn.bm25_score(),
+    )
+    .filter(match(query, field="text"))
+    .sort(field("vector_score") * 0.6 + field("text_score") * 0.4, asc=False)
+    .limit(10)
+)
+```
+
+</CodeGroup>
+
+The `match()` filter keeps documents that contain at least one query term, which BM25 needs to score them. Tune the weights on your own queries; see [True hybrid search](/guides/true-hybrid-search) for more combinations, including semantic and multi-vector scores.
+
+### Filter operators
+
+| turbopuffer `filters` | TopK `.filter()` |
+| - | - |
+| `("year", "Eq", 2024)` | `field("year") == 2024` |
+| `("year", "NotEq", 2024)` | `field("year") != 2024` |
+| `("year", "Gt", 2020)` | `field("year") > 2020` (also `Gte`, `Lt`, `Lte`) |
+| `("source", "In", ["wiki", "handbook"])` | `field("source").in_(["wiki", "handbook"])` |
+| `("source", "NotIn", ["wiki"])` | `not_(field("source").in_(["wiki"]))` |
+| `("tags", "Contains", "faq")` | `field("tags").contains("faq")` |
+| `("source", "Eq", None)` | `field("source").is_null()` |
+| `("text", "ContainsAllTokens", "refund policy")` | `match("refund policy", field="text", all=True)` |
+| `("path", "Regex", "^docs/")` | `field("path").regexp_match("^docs/")` |
+| `("And", (a, b))` | `(a) & (b)` |
+| `("Or", (a, b))` | `(a) \| (b)` |
+| `("Not", a)` | `not_(a)` |
+
+Wrap each comparison in parentheses when you combine them with `&` or `|`, because Python binds `&` and `|` more tightly than `==`, `>` and the other comparisons. `not_` and `match` are imported from `topk_sdk.query`.
+
+## Step 5: Check that results match
+
+Run this while turbopuffer still serves reads. It compares document counts, then runs 20 of your own vectors as queries against both systems and prints how many of the top 10 results they share.
+
+```python verify.py
+import os
+
+import turbopuffer
+from topk_sdk import Client
+from topk_sdk.query import select, field, fn
+
+tpuf = turbopuffer.Turbopuffer()  # reads TURBOPUFFER_API_KEY and TURBOPUFFER_REGION
+topk = Client(api_key=os.environ["TOPK_API_KEY"], region="aws-us-east-1-elastica")
+
+src = tpuf.namespace("docs")
+dst = topk.collection("docs")
+print("documents:", src.metadata().approx_row_count, dst.count())
+
+# For euclidean (turbopuffer's euclidean_squared), a lower score is closer
+ann = src.metadata().schema_["vector"].ann
+euclidean = getattr(ann, "distance_metric", None) == "euclidean_squared"
+
+sample = src.query(rank_by=("id", "asc"), limit=20, include_attributes=["vector"])
+for row in sample.rows:
+    q = [float(x) for x in row.vector]
+    want = src.query(rank_by=("vector", "ANN", q), limit=10).rows
+    got = dst.query(
+        select(score=fn.vector_distance("vector", q))
+        .sort(field("score"), asc=euclidean)
+        .limit(10)
+    )
+    shared = {str(r.id) for r in want} & {d["_id"] for d in got}
+    print(len(shared), "/ 10 shared")
+```
+
+Both systems use approximate nearest neighbor indexes, so expect close to 10 shared results per query rather than identical lists every time. turbopuffer's row count is approximate; a large gap usually means the import stopped early: re-run it with `--resume`.
+
+## Things to know
+
+- **Ids become strings.** turbopuffer ids can be integers, UUIDs or strings; TopK's `_id` is a string, so the script stores `str(id)`. Look up documents by the string form.
+- **Renamed attributes.** TopK field names can't start with `_`, so an attribute like `_internal` becomes `meta_internal`. Use the new names in your filters.
+- **Some attribute types are skipped.** Late-interaction (`[][N]f32`) and sparse (`{}f16`) vectors, `bytes` and `[]bool` attributes are listed as skipped. For late interaction, a [semantic index](/guides/semantic-search) gives you multi-vector search over the text instead. For sparse BM25-style vectors, use a keyword index on the text.
+- **`f16` vectors become `f32`.** The values are the same; TopK stores them at full precision.
+- **`uint` values above 2<sup>63</sup>** don't fit TopK's `int` and fail the import. Declare those fields as `text` in the spec if you have them.
+- **Native embedding.** If turbopuffer embedded your text (an attribute with `embed`), the stored vectors move as they are, but your queries were embedded by turbopuffer with the same model. Either embed queries with that model yourself, or add a [semantic index](/guides/semantic-search) so TopK embeds both documents and queries.
+- **Datetimes** become TopK timestamps, stored as milliseconds since the UNIX epoch, the same precision turbopuffer keeps.
+
+## Need help?
+
+If you'd rather not migrate alone, [talk to us](https://www.topk.io/turbopuffer-migration#talk). We'll help with the export, the import and the side-by-side check.
