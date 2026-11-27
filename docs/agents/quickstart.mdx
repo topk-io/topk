@@ -133,7 +133,7 @@ If a search returns no rows right after the insert, wait a few seconds and run i
 Show the user the search results and summarize what you set up: the project, the region, and the `movies` collection. Then suggest next steps:
 
 - Go bigger: search 50,000 Wikipedia articles, loaded straight from Hugging Face. Mention that it takes a few minutes and uses some of the account's free credit, mostly to embed the article text. If the user says yes, follow [Go bigger](#go-bigger) below.
-- Search their own data: `topk import` loads files (CSV, JSON, Parquet), databases, and object storage. Run `topk import --help`.
+- Search their own data: `topk import` loads files (JSON, Parquet), databases, and object storage. Run `topk import --help`.
 - Install the TopK skill so coding agents use the API correctly: `npx skills add topk-io/topk --skill topk`.
 - Read the [TopK SQL reference](https://docs.topk.io/sdk/topk-sql/overview) and the [semantic search guide](https://docs.topk.io/guides/semantic-search).
 

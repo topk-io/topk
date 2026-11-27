@@ -15,7 +15,6 @@ fn table(columns: &[&str]) -> Table {
             .iter()
             .map(|name| ((*name).into(), FieldSpec::text(false)))
             .collect(),
-        unnamed: Vec::new(),
     }
 }
 

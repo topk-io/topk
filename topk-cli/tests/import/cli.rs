@@ -625,7 +625,7 @@ async fn partition_column_previews(ctx: &Ctx) {
 
 #[rstest_ctx(Scratch)]
 async fn missing_id_rejected(ctx: &Scratch) {
-    let from = ctx.file("no-id.csv", "a,b\nx,y");
+    let from = ctx.parquet("no-id.parquet", "SELECT 'x' AS a, 'y' AS b");
     let preview = ctx
         .command()
         .args(["import", &from, "--to", "c", "--dry-run"])
@@ -794,9 +794,17 @@ async fn reimport_replaces_fields(ctx: &Ctx) {
 #[case::text("text")]
 #[case::json("json")]
 async fn skipped_rows_are_reported(ctx: &Ctx, #[case] format: &str) {
-    let from = ctx.cli.file(
-        "bad-row.csv",
-        "id,n\n1,5\n2,no\n3,7\n4,no\n5,no\n6,no\n7,no",
+    let from = ctx.cli.seed_parquet(
+        "bad-row",
+        vec![
+            doc!("id" => 1, "n" => "5"),
+            doc!("id" => 2, "n" => "no"),
+            doc!("id" => 3, "n" => "7"),
+            doc!("id" => 4, "n" => "no"),
+            doc!("id" => 5, "n" => "no"),
+            doc!("id" => 6, "n" => "no"),
+            doc!("id" => 7, "n" => "no"),
+        ],
     );
     let collection = ctx.collection("summary");
     let output = ctx
@@ -920,7 +928,9 @@ async fn successful_text_summary(ctx: &Ctx) {
 
 #[rstest_ctx(Ctx)]
 async fn failure_prints_resume_command(ctx: &Ctx) {
-    let from = ctx.cli.file("bad-row.csv", "id,n\n1,not-a-number");
+    let from = ctx
+        .cli
+        .seed_parquet("bad-row", vec![doc!("id" => 1, "n" => "not-a-number")]);
     let collection = ctx.collection("resume-hint");
     let output = ctx
         .cli
@@ -960,14 +970,27 @@ async fn failure_prints_resume_command(ctx: &Ctx) {
 
 #[rstest_ctx(Ctx)]
 async fn resume_from_another_directory(ctx: &Ctx) {
-    ctx.cli
-        .file("data/visits.csv", "id,n\n1,1\n2,not-a-number\n3,3");
+    ctx.cli.seed_parquet(
+        "data/visits",
+        vec![
+            doc!("id" => 1, "n" => "1"),
+            doc!("id" => 2, "n" => "not-a-number"),
+            doc!("id" => 3, "n" => "3"),
+        ],
+    );
     let collection = ctx.collection("resume-elsewhere");
     let stopped = ctx
         .cli
         .command()
         .current_dir(ctx.cli.path("data"))
-        .args(["-o", "json", "import", "visits.csv", "--to", &collection])
+        .args([
+            "-o",
+            "json",
+            "import",
+            "visits.parquet",
+            "--to",
+            &collection,
+        ])
         .args(["-f", "n=int", "--yes"])
         .failure(1);
     let resumed = ctx
@@ -983,8 +1006,11 @@ async fn resume_from_another_directory(ctx: &Ctx) {
             "--continue-on-error",
         ])
         .success();
-    assert!(stopped.stderr.contains("← visits.csv"), "{stopped:?}");
-    assert!(resumed.stderr.contains("← data/visits.csv"), "{resumed:?}");
+    assert!(stopped.stderr.contains("← visits.parquet"), "{stopped:?}");
+    assert!(
+        resumed.stderr.contains("← data/visits.parquet"),
+        "{resumed:?}"
+    );
     assert_eq!(resumed.summary().failed, 1, "{resumed:?}");
     assert_eq!(ctx.docs(&collection, ["1", "3"]).await.len(), 2);
 }
@@ -1180,13 +1206,11 @@ async fn failed_first_write_leaves_no_collection(ctx: &Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-async fn csv_reader_failure_cannot_be_skipped(ctx: &Ctx) {
-    let mut csv = String::from("id,n\n");
-    for i in 0..25_000 {
-        csv.push_str(&format!("{i},{i}\n"));
-    }
-    csv.push_str("25000,n/a\n");
-    let from = ctx.cli.file("late.csv", &csv);
+async fn reader_failure_cannot_be_skipped(ctx: &Ctx) {
+    let from = ctx.cli.parquet(
+        "late.parquet",
+        "SELECT i AS id, CASE WHEN i = 25000 THEN 'n/a' ELSE i::VARCHAR END AS n FROM range(25001) t(i)",
+    );
     let collection = ctx.collection("late-value");
     let skipped = ctx
         .cli
@@ -1198,6 +1222,8 @@ async fn csv_reader_failure_cannot_be_skipped(ctx: &Ctx) {
             &from,
             "--to",
             &collection,
+            "--filter",
+            "n::BIGINT >= 0",
             "--yes",
             "--continue-on-error",
         ])
@@ -1328,7 +1354,7 @@ async fn copy_onto_itself_is_refused(ctx: &Ctx) {
 #[rstest_ctx(Scratch)]
 fn folder_source_names_the_glob(ctx: &Scratch) {
     ctx.parquet("events/a.parquet", "SELECT 1 AS id, 'x' AS title");
-    ctx.file("events/b.csv", "id,title\n2,y");
+    ctx.file("events/b.jsonl", r#"{"id":2,"title":"y"}"#);
     let dir = ctx.path("events");
     let run = ctx
         .command()
@@ -1337,16 +1363,16 @@ fn folder_source_names_the_glob(ctx: &Scratch) {
     let dir = dir.display();
     assert!(
         run.stderr
-            .contains(&format!("use '{dir}/*.csv' or '{dir}/*.parquet'")),
+            .contains(&format!("use '{dir}/*.jsonl' or '{dir}/*.parquet'")),
         "{run:?}"
     );
 }
 
 #[rstest_ctx(Scratch)]
-#[case::working_directory("data/books.csv")]
-#[case::home("~/data/books.csv")]
+#[case::working_directory("data/books.parquet")]
+#[case::home("~/data/books.parquet")]
 fn braced_folder_above_source_is_literal(ctx: &Scratch, #[case] from: &str) {
-    ctx.file("{me}/data/books.csv", "a,b\nx,y");
+    ctx.parquet("{me}/data/books.parquet", "SELECT 'x' AS a, 'y' AS b");
     let run = ctx
         .command()
         .current_dir(ctx.path("{me}"))

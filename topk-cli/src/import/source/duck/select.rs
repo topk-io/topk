@@ -37,12 +37,10 @@ impl Select {
         // Take the union of every file read, so a column present in only some of
         // them is kept, not dropped to the first file's schema.
         let opts = match format {
-            Format::Csv => ", union_by_name=true, null_padding=true, parallel=false",
             Format::Json | Format::Parquet => ", union_by_name=true",
             Format::Arrow | Format::Avro => "",
         };
         let reader = match format {
-            Format::Csv => "read_csv_auto",
             Format::Json => "read_json_auto",
             Format::Parquet => "read_parquet",
             Format::Arrow => "read_arrow",
