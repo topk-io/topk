@@ -15,7 +15,7 @@ use tracing::warn;
 
 use crate::auth::{OAuthArgs, OAuthConfig, Session};
 use crate::client::AccessToken;
-use crate::host::{Host, HostArgs, DEFAULT_HOST};
+use crate::host::{Host, HostArgs};
 use crate::ProjectId;
 
 pub use crate::storage::{lock, read, read_toml, write_secret_file, write_toml};
@@ -93,11 +93,19 @@ impl fmt::Display for ProfileName {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Profile {
+    #[serde(flatten)]
+    pub host: Host,
+    #[serde(flatten)]
+    oauth: Option<OAuthConfig>,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 pub struct Profiles {
     selected: Option<ProfileName>,
     #[serde(default)]
-    profiles: BTreeMap<ProfileName, Host>,
+    profiles: BTreeMap<ProfileName, Profile>,
 }
 
 impl Profiles {
@@ -110,12 +118,23 @@ impl Profiles {
         self.selected.clone().unwrap_or_default()
     }
 
-    pub fn host(&self, name: &ProfileName) -> Option<&Host> {
+    pub fn get(&self, name: &ProfileName) -> Option<&Profile> {
         self.profiles.get(name)
     }
 
-    pub fn list(&self) -> impl Iterator<Item = (&ProfileName, &Host)> {
+    pub fn list(&self) -> impl Iterator<Item = (&ProfileName, &Profile)> {
         self.profiles.iter()
+    }
+
+    fn remove(&mut self, name: &ProfileName) {
+        self.profiles.remove(name);
+        if self.selected.as_ref() == Some(name) {
+            self.selected = None;
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.selected.is_none() && self.profiles.is_empty()
     }
 }
 
@@ -149,17 +168,25 @@ impl Config {
             Some(name) => name.clone(),
             None => profiles.selected(),
         };
+        let profile = profiles.get(&active_profile);
         // The host a profile is logged in to applies when none is given.
-        let host = match (&args.host.host, profiles.host(&active_profile)) {
-            (None, Some(saved)) => Host {
-                host: saved.host.clone(),
-                https: args.host.https.unwrap_or(saved.https),
+        let host = match (&args.host.host, profile) {
+            (None, Some(profile)) => Host {
+                host: profile.host.host.clone(),
+                https: args.host.https.unwrap_or(profile.host.https),
             },
             _ => args.host.clone().into(),
         };
-        let oauth = match args.oauth.clone().config() {
+        // The login settings saved with a profile apply to its host only.
+        let logged_in = profile.filter(|profile| profile.host == host);
+        let oauth = match args
+            .oauth
+            .clone()
+            .config()
+            .or_else(|| logged_in?.oauth.clone())
+        {
             Some(oauth) => oauth,
-            None => match Self::resolve_oauth(&host, &active_profile.dir(&dir)).await {
+            None => match OAuthConfig::resolve(&host).await {
                 Ok(oauth) => oauth,
                 Err(e) => {
                     warn!("cannot load login settings for {}: {e:#}", host.host);
@@ -177,10 +204,17 @@ impl Config {
 
     pub fn save_profile(&self) -> Result<()> {
         let mut profiles = self.profiles()?;
+        let profile = Profile {
+            host: self.host.clone(),
+            oauth: match self.oauth == OAuthConfig::default() {
+                true => None,
+                false => Some(self.oauth.clone()),
+            },
+        };
         profiles
             .profiles
-            .insert(self.active_profile.clone(), self.host.clone());
-        write_toml(&self.dir.join(CONFIG_FILE), &profiles)
+            .insert(self.active_profile.clone(), profile);
+        write_toml(&self.config_file(), &profiles)
     }
 
     pub fn select_profile(&self, name: &ProfileName) -> Result<()> {
@@ -190,44 +224,19 @@ impl Config {
             "profile `{name}` not found; create it with `topk login --profile {name}`"
         );
         profiles.selected = (*name != ProfileName::default()).then(|| name.clone());
-        write_toml(&self.dir.join(CONFIG_FILE), &profiles)
-    }
-
-    pub fn remove_profile(&self) -> Result<()> {
-        let mut profiles = self.profiles()?;
-        profiles.profiles.remove(&self.active_profile);
-        if profiles.selected.as_ref() == Some(&self.active_profile) {
-            profiles.selected = None;
-        }
-        write_toml(&self.dir.join(CONFIG_FILE), &profiles)
-    }
-
-    async fn resolve_oauth(host: &Host, dir: &Path) -> Result<OAuthConfig> {
-        let file = oauth_file(dir, host);
-        match read_toml(&file)? {
-            Some(cached) => Ok(cached),
-            None => {
-                let config = OAuthConfig::resolve(host).await?;
-                match host.host.as_str() {
-                    // Using the default host, don't cache the oauth config.
-                    DEFAULT_HOST => {}
-                    _ => write_toml(&file, &config)?,
-                }
-                Ok(config)
-            }
-        }
+        write_toml(&self.config_file(), &profiles)
     }
 
     pub async fn logout(&self) -> Result<()> {
         self.session().await?.delete()?;
         self.access_tokens().clear()?;
-        remove(&oauth_file(&self.profile_dir(), &self.host))?;
-        self.remove_profile()?;
-        let profiles = self.profiles()?;
-        if profiles.selected.is_none() && profiles.profiles.is_empty() {
-            remove(&self.dir.join(CONFIG_FILE))?;
+        let mut profiles = self.profiles()?;
+        profiles.remove(&self.active_profile);
+        // An empty config is not kept.
+        match profiles.is_empty() {
+            true => remove(&self.config_file()),
+            false => write_toml(&self.config_file(), &profiles),
         }
-        Ok(())
     }
 
     pub async fn session(&self) -> Result<LockedSession<'_>> {
@@ -320,6 +329,10 @@ impl Config {
                 ..self.defaults()?
             },
         )
+    }
+
+    fn config_file(&self) -> PathBuf {
+        self.dir.join(CONFIG_FILE)
     }
 
     fn defaults_file(&self) -> PathBuf {
@@ -436,10 +449,6 @@ impl Credentials {
         );
         Ok(self.session)
     }
-}
-
-fn oauth_file(dir: &Path, host: &Host) -> PathBuf {
-    dir.join("hosts").join(format!("{}.toml", host.key()))
 }
 
 fn remove(path: &Path) -> Result<()> {

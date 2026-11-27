@@ -188,7 +188,7 @@ async fn unreachable_host_falls_back_to_the_built_in_settings() {
 }
 
 #[tokio::test]
-async fn host_is_asked_once_and_its_answer_reused_until_logout() {
+async fn host_is_asked_until_login_saves_its_answer() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let host = format!("localhost:{}", listener.local_addr().unwrap().port());
     let asked = Arc::new(AtomicUsize::new(0));
@@ -209,7 +209,11 @@ async fn host_is_asked_once_and_its_answer_reused_until_logout() {
 
     let config = load().await.unwrap();
     assert_eq!(config.oauth().client_id, "cli");
-    load().await.unwrap();
+    assert_eq!(asked.load(Ordering::SeqCst), 1);
+
+    // A login saves the settings with the profile.
+    config.save_profile().unwrap();
+    assert_eq!(load().await.unwrap().oauth().client_id, "cli");
     assert_eq!(asked.load(Ordering::SeqCst), 1);
 
     Auth::new(config).unwrap().logout().await.unwrap();

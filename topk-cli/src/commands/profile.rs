@@ -52,10 +52,10 @@ impl Tabular for Row {
 fn rows(profiles: &Profiles, active: &ProfileName) -> Vec<Row> {
     profiles
         .list()
-        .map(|(name, host)| Row {
+        .map(|(name, profile)| Row {
             selected: name == active,
             name: name.clone(),
-            host: host.clone(),
+            host: profile.host.clone(),
         })
         .collect()
 }

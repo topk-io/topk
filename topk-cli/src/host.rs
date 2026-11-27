@@ -28,7 +28,7 @@ pub struct HostArgs {
     pub https: Option<bool>,
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Host {
     pub host: String,
     pub https: bool,
